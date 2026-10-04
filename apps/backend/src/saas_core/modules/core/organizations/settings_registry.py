@@ -47,6 +47,15 @@ _GROUP_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)?$")
 #: An address of a page or a mailbox: a scheme, `www.`, or a dot followed by a
 #: lowercase domain ending (`firma.pl`, `kontakt@firma.pl`).
 _LINK = re.compile(r"(?i:https?://|www\.)|[\w-]{2,}\.[a-z]{2,}\b")
+
+
+def has_link(text: str) -> bool:
+    """Whether a company's own words carry a link or an address — the rule
+    of `SettingSpec.no_links`, for a text to customers that is no setting
+    (what a company writes when it declines a request)."""
+    return bool(_LINK.search(text))
+
+
 _FIELD_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 _LOCALES = frozenset({"pl", "en"})
 

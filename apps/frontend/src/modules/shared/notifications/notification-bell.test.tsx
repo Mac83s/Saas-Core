@@ -144,6 +144,89 @@ test("wizyty w dzwonku: zdanie w strefie firmy i link do dnia w kalendarzu", asy
   ).not.toBeNull();
 });
 
+test("dzwonek nazywa powiadomienia biura o rezerwacjach i prowadzi do próśb", async () => {
+  const office = (kind: string, index: number) => ({
+    ...trialEnding,
+    id: `01a07000-0000-7000-8000-00000000010${index}`,
+    kind,
+    severity: "info" as const,
+    payload: {
+      appointment_id: "01a07000-0000-7000-8000-00000000000a",
+      starts_at: "2026-10-12T08:00:00Z",
+      timezone: "Europe/Warsaw",
+      service_name: "Konsultacja",
+    },
+  });
+  getNotificationInbox.mockResolvedValue({
+    unread: 6,
+    items: [
+      "booking.office_new",
+      "booking.office_waiting",
+      "booking.office_canceled",
+      "booking.office_expired",
+      "booking.office_request",
+      "booking.office_request_expired",
+    ].map(office),
+  });
+  renderBell();
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Powiadomienia, nieprzeczytane: 6",
+    }),
+  );
+  const when = "12 paź 2026, 10:00";
+  const day = "/panel/calendar?view=day&date=2026-10-12";
+  for (const [name, href] of [
+    [`Nowa rezerwacja online: Konsultacja, ${when}.`, day],
+    [`Wizyta czeka na przydzielenie osoby: Konsultacja, ${when}.`, day],
+    [`Klient odwołał wizytę: Konsultacja, ${when}.`, day],
+    [`Rezerwacja wygasła bez wpłaty: Konsultacja, ${when}.`, day],
+    [
+      `Prośba o rezerwację czeka na odpowiedź: Konsultacja, ${when}.`,
+      "/panel/calendar/requests",
+    ],
+    [`Prośba o rezerwację wygasła bez odpowiedzi: Konsultacja, ${when}.`, day],
+  ] as const) {
+    expect(
+      (await screen.findByRole("link", { name })).getAttribute("href"),
+    ).toBe(href);
+  }
+  expect(screen.queryByText("Nowe powiadomienie")).toBeNull();
+});
+
+test("dopłata po terminie w dzwonku: kwota, numer i link do zamówienia", async () => {
+  getNotificationInbox.mockResolvedValue({
+    unread: 1,
+    items: [
+      {
+        ...trialEnding,
+        id: "01a07000-0000-7000-8000-000000000200",
+        kind: "commerce.balance_overdue",
+        severity: "warning" as const,
+        payload: {
+          order_id: "0199a000-0000-7000-8000-000000000001",
+          number: "R/2026/0030",
+          amount_minor: 14000,
+          currency: "PLN",
+          due_at: "2026-10-02T08:00:00Z",
+        },
+      },
+    ],
+  });
+  renderBell();
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Powiadomienia, nieprzeczytane: 1",
+    }),
+  );
+  const notice = await screen.findByRole("link", {
+    name: /Dopłata 140,00\szł do zamówienia R\/2026\/0030 nie wpłynęła w terminie/,
+  });
+  expect(notice.getAttribute("href")).toBe(
+    "/panel/orders/0199a000-0000-7000-8000-000000000001",
+  );
+});
+
 test("tłumaczenia w dzwonku: braki zlecenia i to, co czeka na decyzję", async () => {
   const notice = (kind: string, payload: Record<string, unknown>) => ({
     ...trialEnding,

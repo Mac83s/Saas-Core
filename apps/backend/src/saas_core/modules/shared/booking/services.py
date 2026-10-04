@@ -17,6 +17,7 @@ from django.utils.formats import date_format
 from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
+from saas_core.modules.core.organizations.api import has_link
 from saas_core.modules.core.organizations.audit import (
     audit_snapshot,
     field_changes,
@@ -1195,19 +1196,27 @@ def _confirm(appointment: Appointment, *, reason: str) -> None:
 
 @transaction.atomic
 def answer_request(
-    *, appointment_id: UUID, accept: bool, idempotency_key: str, principal_ref: str
+    *,
+    appointment_id: UUID,
+    accept: bool,
+    idempotency_key: str,
+    principal_ref: str,
+    reason: str = "",
 ) -> Appointment:
     """The company answers a booking made „on request” (ADR-072 §9).
 
     Accepted, its order gets its number and the booking is confirmed — or,
     where the offer asks for money first, waits for that payment
     (`pending_payment`) and the customer is told so. Declined, it lets its time
-    go and the customer is told. Answered once: a booking that no longer waits
+    go and the customer is told — with the company's own `reason`, when it
+    gave one: a few plain words without a link (answer 36a), which go into
+    that mail and nowhere else. Answered once: a booking that no longer waits
     for an answer — expired, given up, answered by somebody else — is 409
     `appointment_not_changeable`; the same key again answers what the first
     call did."""
     context = require_tenant_context()
     action = "accept" if accept else "decline"
+    reason = _decline_reason(reason) if not accept else ""
     # The order before the booking, as commerce takes them (`orders.lock`).
     orders.lock(appointment_id)
     appointment = (
@@ -1218,7 +1227,7 @@ def answer_request(
     )
     if appointment is None:
         raise NotFound("Rezerwacja nie istnieje.")
-    request_hash = _hash({action: True})
+    request_hash = _hash({action: True, **({"reason": reason} if reason else {})})
     existing = BookingMutation.all_objects.filter(
         action=action, principal_ref=principal_ref, idempotency_key=idempotency_key
     ).first()
@@ -1275,9 +1284,10 @@ def answer_request(
             queue_email(
                 recipient_email=customer.email,
                 template_key="booking.request_declined",
-                template_version=1,
+                # v2 carries the company's own words; v1 says nothing more.
+                template_version=2 if reason else 1,
                 locale=customer.locale,
-                template_context=mail,
+                template_context={**mail, **({"reason": reason} if reason else {})},
                 idempotency_key=f"booking-request-declined:{appointment.id}",
                 causation_id=f"booking:{appointment.id}",
             )
@@ -1297,6 +1307,31 @@ def answer_request(
         target_id=appointment.id,
     )
     return appointment
+
+
+#: How long the company's reason for declining a request may be — the
+#: length of its other words to customers (`notifications.customer_mail`).
+DECLINE_REASON_MAX_LENGTH = 300
+
+
+def _decline_reason(value: str) -> str:
+    """The company's words to a customer it declines, as they go out: plain
+    text, no link and no address (a link from a company in a platform's mail
+    is the shape of phishing; answer 36a)."""
+    reason = " ".join(value.split())
+    if len(reason) > DECLINE_REASON_MAX_LENGTH:
+        raise ValidationError({
+            "reason": [
+                ErrorDetail(
+                    f"Najwyżej {DECLINE_REASON_MAX_LENGTH} znaków.", code="max_length"
+                )
+            ]
+        })
+    if has_link(reason):
+        raise ValidationError({
+            "reason": [ErrorDetail("Bez linków i adresów stron ani e-maili.", code="links")]
+        })
+    return reason
 
 
 def expire_request(appointment_id: UUID) -> bool:

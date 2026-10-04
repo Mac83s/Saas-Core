@@ -212,6 +212,20 @@ export function CustomerDocumentPanel({
       setNotice(t("approved", { number: result.effect.number }));
     }, t("approveError"));
 
+  /** The same words again, against the source as it reads now. */
+  const confirmText = (number: number, row: { locale: string; text: string }) =>
+    run(async () => {
+      if (!document) return;
+      const next = await addCustomerDocumentText(kind, {
+        number,
+        locale: row.locale,
+        text: row.text,
+        expected_version: document.version,
+      });
+      show(next);
+      setNotice(t("textConfirmed", { language: nativeName(row.locale) }));
+    }, t("saveError"));
+
   const saveText = () =>
     run(async () => {
       if (!document || !edit) return;
@@ -314,7 +328,20 @@ export function CustomerDocumentPanel({
                     {row ? null : (
                       <Badge variant="outline">{t("noText")}</Badge>
                     )}
+                    {row?.stale ? (
+                      <Badge variant="outline">{t("staleText")}</Badge>
+                    ) : null}
                   </span>
+                  {canManage && row?.stale ? (
+                    <Button
+                      disabled={busy}
+                      onClick={() => void confirmText(version.number, row)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {t("confirmText", { language: nativeName(code) })}
+                    </Button>
+                  ) : null}
                   {canManage ? (
                     <Button
                       onClick={() => {
@@ -348,6 +375,11 @@ export function CustomerDocumentPanel({
                     {t("noTextHelp", { language: nativeName(code) })}
                   </p>
                 )}
+                {row?.stale ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("staleTextHelp")}
+                  </p>
+                ) : null}
                 {translation?.waiting.includes(code) ? (
                   <p className="text-sm" role="status">
                     {t("translationWaits", { language: nativeName(code) })}{" "}
@@ -572,6 +604,11 @@ export function CustomerDocumentPanel({
               value={approval?.date ?? ""}
             />
           </Field>
+          {approval?.effect.not_before ? (
+            <p className="text-sm">
+              {t("approveNotBefore", { date: day(approval.effect.not_before) })}
+            </p>
+          ) : null}
           {approval?.effect.locales_without_text.length ? (
             <p className="text-sm">
               {t("approveMissing", {

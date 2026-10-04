@@ -32,6 +32,7 @@ from saas_core.modules.shared.commerce.models import Order, OrderCounter, Paymen
 from saas_core.modules.shared.commerce.orders import list_orders, read_order
 from saas_core.modules.shared.commerce.payments import record_payment
 from saas_core.modules.shared.notifications.models import AppNotification, NotificationMessage
+from saas_core.modules.shared.notifications.templates import render_template
 from test_booking import _no_delivery, company_today, mails, tenant, watching
 from test_booking_prices import key
 from test_booking_public_price import priced
@@ -298,6 +299,108 @@ def test_declining_lets_the_time_go_and_tells_the_customer(
     assert mails(appointment.id, "booking.canceled") == []
     assert seen == []
     assert other.starts_at == appointment.starts_at and other.status == "pending_request"
+
+
+def test_the_company_may_say_why_and_its_words_reach_the_customer_without_a_link(
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    configured = on_request("prosba-powod")
+    owner: Membership = configured["owner"]
+    _, appointment = asked(configured, "prosba-anna")
+
+    def decline(reason: str) -> Appointment:
+        with tenant(owner):
+            return answer_request(
+                appointment_id=appointment.id,
+                accept=False,
+                idempotency_key=key(),
+                principal_ref=str(owner.user_id),
+                reason=reason,
+            )
+
+    with pytest.raises(ValidationError) as linked:
+        decline("Zapisy tylko przez www.inna-strona.example")
+    with pytest.raises(ValidationError) as long:
+        decline("x" * 301)
+    with tenant(owner):
+        still = Appointment.all_objects.get(pk=appointment.id).status
+    with django_capture_on_commit_callbacks(execute=True):
+        declined = decline("  W tym tygodniu <b>nie</b> przyjmujemy.\n Zapraszamy w listopadzie.  ")
+    with tenant(owner):
+        history = AppointmentStatusHistory.all_objects.filter(appointment=appointment).latest(
+            "occurred_at"
+        )
+        audit = OrganizationAuditEntry.objects.filter(action="booking.appointment.declined").latest(
+            "occurred_at"
+        )
+
+    assert [(item["field"], item["code"]) for item in problem_errors(linked.value)] == [
+        ("reason", "links")
+    ]
+    assert [(item["field"], item["code"]) for item in problem_errors(long.value)] == [
+        ("reason", "max_length")
+    ]
+    assert still == "pending_request" and declined.status == "canceled"
+    (mail,) = mails(appointment.id, "booking.request_declined")
+    # The words go out as the company's, on one line, and as text: a tag is
+    # shown, never run.
+    assert mail.template_version == 2
+    assert (
+        mail.context["reason"] == "W tym tygodniu <b>nie</b> przyjmujemy. Zapraszamy w listopadzie."
+    )
+    _, body = render_template(
+        key="booking.request_declined", version=2, locale="pl", context=mail.context
+    )
+    assert "Wiadomość od prosba-powod: W tym tygodniu &lt;b&gt;nie&lt;/b&gt; przyjmujemy." in body
+    # They are kept in that mail only: neither the booking's history nor the
+    # company's has them.
+    assert history.reason == "declined"
+    assert "tygodniu" not in str(audit.metadata)
+
+
+def test_the_requests_that_wait_are_listed_for_whoever_answers_them() -> None:
+    configured = on_request("prosba-lista")
+    owner: Membership = configured["owner"]
+    _, first = asked(configured, "prosba-anna")
+    configured["day"] += timedelta(days=1)
+    _, second = asked(configured, "prosba-ewa")
+    # The second one's time to answer runs out first.
+    Appointment.all_objects.filter(pk=second.id).update(
+        hold_expires_at=timezone.now() + timedelta(hours=1)
+    )
+    _, _, staff = authenticated_member(
+        email="lista-pracownik@example.test", role_key="staff", organization=owner.organization
+    )
+    _, _, manager = authenticated_member(
+        email="lista-kierownik@example.test", role_key="admin", organization=owner.organization
+    )
+
+    listed = manager.get("/api/v1/booking/requests/")
+    overview = manager.get("/api/v1/booking/overview/").json()
+    answer(configured, second, True)
+    answer(configured, first, False)
+    after = manager.get("/api/v1/booking/requests/").json()
+    still_offered = manager.get("/api/v1/booking/overview/").json()
+
+    assert staff.get("/api/v1/booking/requests/").status_code == 403
+    assert staff.get("/api/v1/booking/overview/").json()["requests"] is None
+    assert listed.status_code == 200, listed.data
+    items = listed.json()["items"]
+    assert [item["id"] for item in items] == [str(second.id), str(first.id)]
+    assert {item["status"] for item in items} == {"pending_request"}
+    assert items[0]["customer_email"] == "prosba-ewa@example.test" and items[0]["hold_expires_at"]
+    assert overview["requests"] == 2
+    # Answered, they leave the list; the company still takes requests, so the
+    # list stays in the menu with nothing in it.
+    assert after["items"] == [] and still_offered["requests"] == 0
+
+    # A company that takes nothing on request has no such list.
+    plain = priced("prosba-lista-bez")
+    _, _, other = authenticated_member(
+        email="lista-inna@example.test", role_key="admin", organization=plain["owner"].organization
+    )
+    assert other.get("/api/v1/booking/overview/").json()["requests"] is None
+    assert other.get("/api/v1/booking/requests/").json()["items"] == []
 
 
 def test_an_unanswered_request_expires_and_everybody_is_told(

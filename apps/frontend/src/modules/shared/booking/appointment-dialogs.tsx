@@ -105,6 +105,7 @@ import {
   wallClock,
   zonedInstant,
 } from "./calendar-time";
+import { DeclineRequestDialog } from "./decline-request-dialog";
 import { CrewDialog } from "./dispatch/crew-dialog";
 import {
   draftsOf,
@@ -427,6 +428,17 @@ function problemText(error: unknown, t: Translate, fallback: string) {
     default:
       return t(fallback);
   }
+}
+
+/** What the customer hears of a change made in the panel: the server mails
+ *  whoever left an address (`booking.canceled`, `booking.rescheduled`), so
+ *  the words follow the address — and say so when the reader may not see it. */
+function customerNotice(
+  appointment: Pick<BookingAppointment, "customer_email">,
+  t: Translate,
+) {
+  if (appointment.customer_email == null) return t("customerMailedIfAddress");
+  return t(appointment.customer_email ? "customerMailed" : "customerNotMailed");
 }
 
 type SlotSearch = { slots?: Slot[]; loading?: boolean; failed?: boolean };
@@ -2359,31 +2371,24 @@ function AnswerRequest({
   when: string;
 }) {
   const t = useTranslations("Calendar");
-  const common = useTranslations("Common");
   const [declining, setDeclining] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
-  const [declined, setDeclined] = useState<BookingAppointment>();
   // One key per answer: a double click or a retry answers once.
-  const keys = useRef<{ accept?: string; decline?: string }>({});
+  const key = useRef<string>(undefined);
 
-  async function answer(kind: "accept" | "decline") {
+  async function accept() {
     setBusy(true);
     setProblem(undefined);
-    keys.current[kind] ??= crypto.randomUUID();
+    key.current ??= crypto.randomUUID();
     try {
       const updated = await answerBookingRequest(
         appointment.id,
-        kind,
-        keys.current[kind],
+        "accept",
+        key.current,
       );
-      if (kind === "accept") {
-        returnFocus.current?.focus();
-        onDone(updated);
-      } else {
-        setDeclined(updated);
-        setDeclining(false);
-      }
+      returnFocus.current?.focus();
+      onDone(updated);
     } catch (error) {
       setProblem(problemText(error, t, "answerError"));
     } finally {
@@ -2393,66 +2398,24 @@ function AnswerRequest({
 
   return (
     <>
-      {problem && !declining ? (
+      {problem ? (
         <p className="text-sm text-destructive" role="alert">
           {problem}
         </p>
       ) : null}
       <DialogFooter>
-        <Button
-          disabled={busy}
-          onClick={() => void answer("accept")}
-          type="button"
-        >
+        <Button disabled={busy} onClick={() => void accept()} type="button">
           {t("acceptRequest")}
         </Button>
-        <Dialog
-          onOpenChange={(next) => {
-            setProblem(undefined);
-            setDeclining(next);
-          }}
-          // Report only once the dialog is gone: the report removes its trigger.
-          onOpenChangeComplete={(isOpen) => {
-            if (!isOpen && declined) onDone(declined);
-          }}
+        <DeclineRequestDialog
+          appointment={appointment}
+          onDeclined={onDone}
+          onOpenChange={setDeclining}
           open={declining}
-        >
-          <DialogTrigger
-            render={<Button type="button" variant="destructive" />}
-          >
-            {t("declineRequest")}
-          </DialogTrigger>
-          <DialogContent
-            closeLabel={common("close")}
-            finalFocus={() => (declined ? returnFocus.current : true)}
-          >
-            <DialogHeader>
-              <DialogTitle>{t("declineTitle")}</DialogTitle>
-              <DialogDescription>
-                {visitName(appointment)} · {when}
-              </DialogDescription>
-            </DialogHeader>
-            <p className="text-sm">{t("declineText")}</p>
-            {problem ? (
-              <p className="text-sm text-destructive" role="alert">
-                {problem}
-              </p>
-            ) : null}
-            <DialogFooter>
-              <DialogClose render={<Button type="button" variant="outline" />}>
-                {t("keep")}
-              </DialogClose>
-              <Button
-                disabled={busy}
-                onClick={() => void answer("decline")}
-                type="button"
-                variant="destructive"
-              >
-                {t("declineConfirm")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          returnFocus={returnFocus}
+          trigger={<Button type="button" variant="destructive" />}
+          when={when}
+        />
       </DialogFooter>
     </>
   );
@@ -2553,7 +2516,7 @@ function CancelDialog({
           </DialogDescription>
         </DialogHeader>
         <p className="text-sm">
-          {t("cancelText")} {t("noCustomerMessage")}
+          {t("cancelText")} {customerNotice(appointment, t)}
         </p>
         {settlement ? (
           <div className="space-y-2 text-sm" role="note">
@@ -2776,7 +2739,9 @@ function RescheduleForm({
           zone={zone}
         />
       ) : null}
-      <p className="text-sm text-muted-foreground">{t("noCustomerMessage")}</p>
+      <p className="text-sm text-muted-foreground">
+        {customerNotice(appointment, t)}
+      </p>
       {problem ? (
         <p className="text-sm text-destructive" role="alert">
           {problem}

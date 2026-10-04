@@ -311,6 +311,106 @@ test("a missing language of the version in force gets its text as a new row", as
   expect(await screen.findByText("Tekst zapisany: English.")).toBeTruthy();
 });
 
+test("a translation whose source was corrected says so and is confirmed unchanged", async () => {
+  const english = {
+    id: "0199a000-0000-7000-8000-000000000002",
+    locale: "en",
+    text: "The controller of your data is Studio.",
+    text_hash: "b".repeat(64),
+    accepted_at: "2026-10-03T11:00:00Z",
+    accepted_by: "Ola Właścicielka",
+    // The Polish text was corrected after this row was accepted.
+    stale: true,
+  };
+  const stale = {
+    ...version,
+    locales: ["en", "pl"],
+    texts: [english, { ...version.texts[0]!, stale: false }],
+  };
+  api.readCustomerDocument.mockResolvedValue({
+    document: privacy({ in_force: stale, versions: [stale] }),
+    options,
+  });
+  api.addCustomerDocumentText.mockResolvedValue(
+    privacy({
+      version: 6,
+      in_force: {
+        ...stale,
+        texts: [{ ...english, stale: false }, stale.texts[1]!],
+      },
+    }),
+  );
+  wrap(<CustomerDocumentPanel canManage kind="privacy_policy" />);
+
+  const section = await screen.findByRole("region", {
+    name: /Wersja 2 od 3 paź 2026/,
+  });
+  expect(within(section).getByText("tekst źródłowy poprawiono")).toBeTruthy();
+  expect(
+    within(section).getByText(/Popraw tłumaczenie albo potwierdź je bez zmian/),
+  ).toBeTruthy();
+  // Only the stale language offers it.
+  expect(
+    within(section).queryByRole("button", {
+      name: "Potwierdź bez zmian: polski",
+    }),
+  ).toBeNull();
+  fireEvent.click(
+    within(section).getByRole("button", {
+      name: "Potwierdź bez zmian: English",
+    }),
+  );
+  await waitFor(() =>
+    expect(api.addCustomerDocumentText).toHaveBeenCalledWith("privacy_policy", {
+      number: 2,
+      locale: "en",
+      text: "The controller of your data is Studio.",
+      expected_version: 5,
+    }),
+  );
+  expect(
+    await screen.findByText("Tłumaczenie potwierdzone bez zmian: English."),
+  ).toBeTruthy();
+  await waitFor(() =>
+    expect(within(section).queryByText("tekst źródłowy poprawiono")).toBeNull(),
+  );
+});
+
+test("the approval dialog says which day a new version cannot come before", async () => {
+  const drafted = privacy({
+    version: 6,
+    draft: { text: "Poprawka.", locale: "pl", origin_ref: "" },
+  });
+  api.readCustomerDocument.mockResolvedValue({ document: drafted, options });
+  api.previewCustomerDocumentApproval.mockResolvedValue({
+    effect: {
+      number: 3,
+      // A version already approved takes force on the 10th: that is the
+      // earliest day, offered and bounded.
+      effective_from: "2026-10-10",
+      not_before: "2026-10-10",
+      source_locale: "pl",
+      locales_without_text: [],
+    },
+    document: drafted,
+  });
+  wrap(<CustomerDocumentPanel canManage kind="privacy_policy" />);
+
+  const draft = await screen.findByRole("region", { name: "Szkic" });
+  fireEvent.click(within(draft).getByRole("button", { name: "Zatwierdź…" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Zatwierdzić dokument?",
+  });
+  expect(
+    within(dialog).getByText(
+      /ma już wersję, która zacznie obowiązywać 10 paź 2026\. Nowa wersja nie może wejść w życie wcześniej/,
+    ),
+  ).toBeTruthy();
+  const date = within(dialog).getByLabelText("Obowiązuje od");
+  expect(date).toHaveValue("2026-10-10");
+  expect(date).toHaveAttribute("min", "2026-10-10");
+});
+
 test("who only reads sees the versions and no way to write", async () => {
   wrap(<CustomerDocumentPanel canManage={false} kind="privacy_policy" />);
 

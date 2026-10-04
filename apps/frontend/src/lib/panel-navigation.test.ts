@@ -369,6 +369,40 @@ describe("przydział wizyt w menu (ADR-058)", () => {
     );
   });
 
+  it("firma przyjmująca na prośbę ma Prośby z licznikiem, tylko dla odpowiadających", () => {
+    const asked = {
+      ...OFFICE,
+      booking: { bookableStaff: 1, teams: 0, waiting: 0, requests: 2 },
+    };
+    expect(
+      calendar(asked)?.pages?.map((page) => [page.href, page.count]),
+    ).toEqual([
+      ["/panel/calendar", undefined],
+      ["/panel/calendar/requests", 2],
+    ]);
+    // Nothing waits, but the company still takes requests: the list stays.
+    expect(
+      calendar({
+        ...asked,
+        booking: { ...asked.booking, requests: 0 },
+      })?.pages?.map((page) => [page.href, page.count]),
+    ).toEqual([
+      ["/panel/calendar", undefined],
+      ["/panel/calendar/requests", undefined],
+    ]);
+    // No offer on request and nothing waiting, or nobody to answer: no list.
+    expect(
+      calendar({ ...asked, booking: { ...asked.booking, requests: null } })
+        ?.pages,
+    ).toBeUndefined();
+    expect(
+      calendar({
+        ...asked,
+        permissions: ["organization.members.read", "booking.appointment.read"],
+      })?.pages,
+    ).toBeUndefined();
+  });
+
   it("firma sprzedająca pobyty ma Obłożenie, także dla pracownika", () => {
     const stays = {
       ...OFFICE,

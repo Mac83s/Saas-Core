@@ -26,6 +26,13 @@ class CustomerDocumentTextSerializer(serializers.Serializer[dict[str, Any]]):
     text_hash = serializers.CharField(help_text="sha256 of `text`.")
     accepted_at = serializers.DateTimeField(help_text="When a person added the row.")
     accepted_by = serializers.CharField(allow_blank=True, help_text="Who added it, by name.")
+    stale = serializers.BooleanField(
+        required=False,
+        help_text="A translation accepted against another source text than the version's "
+        "own language reads now: the source was corrected since. Adding the same text "
+        "again confirms it against the corrected source; otherwise the same text is 400 "
+        "`text_unchanged`.",
+    )
 
 
 class CustomerDocumentVersionSerializer(serializers.Serializer[dict[str, Any]]):
@@ -135,7 +142,17 @@ class CustomerDocumentApproveInputSerializer(serializers.Serializer[dict[str, An
 
 class CustomerDocumentApprovalEffectSerializer(serializers.Serializer[dict[str, Any]]):
     number = serializers.IntegerField(help_text="The number the new version gets.")
-    effective_from = serializers.DateField()
+    effective_from = serializers.DateField(
+        help_text="The day the version takes force: the one asked for, else the earliest "
+        "one possible — today, or the day a version already approved takes force."
+    )
+    not_before = serializers.DateField(
+        required=False,
+        allow_null=True,
+        help_text="The day a version already approved takes force, when that is later "
+        "than today: a new version cannot take force before it (400 "
+        "`before_latest_version`). Null when today is the earliest day.",
+    )
     source_locale = serializers.CharField()
     locales_without_text = serializers.ListField(
         child=serializers.CharField(),

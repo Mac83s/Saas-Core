@@ -15,6 +15,7 @@ from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.test import APIClient
 
+from saas_core.http.exceptions import problem_errors
 from saas_core.modules.core.identity.models import UserMfaMethod
 from saas_core.modules.core.identity.step_up import (
     StepUpMfaSetupRequired,
@@ -29,7 +30,13 @@ from saas_core.modules.core.organizations.context import (
     set_local_organization_id,
 )
 from saas_core.modules.core.organizations.erasure import erase_organization
-from saas_core.modules.core.organizations.models import Membership, Organization, Role, RoleScope
+from saas_core.modules.core.organizations.models import (
+    Membership,
+    Organization,
+    OrganizationAuditEntry,
+    Role,
+    RoleScope,
+)
 from saas_core.modules.core.organizations.person_gate import PersonRequired
 from saas_core.modules.shared.customers.api import (
     Customer,
@@ -165,6 +172,8 @@ def test_approval_takes_a_person_with_a_fresh_second_factor() -> None:
         assert preview["effect"] == {
             "number": 1,
             "effective_from": owner.organization.local_today(),
+            # No earlier version: today is the earliest day.
+            "not_before": None,
             "source_locale": "pl",
             "locales_without_text": ["en"],
         }
@@ -270,6 +279,99 @@ def test_a_version_approved_for_later_waits_for_its_day() -> None:
     assert (document["upcoming"]["number"], document["upcoming"]["effective_from"]) == (2, later)
     assert [row["number"] for row in document["versions"]] == [2, 1]
     assert now is not None and now.text == TEXT
+
+
+def test_no_version_takes_force_before_one_already_approved() -> None:
+    owner = with_second_factor(company("dokumenty-kolejnosc"))
+    approved(owner)
+    today = owner.organization.local_today()
+    later = today + timedelta(days=7)
+    approved(owner, text="Wersja na później.", effective_from=later)
+
+    # „From today” after a version dated a week ahead would give way to that
+    # one when its day came, though it was approved last: refused, with the day.
+    with tenant(owner), stepped_up():
+        version = read_document(PRIVACY)["document"]["version"]
+        saved = save_draft(PRIVACY, text="Poprawka.", locale="pl", expected_version=version)
+        with pytest.raises(ValidationError) as refused:
+            approve_draft(PRIVACY, expected_version=saved["version"], effective_from=today)
+        with pytest.raises(ValidationError) as previewed:
+            approve_draft(
+                PRIVACY,
+                expected_version=saved["version"],
+                effective_from=later - timedelta(days=1),
+                preview=True,
+            )
+        # Asked for no day, the earliest possible one is offered: that version's.
+        offered = approve_draft(PRIVACY, expected_version=saved["version"], preview=True)
+        third = approve_draft(PRIVACY, expected_version=saved["version"], effective_from=later)
+        on_the_day = current_document(PRIVACY, "pl")
+
+    for error in (refused, previewed):
+        assert [(item["field"], item["code"]) for item in problem_errors(error.value)] == [
+            ("effective_from", "before_latest_version")
+        ]
+    assert later.isoformat() in str(refused.value)
+    assert (offered["effect"]["effective_from"], offered["effect"]["not_before"]) == (later, later)
+    # The same day is allowed: the one approved last wins it.
+    assert third["effect"]["number"] == 3
+    assert third["document"]["upcoming"]["number"] == 3
+    assert on_the_day is not None and on_the_day.text == TEXT
+
+
+def test_a_first_version_has_no_day_it_must_wait_for() -> None:
+    owner = with_second_factor(company("dokumenty-pierwsza"))
+    with tenant(owner), stepped_up():
+        saved = save_draft(PRIVACY, text=TEXT, locale="pl", expected_version=0)
+        offered = approve_draft(PRIVACY, expected_version=saved["version"], preview=True)
+    assert offered["effect"]["effective_from"] == owner.organization.local_today()
+    assert offered["effect"]["not_before"] is None
+
+
+def test_a_translation_typed_by_hand_is_confirmed_after_its_source_was_corrected() -> None:
+    owner = with_second_factor(company("dokumenty-potwierdzenie"))
+    document = approved(owner)
+    english = "The controller of your data is Studio."
+
+    def add(locale: str, text: str) -> dict[str, Any]:
+        with tenant(owner), stepped_up():
+            return add_text(
+                PRIVACY,
+                number=1,
+                locale=locale,
+                text=text,
+                expected_version=read_document(PRIVACY)["document"]["version"],
+            )
+
+    def stale(read: dict[str, Any]) -> dict[str, bool]:
+        return {row["locale"]: row["stale"] for row in read["in_force"]["texts"]}
+
+    first = add("en", english)
+    # The same words again say nothing new while the source stands.
+    with pytest.raises(ValidationError) as unchanged:
+        add("en", english)
+    corrected = add("pl", TEXT + "\n\nKontakt: recepcja.")
+    confirmed = add("en", english)
+    with pytest.raises(ValidationError) as again:
+        add("en", english)
+    with tenant(owner):
+        audit = OrganizationAuditEntry.objects.filter(
+            action="customers.document.text_added"
+        ).latest("occurred_at")
+
+    assert document["in_force"]["number"] == 1
+    assert stale(first) == {"en": False, "pl": False}
+    assert [item["code"] for item in problem_errors(unchanged.value)] == ["text_unchanged"]
+    # The source was corrected: the translation was read against the old one.
+    assert stale(corrected) == {"en": True, "pl": False}
+    # Confirmed: the same words, a new row, read against the source as it is.
+    assert stale(confirmed) == {"en": False, "pl": False}
+    assert (
+        next(row["text"] for row in confirmed["in_force"]["texts"] if row["locale"] == "en")
+        == english
+    )
+    assert [item["code"] for item in problem_errors(again.value)] == ["text_unchanged"]
+    assert (audit.metadata["locale"], audit.metadata["confirms"]) == ("en", True)
 
 
 def test_versions_texts_and_consents_are_append_only_in_the_database() -> None:

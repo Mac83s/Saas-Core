@@ -217,6 +217,7 @@ def _version_payload(
         "locales": sorted(texts),
     }
     if with_texts:
+        source = texts.get(version.source_locale)
         payload["texts"] = [
             {
                 "id": row.id,
@@ -225,10 +226,22 @@ def _version_payload(
                 "text_hash": row.text_hash,
                 "accepted_at": row.accepted_at,
                 "accepted_by": names.get(row.accepted_by, ""),
+                "stale": _stale(row, source),
             }
             for _locale, row in sorted(texts.items())
         ]
     return payload
+
+
+def _stale(row: DocumentText, source: DocumentText | None) -> bool:
+    """Whether a translation was accepted against another source text than
+    the version's language reads now — the source was corrected since. A row
+    that does not say what it was made from (the source itself, a text from
+    before provenance) is never called stale."""
+    made_from = (row.provenance or {}).get("source_hash")
+    if source is None or row.locale == source.locale or not made_from:
+        return False
+    return bool(made_from != unit_hash(UNIT_KIND, source.text))
 
 
 def _payload(
@@ -445,9 +458,13 @@ def _approval_effect(
     others = [
         code for code in organization_content_locales(organization) if code != document.draft_locale
     ]
+    latest = _latest_effective(document)
     return {
         "number": (last.number if last else 0) + 1,
         "effective_from": effective_from,
+        # The day no new version may come before, when that is later than
+        # today: a version already approved takes force then.
+        "not_before": latest if latest and latest > organization.local_today() else None,
         "source_locale": document.draft_locale,
         # A new version starts with its own language only; customers who read
         # another one get no document until a person adds that text.
@@ -455,14 +472,45 @@ def _approval_effect(
     }
 
 
-def _effective_from(organization: Organization, value: date | None) -> date:
+def _latest_effective(document: CustomerDocument) -> date | None:
+    """The latest day any approved version of the document takes force."""
+    latest: date | None = (
+        DocumentVersion.all_objects.filter(
+            organization_id=document.organization_id, document=document
+        )
+        .order_by("-effective_from")
+        .values_list("effective_from", flat=True)
+        .first()
+    )
+    return latest
+
+
+def _effective_from(
+    organization: Organization, document: CustomerDocument, value: date | None
+) -> date:
+    """The day the new version takes force: the one asked for, else the
+    earliest one possible. Never in the past, and never before a version
+    already approved takes force — the later-dated one would silently take
+    over from this one when its day came, though this one was approved last."""
     today = organization.local_today()
+    latest = _latest_effective(document)
     if value is None:
-        return today
+        return max(today, latest) if latest else today
     if value < today:
         raise ValidationError({
             "effective_from": [
                 ErrorDetail("Dokument nie może obowiązywać wstecz.", code="date_in_past")
+            ]
+        })
+    if latest and value < latest:
+        raise ValidationError({
+            "effective_from": [
+                ErrorDetail(
+                    f"Ten dokument ma już wersję obowiązującą od {latest.isoformat()}. Nowa "
+                    "wersja nie może wejść w życie wcześniej — wybierz ten dzień albo "
+                    "późniejszy.",
+                    code="before_latest_version",
+                )
             ]
         })
     return value
@@ -488,7 +536,9 @@ def approve_draft(
         })
     # The company may have switched the draft's language off since.
     assert_content_locale(document.draft_locale, organization=organization, field="draft")
-    effect = _approval_effect(organization, document, _effective_from(organization, effective_from))
+    effect = _approval_effect(
+        organization, document, _effective_from(organization, document, effective_from)
+    )
     if preview:
         return {
             "effect": effect,
@@ -605,7 +655,14 @@ def add_text(
     current = _current_texts(version)
     # An accepted translation with the words that already stand is still a new
     # row: it says the text was accepted against the source as it reads now.
-    if accepted is None and locale in current and current[locale].text == text:
+    # So is a person's own confirmation of a text whose source was corrected
+    # since: the words stay, the row says they were read against the new source.
+    if (
+        accepted is None
+        and locale in current
+        and current[locale].text == text
+        and not _stale(current[locale], current.get(version.source_locale))
+    ):
         raise ValidationError({
             "text": [ErrorDetail("Ten tekst już obowiązuje.", code="text_unchanged")]
         })
@@ -650,6 +707,8 @@ def add_text(
             "locale": locale,
             "text_id": str(row.id),
             "corrects": locale in current,
+            # The same words, confirmed against a corrected source.
+            "confirms": locale in current and current[locale].text == text,
             "origin": provenance.get("origin", ORIGIN_HUMAN),
         },
     )

@@ -587,6 +587,39 @@ def register_templates() -> None:
         {"organization_name", "starts_at"},
         audience=AUDIENCE_CUSTOMER,
     )
+    # v2 adds the company's own words — why it cannot take the booking. They
+    # are the company's, said as such, and carry no link (`_decline_reason`).
+    _template(
+        "booking.request_declined",
+        {
+            "pl": "Prośba o rezerwację nie została przyjęta",
+            "en": "Your booking request was declined",
+            "de": "Ihre Buchungsanfrage wurde abgelehnt",
+        },
+        {
+            "pl": (
+                "<p>Niestety {organization_name} nie może przyjąć Twojej rezerwacji na "
+                "{starts_at}.</p>"
+                "<p>Wiadomość od {organization_name}: {reason}</p>"
+                "<p>Jeśli chcesz umówić inny termin, skontaktuj się z {organization_name}.</p>"
+            ),
+            "en": (
+                "<p>Unfortunately {organization_name} cannot take your booking for "
+                "{starts_at}.</p>"
+                "<p>A message from {organization_name}: {reason}</p>"
+                "<p>If you would like another time, please contact {organization_name}.</p>"
+            ),
+            "de": (
+                "<p>Leider kann {organization_name} Ihre Buchung für {starts_at} nicht "
+                "annehmen.</p>"
+                "<p>Nachricht von {organization_name}: {reason}</p>"
+                "<p>Für einen anderen Termin wenden Sie sich bitte an {organization_name}.</p>"
+            ),
+        },
+        {"organization_name", "starts_at", "reason"},
+        audience=AUDIENCE_CUSTOMER,
+        version=2,
+    )
     _template(
         "booking.request_expired",
         {

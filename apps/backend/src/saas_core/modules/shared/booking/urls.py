@@ -47,6 +47,7 @@ from .views import (
     BookingPresetListView,
     BookingQueueView,
     BookingQuoteView,
+    BookingRequestsView,
     BookingRuleCopyYearPreviewView,
     BookingRuleCopyYearView,
     BookingRuleCreatePreviewView,
@@ -142,6 +143,7 @@ urlpatterns = [
     path("teams/", TeamListView.as_view(), name="teams"),
     path("teams/<uuid:team_id>/", TeamDetailView.as_view(), name="team"),
     path("queue/", BookingQueueView.as_view(), name="queue"),
+    path("requests/", BookingRequestsView.as_view(), name="requests"),
     path("overview/", BookingOverviewView.as_view(), name="overview"),
     path("performance/", PerformanceView.as_view(), name="performance"),
     path(

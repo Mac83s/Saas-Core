@@ -603,6 +603,12 @@ test("an appointment opens its details and is canceled only after confirmation",
   const confirm = await screen.findByRole("dialog", {
     name: "Cancel this appointment?",
   });
+  // The server mails whoever left an address: the dialog says what happens.
+  expect(
+    within(confirm).getByText(
+      /The customer gets an e-mail about this change if they left an address\./,
+    ),
+  ).toBeInTheDocument();
   expect(api.cancelBookingAppointment).not.toHaveBeenCalled();
   // The reload after the change brings the visit as the server keeps it now.
   api.listBookingAppointments.mockResolvedValue([
@@ -2706,6 +2712,11 @@ test("calling off a paid visit says what goes back, and a late balance may be th
     ...appointment,
     status: "canceled",
   });
+  // The customer left an address: the server will mail them.
+  api.listBookingAppointments.mockResolvedValue([
+    { ...appointment, customer_email: "jan@wies.test" },
+    completed,
+  ]);
   renderCalendar({}, "pl");
   fireEvent.click(await screen.findByRole("button", { name: /Jan Kowalski/ }));
   const details = await screen.findByRole("dialog", { name: "Jan Kowalski" });
@@ -2713,6 +2724,9 @@ test("calling off a paid visit says what goes back, and a late balance may be th
   const confirm = await screen.findByRole("dialog", {
     name: "Odwołać wizytę?",
   });
+  expect(
+    within(confirm).getByText(/Klient dostanie e-mail o tej zmianie\./),
+  ).toBeInTheDocument();
   // The company's own calling off gives everything back…
   expect(
     await within(confirm).findByText(
@@ -2889,6 +2903,11 @@ test("a customer's request is accepted or declined in the visit's dialog (ADR-07
   expect(
     within(question).getByText(/the customer gets an e-mail/),
   ).toBeInTheDocument();
+  // The company may say why, in its own words.
+  fireEvent.change(
+    within(question).getByLabelText("A reason for the customer (optional)"),
+    { target: { value: "We are closed that week." } },
+  );
   fireEvent.click(
     within(question).getByRole("button", { name: "Decline the booking" }),
   );
@@ -2897,6 +2916,7 @@ test("a customer's request is accepted or declined in the visit's dialog (ADR-07
       appointment.id,
       "decline",
       expect.any(String),
+      "We are closed that week.",
     ),
   );
   expect(

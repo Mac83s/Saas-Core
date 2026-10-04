@@ -74,6 +74,10 @@ export type PanelSectionTab = Pick<
    * waits; "teams" while a team exists.
    */
   dispatch?: "queue" | "teams";
+  /** Only where customers' requests can wait for the company's answer
+   * (`GET /booking/overview/` `requests`): the company takes something on
+   * request, or a request still waits. */
+  requests?: boolean;
   /** Only for a company that sells by dates (`GET /booking/overview/` `stays`). */
   stays?: boolean;
   /** A number beside the label, e.g. visits waiting in „Do przydzielenia”. */
@@ -100,6 +104,14 @@ export const PANEL_SECTIONS = {
       module: "shared.booking",
       permission: "booking.appointment.manage",
       dispatch: "queue",
+    },
+    {
+      // Customers' requests that wait for the company's answer (ADR-072 §9).
+      href: "/panel/calendar/requests",
+      labelKey: "calendarRequests",
+      module: "shared.booking",
+      permission: "booking.appointment.manage",
+      requests: true,
     },
     {
       // Units against days (ADR-072 phase 2d); whose stay it is, the server
@@ -307,6 +319,9 @@ export type PanelAccess = {
     bookableStaff: number;
     teams: number;
     waiting: number | null;
+    /** Requests waiting for the company's answer; null where „Prośby” has
+     * no use or the person may not answer them. */
+    requests?: number | null;
     /** The company sells by dates: „Obłożenie” has a use. */
     stays?: boolean;
   };
@@ -475,12 +490,15 @@ export function allows(
     | "operator"
   > & {
     dispatch?: PanelSectionTab["dispatch"];
+    requests?: PanelSectionTab["requests"];
     stays?: PanelSectionTab["stays"];
   },
 ): boolean {
   if (item.module && !access.modules.includes(item.module)) return false;
   if (item.operator && (access.operatorLevel ?? 0) < 1) return false;
   if (item.stays && !access.booking?.stays) return false;
+  if (item.requests && (access.booking?.requests ?? null) === null)
+    return false;
   if (item.dispatch) {
     const booking = access.booking;
     if (!booking) return false;
@@ -575,10 +593,12 @@ export function mobileTabs(access: PanelAccess): PanelNavEntry[] {
 
 function withCount(access: PanelAccess, tab: PanelSectionTab): PanelSectionTab {
   const waiting = access.booking?.waiting;
+  const requests = access.booking?.requests;
   const tabNamed = named(access, tab);
-  return tab.dispatch === "queue" && waiting
-    ? { ...tabNamed, count: waiting }
-    : tabNamed;
+  if (tab.dispatch === "queue" && waiting)
+    return { ...tabNamed, count: waiting };
+  if (tab.requests && requests) return { ...tabNamed, count: requests };
+  return tabNamed;
 }
 
 function named<T extends { labelKey: string; otherwise?: Otherwise }>(

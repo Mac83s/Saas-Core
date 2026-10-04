@@ -977,3 +977,38 @@ Rozstrzygnięcia plastra 4h (2026-10-04, decyzje techniczne z powodem):
   preset z progami (Nocleg w wersji 1 je ma, ale jest zapowiedzią — wersja w
   użyciu ich nie nazywa); status zamówienia `refunded`; dopłata planowana dla
   rezerwacji bez przedpłaty; zwrot i dopłata online (faza 7).
+
+Uzupełnienie plastrów 4b–4g (2026-10-04, drobne zaległości zamknięte razem z 4h):
+
+- **Wersja dokumentu nie wchodzi w życie przed wersją już zatwierdzoną** (4b,
+  §9). `approve_draft` odmawia daty wcześniejszej niż najpóźniejsza data
+  zatwierdzonej wersji (400 `before_latest_version`, także w podglądzie), a
+  bez podanej daty proponuje najwcześniejszą możliwą (`effect.not_before`
+  mówi, od którego dnia). Powód: wersja „od dziś” zatwierdzona po wersji na
+  późniejszy dzień ustępowała tamtej, gdy jej dzień nadszedł (`_in_force`
+  wybiera późniejszą datę), choć zatwierdzono ją ostatnią — klient dostawałby
+  starszy tekst bez niczyjej decyzji. Ten sam dzień jest dozwolony: wygrywa
+  wersja zatwierdzona później.
+- **Tłumaczenie wpisane ręcznie da się potwierdzić bez zmian po poprawce
+  źródła** (4d-2). Wiersz tekstu niesie `stale` — zaakceptowano go wobec innego
+  tekstu w języku wersji, niż obowiązuje teraz; dla takiego wiersza `add_text`
+  przyjmuje te same słowa i dopisuje nowy wiersz (ta sama bramka osoby i ten
+  sam kod z aplikacji), który mówi, że tekst przeczytano wobec poprawionego
+  źródła. Poza tym te same słowa to nadal 400 `text_unchanged`.
+- **Powód odmowy** (4g, ADR-078 36a): `POST …/appointments/<id>/decline/`
+  przyjmuje opcjonalne `reason` — do 300 znaków zwykłego tekstu, bez linków i
+  adresów (400 `links`, ta sama reguła co tekst firmy w e-mailach). Trafia do
+  e-maila `booking.request_declined` (szablon w wersji 2, jako „Wiadomość od
+  <firma>”) i nigdzie więcej: historia rezerwacji i historia zmian firmy
+  zapisują tylko `declined`, bo to słowa pisane do jednego klienta.
+- **Lista próśb** (4g): `GET /booking/requests/` (dla zarządzających
+  rezerwacjami; najpierw prośba, której czas na odpowiedź kończy się
+  najwcześniej) i strona Kalendarz › „Prośby”. `GET /booking/overview/` niesie
+  `requests` — liczbę próśb albo `null`, gdy firma niczego nie przyjmuje na
+  prośbę i nic nie czeka; wtedy strony nie ma w menu.
+- **Słowa**: okna „Odwołać wizytę?” i „Przełóż” mówią, że klient dostanie
+  e-mail (serwer wysyła `booking.canceled` i `booking.rescheduled` każdemu, kto
+  podał adres), a gdy adresu nie ma — że trzeba dać mu znać; dzwonek nazywa
+  powiadomienia `booking.office_*`; „Do akceptacji” wymienia dokumenty dla
+  klientów obok strony i wizytówki.
+

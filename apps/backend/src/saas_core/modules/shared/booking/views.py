@@ -41,6 +41,7 @@ from .company_settings import (
 from .consents import BookingConsents
 from .consents import shown as consents_shown
 from .dispatch import assign_crew, candidates, overview, queue
+from .dispatch import requests as waiting_requests
 from .facts import staff_facts, staff_history, team_performance
 from .flags import appointment_flags
 from .item_translations import localized_texts, source_locale, translatable
@@ -79,6 +80,7 @@ from .security import public_booking_context, token_digest
 from .serializers import (
     AppointmentCancelSerializer,
     AppointmentCreateSerializer,
+    AppointmentDeclineSerializer,
     AppointmentListSerializer,
     AppointmentSerializer,
     AppointmentSettlementAnswerSerializer,
@@ -945,6 +947,11 @@ class AppointmentSettlementView(APIView):
 def _answer(request: Request, appointment_id: UUID, *, accept: bool) -> Response:
     """The company's answer to a booking made „on request” (ADR-072 §9)."""
     context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+    said: dict[str, Any] = {}
+    if not accept:
+        serializer = AppointmentDeclineSerializer(data=request.data or {})
+        serializer.is_valid(raise_exception=True)
+        said = cast(dict[str, Any], serializer.validated_data)
     return Response(
         _appointment_payload(
             answer_request(
@@ -952,6 +959,7 @@ def _answer(request: Request, appointment_id: UUID, *, accept: bool) -> Response
                 accept=accept,
                 idempotency_key=_idem(request),
                 principal_ref=str(context.actor_id),
+                **said,
             )
         )
     )
@@ -992,12 +1000,13 @@ class AppointmentDeclineView(APIView):
         summary="Decline a booking request",
         description="The company does not take a booking that waits for its answer "
         "(`pending_request`): the booking lets its time go (`canceled`), its draft order is "
-        "canceled and the customer is told. A booking that no longer waits for an answer "
-        "is 409 `appointment_not_changeable`. The same Idempotency-Key answers the first "
-        "result again.",
+        "canceled and the customer is told — with the company's own `reason`, when it "
+        "gives one. A booking that no longer waits for an answer is 409 "
+        "`appointment_not_changeable`. The same Idempotency-Key answers the first result "
+        "again.",
         tags=["booking"],
         parameters=[IDEMPOTENCY],
-        request=None,
+        request=AppointmentDeclineSerializer,
         responses={
             200: AppointmentSerializer,
             400: ProblemDetailsSerializer,
@@ -2156,6 +2165,29 @@ class BookingQueueView(APIView):
         return Response({"items": [_queue_payload(item, known) for item in items]})
 
 
+class BookingRequestsView(APIView):
+    """„Prośby”: customers' bookings that wait for the company's answer."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="booking_requests_list",
+        summary="List the booking requests that wait for the company's answer",
+        description="Customers' bookings of services taken on request that nobody has "
+        "answered yet (`pending_request`), each with the customer's contact and "
+        "`hold_expires_at` — until when the company answers before the request expires; "
+        "the one that expires first comes first. Answer with `POST "
+        "…/appointments/<id>/accept/` or `…/decline/`. For whoever manages bookings.",
+        tags=["booking"],
+        responses={200: QueueSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        del request
+        items = waiting_requests()
+        known = _known(items)
+        return Response({"items": [_queue_payload(item, known) for item in items]})
+
+
 class BookingOverviewView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -2167,6 +2199,7 @@ class BookingOverviewView(APIView):
             "bookable_staff": value.bookable_staff,
             "teams": value.teams,
             "waiting": value.waiting,
+            "requests": value.requests,
             "stays": books_stays(),
         })
 

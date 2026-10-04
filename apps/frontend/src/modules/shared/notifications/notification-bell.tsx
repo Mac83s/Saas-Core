@@ -210,6 +210,19 @@ function headline(
       return t("bookingMoved", values);
     case "booking.canceled":
       return t("bookingCanceled", values);
+    // What the office hears of bookings nobody on the visit made (W8).
+    case "booking.office_new":
+      return t("bookingOfficeNew", values);
+    case "booking.office_waiting":
+      return t("bookingOfficeWaiting", values);
+    case "booking.office_canceled":
+      return t("bookingOfficeCanceled", values);
+    case "booking.office_expired":
+      return t("bookingOfficeExpired", values);
+    case "booking.office_request":
+      return t("bookingOfficeRequest", values);
+    case "booking.office_request_expired":
+      return t("bookingOfficeRequestExpired", values);
     case "translation.job_problem":
       return t("translationJobProblem", values);
     case "translation.review_waiting":
@@ -231,6 +244,8 @@ function headline(
  *  translation job, what waits for a decision, or where a stopped automation
  *  is put right — the credits, or the limit and the consent (TL16f). */
 function noticeHref(item: AppNotification): string | null {
+  // A request that waits is answered from the list of requests.
+  if (item.kind === "booking.office_request") return "/panel/calendar/requests";
   const day = calendarDay(item);
   if (day) return `/panel/calendar?view=day&date=${day}`;
   const payload = (item.payload ?? {}) as Record<string, unknown>;

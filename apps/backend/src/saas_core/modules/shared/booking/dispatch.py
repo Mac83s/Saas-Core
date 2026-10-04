@@ -27,6 +27,8 @@ from .models import (
     AppointmentStatus,
     AvailabilityRule,
     BookingMutation,
+    Confirmation,
+    Service,
     ServiceStaff,
     StaffMember,
     StaffTeam,
@@ -68,6 +70,10 @@ class Overview:
     teams: int
     #: Visits waiting in „Do przydzielenia”; None for whoever may not assign.
     waiting: int | None
+    #: Customers' requests waiting for the company's answer; None for whoever
+    #: may not answer them, and where the company takes nothing on request and
+    #: nothing waits — „Prośby” then has no use.
+    requests: int | None = None
 
 
 def overview() -> Overview:
@@ -99,10 +105,38 @@ def overview() -> Overview:
             .filter(Q(needs_assignment=True) | Q(auto_assigned=True))
             .count()
         )
+    asked = None
+    if context.has_permission(BOOKING_MANAGE):
+        asked = Appointment.all_objects.filter(
+            organization_id=context.organization_id, status=AppointmentStatus.PENDING_REQUEST
+        ).count()
+        if (
+            not asked
+            and not Service.all_objects.filter(
+                organization_id=context.organization_id,
+                confirmation=Confirmation.ON_REQUEST,
+            ).exists()
+        ):
+            asked = None
     return Overview(
         bookable_staff=bookable,
         teams=StaffTeam.all_objects.filter(organization_id=context.organization_id).count(),
         waiting=waiting,
+        requests=asked,
+    )
+
+
+def requests() -> list[Appointment]:
+    """Customers' bookings that wait for the company's answer (ADR-072 §9):
+    the one whose time to answer runs out first on top."""
+    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED, operation=FeatureOperation.READ)
+    return list(
+        with_crew(
+            Appointment.all_objects.filter(
+                organization_id=context.organization_id,
+                status=AppointmentStatus.PENDING_REQUEST,
+            )
+        ).order_by("hold_expires_at", "starts_at", "id")[:500]
     )
 
 

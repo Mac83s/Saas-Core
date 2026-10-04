@@ -3819,23 +3819,42 @@ export async function answerBookingRequest(
   appointmentId: string,
   answer: "accept" | "decline",
   idempotencyKey: string,
+  /** With `decline`: the company's own words to the customer, without a
+   *  link — they go into the customer's e-mail. */
+  reason = "",
 ): Promise<BookingAppointment> {
   const csrfToken = await getCsrfToken();
-  const { data, error, response } = await client.POST(
-    answer === "accept"
-      ? "/api/v1/booking/appointments/{appointment_id}/accept/"
-      : "/api/v1/booking/appointments/{appointment_id}/decline/",
-    {
-      params: {
-        path: { appointment_id: appointmentId },
-        header: { "Idempotency-Key": idempotencyKey },
-      },
-      credentials: "same-origin",
-      headers: { "X-CSRFToken": csrfToken },
+  const options = {
+    params: {
+      path: { appointment_id: appointmentId },
+      header: { "Idempotency-Key": idempotencyKey },
     },
-  );
+    credentials: "same-origin" as const,
+    headers: { "X-CSRFToken": csrfToken },
+  };
+  const { data, error, response } =
+    answer === "accept"
+      ? await client.POST(
+          "/api/v1/booking/appointments/{appointment_id}/accept/",
+          options,
+        )
+      : await client.POST(
+          "/api/v1/booking/appointments/{appointment_id}/decline/",
+          { ...options, body: reason ? { reason } : {} },
+        );
   if (error || !data) throwProblem(error, response);
   return data;
+}
+
+/** Customers' requests that wait for the company's answer (ADR-072 §9): the
+ *  one whose time to answer runs out first comes first. */
+export async function getBookingRequests(): Promise<QueueItem[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/requests/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
 }
 
 /** The visit took place: its products leave the warehouse (ADR-055). */

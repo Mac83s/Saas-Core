@@ -748,7 +748,7 @@ export interface paths {
         put?: never;
         /**
          * Decline a booking request
-         * @description The company does not take a booking that waits for its answer (`pending_request`): the booking lets its time go (`canceled`), its draft order is canceled and the customer is told. A booking that no longer waits for an answer is 409 `appointment_not_changeable`. The same Idempotency-Key answers the first result again.
+         * @description The company does not take a booking that waits for its answer (`pending_request`): the booking lets its time go (`canceled`), its draft order is canceled and the customer is told — with the company's own `reason`, when it gives one. A booking that no longer waits for an answer is 409 `appointment_not_changeable`. The same Idempotency-Key answers the first result again.
          */
         post: operations["booking_appointment_decline"];
         delete?: never;
@@ -1201,6 +1201,26 @@ export interface paths {
          * @description The price of a visit at `starts_at`, or of a stay from `start_date` to `end_date` on the unit a booking would take, for the people who come: lines with net, tax and gross, and the totals. Nothing is saved and nothing is held. A booking works the price out again and keeps it; send it the `digest` as `quote_digest` and a price that changed in between answers 409 `quote_changed`. An offer without a price list answers no lines. Refusals name the field: `price_missing`, `unit_capacity_exceeded`, `participants_required`, and what a stay's rules refuse. With `price_only` the answer is what the price list says for that time whether or not it could be booked — for a preview of the price list. Each line names the price it came from (`price_rule_id`).
          */
         post: operations["booking_quote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/requests/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the booking requests that wait for the company's answer
+         * @description Customers' bookings of services taken on request that nobody has answered yet (`pending_request`), each with the customer's contact and `hold_expires_at` — until when the company answers before the request expires; the one that expires first comes first. Answer with `POST …/appointments/<id>/accept/` or `…/decline/`. For whoever manages bookings.
+         */
+        get: operations["booking_requests_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8109,6 +8129,10 @@ export interface components {
             /** @description The `digest` of the quote shown to whoever books. When the price is another one by now, the answer is 409 `quote_changed` with the new quote in `detail.quote`. Omitted — the booking takes the price as it is. */
             quote_digest?: string;
         };
+        AppointmentDecline: {
+            /** @description The company's own words to the customer about why it cannot take the booking — optional, plain text up to 300 characters, without a link or an address (400 `links`). It goes into the customer's e-mail and is kept nowhere else. */
+            reason?: string;
+        };
         AppointmentKind: {
             /** @description The `appointment_kind` a service sells. */
             key: string;
@@ -10125,8 +10149,16 @@ export interface components {
         CustomerDocumentApprovalEffect: {
             /** @description The number the new version gets. */
             number: number;
-            /** Format: date */
+            /**
+             * Format: date
+             * @description The day the version takes force: the one asked for, else the earliest one possible — today, or the day a version already approved takes force.
+             */
             effective_from: string;
+            /**
+             * Format: date
+             * @description The day a version already approved takes force, when that is later than today: a new version cannot take force before it (400 `before_latest_version`). Null when today is the earliest day.
+             */
+            not_before?: string | null;
             source_locale: string;
             /** @description The company's other languages: the new version has no text in them until a person adds one, and customers who read them get no document. */
             locales_without_text: string[];
@@ -10200,6 +10232,8 @@ export interface components {
             accepted_at: string;
             /** @description Who added it, by name. */
             accepted_by: string;
+            /** @description A translation accepted against another source text than the version's own language reads now: the source was corrected since. Adding the same text again confirms it against the corrected source; otherwise the same text is 400 `text_unchanged`. */
+            stale?: boolean;
         };
         CustomerDocumentTextInput: {
             /** @description The version the text belongs to. */
@@ -12958,6 +12992,8 @@ export interface components {
             bookable_staff: number;
             teams: number;
             waiting: number | null;
+            /** @description Customers' requests waiting for the company's answer. Null for whoever may not answer them, and where the company takes nothing on request and nothing waits: „Prośby” has no use then. */
+            requests?: number | null;
             /** @description The company sells an offer booked by dates: „Obłożenie” has a use. */
             stays: boolean;
         };
@@ -20155,7 +20191,13 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AppointmentDecline"];
+                "application/x-www-form-urlencoded": components["schemas"]["AppointmentDecline"];
+                "multipart/form-data": components["schemas"]["AppointmentDecline"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -21124,6 +21166,33 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_requests_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Queue"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

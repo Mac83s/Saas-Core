@@ -699,6 +699,17 @@ class AppointmentSettlementAnswerSerializer(serializers.Serializer[dict[str, Any
     )
 
 
+class AppointmentDeclineSerializer(serializers.Serializer[dict[str, Any]]):
+    reason = serializers.CharField(
+        max_length=300,
+        required=False,
+        allow_blank=True,
+        help_text="The company's own words to the customer about why it cannot take the "
+        "booking — optional, plain text up to 300 characters, without a link or an address "
+        "(400 `links`). It goes into the customer's e-mail and is kept nowhere else.",
+    )
+
+
 class AppointmentCancelSerializer(serializers.Serializer[dict[str, Any]]):
     reason = serializers.ChoiceField(
         choices=CANCEL_REASONS,
@@ -773,6 +784,13 @@ class OverviewSerializer(serializers.Serializer[dict[str, Any]]):
     teams = serializers.IntegerField()
     #: Visits in „Do przydzielenia”; null for whoever may not assign.
     waiting = serializers.IntegerField(allow_null=True)
+    requests = serializers.IntegerField(
+        allow_null=True,
+        required=False,
+        help_text="Customers' requests waiting for the company's answer. Null for whoever "
+        "may not answer them, and where the company takes nothing on request and nothing "
+        "waits: „Prośby” has no use then.",
+    )
     stays = serializers.BooleanField(
         help_text="The company sells an offer booked by dates: „Obłożenie” has a use."
     )
