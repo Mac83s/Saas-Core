@@ -93,3 +93,54 @@ zgodności poprzedniego kodu z nowym stanem kolejki — samo cofnięcie obrazu n
 dowodzi bezpiecznego powrotu. Historia draftów nadal jest niemutowalna,
 publikacja pozostaje osobną granicą, a polityka powierzchni i grant mogą
 wyłącznie ograniczać operację. Automatyczna publikacja nie jest uruchamiana.
+
+## Uzupełnienie 2026-10-04 — baza per (podstrona, język)
+
+Wdrożenie ADR-070 pkt 17 (plan TL13). Decyzja pozostaje ta sama; zmienia się to,
+czym jest „baza” dla podstrony w języku innym niż źródłowy witryny.
+
+- **Język w kontrakcie to kształt, nie lista.** `target.locale` w
+  `content-change-set.v1` przyjmuje wzorzec `^[a-z]{2}(-[A-Z]{2})?$` zamiast
+  wyliczenia `pl`/`en`. Które języki ma witryna, odpowiada serwer: język spoza
+  listy firmy daje `400 locale_not_enabled` — ten sam kod i status co w zapisie
+  wersji językowej z panelu — w odczycie bazy, w podglądzie i przy zastosowaniu,
+  po sprawdzeniu grantu. `contract_version` zostaje 1: nadawca wysyłający język
+  źródłowy witryny działa bez zmian.
+- **Język źródłowy:** bez zmian — baza to `Page.version` i bloki szkicu.
+- **Inny język:** `base.version` to `PageTranslation.body_version`, a `blocks` to
+  bloki, w które składa się robocza wersja językowa. Podstrona bez wersji w tym
+  języku (bez adresu i tytułu) daje `404 change_set_target_not_found`. Zapis w
+  jednym języku nie unieważnia bazy odczytanej w innym.
+- **Komendy w innym języku:** najpierw, dla całego zestawu, komendy
+  niewykonywane przez te drzwi (`422 change_set_command_unsupported`); potem
+  `block.insert`, `block.remove` i `block.reorder` — `422 locale_structure_locked`.
+  `block.replace` przechodzi, gdy wynik jest nadal treścią źródła z innym tekstem:
+  ten sam typ i wersja bloku, te same pola, wygląd, zdjęcia i cele linków.
+  Oznaczone fragmenty zdania (pogrubienie, kursywa, link) mogą zamienić się
+  miejscami. Zmiana pola wspólnego dla języków (adres, imię i nazwisko) też jest
+  zmianą struktury. Fragment, który nie pasuje do miejsca w bloku, wraca jak z
+  panelu: `400 locale_unit_invalid` z kluczem fragmentu.
+- **Zapis:** zmienione fragmenty trafiają do nowej `PageLocaleVersion`
+  (`origin = change_set`, pochodzenie fragmentu `integration`); `Page.version`
+  się nie zmienia i nie powstaje `PageVersion`. Na powierzchni `proposed`
+  automatyzacja zapisuje wersję czekającą (`body_pending`, powód `change_set`),
+  w pozostałych przypadkach roboczą. Każdy zastosowany zestaw podnosi
+  `body_version` o jeden — także sam `translation.update`, tak jak w języku
+  źródłowym podnosi `Page.version`. Blokada edytora źródła
+  (`Page.editing_locked_until`) tego zapisu nie zatrzymuje.
+- **Tłumaczenie czekające na decyzję** (wersja z silnika tłumaczeń w
+  `body_pending`) zatrzymuje zestaw zmian dla tego języka:
+  `409 locale_version_waiting`. Własną wersję czekającą zestaw zmian zastępuje
+  następnym.
+- **Propozycje:** `ContentProposal` ma `locale` w kluczu unikalności (migracja
+  `sites.0051`), więc propozycja PL i DE tej samej podstrony mogą mieć ten sam
+  numer wersji; kolejka pokazuje jedną pozycję na (zasób, język). Przyjęcie i
+  odrzucenie propozycji w innym języku idą przez wersję językową: przyjęcie
+  wersji czekającej robi z niej roboczą i publikuje ją tam, gdzie podstrona jest
+  już publiczna w tym języku (`published: true` w odpowiedzi); odrzucenie ją
+  usuwa albo — gdy była już robocza — zapisuje nową wersję z poprzednim tekstem.
+  Blokada publikacji witryny przy czekających metadanych liczy wersję per język.
+- **Odczyty dla konektora:** inventory podaje per (podstrona, język) ścieżkę
+  (strona główna: `/` i `/xx/`), adres, `base_version`, stan tłumaczenia i
+  publikację; capabilities — języki witryny i `language_version_commands`.
+  `sites.page.draft_saved` niesie `locale`, a `version` jest wersją tego języka.

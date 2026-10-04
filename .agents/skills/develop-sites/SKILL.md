@@ -97,6 +97,22 @@ not get one. `translation.update` carries `title`, `description`,
 position that URL earned; it goes through
 `PUT /api/v1/sites/pages/<id>/url/`, a human session with a mandatory reason.
 
+A page has **one change-set base per language** (ADR-070 pkt 17, ADR-044
+"Uzupełnienie 2026-10-04"). `target.locale` is a shape in the contract; the
+server answers `locale_not_enabled` for a language the site does not have. In
+the site's source language nothing changed. In any other language the base is
+`PageTranslation.body_version` and the blocks the language version assembles
+into; `translation.update` and a text-only `block.replace` are accepted and
+written as text units through `locale_change_sets.py`, never as blocks and
+never moving `Page.version`. `block.insert`, `block.remove`, `block.reorder`
+and a replacement that changes anything but text answer
+`locale_structure_locked`. Every applied set moves `body_version` by one. A
+proposal is per (resource, language); accepting or rejecting one in another
+language goes through the language version (`language_decisions.py`), and
+accepting a waiting version publishes it where that language is live. Do not
+add a second write path for a language body: the person's door is
+`save_locale_body`, the automation's is the change set.
+
 Capabilities answer with the **narrowest** active grant mode, each grant's
 scope with its `allowed_link_hosts`, the command list read from
 `packages/contracts/content-operations/`, and the contract versions.
