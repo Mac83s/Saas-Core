@@ -523,3 +523,35 @@ def test_inventory_and_capabilities_answer_per_language() -> None:
     assert other["en"]["base_version"] == 0
     # The fields a connector already reads are still there.
     assert {"locale", "slug", "version", "slug_locked"} <= set(other["en"])
+
+
+def test_rejecting_the_first_text_of_a_language_leaves_it_with_none() -> None:
+    client, organization, owner = sites_client(slug="locale-cs-first", role_key="owner")
+    site_id = str(create_site(client).data["id"])
+    page_id = str(_page(client, site_id, "oferta", [_paragraph("Akapit")]))
+    automation = _connector(organization, owner, site_id, policy="automated", page_id=page_id)
+    # English has an address and a title and no text yet: the source stands in,
+    # and the language's base is still at zero.
+    document = _document(
+        automation, site_id, page_id, "en", [_replace(0, _paragraph("A paragraph"))]
+    )
+    assert document["base"]["version"] == 0
+    applied = _send(automation, "/api/v1/sites/changes/apply/", document)
+    assert applied.status_code == 201, applied.content
+    row = _english(page_id)
+    assert (row.body_version, row.body_current.number) == (1, 1)
+    assert list(row.body_current.units) == ["0/text"]
+
+    rejected = client.post(
+        f"/api/v1/sites/proposals/{applied.json()['proposal_id']}/discard/",
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert rejected.status_code == 200, rejected.content
+    # There was no earlier text to put back: a new version with none, and the
+    # source standing in again.
+    row = _english(page_id)
+    assert (row.body_version, row.body_current.number) == (2, 2)
+    assert row.body_current.units == {}
+    target = {"kind": "site_page", "site_id": site_id, "page_id": page_id, "locale": "en"}
+    assert client.get(BASE_URL, target).json()["blocks"][0]["data"] == {"text": "Akapit"}
