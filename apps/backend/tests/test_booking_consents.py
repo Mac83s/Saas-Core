@@ -349,6 +349,24 @@ def test_a_language_the_terms_have_no_text_in_is_not_booked_in_online(settings: 
     assert booked.status_code == 201
 
 
+def test_a_company_whose_languages_the_deployment_does_not_serve_still_books(
+    settings: Any,
+) -> None:
+    """The booking's language is then the product's first: with the terms
+    written in it, nothing is closed — the list of the company's languages
+    being empty here is no reason to refuse a booking."""
+    configured = form("zgody-obcy-jezyk", locales=("pl",))
+    owner: Membership = configured["owner"]
+    approved(owner, TERMS_TEXT, TERMS)
+    terms = in_force(owner, TERMS)
+    settings.SITES_SUPPORTED_LOCALES = ("en",)
+    settings.SITES_DEFAULT_LOCALE = "pl"
+
+    answer = shown(configured)
+    assert (answer["locale"], answer["bookable"], answer["bookable_locales"]) == ("pl", True, [])
+    assert book(configured, "obcy", consents={"documents": [str(terms.text_id)]}).status_code == 201
+
+
 def test_a_stay_is_not_booked_in_a_language_without_terms_either() -> None:
     owner = with_second_factor(company("zgody-pobyt-jezyk"))
     setup = cottages(owner, units=1)

@@ -143,14 +143,24 @@ def booking_locale(asked: str | None) -> str:
     return _locale(asked, _organization())
 
 
-def bookable_locales(organization: Organization) -> tuple[str, ...]:
-    """The company's languages a customer can book online in: all of them
-    until booking terms are in force, then those the terms have a text in."""
+@dataclass(frozen=True, slots=True)
+class _Languages:
+    """Where a customer can book online: `bookable` — in the booking's own
+    language; `offered` — the company's languages they can, in its order."""
+
+    bookable: bool
+    offered: tuple[str, ...]
+
+
+def _languages(locale: str, organization: Organization) -> _Languages:
+    """Every language until booking terms are in force, then those the terms
+    have a text in. The booking's language is asked about by itself: it is the
+    company's first where the deployment serves none of the company's own."""
     locales = organization_content_locales(organization)
     written = document_locales(DocumentKind.BOOKING_TERMS)
     if written is None:
-        return locales
-    return tuple(code for code in locales if code in written)
+        return _Languages(True, locales)
+    return _Languages(locale in written, tuple(code for code in locales if code in written))
 
 
 def _marketing(locale: str, organization: Organization) -> str:
@@ -193,12 +203,12 @@ def shown(asked: str | None) -> dict[str, Any]:
     and the marketing consent to offer, if any."""
     organization = _organization()
     locale = _locale(asked, organization)
-    bookable = bookable_locales(organization)
+    languages = _languages(locale, organization)
     statement = _marketing(locale, organization)
     return {
         **_payload(_in_force(locale), locale),
-        "bookable": locale in bookable,
-        "bookable_locales": list(bookable),
+        "bookable": languages.bookable,
+        "bookable_locales": list(languages.offered),
         "marketing": {"statement": statement} if statement else None,
     }
 
@@ -232,9 +242,9 @@ def record(
         consents = BookingConsents()
     organization = _organization()
     locale = _locale(asked, organization)
-    bookable = bookable_locales(organization)
-    if locale not in bookable:
-        raise BookingLanguageUnavailable(locale, bookable)
+    languages = _languages(locale, organization)
+    if not languages.bookable:
+        raise BookingLanguageUnavailable(locale, languages.offered)
     documents = _in_force(locale)
     if any(document.text_id not in consents.documents for document in documents):
         raise DocumentsChanged(_payload(documents, locale))
