@@ -27,7 +27,7 @@
         ],
         "type": "object"
       },
-      "model_description": "Returns the bookings that start on the days `from`–`to` (both included, the company's local days, at most 31 at once), earliest first, up to 60 (`more` says there are others — ask for fewer days): each with its service, starts_at and ends_at as the company's local time, its place, the unit it takes when it is a stay or a rental, its status — pending_request (waits for the company's answer), pending_payment (waits for a prepayment), confirmed, completed, canceled, no_show — the number of its order when it has one, and `customer`: a handle such as klient:k7m2q. You never get the customer's name, e-mail or phone; write the handle where you mean the person and the panel shows the person their card — so „who comes tomorrow” and „give me the phone of tomorrow's customer” are both answered with the handle. The person may see only their own visits; then only those are here. Work the day out from the time stamp of the person's message („jutro” is the day after it, in the company's time zone).",
+      "model_description": "Returns the bookings that start on the days `from`–`to` (both included, the company's local days, at most 31 at once), earliest first, up to 60 (`more` says there are others — ask for fewer days): each with its service, starts_at and ends_at — already the company's local clock, not UTC: say the hours exactly as written and convert nothing — its place, the unit it takes when it is a stay or a rental, its status — pending_request (waits for the company's answer), pending_payment (waits for a prepayment), confirmed, completed, canceled, no_show — the number of its order when it has one, and `customer`: a handle such as klient:k7m2q. You never get the customer's name, e-mail or phone; write the handle where you mean the person and the panel shows the person their card — so „who comes tomorrow” and „give me the phone of tomorrow's customer” are both answered with the handle. The person may see only their own visits; then only those are here. Work the day out from the time stamp of the person's message („jutro” is the day after it, in the company's time zone).",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -70,9 +70,6 @@
                     "canceled",
                     "no_show"
                   ],
-                  "type": "string"
-                },
-                "timezone": {
                   "type": "string"
                 },
                 "unit": {

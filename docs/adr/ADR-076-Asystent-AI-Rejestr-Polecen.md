@@ -970,3 +970,97 @@ otwarte (niżej, pkt 7).
    scenariuszy tego uzupełnienia (zamówienia, wpłata w słowach osoby, „całość”,
    brak kwoty, wycofanie, prośby, dwie prośby naraz, wstrzymane tłumaczenia).
    Prompt `assistant.operate@3` bez zmian: reguły niosą opisy poleceń.
+
+## Uzupełnienie 2026-10-04: karty osób — uchwyt dla modelu, karta dla osoby
+
+Kierunek właściciela (04.10): asystent ma być przydatny przy klientach („czy pan
+Kowalski zapłacił?”, „podaj mi telefon do klienta z jutrzejszej wizyty”), dostawcy
+modeli nie mogą uczyć się na naszych zapytaniach, docelowo własny model platformy;
+narzędzia mają zwracać odpowiedzi deterministyczne. Rozstrzyga pkt 2 i pkt 7
+poprzedniego uzupełnienia („czy dane klientów mogą trafiać do modelu”): nie muszą.
+
+1. **Wynik narzędzia ma dwie części.** Model dostaje nieprzezroczysty uchwyt osoby
+   (`klient:k7m2q`) i fakty bez danych osobowych: numer zamówienia, kwoty, stany,
+   terminy. Osoba przy ekranie dostaje **kartę** — imię i nazwisko, e-mail, telefon,
+   „Kopiuj” i odnośnik do zamówienia albo dnia w kalendarzu — którą serwer czyta przy
+   odczycie rozmowy, z rekordu takiego, jaki jest w tej chwili. Treść karty nie jest
+   częścią żadnego żądania do modelu: model jej nie dostał, więc nie może jej
+   wypisać. W tabelach asystenta nie powstaje kopia danych klienta — przy wyniku
+   narzędzia zapisane jest tylko, który rekord oznacza uchwyt (`result.people`
+   wiadomości `tool`, obok `content`, którego jedynego czyta model). Klient
+   zanonimizowany znika więc także z kart starych rozmów.
+2. **Uchwyt jest wyprowadzony, nie numerowany**: HMAC z firmy, rozmowy
+   (`acting_ref`), rodzaju i identyfikatora rekordu, pięć znaków base32 (dłuższy, gdy
+   dwa zaczynają się tak samo). Ta sama osoba ma w rozmowie jeden uchwyt, którekolwiek
+   narzędzie ją nazwie; inna rozmowa ma dla niej inny; uchwyt wymyślony nie oznacza
+   nikogo. Odrzucone: `klient:1`, `klient:2` — model zgaduje sąsiedni numer i pokazuje
+   cudzą kartę, a ten sam numer w dwóch rozmowach znaczy dwie różne osoby.
+3. **Rejestr poleceń** (`core/organizations/command_people.py`, eksport z
+   `core.organizations.api`): `person_handle(kind, id)` — polecenie pisze uchwyt tam,
+   gdzie odpowiedź znaczy osobę; `resolve_person(kind, handle, field=…)` — polecenie
+   przyjmujące uchwyt dostaje rekord albo odmawia `person_handle_unknown` z nazwą
+   pola; `known_people(book)` — kanał (rozmowa) wykonuje plan ze swoją księgą
+   uchwytów, a wydane przy tym uchwyty do niej trafiają; `register_person_kind` i
+   `person_cards` — moduł-właściciel rekordu robi kartę dla wołającego. Rozwiązuje
+   się tylko uchwyt z księgi wołającego, więc uchwyt z innej rozmowy, z innej firmy
+   albo zgadnięty jest odmową — także w podglądzie planu i przy wykonaniu po zgodzie
+   (ta sama księga). Wykonanie poza kanałem z księgą wydaje uchwyty, których nic
+   potem nie rozwiąże.
+4. **Kto co widzi — jak w panelu.** Rodzaj `customer` należy do `shared.customers`,
+   ale reguły widoczności są tam, gdzie panel pokazuje klienta
+   (`register_customer_viewer`): kalendarz mówi nazwisko na każdej wizycie, którą
+   osoba widzi, a e-mail i telefon planującym wizyty i osobom na tej wizycie
+   (ADR-067, `visible_contacts`); zamówienia mówią kupującego temu, kto czyta
+   zamówienia. Karta to suma tego, co pozwalają moduły; klienta, którego żaden nie
+   pokazuje wołającemu, wyszukiwanie nie znajduje, a jego karta jest pusta („osoba,
+   której danych nie widzisz”). Karta nie jest audytowanym odczytem `personal` z pkt 1
+   decyzji: model niczego nie dostaje, a osoba widzi to, co pokazałby jej panel.
+5. **Polecenia.** Nowe: `customers.find@1` (słowa osoby — imię i nazwisko, e-mail
+   albo telefon — dopasowuje serwer; wynik to uchwyty, co pasowało i skąd panel zna
+   osobę; uprawnienie `organization.read`, bo widoczność rozstrzygają moduły) i
+   `booking.appointments.read@1` (wizyty i pobyty z dni od–do, jak lista kalendarza
+   tej osoby: usługa, godziny na zegarze firmy, miejsce, jednostka, stan, numer
+   zamówienia, klient jako uchwyt). Dodane pola wyjścia: `buyer` w
+   `commerce.orders.read@1` i `commerce.order.read@1`, `customer` w
+   `booking.requests.read@1`. Dodane wejście `customer` (uchwyt) w
+   `commerce.orders.read@1` — w istniejącej wersji: odczyt nie wiąże planu ani zgody,
+   więc żadna zapisana zgoda nie zależy od kształtu jego wejścia.
+6. **Zapis o osobie bierze uchwyt** — mechanizm (pkt 3) jest i ma testy; dziś żadne
+   polecenie zapisujące nie nazywa osoby (rezerwacja dla klienta, odwołanie i
+   przeniesienie to A7) i pierwsze takie użyje go bez zmian w rejestrze.
+7. **Imię wpisane przez osobę to jej słowa** i jedyne dane osobowe klienta, jakie
+   model widzi: trafia do modelu z wiadomością i wraca w jego własnym wywołaniu
+   (`q`). Serwer dopasowuje je do rekordów i oddaje uchwyty.
+8. **Rozmowa** (`assistant-chat.md`): prompt `assistant.operate@4` (reguła o
+   osobach; uchwyt jest jedynym identyfikatorem, który wolno napisać); obszar
+   `customers` (`customers.find`, `booking.appointments.*`; słowa „telefon”,
+   „kontakt”, „nazwisko”, „mail”, „kalendarz”, „wizyta”, „pobyt”, a „klient”, „jutro”
+   i „dziś” tylko, gdy nic dokładniejszego nie padło); obszar `documents` zawężony do
+   `customers.document*`; obszar `orders` dostał „zapłacił”, „zapłacone”, „opłacone”
+   („ile zapłaci” zostaje wyceną). API rozmowy oddaje przy tekście asystenta `people`
+   — karty uchwytów, które ten tekst nazywa; panel pokazuje imię i nazwisko w miejscu
+   uchwytu i kartę pod tekstem.
+9. **Dostawcy modeli** (`model-port.md`, „Dostawcy i prywatność zapytań”): ustawienie
+   platformy `model_port.privacy.no_training_providers` (domyślnie włączone) —
+   zapytania idą tylko do dostawców, którzy nie zapisują promptów i nie uczą na nich
+   modeli, a gdzie model ma takie serwery, bez przechowywania danych (ZDR); gdy żaden
+   taki dostawca nie obsługuje modelu, wywołanie kończy się błędem konfiguracji i
+   nic nie jest wysyłane ponownie. Zapytania klasy `personal` — każda rozmowa
+   asystenta — idą tak zawsze, cokolwiek mówi przełącznik.
+10. **Dowody.** `tests/test_assistant_people.py`: każde żądanie, które port przekazał
+    adapterowi, zamienione na dokładne JSON dla OpenRoutera i przeszukane pod kątem
+    imienia, nazwiska, e-maila i telefonu każdego klienta — jest tam tylko to, co
+    osoba wpisała (test czerwienieje po dodaniu `buyer_name` do wyjścia); karta dla
+    właściciela, dla pracownika na wizycie i poza nią, po anonimizacji; uchwyt z innej
+    rozmowy, z innej firmy i wymyślony. Evale: pytanie po nazwisku, prośba o telefon,
+    wyszukanie po e-mailu, uchwyt z innej rozmowy, prośba o wypisanie danych z karty —
+    12 / 12 na Sonnet 5.5 za USD 0,30 (`docs/evals/assistant/README.md`).
+11. **Czego tu nie ma.** Osoby firmy (pracownicy) nadal są nazwami w
+    `booking.setup.read` (klasa `personal`, bez zmian). Wyszukiwanie nie odmienia
+    nazwisk i nie zdejmuje polskich znaków („Kowalskiego”, „Wisniewska” nie znajdą) —
+    opis polecenia każe modelowi podać formę podstawową. Polecenia zwrotów z powodem
+    słowami firmy zostają otwarte. `booking.requests.read@1` podaje godziny lokalne
+    obok pola `timezone` — w `booking.appointments.read@1` to pole zniknęło, bo w
+    przeglądarce model przesunął przy nim godziny o dwie; w prośbach zostało (do
+    poprawy). Słowo „uchwyt” pada w odpowiedziach modelu, a osoba widzi w tym miejscu
+    imię i nazwisko — do poprawy w następnej wersji promptu, z ponownym przebiegiem.

@@ -133,8 +133,12 @@ anywhere ahead of them.
   written to with the amount and the way (`commerce.refund_marked`), and again
   when the mark is taken back (`commerce.refund_withdrawn`).
 - **The assistant never learns who bought.** Its commands name an order by its
-  number and what it is for; a new output field with a buyer's data needs the
-  audited read of ADR-076 §1 first. A payment is the person's own amount, on
+  number and what it is for; the buyer is a handle (`person_handle(CUSTOMER,
+  order.customer_id)`, ADR-076 „karty osób”) that the panel turns into a card
+  for whoever reads the conversation — `people.buyers_of_orders` says who may
+  see a buyer there, by the orders' own rule. A command that takes a person
+  takes the handle (`resolve_person`). An output field with a buyer's name,
+  e-mail or phone still needs the audited read of ADR-076 §1 first. A payment is the person's own amount, on
   its own click, with the words written from the service's preview.
 - **The deadlines' task reads a route, not a tenant.** `commerce_paymentroute`
   carries ids and a date, never a buyer's data, and a `service` contract of

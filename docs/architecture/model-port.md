@@ -153,6 +153,44 @@ Zwracaną `continuation` port oznacza modelem zadania, nie datowaną nazwą z od
 dostawcy, więc następna tura tego samego modelu zawsze ją dostaje. Rozmowa z `continuation` jest tylko dopisywana: odrzucenie przez
 dostawcę zmienionej historii to `invalid_request`.
 
+## Dostawcy i prywatność zapytań
+
+Adapter OpenRoutera mówi w każdym żądaniu, którzy dostawcy modelu mogą je dostać
+(preferencje `provider`, dokumentacja OpenRoutera „Provider Routing” i „Zero Data
+Retention”, sprawdzona 04.10.2026):
+
+- `data_collection: "deny"` — tylko dostawcy, którzy nie zapisują promptów i nie
+  uczą na nich modeli (domyślna wartość OpenRoutera to `allow`);
+- `zdr: true` — tylko punkty bez przechowywania danych; wysyłane, gdy model ma je w
+  macierzy (możliwość `zdr`), a przy klasie `personal` zawsze (model bez `zdr` nie
+  dostaje wtedy żądania w ogóle: `capability_not_supported`);
+- `require_parameters: true` — tylko dostawcy przyjmujący wszystkie parametry żądania.
+
+Steruje tym ustawienie platformy `model_port.privacy.no_training_providers`
+(`bool`, domyślnie włączone, tylko operator platformy poziomu 2; grupa „Prywatność
+zapytań do modeli AI”). Wyłączone pozwala żądaniom **bez** danych osobowych (treść
+publiczna do tłumaczenia) trafić do dowolnego dostawcy modelu (`data_collection:
+"allow"`, bez `zdr`). Żądanie klasy `personal` — każda rozmowa asystenta — ignoruje
+przełącznik i zawsze idzie z `deny` i `zdr`.
+
+**Zamknięcie zamiast poluzowania.** Preferencje tylko zawężają dostawców i port ich
+nigdy nie cofa: adapter nie ma ścieżki, która wysyła żądanie drugi raz z mniejszymi
+wymaganiami. Gdy żaden dostawca modelu ich nie spełnia, OpenRouter odmawia zamiast
+trasować gdzie indziej. Jego dokumentacja nie podaje statusu ani treści tej odmowy;
+port rozpoznaje ją po słowach „no endpoints”, „no allowed providers” albo „no
+providers” w komunikacie przy 404 i 503 (także w obiekcie `error` odpowiedzi 200) i
+kończy wywołanie jako `configuration` / `no_provider` — para zadanie–model jest
+wtedy blokowana jak przy każdym braku dostawcy. Odmowa o innej treści też kończy
+wywołanie błędem (404 — `configuration`, 503 — `retryable` z tymi samymi
+preferencjami). `AdapterCall.no_training` niesie decyzję do adaptera; adapter, który
+nie umie jej przekazać dostawcy, ma odmówić wywołania.
+
+Co to znaczy, a czego nie: gwarancją jest polityka danych, którą dostawca
+zadeklarował OpenRouterowi, i trasowanie OpenRoutera — port jej nie weryfikuje.
+`resolved_provider` w telemetrii mówi, kto obsłużył wywołanie: rozmowy z 04.10 na
+`anthropic/claude-sonnet-5.5` obsłużył dostawca `Google`. To kolejny podmiot w
+łańcuchu przetwarzania, o którym powinny mówić dokumenty prywatności platformy.
+
 ## Odpowiedź
 
 - `finish_reason == "tool_calls"`: `output` pusty, każde wywołanie niesie
@@ -183,7 +221,7 @@ dostawcę zmienionej historii to `invalid_request`.
 | `retryable` | 429; 503 inne niż brak dostawcy; 5xx z `Retry-After` poza 502 i 504; błąd połączenia przed wysłaniem; zajęte miejsce WWW (`web_capacity`, 2 s) | `retry_after` z nagłówka albo backoffu | ponawia po `retry_after` |
 | `unknown_outcome` | 408, 502, 504; inne 5xx bez `Retry-After`; 200 z `finish_reason: error`; termin minął albo połączenie zerwało się po wysłaniu | koszt pusty, do sufitów liczy się szacunek | najwyżej raz przez `resend_of`, gdy zadanie ma `resend_unknown` |
 | `account_limit` | 402 | blokuje adapter na godzinę dla wszystkich zadań; alarm | czeka do `until` |
-| `configuration` | 503 brak dostawcy (para zadanie–model na 15 min, trzeci raz w dobie — do decyzji operatora); 401 (adapter na godzinę); 404; pusty klucz; `key_not_mounted`; `model_not_selected`, `model_not_allowed`, `model_lacks_capability`, `adapter_unknown`, `processor_not_listed`, `task_disabled`, `resolved_model_mismatch` | alarm; bez wywołania, gdy przyczyną jest nasza konfiguracja | zadanie niedostępne do `until` albo zmiany konfiguracji |
+| `configuration` | 503 albo 404 brak dostawcy spełniającego politykę danych — `no_provider` (para zadanie–model na 15 min, trzeci raz w dobie — do decyzji operatora); 401 (adapter na godzinę); inne 404; pusty klucz; `key_not_mounted`; `model_not_selected`, `model_not_allowed`, `model_lacks_capability`, `adapter_unknown`, `processor_not_listed`, `task_disabled`, `resolved_model_mismatch` | alarm; bez wywołania, gdy przyczyną jest nasza konfiguracja | zadanie niedostępne do `until` albo zmiany konfiguracji |
 | `invalid_request` | 400, 413 i inne 4xx; reguły żądania wyżej | bez wywołania, poza błędami dostawcy | błąd programu albo pozycja pominięta wcześniej |
 | `invalid_output` | odpowiedź niezgodna ze schematem, ucięta przy schemacie albo w argumentach narzędzia, nieczytelna | zapisuje koszt; dołącza częściową odpowiedź | tłumaczenia jak odmowa; asystent decyduje sam |
 | `tool_args_invalid` | argumenty nie są obiektem JSON albo nie spełniają `input_schema`; narzędzie spoza listy | zapisuje koszt; `response` i `errors` jak wyżej | odsyła turę i wiadomości `tool` z błędem |
@@ -309,6 +347,7 @@ rozliczenia), `created_at`, `expires_at`, `finished_at`. Indeksy: (`pool`,
 | `MODEL_PORT_WEB_CALLS_PER_PROCESS` | limiter wywołań z żądań HTTP | 1 |
 | `GUNICORN_GRACEFUL_TIMEOUT` | łagodne zamknięcie gunicorna i górny limit wywołania WWW + 2 s | 20 |
 | profil: `ai.sendableDataClasses` | klasy treści, które wolno wysłać | `["public", "public_personal"]` |
+| ustawienie platformy `model_port.privacy.no_training_providers` | tylko dostawcy, którzy nie zbierają zapytań (wyżej) | włączone |
 
 Od fazy 1 planu ustawień wartości bez sekretów przechodzą do rejestru ustawień z
 historią (wpisem `memex ops` z `platform_setting`).
@@ -374,7 +413,10 @@ kod, status HTTP, `retry_after`). Wywołanie spoza skryptu oblewa test; otrzyman
 ## Dowody
 
 - Atrapa transportu: kształt żądania zgodny z macierzą (bez parametrów zakazanych,
-  `provider` z `deny`, `require_parameters` i ZDR, `transforms: []`, `user` jako HMAC,
+  `provider` z `deny`, `require_parameters` i ZDR — domyślnie i dla `personal` także po
+  wyłączeniu ustawienia platformy, `allow` tylko dla treści bez danych osobowych po jego
+  wyłączeniu; 404 „No endpoints…” jako `no_provider` bez drugiego żądania;
+  `transforms: []`, `user` jako HMAC,
   narzędzia ze `strict`, znaczniki cache tylko przy modelu z cache), każde mapowanie z
   tabeli błędów, także statusy spoza niej i `length` przed pustą odpowiedzią; brak
   przekierowań; termin całkowity przy odpowiedzi sączonej porcjami; limity rozmiaru;

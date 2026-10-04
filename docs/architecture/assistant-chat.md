@@ -80,7 +80,7 @@ GET rozmowa  <-  tura done
 
 ## Co widzi model
 
-- Stały prompt (`prompts.py`: `assistant.operate@3`, w rozmowie zakładającej
+- Stały prompt (`prompts.py`: `assistant.operate@4`, w rozmowie zakładającej
   `assistant.setup@4`) i język panelu rozmowy.
 - Wiadomości osoby z czasem wysłania w nawiasie kwadratowym (UTC).
 - Narzędzia zwykłej rozmowy: z `command_tools(context)` — poleceń, do których osoba
@@ -103,6 +103,25 @@ GET rozmowa  <-  tura done
 - Ostatnia wiadomość transkryptu niesie znacznik cache dostawcy (obok narzędzi i
   promptu): następne wywołanie czyta wcześniejsze wyniki za dziesiątą część ceny.
 - Klasa danych żądania to zawsze `personal`.
+- **Osoba w wyniku narzędzia to uchwyt** (`klient:k7m2q`), nigdy imię i nazwisko,
+  e-mail ani telefon (ADR-076, „karty osób”). Z danych klienta model widzi tylko
+  to, co osoba sama wpisała w tej rozmowie. Uchwyt jest wyprowadzony z rozmowy i
+  rekordu: ten sam w całej rozmowie, inny w każdej innej, a wymyślony nie oznacza
+  nikogo. Polecenie, które przyjmuje uchwyt, rozwiązuje go wyłącznie z księgi tej
+  rozmowy; inaczej odmawia (`person_handle_unknown`).
+
+## Co widzi osoba: karty
+
+Rozmowa trzyma księgę uchwytów przy wynikach narzędzi (`result.people` wiadomości
+`tool`: uchwyt → rodzaj i identyfikator rekordu) — obok `content`, nigdy w nim.
+`GET conversations/{id}/` dokłada do każdej pozycji `text`, która nazywa osobę
+uchwytem z tej księgi, listę `people`: `{handle, kind, name, email, phone, links}`.
+Kartę czyta moduł-właściciel rekordu w chwili odczytu, z uprawnieniami osoby, która
+czyta rozmowę — jak w panelu: pracownik widzi telefon klienta wizyty, na której jest,
+a nie cudzej; kto nie czyta zamówień, nie dostaje odnośnika do zamówienia; `null`
+znaczy „nie ma albo nie możesz zobaczyć”. Klient zanonimizowany nie ma już kontaktu
+także w starej rozmowie. Panel pokazuje imię i nazwisko w miejscu uchwytu, a pod
+tekstem kartę z „Kopiuj” i odnośnikami. Uchwyt spoza księgi zostaje zwykłym tekstem.
 
 ## Dowody na lokalnym stosie
 
@@ -120,7 +139,7 @@ budżet rozmowy ustawiającej liczą się jak zwykle.
 | `GET offer/` | czy czat przyjmie wiadomość i dlaczego nie (`reasons`), czy jest w planie, koszt wiadomości w kredytach |
 | `GET conversations/` | rozmowy zalogowanej osoby w tej firmie |
 | `POST conversations/` | nowa rozmowa (`Idempotency-Key`) |
-| `GET conversations/{id}/` | tury: wiadomość osoby, teksty asystenta, kroki ze statusem, grupy zgody |
+| `GET conversations/{id}/` | tury: wiadomość osoby, teksty asystenta z kartami osób (`people`), kroki ze statusem, grupy zgody |
 | `POST conversations/{id}/turns/` | wiadomość (`Idempotency-Key`), 202 |
 | `POST conversations/{id}/turns/{turn}/consents/` | tokeny zgód albo `declined`, 202 |
 | `GET`, `PATCH profile/`, `POST profile/preview/` | profil firmy (A2) — `assistant-profile.md` |
@@ -138,7 +157,8 @@ Kody: 503 `assistant_unavailable`, 403 `assistant_not_in_plan`, 403
 
 `assistant_assistantconversation`, `assistant_assistantturn`,
 `assistant_assistantmessage` — tabele firmy z RLS. Treść rozmowy nie trafia do
-logów ani telemetrii portu. Retencja: `assistant.retention.conversation_days`,
+logów ani telemetrii portu. Z danych klientów rozmowa trzyma tylko identyfikatory
+rekordów przy uchwytach (`result.people`), nie imiona ani kontakty. Retencja: `assistant.retention.conversation_days`,
 wykonywana przez wspólny nocny przebieg prywatności (`assistant/retention.py`,
 przemiatanie `assistant.conversations`); usunięcie firmy zabiera rozmowy.
 
@@ -178,4 +198,8 @@ kodu, który by go wysyłał, a A3-2 wyśle tylko to, czego wymaga pytanie.
   nieodwracalnym, przed kliknięciem i po nim; odpowiedź z formą z rodzajem przepisana
   raz; narzędzia według tematu rozmowy; znacznik cache i wyniki bez `null`; konto
   dowodowe liczone z evalami, a na https — kontrola `assistant.E001`.
+- `tests/test_assistant_people.py` (karty osób): dokładne JSON każdego żądania, jakie
+  dostałby OpenRouter, bez imienia, e-maila i telefonu klientów poza tym, co osoba
+  wpisała; karta dla właściciela, dla pracownika i po anonimizacji; uchwyt z innej
+  rozmowy, z innej firmy i wymyślony.
 - Panel: `apps/frontend/src/modules/shared/assistant/assistant-panel.test.tsx`.

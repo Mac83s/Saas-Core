@@ -136,6 +136,14 @@ operation also adds its registry entry (schema, risk level, preview, eval).
   (`locale_not_enabled`). The panel's own language stays `LocaleEnum` pl/en.
   Changing a field from one to the other changes the operation's fingerprint,
   so it then has to meet the OpenAPI floor (`pnpm api:check`).
+- **A person in a command's answer is a handle, never a name** (ADR-076 „karty
+  osób”). Where an output means a customer, write
+  `person_handle(CUSTOMER, customer_id)`; where an input names one, take the
+  handle and `resolve_person(CUSTOMER, handle, field=…)` — it refuses a handle
+  of another conversation. The module that shows that person in the panel
+  registers who may see them (`register_customer_viewer`), so the card the
+  reader gets matches the panel. `tests/test_assistant_people.py` fails when a
+  name, an e-mail or a phone reaches the request sent to a model.
 - **A command for the assistant is registered, not generated.** Declare a
   `CommandSpec` over the panel's service and `register_command` it in the
   module's `AppConfig.ready()` (`core.organizations.api`, ADR-076 §1, §4); the

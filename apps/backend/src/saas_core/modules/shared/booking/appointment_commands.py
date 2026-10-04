@@ -60,9 +60,10 @@ def _read_appointments(arguments: Mapping[str, Any], call: Any) -> dict[str, Any
                 "appointment_id": str(item.id),
                 "service": item.service_name,
                 "status": item.status,
+                # The company's wall clock, and no time zone beside it: a zone
+                # next to a local time was read as „convert this” (walk, 04.10).
                 "starts_at": _local_iso(item.starts_at, item.timezone),
                 "ends_at": _local_iso(item.ends_at, item.timezone),
-                "timezone": item.timezone,
                 "place": item.location.name,
                 "unit": item.resource.name if item.resource else None,
                 "customer": person_handle(CUSTOMER, item.customer_id),
@@ -89,7 +90,8 @@ APPOINTMENTS_READ = CommandSpec(
         "Returns the bookings that start on the days `from`–`to` (both included, the "
         f"company's local days, at most {MAX_DAYS} at once), earliest first, up to {AT_ONCE} "
         "(`more` says there are others — ask for fewer days): each with its service, "
-        "starts_at and ends_at as the company's local time, its place, the unit it takes "
+        "starts_at and ends_at — already the company's local clock, not UTC: say the hours "
+        "exactly as written and convert nothing — its place, the unit it takes "
         "when it is a stay or a rental, its status — pending_request (waits for the "
         "company's answer), pending_payment (waits for a prepayment), confirmed, completed, "
         "canceled, no_show — the number of its order when it has one, and `customer`: a "
@@ -132,7 +134,6 @@ APPOINTMENTS_READ = CommandSpec(
                         "status": {"type": "string", "enum": _STATUSES},
                         "starts_at": {"type": "string"},
                         "ends_at": {"type": "string"},
-                        "timezone": {"type": "string"},
                         "place": {"type": "string"},
                         "unit": {"type": ["string", "null"]},
                         "customer": {"type": "string"},
