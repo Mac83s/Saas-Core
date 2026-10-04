@@ -161,6 +161,13 @@
       "schemas": {
         "1": "core.stay_unit.v1.schema.json"
       }
+    },
+    {
+      "type": "core.stay_map",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.stay_map.v1.schema.json"
+      }
     }
   ],
   "designTokens": "design-tokens.v1.schema.json"

@@ -155,6 +155,7 @@ const SETUP = {
       city_slug: "",
       latitude: null as number | null,
       longitude: null as number | null,
+      show_exact_location: false,
       photo_ids: [] as string[],
       version: 1,
     },
@@ -780,6 +781,24 @@ test("jednostka firmy z pobytami: co widzi gość — adres, miejscowość, wsp�
     "Podaj obie współrzędne albo żadnej.",
   );
   expect(api.updateSetupResource).not.toHaveBeenCalled();
+  // „Pokaż dokładne położenie” says what it publishes, and needs a point.
+  const exact = within(unit).getByLabelText("Pokaż dokładne położenie");
+  expect(exact).not.toBeChecked();
+  expect(exact).toHaveAccessibleDescription(
+    /współrzędne jednostki stają się publiczne — odczyta je każdy, kto otworzy stronę\. Bez zaznaczenia mapa pokazuje tylko miejscowość/,
+  );
+  fireEvent.click(exact);
+  fireEvent.change(within(unit).getByLabelText("Szerokość geograficzna"), {
+    target: { value: "" },
+  });
+  fireEvent.click(within(unit).getByRole("button", { name: "Zapisz" }));
+  expect(await within(unit).findByRole("alert")).toHaveTextContent(
+    "Podaj obie współrzędne, zanim pokażesz dokładne położenie.",
+  );
+  expect(api.updateSetupResource).not.toHaveBeenCalled();
+  fireEvent.change(within(unit).getByLabelText("Szerokość geograficzna"), {
+    target: { value: "53,8645" },
+  });
   fireEvent.change(within(unit).getByLabelText("Długość geograficzna"), {
     target: { value: "21.305" },
   });
@@ -798,6 +817,7 @@ test("jednostka firmy z pobytami: co widzi gość — adres, miejscowość, wsp�
         city_slug: "mragowo",
         latitude: "53.864500",
         longitude: "21.305000",
+        show_exact_location: true,
         amenities: ["sauna", "fireplace"],
         photo_ids: [COVER, PHOTO],
         expected_version: 1,

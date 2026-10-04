@@ -127,6 +127,7 @@ const setup = {
       city_slug: "",
       latitude: null,
       longitude: null,
+      show_exact_location: false,
       photo_ids: [],
     },
   ],

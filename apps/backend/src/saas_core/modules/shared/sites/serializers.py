@@ -222,7 +222,9 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="What the blocks that show the company's live records show now, by "
         "the block's position in `blocks` („0”, „3”): the stay offers of `core.stay_units`, "
         "`core.stay_search` and `core.stay_calendar` — the form's address, the offers and "
-        "what a guest chooses of each. A block without an entry draws nothing.",
+        "what a guest chooses of each — a unit's card (`core.stay_unit`), and for "
+        "`core.stay_map` the `place`: the unit's town and its centre, or — `exact` — the "
+        "unit's own point once its company shows it. A block without an entry draws nothing.",
     )
     navigation = PublicNavigationLinkSerializer(many=True)
     feeds = PublicFeedLinksSerializer()

@@ -302,3 +302,61 @@
     align-items: start;
   }
 }
+
+/* Where a unit is (the map block of slice 5e): the place, a cover with
+   „Pokaż mapę”, then OpenStreetMap's frame in the cover's place — the same
+   box, so the page does not jump when the map arrives. */
+.site-block--stay-map .site-stay__body,
+.site-stay-map {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.site-stay-map__cover,
+.site-stay-map__frame {
+  box-sizing: border-box;
+  width: 100%;
+  height: clamp(16rem, 45cqw, 26rem);
+  border: 1px solid var(--border);
+  border-radius: var(--site-radius, 0.75rem);
+}
+.site-stay-map__cover {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  text-align: center;
+  background: var(--card, transparent);
+}
+.site-stay-map__frame {
+  display: block;
+}
+.site-stay-map__cover .site-section__action {
+  justify-self: center;
+  max-width: 100%;
+  height: auto;
+  white-space: normal;
+}
+.site-theme .site-block .site-stay-map__place {
+  margin: 0;
+  font-weight: 600;
+}
+.site-theme .site-block .site-stay-map__note,
+.site-theme .site-block .site-stay-map__notice {
+  margin: 0;
+  max-width: 34rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.site-theme .site-block .site-stay-map__links {
+  margin: 0;
+}
+.site-stay-map__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

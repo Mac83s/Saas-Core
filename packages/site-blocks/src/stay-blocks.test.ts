@@ -8,11 +8,14 @@ import {
   renderDraftPreview,
   renderPublishedPage,
   stayFormHref,
+  stayMapEmbed,
+  stayMapLink,
   type DesignTokensV1,
   type JsonObject,
   type PublishedPageDocument,
   type SiteBlock,
   type StayLive,
+  type StayPlace,
 } from "./index";
 
 const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
@@ -371,6 +374,158 @@ describe("stay blocks", () => {
       }),
     ).toBe(
       `${FORM}?offer=${STAY}&unit=${FLAT}&from=2027-07-03&to=2027-07-10&people=4`,
+    );
+  });
+});
+
+/** A unit's own point, and the same unit shown by its town only. */
+const point: StayPlace = {
+  name: "Domek nad jeziorem",
+  town: { slug: "mragowo", name: "Mrągowo" },
+  exact: true,
+  latitude: 53.8712,
+  longitude: 21.3184,
+};
+const town: StayPlace = {
+  ...point,
+  exact: false,
+  latitude: 53.8645,
+  longitude: 21.305,
+};
+const map = (data: JsonObject = {}): SiteBlock => ({
+  block_type: "core.stay_map",
+  schema_version: 1,
+  data,
+});
+
+describe("the map of where a unit is", () => {
+  it("names the place and hands the map to the application; without it the link to the map is still there", () => {
+    const seen: unknown[] = [];
+    const html = renderToStaticMarkup(
+      renderPublishedPage(
+        published(
+          [map({ title: "Dojazd", text: "Dwie godziny z Warszawy." })],
+          {
+            "0": { place: point },
+          },
+        ),
+        registry,
+        undefined,
+        (blockType, data, answer) => {
+          seen.push([blockType, data, answer]);
+          return createElement("div", { id: "app-map" });
+        },
+      ),
+    );
+
+    expect(html).toContain('data-block-type="core.stay_map"');
+    expect(html).toContain("<h2>Dojazd</h2>");
+    expect(html).toContain("Dwie godziny z Warszawy.");
+    expect(html).toContain("Domek nad jeziorem · Mrągowo");
+    expect(html).toContain('id="app-map"');
+    // The unit's own point is shown as it is: no „town only” note.
+    expect(html).not.toContain("nie dokładny adres");
+    expect(seen).toEqual([
+      [
+        "core.stay_map",
+        { title: "Dojazd", text: "Dwie godziny z Warszawy." },
+        { place: point },
+      ],
+    ]);
+
+    const plain = renderToStaticMarkup(
+      renderPublishedPage(
+        published([map()], { "0": { place: town } }),
+        registry,
+      ),
+    );
+    // No words of its own: the block's own heading, in the page's language.
+    expect(plain).toContain("<h2>Położenie</h2>");
+    expect(plain).toContain("Mapa pokazuje miejscowość, nie dokładny adres.");
+    expect(plain).toContain(
+      'href="https://www.openstreetmap.org/#map=12/53.8645/21.305"',
+    );
+    expect(plain).toContain('rel="noopener noreferrer"');
+    expect(plain).toContain("Otwórz w mapach");
+    // Nothing of the map's provider is loaded by the page itself.
+    expect(plain).not.toContain("<iframe");
+    expect(plain).not.toContain("<img");
+    expect(plain).not.toContain("<script");
+  });
+
+  it("is no section without an answer, and a sketch in the editor", () => {
+    const none = renderToStaticMarkup(
+      renderPublishedPage(published([hero, map()], {}), registry),
+    );
+    expect(none).not.toContain("core.stay_map");
+
+    const draft = renderToStaticMarkup(
+      renderDraftPreview(
+        {
+          kind: "draft-preview",
+          versionId: "draft-1",
+          blocks: [map()],
+          designTokens: tokens,
+        },
+        registry,
+      ),
+    );
+    expect(draft).toContain("Na opublikowanej stronie pojawi się tu mapa");
+    expect(draft).toContain("Pokaż dokładne położenie");
+    expect(draft).not.toContain("openstreetmap");
+    expect(draft).not.toContain("<a ");
+  });
+
+  it("speaks the page's language", () => {
+    const html = renderToStaticMarkup(
+      renderPublishedPage(
+        published([map()], { "0": { place: town } }, "de"),
+        registry,
+      ),
+    );
+    expect(html).toContain("<h2>Lage</h2>");
+    expect(html).toContain(
+      "Die Karte zeigt den Ort, nicht die genaue Adresse.",
+    );
+    expect(html).toContain("In Karten öffnen");
+  });
+
+  it("asks OpenStreetMap for a pin on a unit's own point and for the whole town otherwise", () => {
+    const pinned = new URL(stayMapEmbed(point));
+    expect(pinned.origin + pinned.pathname).toBe(
+      "https://www.openstreetmap.org/export/embed.html",
+    );
+    expect(pinned.searchParams.get("marker")).toBe("53.8712,21.3184");
+    expect(pinned.searchParams.get("layer")).toBe("mapnik");
+    const box = (url: URL) =>
+      url.searchParams.get("bbox")!.split(",").map(Number) as [
+        number,
+        number,
+        number,
+        number,
+      ];
+    const [west, south, east, north] = box(pinned);
+    // The point in the middle, a few streets around it.
+    expect((west + east) / 2).toBeCloseTo(21.3184, 4);
+    expect((south + north) / 2).toBeCloseTo(53.8712, 4);
+    expect(north - south).toBeLessThan(0.02);
+    // A town: no pin, and ten times the reach.
+    const wide = new URL(stayMapEmbed(town));
+    expect(wide.searchParams.has("marker")).toBe(false);
+    const [, townSouth, , townNorth] = box(wide);
+    expect(townNorth - townSouth).toBeGreaterThan(0.05);
+    // Nothing but the place travels in the address.
+    expect([...pinned.searchParams.keys()].sort()).toEqual([
+      "bbox",
+      "layer",
+      "marker",
+    ]);
+
+    expect(stayMapLink(point)).toBe(
+      "https://www.openstreetmap.org/?mlat=53.8712&mlon=21.3184#map=16/53.8712/21.3184",
+    );
+    expect(stayMapLink(town)).toBe(
+      "https://www.openstreetmap.org/#map=12/53.8645/21.305",
     );
   });
 });

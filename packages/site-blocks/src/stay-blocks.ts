@@ -8,6 +8,9 @@ import type {
   StayLive,
   StayLiveChoice,
   StayLiveOffer,
+  StayMapLive,
+  StayMapV1Data,
+  StayPlace,
   StayUnitV1Data,
 } from "./types";
 
@@ -504,6 +507,129 @@ export function StayUnitBlock({
             rel: "nofollow",
           },
           label,
+        ),
+    ),
+  );
+}
+
+/** Half the map's height in degrees: a few streets around a unit's own
+ *  point, the whole town around its centre. */
+const MAP_REACH = { exact: 0.004, town: 0.045 } as const;
+
+/** Six decimals — a tenth of a metre — and no trailing noise in an address. */
+const degrees = (value: number) => String(Number(value.toFixed(6)));
+
+/** OpenStreetMap's own embeddable map of the place: a pin on a unit's own
+ *  point, none on a town. No key and nothing of ours in the address but the
+ *  place itself. */
+export function stayMapEmbed(place: StayPlace): string {
+  const tall = place.exact ? MAP_REACH.exact : MAP_REACH.town;
+  // A degree east is shorter than a degree north by the latitude's cosine;
+  // the frame is wider than tall.
+  const wide =
+    (tall * 1.8) / Math.max(Math.cos((place.latitude * Math.PI) / 180), 0.2);
+  const query = new URLSearchParams({
+    bbox: [
+      place.longitude - wide,
+      place.latitude - tall,
+      place.longitude + wide,
+      place.latitude + tall,
+    ]
+      .map(degrees)
+      .join(","),
+    layer: "mapnik",
+  });
+  if (place.exact)
+    query.set(
+      "marker",
+      `${degrees(place.latitude)},${degrees(place.longitude)}`,
+    );
+  return `https://www.openstreetmap.org/export/embed.html?${query}`;
+}
+
+/** The same place on the map itself, for „Otwórz w mapach”. */
+export function stayMapLink(place: StayPlace): string {
+  const [north, east] = [degrees(place.latitude), degrees(place.longitude)];
+  return place.exact
+    ? `https://www.openstreetmap.org/?mlat=${north}&mlon=${east}#map=16/${north}/${east}`
+    : `https://www.openstreetmap.org/#map=12/${north}/${east}`;
+}
+
+/**
+ * Where a unit is (ADR-072, the map block of slice 5e): the unit's name and
+ * town, and a map the visitor asks for. The place is the server's answer —
+ * the town's centre, or the unit's own point once the company shows it. The
+ * map is OpenStreetMap's and loads only after „Pokaż mapę” (the
+ * application's component); the link to the map itself is plain markup and
+ * is there without it. No answer — no section.
+ */
+export function StayMapBlock({
+  data,
+  editor,
+  live,
+  options,
+}: BlockComponentProps) {
+  const block = data as StayMapV1Data;
+  const texts = siteUiTexts(options?.locale ?? "pl").stay;
+  const place = (live?.data as StayMapLive | undefined)?.place;
+  const text = editor?.text ?? plainBlockText;
+  const header = h(
+    "div",
+    { className: "site-section__intro" },
+    h(
+      "h2",
+      editor ? { role: "presentation" } : null,
+      block.title ? text(["title"], block.title) : texts.map.title,
+    ),
+    block.text
+      ? h("p", { className: "site-section__lead" }, text(["text"], block.text))
+      : null,
+  );
+  const section = {
+    className: "site-block site-block--stay-map",
+    "data-block-type": "core.stay_map",
+  };
+  if (!place)
+    return h(
+      "section",
+      section,
+      header,
+      h(
+        "div",
+        { className: "site-stay__preview" },
+        h(
+          "div",
+          { className: "site-stay-map__cover", "aria-hidden": true },
+          h("span", { className: "site-section__action" }, texts.map.show),
+        ),
+        previewNote(texts.preview.map),
+      ),
+    );
+  const where = [place.name, place.town?.name].filter(Boolean).join(" · ");
+  return h(
+    "section",
+    section,
+    header,
+    h(
+      "div",
+      { className: "site-stay__body" },
+      h("p", { className: "site-stay-map__place" }, where),
+      place.exact
+        ? null
+        : h("p", { className: "site-stay-map__note" }, texts.map.townOnly),
+      live?.render?.("core.stay_map", data, live.data) ??
+        h(
+          "p",
+          { className: "site-stay-map__links" },
+          h(
+            "a",
+            {
+              href: stayMapLink(place),
+              target: "_blank",
+              rel: "noopener noreferrer",
+            },
+            texts.map.open,
+          ),
         ),
     ),
   );

@@ -357,7 +357,11 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         path=page.canonical_path,
     )
     article = _localized_article(page, site_snapshot, default_locale)
-    image = _social_image(page, blocks, canonical_origin)
+    image = (
+        _source_image(page.publication.page, canonical_origin)
+        if isinstance(page.publication, SourcePublication)
+        else _social_image(page, blocks, canonical_origin)
+    )
     machine = machine_text(selected_locale.get("origin"))
     # The work a machine's version translates: an article's own source, a
     # page's version in the site's language.
@@ -447,6 +451,11 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
                 if machine and source_path and source_path != page.canonical_path
                 else None
             ),
+            thing=(
+                page.publication.page.thing
+                if isinstance(page.publication, SourcePublication)
+                else None
+            ),
         ),
     }
 
@@ -525,6 +534,14 @@ def _site_of(page: PublicPage) -> tuple[str, str, dict[str, Any]]:
 def _og_locale(code: str) -> str:
     entry = settings.LOCALE_REGISTRY.get(code)
     return entry.og_locale if entry is not None else code
+
+
+def _source_image(found: SourcePage, origin: str) -> dict[str, str] | None:
+    """A record's own page shares the record's picture — a unit's cover — in
+    the copy the site serves of it; none where the record shows no picture."""
+    if found.image is None:
+        return None
+    return {"url": f"{origin}/media/{found.image}/preview", "alt": found.title}
 
 
 def _social_image(

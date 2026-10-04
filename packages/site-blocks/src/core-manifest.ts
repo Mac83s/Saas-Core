@@ -50,6 +50,7 @@ import entryListV1Schema from "@saas-core/contracts/site-blocks/core.entry_list.
 import bookingV1Schema from "@saas-core/contracts/site-blocks/core.booking.v1.schema.json";
 import stayCalendarV1Schema from "@saas-core/contracts/site-blocks/core.stay_calendar.v1.schema.json";
 import staySearchV1Schema from "@saas-core/contracts/site-blocks/core.stay_search.v1.schema.json";
+import stayMapV1Schema from "@saas-core/contracts/site-blocks/core.stay_map.v1.schema.json";
 import stayUnitV1Schema from "@saas-core/contracts/site-blocks/core.stay_unit.v1.schema.json";
 import stayUnitsV1Schema from "@saas-core/contracts/site-blocks/core.stay_units.v1.schema.json";
 import faqV1Schema from "@saas-core/contracts/site-blocks/core.faq.v1.schema.json";
@@ -67,6 +68,7 @@ import { linkRel } from "./link-rel";
 import {
   StayCalendarBlock,
   StaySearchBlock,
+  StayMapBlock,
   StayUnitBlock,
   StayUnitsBlock,
 } from "./stay-blocks";
@@ -1032,6 +1034,26 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
         fields: [
           { path: ["unit"], kind: "stayUnit", labelKey: "stayUnit" },
           { path: ["action_label"], kind: "text", labelKey: "actionLabel" },
+        ],
+      },
+    },
+    // Where a unit is (the map block of slice 5e): its town, or its own
+    // point once the company shows it. The unit's own page has it under the
+    // card; the map itself loads only when the visitor asks.
+    {
+      type: "core.stay_map",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: stayMapV1Schema }],
+      migrators: {},
+      component: StayMapBlock,
+      live: true,
+      catalog: {
+        category: "booking",
+        labelKey: "stayMapBlock",
+        fields: [
+          { path: ["title"], kind: "text", labelKey: "heading" },
+          { path: ["text"], kind: "textarea", labelKey: "text" },
+          { path: ["unit"], kind: "stayPlace", labelKey: "stayUnit" },
         ],
       },
     },

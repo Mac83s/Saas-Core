@@ -1040,10 +1040,15 @@ class ResourceSetupSerializer(serializers.Serializer[dict[str, Any]]):
     )
     latitude = serializers.FloatField(
         allow_null=True,
-        help_text="Degrees north. For the company and the server only; never part of an "
-        "answer to a guest.",
+        help_text="Degrees north. For the company and the server; part of an answer to a "
+        "guest only while `show_exact_location` is on.",
     )
     longitude = serializers.FloatField(allow_null=True, help_text="Degrees east.")
+    show_exact_location = serializers.BooleanField(
+        help_text="Whether the map on the company's site pins the unit's own point. On, the "
+        "coordinates are published: every visitor of that page can read them. Off, the map "
+        "shows the unit's town and the coordinates stay with the company."
+    )
     photo_ids = serializers.ListField(
         child=serializers.UUIDField(),
         help_text="The unit's pictures — media assets — in the order shown; the first is "
@@ -1451,7 +1456,8 @@ class ResourceInputSerializer(serializers.Serializer[dict[str, Any]]):
         required=False,
         allow_null=True,
         help_text="Degrees north, with `longitude` or not at all (400 "
-        "`coordinates_incomplete`). Kept for the company and the server; guests never get it.",
+        "`coordinates_incomplete`). Kept for the company and the server; guests get it only "
+        "while `show_exact_location` is on.",
     )
     longitude = serializers.DecimalField(
         max_digits=9,
@@ -1461,6 +1467,13 @@ class ResourceInputSerializer(serializers.Serializer[dict[str, Any]]):
         required=False,
         allow_null=True,
         help_text="Degrees east, with `latitude` or not at all.",
+    )
+    show_exact_location = serializers.BooleanField(
+        required=False,
+        help_text="„Pokaż dokładne położenie”: the map on the company's site pins the unit's "
+        "own point, which publishes its coordinates to every visitor. Off by default — the "
+        "map shows the unit's town. Needs both coordinates (400 `coordinates_missing`, also "
+        "when they are taken away while it is on).",
     )
     photo_ids = serializers.ListField(
         child=serializers.UUIDField(),

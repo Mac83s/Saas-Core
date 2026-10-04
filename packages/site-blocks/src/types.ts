@@ -446,6 +446,28 @@ export type StayUnitV1Data = JsonObject & {
   action_label?: string;
 };
 
+/** The map of where a unit is (the map block of slice 5e): which unit —
+ *  none: the first on the company's form that has a place — never the place. */
+export type StayMapV1Data = JsonObject & {
+  title?: string;
+  text?: string;
+  unit?: string;
+};
+
+/** Where a unit is, as much as its company shows: the centre of its town, or
+ *  — `exact` — the unit's own point, once the company switched that on. */
+export type StayPlace = {
+  /** The name a guest books the unit by. */
+  name: string;
+  town: { slug: string; name: string } | null;
+  exact: boolean;
+  latitude: number;
+  longitude: number;
+};
+
+/** What the server says a map block shows now (`live` of a published page). */
+export type StayMapLive = { place: StayPlace };
+
 /** One thing a guest chooses of an offer: a group of identical units or a
  *  unit by itself. The content comes with the list of units only. */
 export type StayLiveChoice = {
@@ -551,7 +573,9 @@ export type BlockFieldKind =
    *  lists them, the block keeps the id. */
   | "stayOffer"
   /** One of the units the company shows its guests; the block keeps the id. */
-  | "stayUnit";
+  | "stayUnit"
+  /** The same list, where choosing none means the first unit with a place. */
+  | "stayPlace";
 
 /** How one editable value inside a block is presented. Deliberately data, not a
  *  component: the same manifest is loaded by the public renderer, which must not

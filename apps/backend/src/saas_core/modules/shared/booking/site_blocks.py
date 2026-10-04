@@ -1,19 +1,23 @@
 """What a company's own site shows of its stays (ADR-072, slices 5d and 5e).
 
-Four blocks of the page editor show offers booked from–to: the list of units
+Five blocks of the page editor show offers booked from–to: the list of units
 (`core.stay_units`), the booking widget (`core.stay_search`), the calendar of
-free days (`core.stay_calendar`) and one unit's card (`core.stay_unit`). A
-publication is a snapshot and a free day or a price cannot be one, so a block
-carries only a choice — which offer, which unit — and the site asks here,
-through the registry of public sources, each time the page is read.
+free days (`core.stay_calendar`), one unit's card (`core.stay_unit`) and the
+map of where a unit is (`core.stay_map`). A publication is a snapshot and a
+free day or a price cannot be one, so a block carries only a choice — which
+offer, which unit — and the site asks here, through the registry of public
+sources, each time the page is read.
 
 A unit the form shows the content of also has a page of its own on the site,
 at `/stay/<its address>/` (slice 5e): nobody publishes it — it is one unit's
-card, answered while the form shows the unit and gone when it does not.
+card and, where the unit has a place, its map, answered while the form shows
+the unit and gone when it does not.
 
 The answer is what the company's public form would say (`public_stays`): only
 what is offered online, the content of units the company shows, „od X zł/noc”
-from the quote, never coordinates. The pictures are named by id — the site
+from the quote. Coordinates are in the map's answer alone: the town's centre,
+or the unit's own point once the company switched „Pokaż dokładne położenie”
+on for it (`unit_content.place_of`). The pictures are named by id — the site
 serves them at its own host (`public_photo_ids`) — and the days a visitor
 picks are read by the block from the form's own API, under the form's address.
 """
@@ -46,14 +50,15 @@ from .periods import period_last_day
 from .public import public_stays
 from .security import public_booking_context
 from .services import BOOKING_ENABLED
-from .unit_content import amenities_in
+from .unit_content import amenities_in, place_of
 
 UNITS = "core.stay_units"
 SEARCH = "core.stay_search"
 CALENDAR = "core.stay_calendar"
 UNIT = "core.stay_unit"
+MAP = "core.stay_map"
 #: The blocks of a site this module fills.
-SITE_BLOCK_TYPES = frozenset({UNITS, SEARCH, CALENDAR, UNIT})
+SITE_BLOCK_TYPES = frozenset({UNITS, SEARCH, CALENDAR, UNIT, MAP})
 #: The first segment of a unit's own page on the company's site, the same in
 #: every language (as the shop's `shop`, ADR-074 pkt 7).
 PAGE_SEGMENT = "stay"
@@ -214,6 +219,35 @@ def _card(form: _Form, public_slug: str, locale: str) -> dict[str, Any] | None:
     }
 
 
+def _places(form: _Form) -> dict[str, dict[str, Any]]:
+    """Where each unit the form shows is, by the unit's id and in the form's
+    order: the place the company shows of it (`place_of`) under the name a
+    guest books it by — its group's, for a unit of a pool. A unit without a
+    place is left out."""
+    names = {
+        str(item["public_slug"]): str(item["name"])
+        for stay in form.stays
+        for items in (stay["groups"], stay["units"])
+        for item in items
+        if item.get("public_slug")
+    }
+    units = {
+        unit.public_slug: unit
+        for unit in Resource.all_objects.filter(
+            organization_id=form.organization.id,
+            public=True,
+            active=True,
+            public_slug__in=list(names),
+        )
+    }
+    places: dict[str, dict[str, Any]] = {}
+    for address, name in names.items():
+        place = place_of(units[address]) if address in units else None
+        if place is not None:
+            places[str(units[address].id)] = {"name": name, **place}
+    return places
+
+
 def site_blocks(
     organization_id: UUID,
     locale: str,
@@ -244,11 +278,20 @@ def site_blocks(
             if wanted - {""}
             else {}
         )
+        places = _places(form) if any(kind == MAP for kind, _data in blocks.values()) else {}
         for key, (block_type, data) in blocks.items():
             if block_type == UNIT:
                 card = _card(form, addresses.get(str(data.get("unit") or ""), ""), locale)
                 if card is not None:
                     answers[key] = card
+                continue
+            if block_type == MAP:
+                # The unit the block names, or — naming none — the first
+                # the form shows that has a place.
+                named = str(data.get("unit") or "")
+                place = places.get(named) if named else next(iter(places.values()), None)
+                if place is not None:
+                    answers[key] = {"place": place}
                 continue
             asked = str(data.get("offer") or "")
             offers = [stay for stay in form.stays if not asked or str(stay["id"]) == asked]
@@ -284,6 +327,38 @@ def _own_locales(organization: Organization, kind: str, item_id: Any) -> frozens
     )
 
 
+def _thing(
+    stay: Mapping[str, Any], item: Mapping[str, Any], unit: Resource, locale: str
+) -> dict[str, Any] | None:
+    """What a unit let by the night is, for a search engine: a place to stay
+    with its name, how many it takes, what it has and its town — and its
+    point only where the company shows it. A thing rented by the day (a
+    kayak) is no accommodation and gets no node of its own."""
+    if stay["range_unit"] != "night":
+        return None
+    thing: dict[str, Any] = {"@type": "Accommodation", "name": str(item["name"])}
+    if item["description"]:
+        thing["description"] = " ".join(str(item["description"]).split())
+    if item["capacity"]:
+        thing["occupancy"] = {"@type": "QuantitativeValue", "maxValue": item["capacity"]}
+    amenities = amenities_in([entry["key"] for entry in item["amenities"]], locale)
+    if amenities:
+        thing["amenityFeature"] = [
+            {"@type": "LocationFeatureSpecification", "name": entry["label"], "value": True}
+            for entry in amenities
+        ]
+    place = place_of(unit)
+    if place is not None and place["town"]:
+        thing["address"] = {"@type": "PostalAddress", "addressLocality": place["town"]["name"]}
+    if place is not None and place["exact"]:
+        thing["geo"] = {
+            "@type": "GeoCoordinates",
+            "latitude": place["latitude"],
+            "longitude": place["longitude"],
+        }
+    return thing
+
+
 def site_page(organization_id: UUID, locale: str, public_slug: str) -> SourcePage | None:
     """The page of the unit at that address: its card as the page's one
     block. None — the form shows no such unit now."""
@@ -293,26 +368,33 @@ def site_page(organization_id: UUID, locale: str, public_slug: str) -> SourcePag
         shown = _shown(form.stays, public_slug)
         if not shown:
             return None
-        _stay, kind, item = shown[0]
+        stay, kind, item = shown[0]
         unit = Resource.all_objects.filter(
             organization_id=organization_id, public=True, active=True, public_slug=public_slug
         ).first()
         if unit is None:
             return None
         town = item["town"]["name"] if item["town"] else ""
+        blocks: list[dict[str, Any]] = [
+            {
+                "block_type": UNIT,
+                "schema_version": 1,
+                # The page's own heading: the unit's name is its title.
+                "data": {"unit": str(unit.id), "main": True},
+            }
+        ]
+        # Where it is, under the card — as much as the company shows.
+        if place_of(unit) is not None:
+            blocks.append({"block_type": MAP, "schema_version": 1, "data": {"unit": str(unit.id)}})
         return SourcePage(
             key=str(unit.id),
             title=f"{item['name']} — {town}" if town else str(item["name"]),
             description=" ".join(str(item["description"]).split())[:DESCRIPTION_LENGTH],
-            blocks=[
-                {
-                    "block_type": UNIT,
-                    "schema_version": 1,
-                    # The page's own heading: the unit's name is its title.
-                    "data": {"unit": str(unit.id), "main": True},
-                }
-            ],
+            blocks=blocks,
             locales=_own_locales(form.organization, kind, item["id"]),
+            # The cover: the first picture the unit shows.
+            image=unit.photos[0] if unit.photos else None,
+            thing=_thing(stay, item, unit, locale),
         )
 
 

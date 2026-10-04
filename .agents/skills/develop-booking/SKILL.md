@@ -125,8 +125,8 @@ not in PostgreSQL.
   global fallback. Stays too (`public_stay_views.py`): only what is online,
   and a write needs the shown `quote_digest`.
 - **A guest gets a unit's content only when it is `public`**
-  (`unit_content.py`, ADR-072 5c): pictures, amenities, town — never
-  coordinates. The company's site shows the same (`site_blocks.py`, 5d).
+  (`unit_content.py`, ADR-072 5c): pictures, amenities, town. Coordinates
+  go out only through `place_of` — the site's map, by the unit's switch.
 - **Who books for themselves accepts the company's documents** (ADR-073 §9,
   `consents.py`): the form reads those in force in the booking's language
   (`shown`) and sends their `text_id`s; `record` checks and journals them,

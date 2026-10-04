@@ -14205,7 +14205,7 @@ export interface components {
             city_slug?: string;
             /**
              * Format: decimal
-             * @description Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`). Kept for the company and the server; guests never get it.
+             * @description Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`). Kept for the company and the server; guests get it only while `show_exact_location` is on.
              */
             latitude?: string | null;
             /**
@@ -14213,6 +14213,8 @@ export interface components {
              * @description Degrees east, with `latitude` or not at all.
              */
             longitude?: string | null;
+            /** @description „Pokaż dokładne położenie”: the map on the company's site pins the unit's own point, which publishes its coordinates to every visitor. Off by default — the map shows the unit's town. Needs both coordinates (400 `coordinates_missing`, also when they are taken away while it is on). */
+            show_exact_location?: boolean;
             /** @description The unit's pictures in the order shown, the first the cover; replaces the list. Each is a media asset of the company that is ready and not deleted (400 `photo_unavailable`). */
             photo_ids?: string[];
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
@@ -15922,7 +15924,7 @@ export interface components {
             blocks: {
                 [key: string]: unknown;
             }[];
-            /** @description What the blocks that show the company's live records show now, by the block's position in `blocks` („0”, „3”): the stay offers of `core.stay_units`, `core.stay_search` and `core.stay_calendar` — the form's address, the offers and what a guest chooses of each. A block without an entry draws nothing. */
+            /** @description What the blocks that show the company's live records show now, by the block's position in `blocks` („0”, „3”): the stay offers of `core.stay_units`, `core.stay_search` and `core.stay_calendar` — the form's address, the offers and what a guest chooses of each — a unit's card (`core.stay_unit`), and for `core.stay_map` the `place`: the unit's town and its centre, or — `exact` — the unit's own point once its company shows it. A block without an entry draws nothing. */
             live: {
                 [key: string]: {
                     [key: string]: unknown;
@@ -16543,7 +16545,7 @@ export interface components {
             city_slug?: string;
             /**
              * Format: decimal
-             * @description Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`). Kept for the company and the server; guests never get it.
+             * @description Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`). Kept for the company and the server; guests get it only while `show_exact_location` is on.
              */
             latitude?: string | null;
             /**
@@ -16551,6 +16553,8 @@ export interface components {
              * @description Degrees east, with `latitude` or not at all.
              */
             longitude?: string | null;
+            /** @description „Pokaż dokładne położenie”: the map on the company's site pins the unit's own point, which publishes its coordinates to every visitor. Off by default — the map shows the unit's town. Needs both coordinates (400 `coordinates_missing`, also when they are taken away while it is on). */
+            show_exact_location?: boolean;
             /** @description The unit's pictures in the order shown, the first the cover; replaces the list. Each is a media asset of the company that is ready and not deleted (400 `photo_unavailable`). */
             photo_ids?: string[];
         };
@@ -16582,7 +16586,7 @@ export interface components {
             city_slug: string;
             /**
              * Format: double
-             * @description Degrees north. For the company and the server only; never part of an answer to a guest.
+             * @description Degrees north. For the company and the server; part of an answer to a guest only while `show_exact_location` is on.
              */
             latitude: number | null;
             /**
@@ -16590,6 +16594,8 @@ export interface components {
              * @description Degrees east.
              */
             longitude: number | null;
+            /** @description Whether the map on the company's site pins the unit's own point. On, the coordinates are published: every visitor of that page can read them. Off, the map shows the unit's town and the coordinates stay with the company. */
+            show_exact_location: boolean;
             /** @description The unit's pictures — media assets — in the order shown; the first is the cover. */
             photo_ids: string[];
             /** @description The resource's version; a change names it (`expected_version`). */
@@ -16624,7 +16630,7 @@ export interface components {
             city_slug: string;
             /**
              * Format: double
-             * @description Degrees north. For the company and the server only; never part of an answer to a guest.
+             * @description Degrees north. For the company and the server; part of an answer to a guest only while `show_exact_location` is on.
              */
             latitude: number | null;
             /**
@@ -16632,6 +16638,8 @@ export interface components {
              * @description Degrees east.
              */
             longitude: number | null;
+            /** @description Whether the map on the company's site pins the unit's own point. On, the coordinates are published: every visitor of that page can read them. Off, the map shows the unit's town and the coordinates stay with the company. */
+            show_exact_location: boolean;
             /** @description The unit's pictures — media assets — in the order shown; the first is the cover. */
             photo_ids: string[];
             /** @description The resource's version; a change names it (`expected_version`). */
@@ -16679,7 +16687,7 @@ export interface components {
             city_slug?: string;
             /**
              * Format: decimal
-             * @description Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`). Kept for the company and the server; guests never get it.
+             * @description Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`). Kept for the company and the server; guests get it only while `show_exact_location` is on.
              */
             latitude?: string | null;
             /**
@@ -16687,6 +16695,8 @@ export interface components {
              * @description Degrees east, with `latitude` or not at all.
              */
             longitude?: string | null;
+            /** @description „Pokaż dokładne położenie”: the map on the company's site pins the unit's own point, which publishes its coordinates to every visitor. Off by default — the map shows the unit's town. Needs both coordinates (400 `coordinates_missing`, also when they are taken away while it is on). */
+            show_exact_location?: boolean;
             /** @description The unit's pictures in the order shown, the first the cover; replaces the list. Each is a media asset of the company that is ready and not deleted (400 `photo_unavailable`). */
             photo_ids?: string[];
             /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */

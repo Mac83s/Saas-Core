@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.stay_map.v1.schema.json",
+  "title": "Core map of where a unit booked from–to is v1",
+  "description": "Carries a choice only: which unit. Where it is — its town, or its exact point when the company shows it — is the company's live record, read each time the page is; the map itself loads from OpenStreetMap only after the visitor asks for it (ADR-072, the map block of slice 5e).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 600
+    },
+    "unit": {
+      "description": "The unit (its id) the map is of — one the company shows its guests. Absent: the first unit on the company's form that has a place.",
+      "type": "string",
+      "pattern": "^$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    }
+  }
+}

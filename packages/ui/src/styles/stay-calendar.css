@@ -76,6 +76,18 @@
   letter-spacing: 0.04em;
   opacity: 0.7;
 }
+/* „NIEDZ.” is the longest of them: one line in a seventh of a phone's width,
+   whatever typeface the page wears. */
+.stay-calendar__week > span {
+  min-width: 0;
+  white-space: nowrap;
+}
+@media (max-width: 30rem) {
+  .stay-calendar__week {
+    font-size: 0.6875rem;
+    letter-spacing: 0;
+  }
+}
 .stay-calendar__day {
   display: grid;
   place-items: center;

@@ -38329,7 +38329,8 @@ components:
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
           description: Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`).
-            Kept for the company and the server; guests never get it.
+            Kept for the company and the server; guests get it only while `show_exact_location`
+            is on.
         longitude:
           type:
           - string
@@ -38337,6 +38338,13 @@ components:
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
           description: Degrees east, with `latitude` or not at all.
+        show_exact_location:
+          type: boolean
+          description: '„Pokaż dokładne położenie”: the map on the company''s site
+            pins the unit''s own point, which publishes its coordinates to every visitor.
+            Off by default — the map shows the unit''s town. Needs both coordinates
+            (400 `coordinates_missing`, also when they are taken away while it is
+            on).'
         photo_ids:
           type: array
           items:
@@ -42138,8 +42146,10 @@ components:
           description: 'What the blocks that show the company''s live records show
             now, by the block''s position in `blocks` („0”, „3”): the stay offers
             of `core.stay_units`, `core.stay_search` and `core.stay_calendar` — the
-            form''s address, the offers and what a guest chooses of each. A block
-            without an entry draws nothing.'
+            form''s address, the offers and what a guest chooses of each — a unit''s
+            card (`core.stay_unit`), and for `core.stay_map` the `place`: the unit''s
+            town and its centre, or — `exact` — the unit''s own point once its company
+            shows it. A block without an entry draws nothing.'
         navigation:
           type: array
           items:
@@ -43369,7 +43379,8 @@ components:
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
           description: Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`).
-            Kept for the company and the server; guests never get it.
+            Kept for the company and the server; guests get it only while `show_exact_location`
+            is on.
         longitude:
           type:
           - string
@@ -43377,6 +43388,13 @@ components:
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
           description: Degrees east, with `latitude` or not at all.
+        show_exact_location:
+          type: boolean
+          description: '„Pokaż dokładne położenie”: the map on the company''s site
+            pins the unit''s own point, which publishes its coordinates to every visitor.
+            Off by default — the map shows the unit''s town. Needs both coordinates
+            (400 `coordinates_missing`, also when they are taken away while it is
+            on).'
         photo_ids:
           type: array
           items:
@@ -43438,14 +43456,20 @@ components:
           - number
           - 'null'
           format: double
-          description: Degrees north. For the company and the server only; never part
-            of an answer to a guest.
+          description: Degrees north. For the company and the server; part of an answer
+            to a guest only while `show_exact_location` is on.
         longitude:
           type:
           - number
           - 'null'
           format: double
           description: Degrees east.
+        show_exact_location:
+          type: boolean
+          description: 'Whether the map on the company''s site pins the unit''s own
+            point. On, the coordinates are published: every visitor of that page can
+            read them. Off, the map shows the unit''s town and the coordinates stay
+            with the company.'
         photo_ids:
           type: array
           items:
@@ -43471,6 +43495,7 @@ components:
       - photo_ids
       - public
       - public_slug
+      - show_exact_location
       - version
     ResourceSetupPreview:
       type: object
@@ -43523,14 +43548,20 @@ components:
           - number
           - 'null'
           format: double
-          description: Degrees north. For the company and the server only; never part
-            of an answer to a guest.
+          description: Degrees north. For the company and the server; part of an answer
+            to a guest only while `show_exact_location` is on.
         longitude:
           type:
           - number
           - 'null'
           format: double
           description: Degrees east.
+        show_exact_location:
+          type: boolean
+          description: 'Whether the map on the company''s site pins the unit''s own
+            point. On, the coordinates are published: every visitor of that page can
+            read them. Off, the map shows the unit''s town and the coordinates stay
+            with the company.'
         photo_ids:
           type: array
           items:
@@ -43563,6 +43594,7 @@ components:
       - photo_ids
       - public
       - public_slug
+      - show_exact_location
       - version
     ResourceTypeEnum:
       enum:
@@ -43644,7 +43676,8 @@ components:
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
           description: Degrees north, with `longitude` or not at all (400 `coordinates_incomplete`).
-            Kept for the company and the server; guests never get it.
+            Kept for the company and the server; guests get it only while `show_exact_location`
+            is on.
         longitude:
           type:
           - string
@@ -43652,6 +43685,13 @@ components:
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
           description: Degrees east, with `latitude` or not at all.
+        show_exact_location:
+          type: boolean
+          description: '„Pokaż dokładne położenie”: the map on the company''s site
+            pins the unit''s own point, which publishes its coordinates to every visitor.
+            Off by default — the map shows the unit''s town. Needs both coordinates
+            (400 `coordinates_missing`, also when they are taken away while it is
+            on).'
         photo_ids:
           type: array
           items:

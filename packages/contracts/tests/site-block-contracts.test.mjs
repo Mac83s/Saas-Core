@@ -50,6 +50,9 @@ test("site block manifest references valid canonical schemas", async () => {
       "core.stay_calendar",
       // One unit's card, and the block of the unit's own page (slice 5e).
       "core.stay_unit",
+      // Where a unit is: its town, or its own point once the company shows
+      // it; the map loads only when the visitor asks (the map block of 5e).
+      "core.stay_map",
     ],
   );
 

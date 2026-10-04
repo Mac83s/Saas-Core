@@ -171,6 +171,21 @@ def test_the_company_sets_what_a_guest_sees_of_a_unit() -> None:
     )
     too_many = [uuid7() for _ in range(MAX_UNIT_PHOTOS + 1)]
     assert refused(owner, second, photo_ids=too_many) == ("photo_ids", "photos_too_many")
+    # „Pokaż dokładne położenie” needs a point to show — when it is switched
+    # on, and when the point is taken away under it.
+    assert first.show_exact_location is False
+    assert refused(owner, second, show_exact_location=True) == (
+        "show_exact_location",
+        "coordinates_missing",
+    )
+    pinned = change(owner, first, show_exact_location=True)
+    assert (pinned.show_exact_location, pinned.version) == (True, hidden.version + 1)
+    assert refused(owner, first, latitude=None, longitude=None) == (
+        "show_exact_location",
+        "coordinates_missing",
+    )
+    cleared = change(owner, first, latitude=None, longitude=None, show_exact_location=False)
+    assert (cleared.show_exact_location, cleared.latitude) == (False, None)
     # Nothing of a refused change was kept.
     with tenant(owner):
         untouched = Resource.all_objects.get(pk=second.id)
@@ -228,9 +243,11 @@ def test_the_panel_reads_and_writes_a_units_content_over_the_api() -> None:
         "city_slug": "mragowo",
         "latitude": "53.8645",
         "longitude": "21.305",
+        "show_exact_location": True,
         "photo_ids": [str(photo.id)],
         "expected_version": 1,
     }
+    assert before["show_exact_location"] is False
     url = f"/api/v1/booking/setup/resources/{unit.id}/"
     preview = client.post(f"{url}preview/", body, format="json", HTTP_X_CSRFTOKEN=csrf)
     assert preview.status_code == 200, preview.data
@@ -243,6 +260,7 @@ def test_the_panel_reads_and_writes_a_units_content_over_the_api() -> None:
     assert saved.status_code == 200, saved.data
     assert saved.json() | {"version": 2} == saved.json()
     assert (saved.json()["latitude"], saved.json()["longitude"]) == (53.8645, 21.305)
+    assert saved.json()["show_exact_location"] is True
     assert saved.json()["photo_ids"] == [str(photo.id)]
     # Out of range, and one coordinate without the other, by field.
     wrong = client.patch(

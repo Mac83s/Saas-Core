@@ -4,11 +4,12 @@ room or a kayak beyond its name — its pictures, what it has and where it is.
 The company sets it on the unit (`setup.save_resource`): whether the unit is
 shown at all (`public`), its address segment (`public_slug`), what it has (keys
 of `UNIT_AMENITIES`), its town from the catalogue's dictionary, coordinates
-that never leave the server towards a guest, and its pictures from the media
-library, in order. A guest gets the content of public units only — in the
-form's catalogue and, for a picture, at the form's own address
-(`public_photo`), because the form lives on the platform's host, where no
-published site vouches for a picture.
+that leave the server towards a guest only where the company said so
+(`show_exact_location`, and then only as the map's place — `place_of`), and
+its pictures from the media library, in order. A guest gets the content of
+public units only — in the form's catalogue and, for a picture, at the form's
+own address (`public_photo`), because the form lives on the platform's host,
+where no published site vouches for a picture.
 """
 
 from __future__ import annotations
@@ -79,6 +80,7 @@ CONTENT_FIELDS = (
     "city_slug",
     "latitude",
     "longitude",
+    "show_exact_location",
     "photos",
 )
 
@@ -109,6 +111,27 @@ def town_of(unit: Resource) -> dict[str, str] | None:
     return {"slug": city.slug, "name": city.name} if city else None
 
 
+def place_of(unit: Resource) -> dict[str, Any] | None:
+    """Where the unit is, as much as the company shows: its own point once
+    the company switched „Pokaż dokładne położenie” on, otherwise the centre
+    of its town — the dictionary's, the same for every company there — and
+    nothing for a unit with neither. The one reading of a unit's coordinates
+    towards a guest: the map on the company's site and what the unit's own
+    page tells a search engine ask here, nothing else carries them."""
+    town = town_of(unit)
+    if unit.show_exact_location and unit.latitude is not None and unit.longitude is not None:
+        return {
+            "town": town,
+            "exact": True,
+            "latitude": float(unit.latitude),
+            "longitude": float(unit.longitude),
+        }
+    city = cities().get(unit.city_slug) if unit.city_slug else None
+    if city is None or not (city.lat or city.lng):
+        return None
+    return {"town": town, "exact": False, "latitude": city.lat, "longitude": city.lng}
+
+
 def _refuse(field: str, message: str, code: str) -> ValidationError:
     return ValidationError({field: [ErrorDetail(message, code=code)]})
 
@@ -131,6 +154,16 @@ def check_content(organization: Organization, unit: Resource | None, data: dict[
             "latitude" if latitude is None else "longitude",
             "Podaj obie współrzędne albo żadnej.",
             "coordinates_incomplete",
+        )
+    # A point nobody gave cannot be shown; taking the point away takes the
+    # switch with it only when the caller says so.
+    if latitude is None and data.get(
+        "show_exact_location", unit.show_exact_location if unit else False
+    ):
+        raise _refuse(
+            "show_exact_location",
+            "Podaj współrzędne jednostki, zanim pokażesz jej dokładne położenie.",
+            "coordinates_missing",
         )
     if "photo_ids" in data:
         photos = list(dict.fromkeys(data.pop("photo_ids") or ()))

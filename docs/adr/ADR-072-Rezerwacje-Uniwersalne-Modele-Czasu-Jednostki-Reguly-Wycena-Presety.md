@@ -967,7 +967,8 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
 
 ### Rozstrzygnięcia plastra 5e (strona jednostki)
 
-- **Plaster 5e to strona jednostki i jej karta; blok mapy czeka na decyzję.**
+- **Plaster 5e to strona jednostki i jej karta; blok mapy czeka na decyzję**
+  (podjętą 2026-10-04 — „Rozstrzygnięcia bloku mapy” niżej).
   Mapa na stronie firmy to osadzony zasób obcego dostawcy (kafelki, klucz,
   adres IP gościa u dostawcy) — wybór dostawcy i zgoda gościa to decyzja
   właściciela, nie plastra. Reszta 5e nie zależy od mapy.
@@ -1062,3 +1063,59 @@ bramka przepuszcza teraz dokładnie tyle.
   odczyt daje pod hostem strony bajt w bajt to samo co pod hostem platformy
   i nie zawiera hosta gościa, a kod modułu nie sięga po `get_host`,
   `build_absolute_uri` ani `HTTP_HOST`.
+
+### Rozstrzygnięcia bloku mapy (plaster 5e, 2026-10-04)
+
+Decyzja właściciela: **OpenStreetMap, wczytywany dopiero po kliknięciu „Pokaż
+mapę”, z odnośnikiem „Otwórz w mapach”; bez klucza i bez banera cookies. Co
+mapa pokazuje, wybiera firma dla każdej jednostki: domyślnie miejscowość, a
+dokładny punkt dopiero po włączeniu „Pokaż dokładne położenie”.**
+
+- **Piąty blok pobytów, `core.stay_map` v1.** Niesie nagłówek, tekst i `unit`
+  — identyfikator jednostki pokazanej gościom albo nic („pierwsza jednostka z
+  formularza, która ma położenie”, żeby szablon strony mógł nieść mapę bez
+  znajomości firmy). Położenia w danych bloku nie ma: odpowiedź `live` daje
+  `place` — nazwę, pod którą gość rezerwuje jednostkę, miejscowość, `exact` i
+  jedną parę współrzędnych. Bez odpowiedzi blok nie jest sekcją.
+- **Współrzędne jednostki wychodzą z serwera jedną drogą.**
+  `unit_content.place_of` oddaje punkt jednostki tylko wtedy, gdy firma
+  włączyła `show_exact_location` i jednostka ma współrzędne; inaczej środek
+  miejscowości ze słownika katalogu (ten sam dla każdej firmy stamtąd), a dla
+  jednostki bez miejscowości — nic. Czytają ją dwie rzeczy: odpowiedź bloku
+  mapy i dane strukturalne strony jednostki. Katalog formularza, lista
+  jednostek i karta jednostki nie niosą współrzędnych nigdy.
+- **Przełącznik jest polem jednostki** (`Resource.show_exact_location`,
+  migracja booking 0035, domyślnie wyłączony) i zapisuje się przez
+  `save_resource` jak reszta treści: wersja, podgląd, historia. Włączenie bez
+  współrzędnych i zabranie współrzędnych spod włączonego przełącznika to 400
+  `coordinates_missing` na polu `show_exact_location`. Okno jednostki mówi
+  przy przełączniku, co on publikuje: pinezkę w tym punkcie i współrzędne
+  czytelne dla każdego, kto otworzy stronę.
+- **Mapa jest cudzą usługą, więc ładuje ją gość, nie strona.** Opublikowana
+  strona rysuje nazwę i miejscowość, przycisk „Pokaż mapę”, zdanie o tym, czyja
+  to mapa i co zrobi kliknięcie, oraz zwykły odnośnik „Otwórz w mapach” do
+  openstreetmap.org. Ramka z `openstreetmap.org/export/embed.html` powstaje
+  dopiero po kliknięciu: bez nagłówka `Referer` (`no-referrer`), w piaskownicy
+  (`sandbox` bez nawigacji okna nadrzędnego), z samym położeniem w adresie.
+  Przed kliknięciem przeglądarka gościa rozmawia tylko z naszą stroną — stąd
+  brak banera; nie ustawiamy żadnego cookie i nie potrzebujemy klucza. Punkt
+  jednostki dostaje pinezkę i kadr kilku ulic, miejscowość — kadr całej
+  miejscowości bez pinezki i zdanie „Mapa pokazuje miejscowość, nie dokładny
+  adres”.
+- **Strona jednostki ma mapę pod kartą**, gdy jednostka ma położenie do
+  pokazania (`site_page` dokłada blok mapy tej jednostki).
+- **Strona jednostki mówi wyszukiwarce, czym jest, i ma własny obraz
+  udostępnień.** Źródło strony podaje okładkę (`SourcePage.image`, pierwsze
+  zdjęcie jednostki w kopii `preview` serwowanej przez host strony) i węzeł
+  schema.org (`SourcePage.thing`): jednostka wynajmowana na noce to
+  `Accommodation` z nazwą, opisem, liczbą osób, wyposażeniem w języku strony
+  i miejscowością, a `geo` tylko przy włączonym przełączniku. Witryna nadaje
+  mu adres (`#thing`), obraz i firmę (`provider`) i wskazuje go jako
+  `mainEntity` strony. Rzecz wynajmowana na dni (kajak) węzła nie dostaje:
+  `Product` bez oferty byłby dla wyszukiwarki błędem, a ceny „od” nie są
+  ofertą.
+- **Poza tym plastrem:** mapa z wieloma pinezkami (jedna ramka OSM ma jedną),
+  własny kafelkowy podgląd przed kliknięciem, dojazd i trasa, mapa w katalogu
+  (5h), położenie firmy niezależne od jednostek (miejsce `Location` nie ma
+  współrzędnych), wzmianka o OpenStreetMap w dokumentach firmy (sprawdzenie
+  prawne, nie decyzja plastra).

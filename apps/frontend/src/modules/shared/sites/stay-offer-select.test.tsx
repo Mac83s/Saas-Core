@@ -16,7 +16,7 @@ const STAY = "11111111-1111-4111-8111-111111111111";
 const HIDDEN = "22222222-2222-4222-8222-222222222222";
 const GONE = "33333333-3333-4333-8333-333333333333";
 
-function Select({ kind, offer }: { kind?: "unit"; offer: string }) {
+function Select({ kind, offer }: { kind?: "unit" | "place"; offer: string }) {
   const form = useForm({ defaultValues: { offer } });
   return (
     <NextIntlClientProvider locale="pl" messages={polishMessages}>
@@ -118,5 +118,33 @@ test("a card's unit is one the company shows its guests", async () => {
   render(<Select kind="unit" offer="" />);
   expect(
     await screen.findByText(/Żadnej jednostki nie pokazujesz jeszcze gościom/),
+  ).toBeVisible();
+});
+
+test("a map's unit is one of the same, or the first that has a town", async () => {
+  api.getBookingSetup.mockResolvedValue({
+    services: [],
+    resources: [
+      { id: HIDDEN, name: "Domek 1", public: true, active: true },
+      { id: GONE, name: "Domek 2", public: false, active: true },
+    ],
+  });
+  const { unmount } = render(<Select kind="place" offer="" />);
+
+  expect(
+    await screen.findByRole("option", { name: "Domek 1" }),
+  ).toBeInTheDocument();
+  // Choosing none is a choice: the block then follows the company's units.
+  expect(
+    screen.getAllByRole("option").map((option) => option.textContent),
+  ).toEqual(["Pierwsza jednostka z podaną miejscowością", "Domek 1"]);
+  unmount();
+
+  api.getBookingSetup.mockResolvedValue({ services: [], resources: [] });
+  render(<Select kind="place" offer="" />);
+  expect(
+    await screen.findByText(
+      /wybierz miejscowość — bez tego mapa nie pojawi się/,
+    ),
   ).toBeVisible();
 });

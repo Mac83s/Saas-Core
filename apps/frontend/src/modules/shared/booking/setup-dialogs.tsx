@@ -840,6 +840,11 @@ export function ItemDialog({
       );
       return;
     }
+    // A point nobody gave cannot be shown; said before anything is sent.
+    if (coordinates && content.exact && coordinates.latitude === null) {
+      setProblem(t("unitExactLocationNeedsPoint"));
+      return;
+    }
     setBusy(true);
     setProblem(undefined);
     try {
@@ -874,6 +879,7 @@ export function ItemDialog({
                 public_slug: content.slug.trim(),
                 city_slug: content.town,
                 ...coordinates,
+                show_exact_location: content.exact,
                 amenities: content.amenities,
                 photo_ids: content.photos,
               }
@@ -896,6 +902,7 @@ export function ItemDialog({
           slug_taken: t("unitSlugTaken"),
           photo_unavailable: t("unitPhotoUnavailable"),
           city_unknown: t("unitTownUnknown"),
+          coordinates_missing: t("unitExactLocationNeedsPoint"),
         }),
       );
     } finally {

@@ -16,9 +16,11 @@ import {
   type SiteBlock,
   type StayBlockV1Data,
   type StayLive,
+  type StayMapLive,
 } from "@saas-core/site-blocks";
 
 import { SiteStayBlock } from "../booking/site-stay-blocks";
+import { SiteStayMap } from "../booking/site-stay-map";
 import { PublicContactForm } from "./public-contact-form";
 
 const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
@@ -259,11 +261,17 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       />
     ),
     // The part of a stay block that asks for free days: booking's own.
-    // A unit's card shows its calendar too.
+    // A unit's card shows its calendar too. The map loads OpenStreetMap
+    // only when the visitor asks for it.
     (blockType, data, live) =>
-      blockType === "core.stay_search" ||
-      blockType === "core.stay_calendar" ||
-      blockType === "core.stay_unit" ? (
+      blockType === "core.stay_map" ? (
+        <SiteStayMap
+          locale={page.locale}
+          place={(live as unknown as StayMapLive).place}
+        />
+      ) : blockType === "core.stay_search" ||
+        blockType === "core.stay_calendar" ||
+        blockType === "core.stay_unit" ? (
         <SiteStayBlock
           data={data as Pick<StayBlockV1Data, "action_label">}
           kind={blockType === "core.stay_search" ? "search" : "calendar"}

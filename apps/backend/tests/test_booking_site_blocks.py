@@ -22,6 +22,7 @@ from saas_core.modules.shared.booking.item_translations import save_item_transla
 from saas_core.modules.shared.booking.models import PublicBookingRoute, Service
 from saas_core.modules.shared.booking.setup import save_service
 from saas_core.modules.shared.booking.site_blocks import SITE_BLOCK_TYPES, site_blocks
+from saas_core.modules.shared.profiles.api import cities
 from saas_core.modules.shared.sites.localization import first_segment_reserved
 from saas_core.modules.shared.sites.measurement import COUNT_VIEW_HEADER
 from saas_core.modules.shared.sites.models import (
@@ -543,11 +544,14 @@ def test_the_forms_api_never_reads_the_requests_host() -> None:
 
 
 def test_the_blocks_booking_fills_are_registered_block_types() -> None:
-    from saas_core.modules.shared.sites.block_contracts import site_block_contracts
+    from saas_core.modules.shared.sites.block_contracts import (
+        InvalidSiteBlockData,
+        site_block_contracts,
+    )
 
     assert set(site_block_contracts().validators) >= SITE_BLOCK_TYPES
     validate = site_block_contracts().validate
-    for block_type in SITE_BLOCK_TYPES - {"core.stay_unit"}:
+    for block_type in SITE_BLOCK_TYPES - {"core.stay_unit", "core.stay_map"}:
         validate(block_type=block_type, schema_version=1, data={"title": "Domki"})
         validate(
             block_type=block_type,
@@ -561,6 +565,13 @@ def test_the_blocks_booking_fills_are_registered_block_types() -> None:
         schema_version=1,
         data={"unit": str(uuid7()), "main": True, "action_label": "Rezerwuj"},
     )
+    # A map names its unit or none — the first with a place — and has words
+    # of its own or the block's; never a place.
+    for data in ({}, {"unit": ""}, {"unit": str(uuid7()), "title": "Dojazd", "text": "…"}):
+        validate(block_type="core.stay_map", schema_version=1, data=data)
+    for data in ({"latitude": 53.8}, {"unit": "domek-1"}, {"place": {}}):
+        with pytest.raises(InvalidSiteBlockData):
+            validate(block_type="core.stay_map", schema_version=1, data=data)
 
 
 def card(unit: Any, **data: Any) -> dict[str, Any]:
@@ -604,9 +615,36 @@ def test_a_shown_unit_has_a_card_and_a_page_of_its_own(settings: Any) -> None:
     assert own["canonical_url"].endswith("/stay/domek-1/")
     assert own["hreflang"] == {"pl": own["canonical_url"]}
     assert own["noindex"] is False
-    assert own["blocks"] == [card(shown, main=True)]
+    # … and, under it, the map of its town.
+    assert own["blocks"] == [card(shown, main=True), map_block(shown)]
     assert own["live"]["0"]["unit"]["amenities"] == [{"key": "sauna", "label": "Sauna"}]
-    assert "latitude" not in str(own)
+    assert "latitude" not in str(own["live"]["0"])
+    # A link to it shows the cottage's cover, in the copy the site serves,
+    # and a search engine reads what the cottage is: a place to stay.
+    origin = own["canonical_url"].removesuffix("/stay/domek-1/")
+    assert own["social"]["image"] == {
+        "url": f"{origin}/media/{photo.id}/preview",
+        "alt": own["title"],
+    }
+    graph = {node["@id"].rpartition("#")[2]: node for node in own["structured_data"]["@graph"]}
+    assert graph["webpage"]["mainEntity"] == {"@id": f"{own['canonical_url']}#thing"}
+    assert graph["thing"] == {
+        "@type": "Accommodation",
+        "@id": f"{own['canonical_url']}#thing",
+        "url": own["canonical_url"],
+        "name": group.name,
+        "occupancy": {"@type": "QuantitativeValue", "maxValue": listed["capacity"]},
+        "amenityFeature": [
+            {"@type": "LocationFeatureSpecification", "name": "Sauna", "value": True}
+        ],
+        "address": {"@type": "PostalAddress", "addressLocality": "Mrągowo"},
+        "provider": {"@id": f"{origin}/#organization"},
+        "image": f"{origin}/media/{photo.id}/preview",
+    }
+    # The site's other pages keep the plain graph.
+    assert "thing" not in {
+        node["@id"].rpartition("#")[2] for node in page(host)["structured_data"]["@graph"]
+    }
     # The other spelling is one 308 away, as for every page of the site.
     slashless = asked(host, "/stay/domek-1")
     assert (slashless.status_code, slashless["Location"]) == (308, "/stay/domek-1/")
@@ -687,3 +725,89 @@ def test_a_units_page_has_another_address_only_in_a_language_it_has_words_in(
 def test_a_new_page_cannot_take_the_address_of_the_units_pages() -> None:
     assert first_segment_reserved("stay")
     assert not first_segment_reserved("pobyt")
+
+
+def map_block(unit: Any | None = None, **data: Any) -> dict[str, Any]:
+    chosen = {"unit": str(unit.id)} if unit is not None else {}
+    return {"block_type": "core.stay_map", "schema_version": 1, "data": {**chosen, **data}}
+
+
+def test_a_map_shows_the_town_until_the_company_shows_the_units_own_point() -> None:
+    configured = form("mapa-jednostki", priced=False, units=2)
+    owner: Membership = configured["owner"]
+    shown, hidden = configured["units"]
+    group = configured["group"]
+    # Not the town's centre: the unit's own point is told apart from it.
+    point = {"latitude": "53.871200", "longitude": "21.318400"}
+    change(owner, shown, public=True, city_slug="mragowo", **point)
+    # A unit nobody shows keeps its place to itself, whatever its switch says.
+    change(owner, hidden, city_slug="mikolajki", **point, show_exact_location=True)
+    host = published(
+        owner,
+        [map_block(shown, title="Dojazd"), map_block(), map_block(hidden), card(shown)],
+    )
+    centre = cities()["mragowo"]
+    town = {"slug": "mragowo", "name": "Mrągowo"}
+
+    def public_answers() -> str:
+        """Everything a visitor can read of the company: its page, the unit's
+        own page and the form's catalogue."""
+        return (
+            json.dumps(page(host))
+            + json.dumps(page(host, "/stay/domek-1/"))
+            + APIClient().get(f"{configured['url']}/").content.decode()
+        )
+
+    live = page(host)["live"]
+    # The town by default: its centre from the dictionary, never the unit's
+    # point. A block that names no unit shows the first one with a place.
+    assert sorted(live) == ["0", "1", "3"]
+    assert live["0"] == {
+        "place": {
+            "name": group.name,
+            "town": town,
+            "exact": False,
+            "latitude": centre.lat,
+            "longitude": centre.lng,
+        }
+    }
+    assert live["1"] == live["0"]
+    assert "53.8712" not in public_answers() and "21.3184" not in public_answers()
+    # The unit's own page shows where it is under its card.
+    own = page(host, "/stay/domek-1/")
+    assert own["blocks"] == [card(shown, main=True), map_block(shown)]
+    assert own["live"]["1"] == live["0"]
+
+    # „Pokaż dokładne położenie”: the point is in the map's answer — not in
+    # the unit's card, and never in the form's catalogue.
+    change(owner, shown, show_exact_location=True)
+    exact = page(host)["live"]
+    assert exact["0"]["place"] == {
+        "name": group.name,
+        "town": town,
+        "exact": True,
+        "latitude": 53.8712,
+        "longitude": 21.3184,
+    }
+    assert exact["1"] == exact["0"]
+    assert "53.8712" not in json.dumps(exact["3"])
+    assert "53.8712" not in APIClient().get(f"{configured['url']}/").content.decode()
+    shown_page = page(host, "/stay/domek-1/")
+    assert shown_page["live"]["1"] == exact["0"]
+    # A search engine is told the point the company shows, and no other.
+    (thing,) = [
+        node for node in shown_page["structured_data"]["@graph"] if node["@id"].endswith("#thing")
+    ]
+    assert thing["geo"] == {"@type": "GeoCoordinates", "latitude": 53.8712, "longitude": 21.3184}
+
+    # Without a town the shown point still has a map; switched off, the unit
+    # has no place to show and the map is no section.
+    change(owner, shown, city_slug="")
+    assert page(host)["live"]["0"]["place"]["town"] is None
+    change(owner, shown, show_exact_location=False)
+    assert sorted(page(host)["live"]) == ["3"]
+    assert page(host, "/stay/domek-1/")["blocks"] == [card(shown, main=True)]
+    assert "53.8712" not in public_answers()
+    # Not shown to guests at all: no map, as there is no card.
+    change(owner, shown, city_slug="mragowo", public=False)
+    assert page(host)["live"] == {}

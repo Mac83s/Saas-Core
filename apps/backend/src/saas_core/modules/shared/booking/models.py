@@ -322,10 +322,14 @@ class Resource(TenantScopedModel):
     amenities = ArrayField(models.CharField(max_length=40), default=list, blank=True)
     #: Its town, from the catalogue's dictionary (`profiles.api.cities`).
     city_slug = models.SlugField(max_length=80, blank=True)
-    #: For the company and the server — a map, a search nearby; never part of
-    #: an answer to a guest.
+    #: For the company and the server — a map, a search nearby; part of an
+    #: answer to a guest only while `show_exact_location` is on.
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    #: „Pokaż dokładne położenie”: the map on the company's site pins the
+    #: unit's own point, which publishes its coordinates. Off, the map shows
+    #: the town and the coordinates stay with the company.
+    show_exact_location = models.BooleanField(default=False)
     #: Media assets in the order shown; the first is the cover.
     photos = ArrayField(models.UUIDField(), default=list, blank=True)
     version = models.PositiveIntegerField(default=1)

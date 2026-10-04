@@ -10,6 +10,7 @@ language. The renderer only prints the result (`#lib/seo` escapes it).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 CONTEXT = "https://schema.org"
@@ -102,9 +103,12 @@ def page_graph(
     facts: dict[str, Any] | None,
     machine_source_type: str | None = None,
     translation_of: str | None = None,
+    thing: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """WebSite, the company, this page, its trail, and what the page is
-    besides: an article (`BlogPosting`) or a page of questions (`FAQPage`)."""
+    besides: an article (`BlogPosting`), a page of questions (`FAQPage`) or
+    the page of one record of the company — a unit it lets (`thing`, named
+    by the record's source)."""
     organization = {"@id": organization_id(origin)}
     website = {"@id": website_id(origin)}
     page_id = f"{canonical_url}#webpage"
@@ -150,6 +154,20 @@ def page_graph(
                 for position, crumb in enumerate(breadcrumbs, start=1)
             ],
         })
+    if thing is not None:
+        # The page is about that one record: its main entity, offered by the
+        # company, under the page's own address.
+        node = {
+            **thing,
+            "@id": f"{canonical_url}#thing",
+            "url": canonical_url,
+            "provider": organization,
+        }
+        if image:
+            node["image"] = image["url"]
+        if not questions:
+            page["mainEntity"] = {"@id": node["@id"]}
+        graph.append(node)
     # Text a model wrote says so (ADR-071 pkt 17): IPTC's digital source type,
     # and the work it translates where that is published.
     marked: dict[str, Any] = {}

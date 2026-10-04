@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import axe from "axe-core";
 import { expect, test } from "vitest";
 
@@ -436,4 +436,51 @@ test("fills a stay block from the page's live answer and leaves out one without 
   ).toBeVisible();
   expect(screen.queryByText("Bez odpowiedzi")).toBeNull();
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+});
+
+test("draws a map block's place and loads the map only when the visitor asks", async () => {
+  const rendered = render(
+    <PublicSiteRenderer
+      page={{
+        ...page,
+        blocks: [
+          { block_type: "core.stay_map", schema_version: 1, data: {} },
+          {
+            block_type: "core.stay_map",
+            schema_version: 1,
+            data: { title: "Bez odpowiedzi" },
+          },
+        ],
+        live: {
+          "0": {
+            place: {
+              name: "Domek nad jeziorem",
+              town: { slug: "mragowo", name: "Mrągowo" },
+              exact: false,
+              latitude: 53.8645,
+              longitude: 21.305,
+            },
+          },
+        },
+      }}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Położenie" })).toBeVisible();
+  expect(screen.getByText("Domek nad jeziorem · Mrągowo")).toBeVisible();
+  expect(
+    screen.getByText("Mapa pokazuje miejscowość, nie dokładny adres."),
+  ).toBeVisible();
+  expect(screen.queryByText("Bez odpowiedzi")).toBeNull();
+  // The page as it arrives names OpenStreetMap in one plain link only.
+  expect(rendered.container.querySelector("iframe")).toBeNull();
+  expect(screen.getByRole("link", { name: "Otwórz w mapach" })).toHaveAttribute(
+    "href",
+    "https://www.openstreetmap.org/#map=12/53.8645/21.305",
+  );
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Pokaż mapę" }));
+  expect(
+    rendered.container.querySelector("iframe")?.getAttribute("src"),
+  ).toContain("https://www.openstreetmap.org/export/embed.html?bbox=");
 });

@@ -17,8 +17,8 @@ be one, so the block carries a choice and the source answers it at each read.
 And, since slice 5e, the pages its records have by themselves on the company's
 site — a unit's own page — under one first segment of the address that is the
 source's (`stay`): nobody publishes such a page, the site asks the source for
-it when no published page answers. What else a source names — the facts for
-structured data — joins the same record with its first reader.
+it when no published page answers, and the source says what the record is for
+structured data (`SourcePage.thing`) and which picture a shared link shows.
 """
 
 from __future__ import annotations
@@ -48,6 +48,12 @@ class SourcePage:
     #: The languages the record has words of its own in, beside the site's
     #: source language — only in those does the page have another address.
     locales: frozenset[str] = frozenset()
+    #: The record's own picture for a link shared elsewhere: a media asset
+    #: the source lets the site serve (`served_media`).
+    image: UUID | None = None
+    #: What the record is, for structured data: a schema.org node. Its
+    #: address and picture (`@id`, `url`, `image`) are the site's to give.
+    thing: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)

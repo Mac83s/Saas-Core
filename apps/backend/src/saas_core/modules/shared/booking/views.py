@@ -2446,6 +2446,7 @@ def _resource_payload(value: Resource) -> dict[str, Any]:
         "city_slug": value.city_slug,
         "latitude": None if value.latitude is None else float(value.latitude),
         "longitude": None if value.longitude is None else float(value.longitude),
+        "show_exact_location": value.show_exact_location,
         "photo_ids": value.photos,
         "version": value.version,
     }

@@ -65,9 +65,23 @@ export interface StayTexts {
     readonly search: string;
     readonly calendar: string;
     readonly unit: string;
+    readonly map: string;
   };
   /** A picture of a unit, for whoever does not see it: „Domek 1 — zdjęcie 2”. */
   readonly photo: (name: string, number: number) => string;
+  /** The map of where a unit is: OpenStreetMap's, asked for by the visitor. */
+  readonly map: {
+    /** The section's heading, where the block names none. */
+    readonly title: string;
+    readonly show: string;
+    readonly open: string;
+    /** Said before the click: whose map it is and what the click does. */
+    readonly notice: string;
+    /** Said where the map shows a town, not the unit's own point. */
+    readonly townOnly: string;
+    /** The frame's name for whoever does not see it: „Mapa: Domek, Mrągowo”. */
+    readonly frame: (where: string) => string;
+  };
 }
 
 /** One, few, many: the form a count takes in a language. */
@@ -197,8 +211,18 @@ const TEXTS = {
         calendar:
           "Na opublikowanej stronie pojawi się tu kalendarz wolnych terminów z Twojego grafiku.",
         unit: "Na opublikowanej stronie pojawi się tu karta jednostki: zdjęcia, wyposażenie, cena „od” i kalendarz wolnych terminów.",
+        map: "Na opublikowanej stronie pojawi się tu mapa: miejscowość jednostki albo jej dokładne położenie, jeśli włączysz „Pokaż dokładne położenie” w ustawieniach jednostki. Mapa wczytuje się dopiero, gdy gość kliknie „Pokaż mapę”.",
       },
       photo: (name, number) => `${name} — zdjęcie ${number}`,
+      map: {
+        title: "Położenie",
+        show: "Pokaż mapę",
+        open: "Otwórz w mapach",
+        notice:
+          "Mapę wyświetla OpenStreetMap. Po kliknięciu „Pokaż mapę” Twoja przeglądarka połączy się z jego serwerami.",
+        townOnly: "Mapa pokazuje miejscowość, nie dokładny adres.",
+        frame: (where) => `Mapa: ${where}`,
+      },
     },
   },
   en: {
@@ -287,8 +311,18 @@ const TEXTS = {
         calendar:
           "The published page shows the calendar of available dates from your schedule here.",
         unit: "The published page shows the unit's card here: photos, amenities, the “from” price and the calendar of available dates.",
+        map: "The published page shows a map here: the unit's town, or its exact location if you switch “Show exact location” on in the unit's settings. The map loads only when a visitor selects “Show map”.",
       },
       photo: (name, number) => `${name} — photo ${number}`,
+      map: {
+        title: "Location",
+        show: "Show map",
+        open: "Open in maps",
+        notice:
+          "The map is provided by OpenStreetMap. When you select “Show map”, your browser connects to its servers.",
+        townOnly: "The map shows the town, not the exact address.",
+        frame: (where) => `Map: ${where}`,
+      },
     },
   },
   de: {
@@ -378,8 +412,18 @@ const TEXTS = {
         calendar:
           "Auf der veröffentlichten Seite erscheint hier der Kalender der freien Termine aus Ihrem Zeitplan.",
         unit: "Auf der veröffentlichten Seite erscheint hier die Karte der Einheit: Fotos, Ausstattung, der „ab“-Preis und der Kalender der freien Termine.",
+        map: "Auf der veröffentlichten Seite erscheint hier eine Karte: der Ort der Einheit oder ihre genaue Lage, wenn Sie in den Einstellungen der Einheit „Genaue Lage anzeigen“ einschalten. Die Karte wird erst geladen, wenn ein Gast „Karte anzeigen“ wählt.",
       },
       photo: (name, number) => `${name} — Foto ${number}`,
+      map: {
+        title: "Lage",
+        show: "Karte anzeigen",
+        open: "In Karten öffnen",
+        notice:
+          "Die Karte stammt von OpenStreetMap. Wenn Sie „Karte anzeigen“ wählen, verbindet sich Ihr Browser mit dessen Servern.",
+        townOnly: "Die Karte zeigt den Ort, nicht die genaue Adresse.",
+        frame: (where) => `Karte: ${where}`,
+      },
     },
   },
   es: {
@@ -468,8 +512,18 @@ const TEXTS = {
         calendar:
           "En la página publicada aparecerá aquí el calendario de fechas disponibles de su horario.",
         unit: "En la página publicada aparecerá aquí la ficha de la unidad: fotos, equipamiento, el precio «desde» y el calendario de fechas disponibles.",
+        map: "En la página publicada aparecerá aquí un mapa: la localidad de la unidad o su ubicación exacta, si activas «Mostrar ubicación exacta» en los ajustes de la unidad. El mapa se carga solo cuando el visitante elige «Mostrar mapa».",
       },
       photo: (name, number) => `${name} — foto ${number}`,
+      map: {
+        title: "Ubicación",
+        show: "Mostrar mapa",
+        open: "Abrir en mapas",
+        notice:
+          "El mapa lo ofrece OpenStreetMap. Al elegir «Mostrar mapa», tu navegador se conectará con sus servidores.",
+        townOnly: "El mapa muestra la localidad, no la dirección exacta.",
+        frame: (where) => `Mapa: ${where}`,
+      },
     },
   },
   ru: {
@@ -567,8 +621,18 @@ const TEXTS = {
         calendar:
           "На опубликованной странице здесь появится календарь свободных дат из вашего расписания.",
         unit: "На опубликованной странице здесь появится карточка объекта: фото, удобства, цена «от» и календарь свободных дат.",
+        map: "На опубликованной странице здесь появится карта: населённый пункт объекта или его точное расположение, если вы включите «Показывать точное расположение» в настройках объекта. Карта загружается только после того, как гость нажмёт «Показать карту».",
       },
       photo: (name, number) => `${name} — фото ${number}`,
+      map: {
+        title: "Расположение",
+        show: "Показать карту",
+        open: "Открыть в картах",
+        notice:
+          "Карту предоставляет OpenStreetMap. После нажатия «Показать карту» ваш браузер подключится к его серверам.",
+        townOnly: "Карта показывает населённый пункт, а не точный адрес.",
+        frame: (where) => `Карта: ${where}`,
+      },
     },
   },
 } satisfies Record<string, SiteUiTexts>;

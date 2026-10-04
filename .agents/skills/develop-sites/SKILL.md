@@ -48,6 +48,15 @@ a host of that company's published site (`site_host_company` — the renderer's
 own host lookup — and the source's `register_site_reads`); a new browser read
 of a source registers its prefix there, never a wider exception.
 
+**A block that embeds somebody else's service loads it on the visitor's
+word.** The map of a unit (`core.stay_map`, OpenStreetMap) draws a button and
+a plain link; the frame exists only after „Pokaż mapę”, without a referrer
+and in a sandbox, and the notice beside the button names the provider. No
+key, no cookie of ours, nothing fetched before the click — a published page
+that talks to a third party by itself needs a consent banner we do not have.
+What the block may show is the source's answer (`place_of`: the town, or the
+unit's own point once its company switched that on), never the block's data.
+
 A source's record may also have **a page nobody publishes** (slice 5e, a
 unit's `/stay/<slug>/`): `resolve_public_page` asks the source last, after
 pages, entries, indexes and archives (`_find_source_page`,
@@ -55,7 +64,9 @@ pages, entries, indexes and archives (`_find_source_page`,
 every language and reserved for new pages (`first_segment_reserved`); another
 language's address exists only where the record has words of its own in it,
 else one 308 to the site's own language. The sitemap lists such pages
-(`site_pages`); their views are not counted.
+(`site_pages`); their views are not counted. The source also names the
+page's share picture and what the record is for structured data
+(`SourcePage.image`, `.thing` — the page's `mainEntity`).
 
 ## Six operations belong to a person
 

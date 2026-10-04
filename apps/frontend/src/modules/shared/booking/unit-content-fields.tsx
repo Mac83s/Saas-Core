@@ -31,6 +31,8 @@ export type UnitContent = {
   town: string;
   latitude: string;
   longitude: string;
+  /** „Pokaż dokładne położenie”: the map pins the unit's own point. */
+  exact: boolean;
   amenities: string[];
   photos: string[];
 };
@@ -45,6 +47,7 @@ export function unitContentOf(unit: ResourceSetup | undefined): UnitContent {
     town: unit?.city_slug ?? "",
     latitude: unit?.latitude == null ? "" : String(unit.latitude),
     longitude: unit?.longitude == null ? "" : String(unit.longitude),
+    exact: unit?.show_exact_location ?? false,
     amenities: unit?.amenities ?? [],
     photos: unit?.photo_ids ?? [],
   };
@@ -185,6 +188,26 @@ export function UnitContentFields({
       <p className="text-sm text-muted-foreground">
         {t("unitCoordinatesHint")}
       </p>
+      <Field>
+        <label
+          className="flex min-h-11 items-center gap-2 text-sm"
+          htmlFor="resource-exact-location"
+        >
+          <input
+            aria-describedby="resource-exact-location-hint"
+            checked={content.exact}
+            className="size-4"
+            id="resource-exact-location"
+            onChange={(event) => set({ exact: event.target.checked })}
+            type="checkbox"
+          />
+          {t("unitExactLocation")}
+        </label>
+        {/* What the switch publishes, said where it is switched. */}
+        <FieldDescription id="resource-exact-location-hint">
+          {t("unitExactLocationHint")}
+        </FieldDescription>
+      </Field>
       <FieldSet>
         <FieldLegend variant="label">{t("unitAmenities")}</FieldLegend>
         <div className="grid gap-x-4 sm:grid-cols-2">

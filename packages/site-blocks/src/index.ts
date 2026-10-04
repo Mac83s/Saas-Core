@@ -11,7 +11,13 @@ export {
   type StayTexts,
   type StayUnit,
 } from "./site-ui-texts";
-export { stayAmount, stayFormHref, type StayPick } from "./stay-blocks";
+export {
+  stayAmount,
+  stayFormHref,
+  stayMapEmbed,
+  stayMapLink,
+  type StayPick,
+} from "./stay-blocks";
 export {
   isTemplateContact,
   withoutSlots,

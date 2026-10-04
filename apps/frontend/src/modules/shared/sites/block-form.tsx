@@ -718,12 +718,20 @@ function BlockField<TValues extends FieldValues>({
           />
         ) : null}
       </div>
-    ) : field.kind === "stayOffer" || field.kind === "stayUnit" ? (
+    ) : field.kind === "stayOffer" ||
+      field.kind === "stayUnit" ||
+      field.kind === "stayPlace" ? (
       <StayOfferSelect
         form={form}
         id={id}
         invalid={Boolean(error)}
-        kind={field.kind === "stayUnit" ? "unit" : "offer"}
+        kind={
+          field.kind === "stayUnit"
+            ? "unit"
+            : field.kind === "stayPlace"
+              ? "place"
+              : "offer"
+        }
         name={name}
       />
     ) : field.kind === "choice" ? (

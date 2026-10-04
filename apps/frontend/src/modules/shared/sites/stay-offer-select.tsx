@@ -18,7 +18,9 @@ type Offer = { id: string; name: string; online: boolean };
 /**
  * Which of the company's offers booked from–to a stay block shows (ADR-072,
  * slice 5d): every offer on the form, or one of them — or, for a unit's card
- * (`kind` `unit`, slice 5e), which of the units the company shows its guests.
+ * (`kind` `unit`, slice 5e), which of the units the company shows its guests;
+ * for a map (`kind` `place`) the same units, and choosing none means the
+ * first of them that has a place.
  * The block keeps the id; the list is the company's booking setup, read
  * here. An offer that is not booked online is named as such — the published
  * page shows nothing of it. Controlled, like the picture select: the options
@@ -34,7 +36,7 @@ export function StayOfferSelect<TValues extends FieldValues>({
   form: UseFormReturn<TValues>;
   id: string;
   invalid: boolean;
-  kind?: "offer" | "unit";
+  kind?: "offer" | "unit" | "place";
   name: string;
 }) {
   const t = useTranslations("Sites");
@@ -48,7 +50,7 @@ export function StayOfferSelect<TValues extends FieldValues>({
     let current = true;
     getBookingSetup()
       .then((setup) =>
-        kind === "unit"
+        kind !== "offer"
           ? setup.resources
               .filter((item) => item.public && item.active)
               .map((item) => ({
@@ -81,11 +83,17 @@ export function StayOfferSelect<TValues extends FieldValues>({
         value={value}
       >
         <option value="">
-          {t(kind === "unit" ? "stayUnitChoose" : "stayOfferAll")}
+          {t(
+            kind === "unit"
+              ? "stayUnitChoose"
+              : kind === "place"
+                ? "stayPlaceFirst"
+                : "stayOfferAll",
+          )}
         </option>
         {value && !offers?.some((offer) => offer.id === value) ? (
           <option value={value}>
-            {t(kind === "unit" ? "stayUnitCurrent" : "stayOfferCurrent")}
+            {t(kind === "offer" ? "stayOfferCurrent" : "stayUnitCurrent")}
           </option>
         ) : null}
         {offers?.map((offer) => (
@@ -98,7 +106,13 @@ export function StayOfferSelect<TValues extends FieldValues>({
       </NativeSelect>
       {offers?.length === 0 ? (
         <FieldDescription>
-          {t(kind === "unit" ? "stayUnitNone" : "stayOfferNone")}
+          {t(
+            kind === "unit"
+              ? "stayUnitNone"
+              : kind === "place"
+                ? "stayPlaceNone"
+                : "stayOfferNone",
+          )}
         </FieldDescription>
       ) : null}
     </>
