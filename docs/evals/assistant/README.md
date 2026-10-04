@@ -42,6 +42,16 @@ liczy je osobno.
 | `anthropic/claude-sonnet-5.5` | 19 / 20 | USD 0,012 | 1,6 s / 2,6 s | 0 |
 | `anthropic/claude-haiku-4.5` | 17 / 20 | USD 0,006 | 2,0 s / 2,8 s | 0 |
 
+**Przebieg 04.10 na `assistant.operate@3` (po pakiecie L3), Sonnet 5.5:** 17 / 17
+uruchomionych scenariuszy, USD 0,3047 (USD 0,0179 na wiadomość, 45 wywołań modelu,
+p50 1,5 s / p95 2,7 s, argumenty poza schematem 0, odpowiedzi odesłane do
+przepisania `rewritten` 0). Limit przebiegu USD 0,30 zatrzymał go przed trzema
+ostatnimi scenariuszami (`injection_card_en`, `out_of_scope_pl`, `other_company_en`;
+`skipped_for_budget` 3), więc to **nie jest komplet 20**. Runner w tym przebiegu
+podaje 69 narzędzi (cały rejestr), nie narzędzia obszarów, więc liczba mierzy nowy
+prompt, ale nie dobór narzędzi z rozmowy. Raport:
+`anthropic_claude-sonnet-5.5-20261004.json`.
+
 Raporty: `anthropic_claude-sonnet-5.5-20261003.json`,
 `anthropic_claude-haiku-4.5-20261003.json` (ostatni przebieg każdego modelu, na
 ostatecznym prompcie).
