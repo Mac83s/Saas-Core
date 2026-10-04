@@ -8,7 +8,9 @@ the company's setup (`DemoRun.setting_up`), so the bookings of its past find
 them in force and the consent journal fills as the stories are played.
 
 A document the company already has — a version in force or a draft of its own —
-is left as it is. Every text opens with a line saying that it is a
+is left as it is; only the seed's own version (its text in force is the
+scenario's, word for word) gets the scenario's text in a language the company
+has added since. Every text opens with a line saying that it is a
 demonstration sample and not legal advice.
 
 A language of the company a document has no text in is left to the
@@ -50,6 +52,8 @@ SAMPLE = {
     "zanim przyjmiesz prawdziwe rezerwacje.",
     "en": "This is a demonstration sample, not legal advice. Replace it with your own document "
     "before you take real bookings.",
+    "de": "Dies ist ein Demonstrationsbeispiel, keine Rechtsberatung. Ersetzen Sie es durch Ihr "
+    "eigenes Dokument, bevor Sie echte Buchungen annehmen.",
 }
 
 
@@ -101,6 +105,22 @@ def _visit_terms(name: str, contact: str) -> dict[str, str]:
             "before the visit and half when you cancel at least 2 days before.",
             f"5. Questions and complaints: {contact}.",
         ),
+        "de": _text(
+            "de",
+            f"1. Einen Termin bei {name} buchen Sie über das Formular auf unserer Website oder "
+            "telefonisch.",
+            "2. Den Termin bestätigen wir per E-Mail. Eine Leistung „auf Anfrage“ bestätigen wir "
+            "gesondert, innerhalb der im Formular genannten Zeit; bis dahin wartet der Termin "
+            "auf unsere Antwort.",
+            "3. Sie zahlen vor Ort, bar oder mit Karte, es sei denn, die Leistung erfordert eine "
+            "Überweisung im Voraus – dann erhalten Sie die Überweisungsdaten und die Frist per "
+            "E-Mail, und die Buchung ist nach Zahlungseingang bestätigt.",
+            "4. Ändern oder absagen können Sie den Termin über den Link in der "
+            "Bestätigungsnachricht. Bei einer im Voraus bezahlten Leistung erstatten wir alles "
+            "bei Absage mindestens 7 Tage vor dem Termin und die Hälfte bei Absage mindestens "
+            "2 Tage vorher.",
+            f"5. Fragen und Reklamationen: {contact}.",
+        ),
     }
 
 
@@ -133,6 +153,21 @@ def _stay_terms(name: str, contact: str) -> dict[str, str]:
             "was damaged. The local tourist tax and the final cleaning are added to the price.",
             f"5. Questions and complaints: {contact}.",
         ),
+        "de": _text(
+            "de",
+            f"1. Einen Aufenthalt bei {name} buchen Sie auf unserer Website oder telefonisch. "
+            "Der Tag beginnt und endet zu den bei der Buchung genannten Uhrzeiten.",
+            "2. Die Buchung ist bestätigt, sobald die Anzahlung eingeht: 30 % des Preises per "
+            "Überweisung innerhalb von 3 Tagen. Den Rest überweisen Sie spätestens 14 Tage vor "
+            "der Anreise.",
+            "3. Stornierung mindestens 30 Tage vor der Anreise: Wir erstatten die gesamte "
+            "Anzahlung. Mindestens 14 Tage vor der Anreise: die Hälfte. Später wird die "
+            "Anzahlung nicht erstattet. Alles, was Sie über die Anzahlung hinaus gezahlt haben, "
+            "erstatten wir vollständig.",
+            "4. Die Kaution nehmen wir bei der Anreise und geben sie bei der Abreise zurück, "
+            "wenn nichts beschädigt wurde. Kurtaxe und Endreinigung kommen zum Preis hinzu.",
+            f"5. Fragen und Reklamationen: {contact}.",
+        ),
     }
 
 
@@ -157,6 +192,16 @@ def _rental_terms(name: str, contact: str) -> dict[str, str]:
             "3. You can cancel a booking from the link in the confirmation message. When the "
             "weather does not allow safe paddling, we cancel the booking ourselves.",
             f"4. Questions and complaints: {contact}.",
+        ),
+        "de": _text(
+            "de",
+            f"1. Ausrüstung bei {name} buchen Sie tageweise: Abholung und Rückgabe zu den bei "
+            "der Buchung genannten Uhrzeiten, an unserer Anlegestelle.",
+            "2. Sie zahlen vor Ort bei der Abholung. Die Kaution nehmen wir bei der Abholung "
+            "und geben sie zurück, wenn die Ausrüstung im ausgegebenen Zustand zurückkommt.",
+            "3. Stornieren können Sie die Buchung über den Link in der Bestätigungsnachricht. "
+            "Wenn das Wetter kein sicheres Paddeln erlaubt, stornieren wir selbst.",
+            f"4. Fragen und Reklamationen: {contact}.",
         ),
     }
 
@@ -196,7 +241,7 @@ def _data(scenario: DemoScenario, spec: DemoOrganization) -> dict[str, Any] | No
 def describe(scenario: DemoScenario, spec: DemoOrganization) -> list[str]:
     data = _data(scenario, spec)
     return [
-        f"{NAMES.get(kind, kind)} zatwierdzony w językach: {', '.join(texts)} "
+        f"{NAMES.get(kind, kind)} — w mocy w językach: {', '.join(texts)} "
         "(tekst pokazowy, nie porada prawna)"
         for kind, texts in (data or {}).get("documents", {}).items()
     ]
@@ -216,9 +261,9 @@ def seed_documents(run: DemoRun) -> None:
 def _document(run: DemoRun, spec: DemoOrganization, kind: str, texts: dict[str, str]) -> None:
     name = NAMES.get(kind, kind)
     document = read_document(kind)["document"]
-    languages = organization_content_locales(run.organizations[spec.key])
+    languages = organization_content_locales(run.reload(spec.key))
     if document["in_force"] is not None or document["draft"]:
-        run.log(f"= {name} ({spec.name})")
+        document = _added_languages(run, spec, kind, document, texts, languages)
         _want_translations(run, spec, name, document, languages)
         return
     written = [locale for locale in texts if locale in languages]
@@ -239,6 +284,37 @@ def _document(run: DemoRun, spec: DemoOrganization, kind: str, texts: dict[str, 
         )
     run.log(f"+ {name} {spec.name}: w mocy, języki {', '.join(written)}")
     _want_translations(run, spec, name, document, languages)
+
+
+def _added_languages(
+    run: DemoRun,
+    spec: DemoOrganization,
+    kind: str,
+    document: dict[str, Any],
+    texts: dict[str, str],
+    languages: tuple[str, ...],
+) -> dict[str, Any]:
+    """The seed's own version in a language the company has now and the
+    version lacks; a version with another text is the company's and is left."""
+    name = NAMES.get(kind, kind)
+    version = document["in_force"]
+    written = {row["locale"]: row["text"] for row in (version or {}).get("texts", ())}
+    source = (version or {}).get("source_locale", "")
+    mine = version is not None and written.get(source) == texts.get(source)
+    missing = [locale for locale in texts if mine and locale in languages and locale not in written]
+    if not missing:
+        run.log(f"= {name} ({spec.name})")
+        return document
+    for locale in missing:
+        document = add_text(
+            kind,
+            number=version["number"],
+            locale=locale,
+            text=texts[locale],
+            expected_version=document["version"],
+        )
+    run.log(f"+ {name} {spec.name}: dopisane języki {', '.join(missing)}")
+    return document
 
 
 def _want_translations(

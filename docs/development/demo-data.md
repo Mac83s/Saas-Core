@@ -149,15 +149,18 @@ Konto: `kajaki@saas.test` (właściciel).
 
 ### W każdej firmie
 
-- **Dokumenty dla klientów** (`customers/demo.py`): regulamin rezerwacji po polsku
-  i angielsku oraz polityka prywatności po polsku — zatwierdzone przez właściciela.
+- **Dokumenty dla klientów** (`customers/demo.py`): regulamin rezerwacji w językach
+  firmy (pl, en, de — rezerwacja online działa w każdym z nich) oraz polityka
+  prywatności po polsku — zatwierdzone przez właściciela.
   Każdy tekst zaczyna się zdaniem, że to **przykład pokazowy, nie porada prawna**.
   Rezerwacje z formularza akceptują je, więc **dziennik zgód** się wypełnia.
 - **Tłumaczenie „Do akceptacji”** (`translation/demo.py`): angielska wersja polityki
   prywatności jest zlecana **tylko tam, gdzie działa atrapa modelu**
-  (`MODEL_PORT_TEST_DOUBLE`, nigdy na stosie pod https). Firma trafia wtedy na listę
-  atrapy, wynik („[en] tekst źródłowy”) czeka w „Tłumaczenia → Do akceptacji”.
-  Gdzie indziej krok jest pomijany i komenda to mówi.
+  (`MODEL_PORT_TEST_DOUBLE`, nigdy na stosie pod https). Firma założona przez dane
+  demo trafia wtedy na listę atrapy, wynik („[en] tekst źródłowy”) czeka w
+  „Tłumaczenia → Do akceptacji”. Firmy, której komenda nie założyła, na atrapę nie
+  przełącza (lokalne „Studio Testowe” służy do prób z prawdziwym modelem). Gdzie
+  indziej krok jest pomijany i komenda to mówi.
 - **Teksty w innych językach** — strony, nazwy ofert, jednostek i dopłat — pochodzą
   ze scenariusza i są zapisane jako **zaimportowane** (`import`): panel pokazuje
   „Zaimportowane”, nie „Tłumaczenie AI” i nie poprawkę osoby.

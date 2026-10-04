@@ -12,10 +12,12 @@ Two things, both from `TranslationConfig.ready`:
   the run's memo (`translation.wanted`: a document's missing language) is
   ordered the way a person orders it from the panel — but only where the
   stack runs the model's stand-in (`MODEL_PORT_TEST_DOUBLE`, never on a stack
-  served over https). The company is put on the stand-in's list first, so the
-  job is answered by `fake/echo` („[en] tekst źródłowy”), costs no model call
-  and waits in „Tłumaczenia → Do akceptacji”. Elsewhere the step is skipped
-  and the run says so.
+  served over https). A company the seed made is put on the stand-in's list
+  first, so the job is answered by `fake/echo` („[en] tekst źródłowy”), costs
+  no model call and waits in „Tłumaczenia → Do akceptacji”. A company
+  somebody else made is ordered for only when it is on that list already: the
+  seed does not decide for it which model translates. Elsewhere the step is
+  skipped and the run says so.
 """
 
 from __future__ import annotations
@@ -92,11 +94,21 @@ def seed_waiting(run: DemoRun) -> None:
 
 def _order(run: DemoRun, key: str, item: dict[str, Any]) -> None:
     organization = run.organizations[key]
-    # The stand-in first: from here on this company's translations cost no
-    # model call, whatever orders them.
-    TestDoubleCompany.objects.get_or_create(
-        organization_id=organization.id, defaults={"added_by": ADDED_BY}
-    )
+    name = run.spec(key).name
+    if not uses_stand_in(organization.id):
+        if key not in run.founded:
+            # Somebody else's company may be there to try the real model on:
+            # the seed does not decide for it which model translates.
+            run.log(
+                f"= tłumaczenie {item['label']} ({item['locale']}) {name} pominięte: firmy, "
+                "której nie założyły dane demo, komenda nie przełącza na atrapę modelu"
+            )
+            return
+        # The stand-in first: from here on this company's translations cost
+        # no model call, whatever orders them.
+        TestDoubleCompany.objects.get_or_create(
+            organization_id=organization.id, defaults={"added_by": ADDED_BY}
+        )
     settings = read_settings()
     if not settings["processing_acknowledged"]:
         change_settings(
@@ -110,7 +122,6 @@ def _order(run: DemoRun, key: str, item: dict[str, Any]) -> None:
         )
     ]
     quoted = quote_translation(targets=targets)
-    name = run.spec(key).name
     if not quoted.available or quoted.quote.units == 0:
         why = ", ".join(quoted.reasons) or "nie ma nic do przetłumaczenia"
         run.log(f"= tłumaczenie {item['label']} ({item['locale']}) {name} pominięte: {why}")

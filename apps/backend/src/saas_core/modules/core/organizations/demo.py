@@ -68,6 +68,7 @@ from .models import (
     MembershipStatus,
     Organization,
     OrganizationAuditAction,
+    OrganizationAuditEntry,
     WorkspaceKind,
 )
 from .pre_tenant import PRE_TENANT_DB
@@ -79,6 +80,8 @@ from .settings_service import settings_at_creation
 DEMO_EMAIL_SUFFIX = ".test"
 _NAMESPACE = uuid.UUID("5f0c7c1e-3b1d-4d5e-9a2f-0d6e7c1b9a30")
 _TICK = timedelta(microseconds=1)
+#: What the audit says made a company: the mark a later run knows it by.
+SEED = "seed_demo"
 #: How long before the run a company the seed makes was founded: longer ago
 #: than anything its stories tell, so its past has offers, prices and
 #: documents to happen in.
@@ -232,8 +235,8 @@ _LODGING_PATHS = (
     DemoPath(
         "Dokumenty dla klientów i dziennik zgód; tłumaczenie „Do akceptacji”",
         "{panel}/panel/settings/documents",
-        see="Regulamin po polsku i angielsku, polityka prywatności po polsku; jej angielska "
-        "wersja czeka w /panel/sites/translations/review tam, gdzie działa atrapa modelu. "
+        see="Regulamin w językach firmy, polityka prywatności po polsku; jej wersje w innych "
+        "językach czekają w /panel/sites/translations/review tam, gdzie działa atrapa modelu. "
         "Dziennik zgód: /panel/settings/consents.",
     ),
 )
@@ -385,8 +388,8 @@ class DemoRun:
         self.now = now or timezone.now()
         self.organizations: dict[str, Organization] = {}
         self.users: dict[str, User] = {}
-        #: When each company this run made was founded; one that existed
-        #: before is not here.
+        #: When each company the seed made — in this run or an earlier one —
+        #: was founded; a company somebody else made is not here.
         self.founded: dict[str, datetime] = {}
         #: Addresses the guide's paths are built from, per company: `panel`
         #: here, `site` and `form` from the modules that make them.
@@ -460,9 +463,9 @@ class DemoRun:
     @contextmanager
     def setting_up(self, key: str) -> Iterator[None]:
         """The moment a company's own setup is written at: just after its
-        founding for a company this run made — its languages, bank account,
+        founding for a company the seed made — its languages, bank account,
         documents, offers and prices are then there for the bookings of its
-        past — and now for a company that existed before the run."""
+        past — and now for a company somebody else made."""
         founded = self.founded.get(key)
         if founded is None:
             yield
@@ -533,7 +536,7 @@ class DemoRun:
             owner = self._account(spec.owner)
             organization = self._organization(spec, owner)
             self.organizations[spec.key] = organization
-            self.links[spec.key] = {"panel": str(settings.FRONTEND_BASE_URL).rstrip("/")}
+            self.links[spec.key] = {"panel": panel_address()}
             for person in spec.members:
                 self._membership(organization, self._account(person), person.role)
 
@@ -568,13 +571,24 @@ class DemoRun:
                 owned = Membership.objects.filter(
                     organization=found, user=owner, role__key="owner"
                 ).exists()
+                # A company an earlier run of the seed made was founded then:
+                # what a later run still has to set up is set up at that time.
+                seeded = OrganizationAuditEntry.objects.filter(
+                    organization=found,
+                    action=OrganizationAuditAction.ORGANIZATION_CREATED,
+                    metadata__source=SEED,
+                ).exists()
             if not owned:
                 raise ValueError(
                     f"Organizacja {spec.slug} należy do kogoś innego niż {owner.email}; "
                     "dane demo jej nie przejmą."
                 )
+            if seeded:
+                self.founded[spec.key] = found.created_at
             self.log(f"= organizacja {spec.name}")
-            return found
+            # Read again inside the company: the row found by slug came
+            # through the pre-tenant door and would be read and saved there.
+            return self._inside(found.id)
         organization_type = spec.organization_type or str(settings.DEFAULT_ORGANIZATION_TYPE)
         organization = Organization(
             name=spec.name,
@@ -603,11 +617,21 @@ class DemoRun:
                 actor=owner,
                 target_type="organization",
                 target_id=organization.id,
-                metadata={"source": "seed_demo"},
+                metadata={"source": SEED},
             )
         self.founded[spec.key] = founded
         self.log(f"+ organizacja {spec.name} ({organization_type})")
         return organization
+
+    def _inside(self, organization_id: uuid.UUID) -> Organization:
+        with transaction.atomic():
+            set_local_organization_id(organization_id)
+            return Organization.objects.get(pk=organization_id)
+
+    def reload(self, key: str) -> Organization:
+        """The company as it is now, after a part changed it (its languages)."""
+        self.organizations[key] = self._inside(self.organizations[key].id)
+        return self.organizations[key]
 
     def _membership(self, organization: Organization, user: User, role_key: str) -> None:
         with transaction.atomic():
@@ -656,14 +680,13 @@ def seed_languages(run: DemoRun) -> None:
     company with them already is left alone, and none is ever taken away."""
     offered = set(offered_locales())
     for spec in run.scenario.organizations:
-        organization = run.organizations[spec.key]
+        current = run.reload(spec.key)
         wanted = [code for code in spec.locales if code in offered]
-        with run.setting_up(spec.key), run.acting(spec.key):
-            current = Organization.objects.get(pk=organization.id)
-            missing = [code for code in wanted if code not in current.public_locales]
-            if not missing:
-                continue
-            try:
+        missing = [code for code in wanted if code not in current.public_locales]
+        if not missing:
+            continue
+        try:
+            with run.setting_up(spec.key), run.acting(spec.key):
                 change_public_locales(
                     locales=[*current.public_locales, *missing],
                     expected_version=current.public_locales_version,
@@ -671,11 +694,10 @@ def seed_languages(run: DemoRun) -> None:
                         run.stable_id("locales", spec.slug, *current.public_locales, *missing)
                     ),
                 )
-            except (APIException, DjangoValidationError) as error:
-                run.log(f"! języki {spec.name}: {getattr(error, 'detail', error)}")
-                continue
-        organization.refresh_from_db()
-        run.log(f"+ języki {spec.name}: {', '.join(organization.public_locales)}")
+        except (APIException, DjangoValidationError) as error:
+            run.log(f"! języki {spec.name}: {getattr(error, 'detail', error)}")
+            continue
+        run.log(f"+ języki {spec.name}: {', '.join(run.reload(spec.key).public_locales)}")
 
 
 #: After the plan (10), which bounds how many languages a company may have.
@@ -769,6 +791,13 @@ def run_demo(
 @contextmanager
 def _real_clock() -> Iterator[None]:
     yield
+
+
+def panel_address() -> str:
+    """Where the panel and the booking forms answer on this stack: the
+    platform's own domain, else the address the mails link to."""
+    domain = str(getattr(settings, "SITES_PLATFORM_DOMAIN", "") or "")
+    return site_address(domain) if domain else str(settings.FRONTEND_BASE_URL).rstrip("/")
 
 
 def site_address(hostname: str) -> str:

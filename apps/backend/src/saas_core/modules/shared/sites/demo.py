@@ -82,7 +82,8 @@ def describe(scenario: DemoScenario, spec: DemoOrganization) -> list[str]:
     )
     return [
         f"strona {data['site']['label']}.<domena platformy>, opublikowana: {pages}; pozostałe "
-        "języki firmy z tekstów scenariusza, oznaczone jako zaimportowane (bez modelu)"
+        "języki firmy z tekstów scenariusza, oznaczone jako zaimportowane (bez modelu) — "
+        "tylko gdy firma nie ma jeszcze strony"
     ]
 
 
@@ -108,7 +109,7 @@ def _site(run: DemoRun, spec: DemoOrganization, data: dict[str, Any]) -> Site:
     site = create_site(
         name=data["site"]["name"],
         slug=label,
-        default_locale=run.organizations[spec.key].public_locales[0],
+        default_locale=run.reload(spec.key).public_locales[0],
         subdomain_label=label,
         idempotency_key=str(run.stable_id("site", spec.slug)),
     ).value

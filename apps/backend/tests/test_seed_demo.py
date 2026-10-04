@@ -516,7 +516,7 @@ def test_the_list_says_what_a_run_would_make_and_writes_nothing() -> None:
         "konto domki@saas.test",
         "wzorzec core.lodging",
         "szablon core.lodging",
-        "regulamin rezerwacji zatwierdzony w językach: pl, en",
+        "regulamin rezerwacji — w mocy w językach: pl, en, de",
         "rachunek do przelewów (zmyślony",
     ):
         assert expected in said, expected
@@ -585,6 +585,66 @@ def test_without_the_models_stand_in_no_translation_is_ordered_and_the_run_says_
     seeded(only=["kajaki"], lines=lines)
     assert any("atrapa modelu" in line and "pominięte (1)" in line for line in lines), lines
     assert not TranslationJob.all_objects.exists()
+
+
+@core_scenario
+@pytest.mark.skipif(
+    "shared.translation" not in settings.ACTIVE_MODULES,
+    reason="silnik tłumaczeń istnieje tylko w profilu, który go składa",
+)
+def test_where_the_models_stand_in_answers_a_document_waits_for_a_person(
+    settings, monkeypatch
+) -> None:
+    from saas_core.modules.shared.model_port.matrix import MODELS, register_model
+    from saas_core.modules.shared.model_port.models import TestDoubleCompany
+    from saas_core.modules.shared.model_port.test_double import ECHO_MODEL, echo_profile
+    from saas_core.modules.shared.translation.models import TranslationJob
+
+    # A company somebody else made, with the scenario's owner: the seed adds
+    # to it, but does not decide for it which model translates.
+    owner = User.objects.create_user("wlasciciel@saas.test", PASSWORD, status=UserStatus.ACTIVE)
+    studio = Organization.objects.create(name="Studio Testowe", slug="studio-testowe")
+    Membership.objects.create(organization=studio, user=owner, role=system_role("", "owner"))
+
+    settings.MODEL_PORT_TEST_DOUBLE = True
+    settings.PUBLIC_SITE_SCHEME = "http"
+    # The suite runs no AI worker; a stack that translates has one.
+    monkeypatch.setattr("saas_core.modules.shared.translation.jobs._availability", lambda: ())
+    register_model(echo_profile())
+    lines: list[str] = []
+    try:
+        seeded(only=["kajaki", "studio"], lines=lines)
+    finally:
+        MODELS.pop(("fake", ECHO_MODEL), None)
+    rental = Organization.objects.get(slug="kajaki-krutynia")
+    assert TestDoubleCompany.objects.filter(
+        organization_id=rental.id, added_by="seed_demo"
+    ).exists()
+    said = [line for line in lines if "tłumacz" in line]
+    assert TranslationJob.all_objects.filter(organization=rental).count() == 1, said
+    assert any("Kajaki Krutynia: zlecone atrapie modelu" in line for line in lines), lines
+    assert not TestDoubleCompany.objects.filter(organization_id=studio.id).exists()
+    assert not TranslationJob.all_objects.filter(organization=studio).exists()
+    assert any("Studio Testowe pominięte: firmy, której nie założyły" in line for line in lines)
+
+
+def test_a_document_of_the_seed_gets_a_language_the_company_added_since() -> None:
+    from saas_core.modules.core.organizations.context import set_local_organization_id
+
+    seeded(only=["kajaki"])
+    rental = Organization.objects.get(slug="kajaki-krutynia")
+    terms = DocumentText.all_objects.filter(
+        organization=rental, version__document__kind="booking_terms"
+    )
+    assert {text.locale for text in terms} == {"pl", "en"}
+    if "de" not in settings.SITES_SUPPORTED_LOCALES:
+        return
+    set_local_organization_id(rental.id)
+    Organization.objects.filter(pk=rental.id).update(public_locales=["pl", "en", "de"])
+    lines: list[str] = []
+    seeded(only=["kajaki"], lines=lines)
+    assert {text.locale for text in terms.all()} == {"pl", "en", "de"}
+    assert any("dopisane języki de" in line for line in lines)
 
 
 def test_an_item_whose_category_the_profile_lacks_goes_without_one(monkeypatch) -> None:
