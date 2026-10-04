@@ -817,7 +817,11 @@ Rozstrzygnięcia plastra 4f-2 (2026-10-04, decyzje techniczne z powodem):
   booking, a biuro dostaje `booking.office_expired`, gdy firma włączyła
   powiadomienia biura. Wszystkie w pl, en i de, przez szablony powiadomień;
   żaden nie niesie danych innej osoby. Po wpłacie klient dostaje zwykłe
-  potwierdzenie rezerwacji.
+  potwierdzenie rezerwacji. E-mail z danymi do przelewu niesie też własny link
+  klienta do rezerwacji (szablon w wersji 2; źródło podaje go w
+  `request_prepayment(link=…)`) — to jedyna wiadomość, jaką klient ma, dopóki
+  rezerwacja czeka, więc bez linku nie mógłby z niej zrezygnować po zamknięciu
+  strony.
 - **Odnośnik z wizyty do zamówienia**: `commerce.api.orders_of(source,
   references)` to jeden odczyt na listę wizyt; kalendarz dostaje `order`
   (`id`, `number`) tylko dla wywołującego z `commerce.orders.read`.

@@ -1218,7 +1218,12 @@ def answer_request(
     reaches = bool(customer.email) and not customer.anonymized_at
     if accept:
         RequestRoute.objects.filter(appointment_id=appointment.id).delete()
-        hold_until = orders.accepted(appointment)
+        hold_until = orders.accepted(
+            appointment,
+            link=notify.manage_url(
+                decrypt_secret(appointment.self_service_token_ciphertext), customer.locale
+            ),
+        )
         if hold_until is None:
             _confirm(appointment, reason=REQUEST_ACCEPTED)
         else:
@@ -1842,7 +1847,14 @@ def record_new_booking(
         and context.role_key == PUBLIC_BOOKING_ROLE
         and appointment.service.confirmation == Confirmation.ON_REQUEST
     )
-    hold_until = orders.place(appointment, customer, hold=not walk_in, draft=requested)
+    hold_until = orders.place(
+        appointment,
+        customer,
+        hold=not walk_in,
+        draft=requested,
+        # The mail with the transfer's details leads back to the booking.
+        link=notify.manage_url(token, customer.locale),
+    )
     if requested:
         appointment.status = AppointmentStatus.PENDING_REQUEST
         # The hours the offer gives the company, never past the start.

@@ -91,14 +91,20 @@ def prepayment_available() -> bool:
 
 
 def place(
-    appointment: Appointment, customer: Customer, *, hold: bool = True, draft: bool = False
+    appointment: Appointment,
+    customer: Customer,
+    *,
+    hold: bool = True,
+    draft: bool = False,
+    link: str = "",
 ) -> datetime | None:
     """A new booking with a price becomes an order. Where its quote asks for
     a prepayment, commerce is asked for it and the answer is until when the
     booking waits — None: nothing is awaited, the booking is confirmed.
     `hold` false is for a booking that never waits (a visit under way).
     `draft`: the booking waits for the company's answer first — its order has
-    no number and asks for nothing until `accepted`."""
+    no number and asks for nothing until `accepted`. `link`: the customer's
+    own link to the booking, for the mail with the transfer's details."""
     quote = appointment.quote
     if not enabled() or not quote or not quote["lines"]:
         return None
@@ -119,10 +125,10 @@ def place(
     )
     if order is None or draft or not hold:
         return None
-    return _prepayment(appointment, order)
+    return _prepayment(appointment, order, link)
 
 
-def accepted(appointment: Appointment) -> datetime | None:
+def accepted(appointment: Appointment, *, link: str = "") -> datetime | None:
     """The company accepted the request: its order gets its number, and where
     the quote asks for a prepayment the booking now waits for that — the
     answer is until when, None when nothing is awaited."""
@@ -133,10 +139,10 @@ def accepted(appointment: Appointment) -> datetime | None:
     order = order_for(LINE_SOURCE, str(appointment.id))
     if order is None:
         return None
-    return _prepayment(appointment, accept_order(order))
+    return _prepayment(appointment, accept_order(order), link)
 
 
-def _prepayment(appointment: Appointment, order: Any) -> datetime | None:
+def _prepayment(appointment: Appointment, order: Any, link: str) -> datetime | None:
     """Asks commerce for what the booking's quote wants paid ahead."""
     from saas_core.modules.shared.commerce.api import request_prepayment  # noqa: PLC0415
 
@@ -150,6 +156,7 @@ def _prepayment(appointment: Appointment, order: Any) -> datetime | None:
         transfer_days=terms["transfer_due_days"],
         # A transfer is no use once the booking has begun.
         before=appointment.starts_at,
+        link=link,
     )
 
 

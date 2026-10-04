@@ -283,6 +283,8 @@ def test_a_booking_that_asks_for_a_prepayment_waits_for_it(
     assert mail.context["account_number"] == "PL61 1090 1014 0000 0712 1981 2874"
     assert mail.context["account_holder"] == "Gabinet Anna Nowak"
     assert mail.context["subject"] == "Wizyta"
+    # …and the way back to the booking: a waiting booking can be given up.
+    assert mail.template_version == 2 and "/booking/bk_" in mail.context["manage_url"]
     assert audit.metadata["amount_minor"] == 4500 and "gosc" not in str(audit.metadata)
     # The order waits with it.
     assert (read["status"], read["due_minor"]) == ("awaiting_payment", 15000)

@@ -261,6 +261,7 @@ def test_an_accepted_request_of_an_offer_with_a_prepayment_waits_for_its_payment
         "accepted",
     )
     assert len(told) == 1 and details.count() == 1
+    assert "/booking/bk_" in details.get().context["manage_url"]
     assert mails(appointment.id, "booking.confirmation") != []  # after the payment below
     assert (paid["status"], appointment.status) == ("partially_paid", "confirmed")
 

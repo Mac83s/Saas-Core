@@ -67,7 +67,13 @@ class OrderVersionConflict(APIException):
 
 
 def request_prepayment(
-    order: Order, *, kind: str, amount_minor: int, transfer_days: int, before: datetime
+    order: Order,
+    *,
+    kind: str,
+    amount_minor: int,
+    transfer_days: int,
+    before: datetime,
+    link: str = "",
 ) -> datetime | None:
     """The source wants `amount_minor` of the order it has just placed before
     it confirms what it sold — a `deposit` or the `full` amount, worked out by
@@ -78,9 +84,10 @@ def request_prepayment(
     on site: the source confirms at once.
 
     The date is commerce's (§5): `transfer_days` from now, never past
-    `before`. The customer gets the transfer's details by e-mail; the
-    source's handler hears `prepaid` when the company marks the payment and
-    `expired` when the date passes first.
+    `before`. The customer gets the transfer's details by e-mail — with
+    `link`, the source's own address where the buyer sees what they bought
+    and can give it up; the source's handler hears `prepaid` when the company
+    marks the payment and `expired` when the date passes first.
     """
     context = require_tenant_context()
     if not connection.in_atomic_block:
@@ -137,7 +144,7 @@ def request_prepayment(
             "due_at": due_at.isoformat(),
         },
     )
-    emails.transfer_details(order, payment, account)
+    emails.transfer_details(order, payment, account, link=link)
     return due_at
 
 
