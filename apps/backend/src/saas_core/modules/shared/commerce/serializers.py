@@ -6,7 +6,17 @@ from rest_framework import serializers
 
 from saas_core.modules.shared.customers.api import ConsentKind, DocumentKind
 
-from .models import Amounts, OrderChannel, OrderLineKind, OrderStatus, TaxRate
+from .ledger import MANUAL_METHODS
+from .models import (
+    Amounts,
+    OrderChannel,
+    OrderLineKind,
+    OrderStatus,
+    PaymentKind,
+    PaymentMethod,
+    PaymentStatus,
+    TaxRate,
+)
 from .orders import MAX_PAGE_SIZE
 
 
@@ -127,6 +137,28 @@ class OrderConsentSerializer(serializers.Serializer[dict[str, Any]]):
     created_at = serializers.DateTimeField()
 
 
+class OrderPaymentSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    kind = serializers.ChoiceField(
+        choices=PaymentKind.values,
+        help_text="`full` — the whole at once; `deposit` — a part ahead of the rest; "
+        "`balance` — the rest.",
+    )
+    method = serializers.ChoiceField(
+        choices=PaymentMethod.values,
+        help_text="`cash` is paid at the desk, in cash or by card on the company's terminal.",
+    )
+    status = serializers.ChoiceField(
+        choices=PaymentStatus.values,
+        help_text="`succeeded` counts as paid; `canceled` was marked by mistake and taken back.",
+    )
+    amount_minor = serializers.IntegerField(help_text="In minor units of the order's currency.")
+    paid_at = serializers.DateTimeField(allow_null=True)
+    recorded_by = serializers.CharField(
+        allow_blank=True, help_text="Who marked it, by name; empty when no person did."
+    )
+
+
 class OrderSerializer(OrderSummarySerializer):
     customer_id = serializers.UUIDField()
     buyer_email = serializers.CharField(allow_blank=True)
@@ -140,7 +172,17 @@ class OrderSerializer(OrderSummarySerializer):
         help_text="Which lines are in force. A source that prices its record again — a "
         "booking moved to dearer days — writes the next revision."
     )
-    version = serializers.IntegerField(help_text="Goes up with every change of the order.")
+    version = serializers.IntegerField(
+        help_text="Goes up with every change of the order; a write names the one it saw."
+    )
+    paid_minor = serializers.IntegerField(
+        help_text="What the customer has paid: the sum of the order's ledger."
+    )
+    due_minor = serializers.IntegerField(
+        help_text="What is left to pay: `gross_minor` less `paid_minor`. Negative when an "
+        "order priced again came to less than was already paid."
+    )
+    payments = OrderPaymentSerializer(many=True, help_text="Oldest first.")
     lines = OrderLineSerializer(many=True, help_text="The lines in force.")
     revisions = OrderRevisionSerializer(
         many=True, help_text="Every revision with what it came to, oldest first."
@@ -165,4 +207,39 @@ class CommerceOptionsSerializer(serializers.Serializer[dict[str, Any]]):
     sources = OrderSourceSerializer(many=True, help_text="Who places orders in this product.")
     line_kinds = serializers.ListField(child=serializers.ChoiceField(choices=OrderLineKind.values))
     tax_rates = serializers.ListField(child=serializers.ChoiceField(choices=TaxRate.values))
+    manual_methods = serializers.ListField(
+        child=serializers.ChoiceField(choices=MANUAL_METHODS),
+        help_text="The methods of a payment the company marks as received itself.",
+    )
     max_page_size = serializers.IntegerField(help_text="The longest page a list returns.")
+
+
+class PaymentRecordInputSerializer(serializers.Serializer[dict[str, Any]]):
+    amount_minor = serializers.IntegerField(
+        min_value=1,
+        help_text="What the company received, in minor units of the order's currency; at "
+        "most what is left to pay (`due_minor`).",
+    )
+    method = serializers.ChoiceField(
+        choices=MANUAL_METHODS,
+        help_text="`cash` — at the desk, in cash or by card on the company's terminal; "
+        "`transfer` — a transfer the company saw on its account.",
+    )
+    expected_version = serializers.IntegerField(
+        min_value=1, help_text="The order's `version` the caller read."
+    )
+
+
+class PaymentEffectSerializer(serializers.Serializer[dict[str, Any]]):
+    amount_minor = serializers.IntegerField()
+    paid_minor = serializers.IntegerField(help_text="What would be paid after it.")
+    due_minor = serializers.IntegerField(help_text="What would be left to pay.")
+    status = serializers.ChoiceField(
+        choices=OrderStatus.values, help_text="The order's status after it."
+    )
+
+
+class PaymentVoidInputSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(
+        min_value=1, help_text="The order's `version` the caller read."
+    )

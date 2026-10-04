@@ -6,11 +6,11 @@
   "backend": {
     "djangoApp": "saas_core.modules.shared.commerce",
     "urlPrefix": "/api/v1/commerce",
-    "permissions": ["commerce.orders.read"],
+    "permissions": ["commerce.orders.read", "commerce.payments.manage"],
     "roleGrants": {
-      "manager": ["commerce.orders.read"],
-      "admin": ["commerce.orders.read"],
-      "owner": ["commerce.orders.read"]
+      "manager": ["commerce.orders.read", "commerce.payments.manage"],
+      "admin": ["commerce.orders.read", "commerce.payments.manage"],
+      "owner": ["commerce.orders.read", "commerce.payments.manage"]
     },
     "entitlements": ["commerce.enabled"],
     "eventSchemas": [],

@@ -171,3 +171,104 @@ class OrderCounter(TenantScopedModel):
                 fields=["organization", "prefix", "year"], name="commerce_ordercounter_uq"
             ),
         ]
+
+
+class PaymentKind(models.TextChoices):
+    """Which part of what an order comes to a payment is (ADR-073 §4)."""
+
+    #: A part paid ahead of the rest.
+    DEPOSIT = "deposit", "Przedpłata"
+    BALANCE = "balance", "Dopłata"
+    FULL = "full", "Całość"
+    #: Held and given back: no part of what the order comes to (§8).
+    SECURITY_DEPOSIT = "security_deposit", "Kaucja"
+
+
+class PaymentMethod(models.TextChoices):
+    ONLINE = "online", "Online"
+    TRANSFER = "transfer", "Przelew"
+    #: At the desk: cash or the company's own card terminal.
+    CASH = "cash", "Na miejscu"
+    CASH_ON_DELIVERY = "cash_on_delivery", "Za pobraniem"
+
+
+class PaymentStatus(models.TextChoices):
+    REQUIRES_PAYMENT = "requires_payment", "Czeka na wpłatę"
+    PROCESSING = "processing", "W toku"
+    #: A hold on a card: a security deposit not yet taken.
+    AUTHORIZED = "authorized", "Zablokowana"
+    SUCCEEDED = "succeeded", "Wpłacona"
+    FAILED = "failed", "Nieudana"
+    CANCELED = "canceled", "Wycofana"
+    EXPIRED = "expired", "Wygasła"
+
+
+class Payment(TenantScopedModel):
+    """Money for an order (ADR-073 §4). What was paid is decided by the ledger;
+    this row says which payment it was, how and who marked it."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="payments")
+    kind = models.CharField(max_length=24, choices=PaymentKind.choices)
+    method = models.CharField(max_length=24, choices=PaymentMethod.choices)
+    status = models.CharField(max_length=24, choices=PaymentStatus.choices)
+    amount_minor = models.BigIntegerField()
+    currency = models.CharField(max_length=3)
+    #: Until when it is to be paid; empty for one paid at the desk.
+    due_at = models.DateTimeField(null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    #: The person who marked a payment received by hand. An id, not a key: an
+    #: account that goes must not take the payment's history with it.
+    recorded_by = models.UUIDField(null=True, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["organization", "order"], name="commerce_payment_order_idx"),
+        ]
+        ordering = ("order_id", "created_at", "id")
+
+
+class LedgerEntryKind(models.TextChoices):
+    """ADR-037 §3, with the security deposit's own kinds (ADR-073 §4)."""
+
+    CHARGE = "charge", "Wpłata"
+    PROVIDER_FEE = "provider_fee", "Opłata operatora"
+    APPLICATION_FEE = "application_fee", "Prowizja platformy"
+    REFUND = "refund", "Zwrot"
+    REFUND_FEE_REVERSAL = "refund_fee_reversal", "Zwrot prowizji"
+    DISPUTE_HOLD = "dispute_hold", "Blokada sporu"
+    DISPUTE_RELEASE = "dispute_release", "Zwolnienie sporu"
+    DISPUTE_FEE = "dispute_fee", "Opłata za spór"
+    PAYOUT = "payout", "Wypłata"
+    SECURITY_RECEIVED = "security_received", "Kaucja przyjęta"
+    SECURITY_RETURNED = "security_returned", "Kaucja zwrócona"
+    SECURITY_RETAINED = "security_retained", "Kaucja zatrzymana"
+
+
+class LedgerEntry(TenantScopedModel):
+    """One line of the money's history. Append-only: the database refuses an
+    update and, outside a tenant's erasure, a delete — a mistake is taken back
+    by the opposite entry."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="ledger")
+    payment = models.ForeignKey(
+        Payment, null=True, blank=True, on_delete=models.PROTECT, related_name="ledger"
+    )
+    kind = models.CharField(max_length=24, choices=LedgerEntryKind.choices)
+    #: Signed: what came in is positive.
+    amount_minor = models.BigIntegerField()
+    currency = models.CharField(max_length=3)
+    occurred_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["organization", "order"], name="commerce_ledger_order_idx"),
+        ]
+        ordering = ("order_id", "occurred_at", "id")

@@ -13,6 +13,7 @@ import {
   ApiProblemError,
   type CommerceOptions,
   type Order,
+  type OrderPayment,
   type OrderSummary,
 } from "@saas-core/api-client";
 import englishMessages from "../../../../messages/en.json";
@@ -25,6 +26,8 @@ const { api } = vi.hoisted(() => ({
     listOrders: vi.fn(),
     readCommerceOptions: vi.fn(),
     readOrder: vi.fn(),
+    recordOrderPayment: vi.fn(),
+    voidOrderPayment: vi.fn(),
   },
 }));
 vi.mock("@saas-core/api-client", async (original) => ({
@@ -49,7 +52,18 @@ const options: CommerceOptions = {
   sources: [{ kind: "booking", prefix: "R" }],
   line_kinds: ["booking", "extra", "discount"],
   tax_rates: ["23", "8", "5", "0", "zw", "np"],
+  manual_methods: ["cash", "transfer"],
   max_page_size: 100,
+};
+
+const payment: OrderPayment = {
+  id: "0199a000-0000-7000-8000-0000000000f1",
+  kind: "deposit",
+  method: "transfer",
+  status: "succeeded",
+  amount_minor: 5000,
+  paid_at: "2026-10-04T09:00:00Z",
+  recorded_by: "Ola Właścicielka",
 };
 
 function summary(overrides: Partial<OrderSummary> = {}): OrderSummary {
@@ -78,6 +92,9 @@ function order(overrides: Partial<Order> = {}): Order {
     vat_minor: 3740,
     revision: 1,
     version: 1,
+    paid_minor: 0,
+    due_minor: 20000,
+    payments: [],
     lines: [
       {
         position: 1,
@@ -455,4 +472,227 @@ test("an order that is not there says so", async () => {
 
   expect(await screen.findByText("Nie ma takiego zamówienia.")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Spróbuj ponownie" })).toBeNull();
+});
+
+test("what was paid and what is left are the server's, and only who may marks a payment", async () => {
+  api.readOrder.mockResolvedValue(
+    order({
+      status: "partially_paid",
+      paid_minor: 5000,
+      due_minor: 15000,
+      payments: [payment],
+    }),
+  );
+
+  const reader = wrap(
+    <OrderPanel orderId="0199a000-0000-7000-8000-000000000001" />,
+  );
+  const table = await screen.findByRole("table", {
+    name: "Wpłaty do tego zamówienia",
+  });
+  expect(screen.getByText("Wpłacono").nextElementSibling?.textContent).toMatch(
+    /50,00/,
+  );
+  expect(
+    screen.getByText("Zostało do zapłaty").nextElementSibling?.textContent,
+  ).toMatch(/150,00/);
+  const row = within(table).getAllByRole("row")[1]!;
+  expect(
+    within(row)
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent?.replaceAll(/\s/g, " ")),
+  ).toEqual([
+    "4 paź 2026, 11:00",
+    "JakPrzelew",
+    "Kwota50,00 zł",
+    "StatusWpłacona",
+    "Kto oznaczyłOla Właścicielka",
+  ]);
+  // Without the right there is nothing to press.
+  expect(screen.queryByRole("button", { name: "Oznacz wpłatę" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Wycofaj" })).toBeNull();
+  reader.unmount();
+
+  wrap(
+    <OrderPanel
+      canManagePayments
+      orderId="0199a000-0000-7000-8000-000000000001"
+    />,
+  );
+  expect(
+    await screen.findByRole("button", { name: "Oznacz wpłatę" }),
+  ).toBeTruthy();
+  expect(await screen.findByRole("button", { name: "Wycofaj" })).toBeTruthy();
+});
+
+test("marking a payment starts from what is left, sends the version read and shows the order it got back", async () => {
+  const before = order({ version: 3 });
+  api.readOrder.mockResolvedValue(before);
+  api.recordOrderPayment.mockResolvedValue(
+    order({
+      status: "paid",
+      version: 4,
+      paid_minor: 20000,
+      due_minor: 0,
+      payments: [
+        { ...payment, kind: "full", method: "cash", amount_minor: 20000 },
+      ],
+    }),
+  );
+  wrap(
+    <OrderPanel
+      canManagePayments
+      orderId="0199a000-0000-7000-8000-000000000001"
+    />,
+  );
+
+  fireEvent.click(await screen.findByRole("button", { name: "Oznacz wpłatę" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Oznacz wpłatę do zamówienia R/2026/0001",
+  });
+  expect(within(dialog).getByText(/Zostało do zapłaty: 200,00/)).toBeTruthy();
+  const amount = within(dialog).getByLabelText("Kwota (PLN)");
+  expect((amount as HTMLInputElement).value).toBe("200,00");
+  // The methods are the API's.
+  const method = await within(dialog).findByRole("option", {
+    name: "Na miejscu (gotówka albo karta)",
+  });
+  expect(method).toBeTruthy();
+  fireEvent.change(amount, { target: { value: "abc" } });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz wpłatę" }),
+  );
+  expect(
+    await within(dialog).findByText("Wpisz kwotę, np. 150 albo 150,50."),
+  ).toBeTruthy();
+  expect(api.recordOrderPayment).not.toHaveBeenCalled();
+
+  fireEvent.change(amount, { target: { value: "200" } });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz wpłatę" }),
+  );
+  await waitFor(() =>
+    expect(api.recordOrderPayment).toHaveBeenCalledWith(
+      "0199a000-0000-7000-8000-000000000001",
+      { amount_minor: 20000, method: "cash", expected_version: 3 },
+    ),
+  );
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(await screen.findByText("Opłacone")).toBeTruthy();
+  expect(screen.getByText(/Zapisano wpłatę: 200,00/)).toBeTruthy();
+  // Nothing is left to pay: nothing more to mark.
+  expect(screen.queryByRole("button", { name: "Oznacz wpłatę" })).toBeNull();
+});
+
+test("the server's refusal is shown in the dialog and a stale order is read again", async () => {
+  api.readOrder.mockResolvedValue(order());
+  api.recordOrderPayment.mockRejectedValueOnce(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Bad request",
+      status: 400,
+      code: "invalid",
+      detail: "invalid",
+      correlation_id: null,
+      errors: [
+        {
+          field: "amount_minor",
+          code: "amount_exceeds_due",
+          message: "Kwota jest większa niż to, co zostało do zapłaty.",
+        },
+      ],
+    }),
+  );
+  wrap(
+    <OrderPanel
+      canManagePayments
+      orderId="0199a000-0000-7000-8000-000000000001"
+    />,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "Oznacz wpłatę" }));
+  const dialog = await screen.findByRole("dialog");
+  await within(dialog).findByRole("option", { name: "Przelew" });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz wpłatę" }),
+  );
+  expect(
+    await within(dialog).findByText(
+      "Kwota jest większa niż to, co zostało do zapłaty.",
+    ),
+  ).toBeTruthy();
+
+  api.recordOrderPayment.mockRejectedValueOnce(
+    refusal(409, "order_version_conflict"),
+  );
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz wpłatę" }),
+  );
+  expect(
+    await screen.findByText(/Ktoś zmienił to zamówienie w międzyczasie/),
+  ).toBeTruthy();
+  await waitFor(() => expect(api.readOrder).toHaveBeenCalledTimes(2));
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+test("a payment marked by mistake is taken back after a question, and a canceled order says what to give back", async () => {
+  const paid = order({
+    status: "paid",
+    version: 2,
+    paid_minor: 20000,
+    due_minor: 0,
+    payments: [{ ...payment, kind: "full", amount_minor: 20000 }],
+  });
+  api.readOrder.mockResolvedValue(paid);
+  api.voidOrderPayment.mockResolvedValue(
+    order({
+      version: 3,
+      payments: [
+        { ...payment, kind: "full", amount_minor: 20000, status: "canceled" },
+      ],
+    }),
+  );
+  const first = wrap(
+    <OrderPanel
+      canManagePayments
+      orderId="0199a000-0000-7000-8000-000000000001"
+    />,
+  );
+
+  fireEvent.click(await screen.findByRole("button", { name: "Wycofaj" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: /Wycofać wpłatę 200,00/,
+  });
+  expect(
+    within(dialog).getByText(/To nie jest zwrot pieniędzy klientowi/),
+  ).toBeTruthy();
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Wycofaj wpłatę" }),
+  );
+  await waitFor(() =>
+    expect(api.voidOrderPayment).toHaveBeenCalledWith(
+      "0199a000-0000-7000-8000-000000000001",
+      payment.id,
+      2,
+    ),
+  );
+  expect(await screen.findByText("Wycofana")).toBeTruthy();
+  expect(screen.getByText(/Wycofano wpłatę: 200,00/)).toBeTruthy();
+  // A payment taken back has nothing more to take back.
+  expect(screen.queryByRole("button", { name: "Wycofaj" })).toBeNull();
+  first.unmount();
+
+  api.readOrder.mockResolvedValue(
+    order({ ...paid, status: "canceled", due_minor: 0 }),
+  );
+  wrap(
+    <OrderPanel
+      canManagePayments
+      orderId="0199a000-0000-7000-8000-000000000001"
+    />,
+  );
+  expect(
+    await screen.findByText("Wpłacono (do oddania klientowi)"),
+  ).toBeTruthy();
+  expect(screen.queryByText("Zostało do zapłaty")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Oznacz wpłatę" })).toBeNull();
 });

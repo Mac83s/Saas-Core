@@ -17,7 +17,8 @@ import { PanelPage } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { formatDateTime } from "#lib/dates";
-import { formatMoney } from "./money";
+import { formatMoney } from "#lib/money";
+import { OrderPayments } from "./order-payments";
 import { STATUS_TONE } from "./orders-panel";
 
 type Failure = "notFound" | "orderLoadError";
@@ -35,11 +36,18 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /**
- * One order (ADR-073 §3): who bought, the lines in force with what each comes
- * to, and where its booking is. Nothing is added up here — the lines, the tax
- * and the totals are the server's.
+ * One order (ADR-073 §3–§4): who bought, the lines in force with what each
+ * comes to, what was paid and where its booking is. Nothing is added up here
+ * — the lines, the tax, the totals and what is left to pay are the server's.
  */
-export function OrderPanel({ orderId }: { orderId: string }) {
+export function OrderPanel({
+  canManagePayments = false,
+  orderId,
+}: {
+  /** May mark and take back payments (`commerce.payments.manage`). */
+  canManagePayments?: boolean;
+  orderId: string;
+}) {
   const t = useTranslations("Orders");
   const documents = useTranslations("CustomerDocuments");
   const locale = useLocale();
@@ -47,6 +55,8 @@ export function OrderPanel({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<Order>();
   const [failure, setFailure] = useState<Failure>();
   const [attempt, setAttempt] = useState(0);
+  const [marking, setMarking] = useState(false);
+  const [notice, setNotice] = useState<string>();
 
   useEffect(() => {
     let active = true;
@@ -206,8 +216,17 @@ export function OrderPanel({ orderId }: { orderId: string }) {
 
   return (
     <PanelPage
+      actions={
+        order &&
+        canManagePayments &&
+        order.status !== "canceled" &&
+        order.due_minor > 0 ? (
+          <Button onClick={() => setMarking(true)}>{t("recordPayment")}</Button>
+        ) : undefined
+      }
       eyebrow={t("title")}
       eyebrowHref="/panel/orders"
+      notice={notice}
       subtitle={
         order ? (
           <Badge variant={STATUS_TONE[order.status]}>
@@ -307,6 +326,22 @@ export function OrderPanel({ orderId }: { orderId: string }) {
                 </dl>
               </section>
             </div>
+          ) : null}
+          {order ? (
+            <OrderPayments
+              canManage={canManagePayments}
+              marking={marking}
+              onChanged={(next, text) => {
+                setOrder(next);
+                setNotice(text);
+              }}
+              onMarkingChange={setMarking}
+              onStale={(text) => {
+                setNotice(text);
+                setAttempt((value) => value + 1);
+              }}
+              order={order}
+            />
           ) : null}
           <section aria-labelledby="order-lines" className="space-y-3">
             <h2 className="font-medium" id="order-lines">

@@ -356,7 +356,9 @@
       "customers_document_text_added": "Dodano tekst dokumentu dla klientów",
       "commerce_order_placed": "Złożono zamówienie",
       "commerce_order_repriced": "Zmieniono kwotę zamówienia",
-      "commerce_order_canceled": "Anulowano zamówienie"
+      "commerce_order_canceled": "Anulowano zamówienie",
+      "commerce_payment_recorded": "Oznaczono wpłatę do zamówienia",
+      "commerce_payment_voided": "Wycofano wpłatę do zamówienia"
     },
     "fields": {
       "name": "Nazwa",
@@ -3948,6 +3950,7 @@
     "customers_read": "Podgląd dokumentów dla klientów",
     "customers_manage": "Zarządzanie dokumentami dla klientów",
     "commerce_orders_read": "Podgląd zamówień",
+    "commerce_payments_manage": "Oznaczanie wpłat w zamówieniach",
     "assistant_use": "Rozmowa z asystentem AI"
   },
   "Farms": {
@@ -6126,6 +6129,49 @@
     "consentMarketing": "Zgoda marketingowa",
     "consentField": "Zgoda z formularza",
     "consentWithdrawn": "wycofana",
-    "noConsents": "Przy tym zamówieniu klient nie akceptował żadnego dokumentu."
+    "noConsents": "Przy tym zamówieniu klient nie akceptował żadnego dokumentu.",
+    "payments": "Wpłaty",
+    "paymentsCaption": "Wpłaty do tego zamówienia",
+    "paid": "Wpłacono",
+    "due": "Zostało do zapłaty",
+    "overpaid": "Nadpłata do oddania",
+    "paidToReturn": "Wpłacono (do oddania klientowi)",
+    "colPaidAt": "Kiedy",
+    "colMethod": "Jak",
+    "colAmount": "Kwota",
+    "colPaymentStatus": "Status",
+    "colRecordedBy": "Kto oznaczył",
+    "noPayments": "Nikt jeszcze nie oznaczył wpłaty.",
+    "methods": {
+      "cash": "Na miejscu (gotówka albo karta)",
+      "transfer": "Przelew",
+      "online": "Online",
+      "cash_on_delivery": "Za pobraniem"
+    },
+    "paymentStatuses": {
+      "requires_payment": "Czeka na wpłatę",
+      "processing": "W toku",
+      "authorized": "Zablokowana",
+      "succeeded": "Wpłacona",
+      "failed": "Nieudana",
+      "canceled": "Wycofana",
+      "expired": "Wygasła"
+    },
+    "recordPayment": "Oznacz wpłatę",
+    "recordTitle": "Oznacz wpłatę do zamówienia {number}",
+    "recordHint": "Zapisz to, co klient zapłacił na miejscu albo przelewem. Zostało do zapłaty: {due}.",
+    "amount": "Kwota",
+    "method": "Jak zapłacono",
+    "amountInvalid": "Wpisz kwotę, np. 150 albo 150,50.",
+    "save": "Zapisz wpłatę",
+    "saveFailed": "Nie udało się zapisać. Spróbuj ponownie.",
+    "stale": "Ktoś zmienił to zamówienie w międzyczasie. Wczytaliśmy je ponownie — sprawdź wpłaty i spróbuj jeszcze raz.",
+    "recorded": "Zapisano wpłatę: {amount}.",
+    "void": "Wycofaj",
+    "voidTitle": "Wycofać wpłatę {amount}?",
+    "voidHint": "Użyj tego, gdy wpłata została oznaczona przez pomyłkę. Zostanie w historii zamówienia jako wycofana, a zamówienie znów będzie miało tę kwotę do zapłaty. To nie jest zwrot pieniędzy klientowi.",
+    "voidConfirm": "Wycofaj wpłatę",
+    "voided": "Wycofano wpłatę: {amount}.",
+    "paymentActionsFor": "Działania dla wpłaty {amount}"
   }
 }

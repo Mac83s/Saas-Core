@@ -139,6 +139,7 @@ czyszczenie i dopisuje swoje wiersze do tej tabeli.
 | `Order.buyer_name`, `buyer_email`, `buyer_phone` (`shared.commerce`, ADR-073 §3) | migawka kupującego z chwili złożenia zamówienia | **usuwane** („Zanonimizowany klient”, puste pola) | to jest usuwana dana |
 | `Order` (numer, kwoty, status, kanał), `OrderLine` (pozycje, stawki) | fakty o sprzedaży | zostaje | zapis sprzedaży firmy; kupujący jest już nienazwany. Wyjątek retencji dla zamówień z wpłatą — plaster 4i (ADR-073) |
 | `OrganizationAuditEntry` zamówień | numer, źródło, kanał, kwota | zostaje | bez danych kupującego |
+| `Payment`, `LedgerEntry` (`shared.commerce`, ADR-073 §4) | kwoty, sposób zapłaty, czas i identyfikator osoby z firmy, która oznaczyła wpłatę | zostaje | bez danych klienta; księga jest tylko do dopisywania |
 | Dziennik zgód (`customers_consentrecord`, ADR-073 §9) | który wiersz klienta albo które zapytanie (sam identyfikator), który tekst dokumentu, skrót tekstu, źródło i czas | zostaje | bez danych osoby: po anonimizacji wskazuje nienazwanego klienta; dziennik jest tylko do dopisywania i jest dowodem firmy, że tekst został pokazany |
 | Karta gospodarstwa (`shared.farms`) | dane hodowcy | **zostaje — własna reguła** | dlatego grupy nie ma w profilu z gospodarstwami (wyżej) |
 | Rozmowa z asystentem (`assistant_assistantmessage`) | cokolwiek pracownik wpisał, także nazwisko klienta | zostaje do wygaśnięcia rozmowy | nie da się jej znaleźć po identyfikatorze klienta; ogranicza ją retencja rozmów asystenta |

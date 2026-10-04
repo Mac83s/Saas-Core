@@ -356,7 +356,9 @@
       "customers_document_text_added": "Added a text of a document for customers",
       "commerce_order_placed": "Order placed",
       "commerce_order_repriced": "Order amount changed",
-      "commerce_order_canceled": "Order canceled"
+      "commerce_order_canceled": "Order canceled",
+      "commerce_payment_recorded": "Payment marked for an order",
+      "commerce_payment_voided": "Payment for an order taken back"
     },
     "fields": {
       "name": "Name",
@@ -3948,6 +3950,7 @@
     "customers_read": "View documents for customers",
     "customers_manage": "Manage documents for customers",
     "commerce_orders_read": "View orders",
+    "commerce_payments_manage": "Mark payments in orders",
     "assistant_use": "Talk to the AI assistant"
   },
   "Farms": {
@@ -6126,6 +6129,49 @@
     "consentMarketing": "Marketing consent",
     "consentField": "A consent from the form",
     "consentWithdrawn": "withdrawn",
-    "noConsents": "The customer accepted no document with this order."
+    "noConsents": "The customer accepted no document with this order.",
+    "payments": "Payments",
+    "paymentsCaption": "Payments for this order",
+    "paid": "Paid",
+    "due": "Left to pay",
+    "overpaid": "Overpaid, to give back",
+    "paidToReturn": "Paid (to give back to the customer)",
+    "colPaidAt": "When",
+    "colMethod": "How",
+    "colAmount": "Amount",
+    "colPaymentStatus": "Status",
+    "colRecordedBy": "Marked by",
+    "noPayments": "Nobody has marked a payment yet.",
+    "methods": {
+      "cash": "At the desk (cash or card)",
+      "transfer": "Transfer",
+      "online": "Online",
+      "cash_on_delivery": "Cash on delivery"
+    },
+    "paymentStatuses": {
+      "requires_payment": "Waiting for payment",
+      "processing": "In progress",
+      "authorized": "Held",
+      "succeeded": "Paid",
+      "failed": "Failed",
+      "canceled": "Taken back",
+      "expired": "Expired"
+    },
+    "recordPayment": "Mark a payment",
+    "recordTitle": "Mark a payment for order {number}",
+    "recordHint": "Write down what the customer paid at the desk or by transfer. Left to pay: {due}.",
+    "amount": "Amount",
+    "method": "How it was paid",
+    "amountInvalid": "Enter an amount, e.g. 150 or 150.50.",
+    "save": "Save the payment",
+    "saveFailed": "It could not be saved. Try again.",
+    "stale": "Somebody changed this order in the meantime. We loaded it again — check the payments and try once more.",
+    "recorded": "Payment saved: {amount}.",
+    "void": "Take back",
+    "voidTitle": "Take back the payment of {amount}?",
+    "voidHint": "Use this when a payment was marked by mistake. It stays in the order's history as taken back, and the order owes that amount again. This is not a refund to the customer.",
+    "voidConfirm": "Take the payment back",
+    "voided": "Payment taken back: {amount}.",
+    "paymentActionsFor": "Actions for the payment of {amount}"
   }
 }

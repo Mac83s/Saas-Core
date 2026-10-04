@@ -427,7 +427,8 @@ wskazują klienta, więc klient i dokumenty są przed zamówieniem.
 | **4d-1** | Polecenia asystenta dla dokumentów: `customers.documents.read@1` (odczyt) i `customers.document.draft.save@1` (zapis szkicu z identyfikatorem rozmowy), z evalami; panel mówi, że szkic napisał asystent | — | Ustawienia › „Dokumenty dla klientów” (szkic) |
 | **4d-2** | Dokument jako źródło tłumaczeń `customers.document` (§9): adapter, tabele §5 i §8.1 protokołu, test kontraktu, `shared.customers` w kontrakcie `.importlinter` bez silnika; akceptacja tłumaczenia przez osobę ze step-upem w centrum tłumaczeń | do rozstrzygnięcia (niżej) | Tłumaczenia |
 | **4e** | `shared.commerce`: `Order`, `OrderLine`, licznik numerów, `register_order_source`, `place_order`, `ORDER_MODEL`; booking jako źródło `R` zakłada zamówienie z pozycji zamrożonej wyceny w transakcji rezerwacji; migawka kupującego i jej czyszczenie przy anonimizacji; kanał (token pochodzenia — niżej, „Rozstrzygnięcia plastra 4e”); `commerce.enabled` w nowych wersjach planów; `GET /commerce/options/`, lista zamówień | commerce 0001–0004 (wersje planów publikuje 0004) | Zamówienia (lista, szczegół) |
-| **4f** | Wpłaty ręczne i przelew z terminem (§4–§5): `Payment`, `LedgerEntry`, rachunek firmy do przelewów, polityki oferty `transfer`, `deposit`, `full` opłacane przelewem, `pending_payment` z `hold_expires_at`, `register_service_scope` w rdzeniu (z przeniesieniem dzisiejszych wpisów), zadanie terminów, oznaczenie wpłaty przez firmę, e-maile z numerem zamówienia i danymi do przelewu | commerce, booking, organizations | wpłata w zamówieniu, oferta |
+| **4f-1** | Wpłaty ręczne (§4): `Payment`, `LedgerEntry` (tylko do dopisywania), oznaczenie wpłaty przez firmę (na miejscu, przelew) z podglądem, wycofanie wpłaty oznaczonej przez pomyłkę, status zamówienia z księgi (`partially_paid`, `paid`), `commerce.payments.manage` | commerce 0005–0007 | wpłaty w zamówieniu |
+| **4f-2** | Przelew z terminem (§5): rachunek firmy do przelewów, polityki oferty `transfer`, `deposit`, `full` opłacane przelewem, `pending_payment` z `hold_expires_at`, handler źródła w rejestrze, `register_service_scope` w rdzeniu (z przeniesieniem dzisiejszych wpisów), zadanie terminów, e-maile z numerem zamówienia i danymi do przelewu | commerce, booking, organizations | oferta, zamówienie, wizyta |
 | **4g** | „Na prośbę” (ADR-072 §9): `confirmation` `on_request`, `pending_request`, akceptacja i odmowa w panelu, wygaszanie przez booking, zamówienie `draft` bez numeru do akceptacji, e-maile (przyjęta, odmowa, wygaśnięcie) | booking | kalendarz, oferta |
 | **4h** | Progi anulowania (przeniesione z 3d) i zwroty ręczne (§8): progi i `appliesTo` w ofercie i migawce, wyliczenie zwrotu przy rezygnacji gościa i odwołaniu przez firmę, zwrot ręczny w księdze, przypomnienia dopłaty i alert dla firmy (29a) | booking, commerce | oferta, zamówienie, link samoobsługi |
 | **4i** | Wyjątek retencji dla klientów z zapisami sprzedaży w okresie ustawowym i historia cen przed promocjami (niżej) | commerce, booking | Prywatność i dane (podgląd) |
@@ -636,3 +637,46 @@ Rozstrzygnięcia plastra 4e (2026-10-04, decyzje techniczne z powodem):
   blokowany `select_for_update` do końca transakcji zamówienia: numer nadaje
   się raz, a wycofane zamówienie nie zostawia dziury. Rok liczy się w strefie
   firmy.
+
+Rozstrzygnięcia plastra 4f-1 (2026-10-04, decyzje techniczne z powodem):
+
+- **4f idzie w dwóch częściach.** Oznaczenie wpłaty przez firmę i księga (4f-1)
+  nie zależą od przelewu z terminem: działają dla każdego zamówienia, także
+  płatnego na miejscu. Rachunek firmy, polityki z wpłatą przed potwierdzeniem,
+  `pending_payment`, zadanie terminów i e-maile (4f-2) potrzebują zmian w
+  booking i w rdzeniu, więc nie blokują księgi.
+- **O pieniądzach rozstrzyga księga.** `paid_minor` to suma wpisów `charge` i
+  `refund` zamówienia, `due_minor` — kwota pozycji obowiązujących minus ta
+  suma; status zamówienia wylicza z nich jedna funkcja (`ledger.status_for`):
+  nic do zapłaty to `paid`, część — `partially_paid`, anulowane zostaje
+  anulowane. Przeniesienie rezerwacji po innej cenie nie rusza wpłat: zmienia
+  tylko to, ile zostało (droższy termin po pełnej wpłacie daje
+  `partially_paid`, tańszy — nadpłatę do oddania, którą pokazuje `due_minor`
+  poniżej zera). Zwrot zapisze 4h.
+- **Wpłata ręczna to `Payment` ze statusem `succeeded` i wpis `charge`.** Firma
+  oznacza tylko `cash` (na miejscu: gotówka albo własny terminal) i `transfer`;
+  `online` potwierdza operator, nigdy osoba (`method_not_manual`). Rodzaj
+  wynika z kwoty: całość naraz — `full`, część — `deposit`, reszta —
+  `balance`. Więcej niż zostało do zapłaty serwis odrzuca
+  (`amount_exceeds_due`), wpłatę do anulowanego zamówienia też
+  (`order_canceled`). Płatności planowane z terminem (`requires_payment`,
+  `due_at`) założy 4f-2 przy złożeniu zamówienia; oznaczenie takiej wpłaty
+  przestawi ją na `succeeded` tą samą funkcją.
+- **Pomyłkę się wycofuje, nie kasuje.** Wpłata oznaczona przez pomyłkę dostaje
+  status `canceled`, a księga wpis `charge` z przeciwnym znakiem — tabela księgi
+  odmawia zmiany i usunięcia. To nie zwrot (`refund`, 4h): pieniądze nigdzie
+  nie wróciły, a historia zamówienia pokazuje oba zdarzenia i osobę.
+- **Blokada wersją zamówienia zamiast klucza** — odstępstwo od §11 dla wpłat
+  ręcznych, jak w dokumentach (4b). Zapis podaje `expected_version`; powtórka
+  na tej samej wersji (ponowienie po błędzie sieci, druga osoba przy biurku)
+  dostaje 409 `order_version_conflict` i niczego nie zapisuje, więc wpłaty nie
+  da się oznaczyć dwa razy. `Idempotency-Key` z hashem żądania przyjdzie z
+  płatnością online (faza 7), gdzie powtórka musi oddać tę samą intencję
+  operatora.
+- **Podgląd** `POST …/payments/preview/` sprawdza to samo co zapis i mówi, ile
+  będzie wpłacone, ile zostanie i jaki będzie status; niczego nie zapisuje.
+- **Uprawnienie `commerce.payments.manage`** (role systemowe `manager`,
+  `admin`, `owner`): oznaczenie wpłaty zmienia to, ile klient jest winien.
+  Pracownik bez tego uprawnienia widzi wpłaty tylko wtedy, gdy czyta
+  zamówienia. Polecenie asystenta dla wpłat i odnośnik z wizyty w kalendarzu do
+  zamówienia przychodzą z 4f-2, razem ze zmianami w booking.

@@ -14,9 +14,12 @@ another module (`shared.billing`) and another skill.
 ## What exists
 
 Slice 4e built orders: `Order`, `OrderLine`, a counter of numbers, the registry
-of sources, three reads for the panel. Payments, the ledger, refunds and the
-company's bank account come with slices 4f–4h of the ADR — do not put a paid
-amount, a due date or a payment method on an order ahead of them.
+of sources, three reads for the panel. Slice 4f-1 added what was paid:
+`Payment`, the append-only `LedgerEntry`, a payment the company marks by hand
+and takes back when it was a mistake. A transfer with a due date, the
+company's bank account, pending bookings, refunds and online payments come
+with the next slices of the ADR — do not put a due date, an account or an
+operator's field anywhere ahead of them.
 
 ## The rules that decide the design
 
@@ -47,8 +50,18 @@ amount, a due date or a payment method on an order ahead of them.
   its row in `docs/architecture/privacy-retention.md`.
 - **The audit never names the buyer** — the history is read by whoever manages
   settings. A number, a source, an amount.
-- **`status` is a shortcut for lists.** Once there are payments, what was paid
-  is decided by the ledger, and the status is derived from it in one function.
+- **The ledger decides about money.** What was paid is the sum of an order's
+  `charge` and `refund` entries (`ledger.paid_minor`); what is left is the
+  lines in force less that sum; `status` is a shortcut for lists derived from
+  both in one function, `ledger.status_for`. Never store a paid amount, never
+  set a status by hand, never rewrite an entry: a mistake is taken back by the
+  opposite entry, and the database refuses anything else.
+- **A person marks only what a person can know.** `cash` (at the desk) and
+  `transfer`; an online payment is the operator's to confirm.
+- **A write on an order names the version it read** (`expected_version`): a
+  repeat at the same version is 409 `order_version_conflict` and writes
+  nothing, so a payment is never marked twice. Bump `Order.version` with every
+  change.
 
 ## A new source of orders
 

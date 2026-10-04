@@ -28,6 +28,7 @@ from saas_core.modules.shared.billing.authorization import authorize_entitled
 from saas_core.modules.shared.billing.decisions import FeatureOperation, decide_feature
 from saas_core.modules.shared.customers.api import Customer, consents_of
 
+from .ledger import MANUAL_METHODS, paid_minor, payments_of, status_for
 from .models import (
     Amounts,
     Order,
@@ -89,6 +90,7 @@ def place_order(
     if currency != organization.currency:
         raise ValueError("An order is in the company's currency.")
     now = timezone.now()
+    totals = _totals(lines)
     order = Order.all_objects.create(
         organization=organization,
         number=_next_number(organization, registered.prefix),
@@ -101,7 +103,9 @@ def place_order(
         amounts=amounts,
         channel=channel,
         placed_at=now,
-        **_totals(lines),
+        **totals,
+        # Nothing to pay is paid; from here on the ledger decides.
+        status=OrderStatus.AWAITING_PAYMENT if totals["gross_minor"] > 0 else OrderStatus.PAID,
     )
     _write_lines(order, lines)
     _audit(context, order, "commerce.order.placed", channel=channel, gross_minor=order.gross_minor)
@@ -149,6 +153,8 @@ def reprice_order(order: Order, *, amounts: str, lines: Sequence[OrderLineInput]
     order.amounts = amounts
     for name, value in _totals(lines).items():
         setattr(order, name, value)
+    # What was paid stays paid: the new amount only moves what is still due.
+    order.status = status_for(order, paid_minor(order))
     order.version += 1
     order.save(
         update_fields=[
@@ -222,6 +228,7 @@ def options() -> dict[str, Any]:
         "sources": [{"kind": source.kind, "prefix": source.prefix} for source in order_sources()],
         "line_kinds": OrderLineKind.values,
         "tax_rates": TaxRate.values,
+        "manual_methods": list(MANUAL_METHODS),
         "max_page_size": MAX_PAGE_SIZE,
     }
 
@@ -268,12 +275,20 @@ def list_orders(
 
 
 def read_order(order_id: UUID) -> dict[str, Any]:
-    """One order with its lines in force and what each revision came to."""
+    """One order with its lines in force, what each revision came to, what
+    was paid and what its buyer accepted."""
     context = authorize_entitled(ORDERS_READ, COMMERCE_ENABLED, operation=FeatureOperation.READ)
     order = Order.all_objects.filter(organization_id=context.organization_id, pk=order_id).first()
     if order is None:
         raise NotFound("Nie ma takiego zamówienia.")
-    lines = OrderLine.all_objects.filter(organization_id=context.organization_id, order=order)
+    return order_detail(order)
+
+
+def order_detail(order: Order) -> dict[str, Any]:
+    """The order as its page shows it. Who may read it is the caller's
+    question: a read asks for it, a write answers with it."""
+    lines = OrderLine.all_objects.filter(organization_id=order.organization_id, order=order)
+    paid = paid_minor(order)
     # What the order's lines stand for, across every revision: a booking.
     records: dict[str, set[str]] = {}
     for source, reference in lines.order_by().values_list("source", "source_reference").distinct():
@@ -288,6 +303,9 @@ def read_order(order_id: UUID) -> dict[str, Any]:
         "vat_minor": order.vat_minor,
         "revision": order.revision,
         "version": order.version,
+        "paid_minor": paid,
+        "due_minor": order.gross_minor - paid,
+        "payments": payments_of(order),
         "lines": _named(
             order,
             list(
@@ -357,13 +375,10 @@ def _check(amounts: str, lines: Sequence[OrderLineInput], channel: str) -> None:
 
 
 def _totals(lines: Sequence[OrderLineInput]) -> dict[str, Any]:
-    gross = sum(line.gross_minor for line in lines)
     return {
         "net_minor": sum(line.net_minor for line in lines),
         "vat_minor": sum(line.vat_minor for line in lines),
-        "gross_minor": gross,
-        # Nothing to pay is paid; the ledger decides once there are payments.
-        "status": OrderStatus.AWAITING_PAYMENT if gross > 0 else OrderStatus.PAID,
+        "gross_minor": sum(line.gross_minor for line in lines),
     }
 
 

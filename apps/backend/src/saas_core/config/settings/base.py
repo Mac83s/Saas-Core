@@ -995,6 +995,18 @@ SPECTACULAR_SETTINGS = {
         "ChannelEnum": ["panel", "api_key", "system"],
         "OrderTaxRateEnum": ["23", "8", "5", "0", "zw", "np"],
         "OrderConsentKindEnum": ["document", "marketing", "field"],
+        "OrderPaymentKindEnum": ["deposit", "balance", "full", "security_deposit"],
+        "OrderPaymentMethodEnum": ["online", "transfer", "cash", "cash_on_delivery"],
+        "OrderPaymentStatusEnum": [
+            "requires_payment",
+            "processing",
+            "authorized",
+            "succeeded",
+            "failed",
+            "canceled",
+            "expired",
+        ],
+        "ManualPaymentMethodEnum": ["cash", "transfer"],
         "OrderStatusEnum": [
             "draft",
             "awaiting_payment",

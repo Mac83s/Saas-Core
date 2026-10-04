@@ -11,14 +11,23 @@ export default async function OrderPage({
 }) {
   const { orderId } = await params;
   const organization = await getServerCurrentOrganization();
+  const access = organization ? panelAccess(organization) : undefined;
   if (
-    !organization ||
-    !allows(panelAccess(organization), {
+    !access ||
+    !allows(access, {
       module: "shared.commerce",
       permission: "commerce.orders.read",
     })
   ) {
     notFound();
   }
-  return <OrderPanel orderId={orderId} />;
+  return (
+    <OrderPanel
+      canManagePayments={allows(access, {
+        module: "shared.commerce",
+        permission: "commerce.payments.manage",
+      })}
+      orderId={orderId}
+    />
+  );
 }

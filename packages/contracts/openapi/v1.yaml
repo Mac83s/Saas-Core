@@ -7824,6 +7824,205 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/commerce/orders/{order_id}/payments/:
+    post:
+      operationId: commerce_order_payment_record
+      description: 'The customer paid at the desk or the company saw their transfer:
+        writes the payment and its ledger entry and moves the order''s status (`partially_paid`,
+        `paid`). More than what is left to pay is refused (`amount_exceeds_due`),
+        so is a payment for a canceled order (`order_canceled`). Answers with the
+        order.'
+      summary: Mark a payment the company received
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - commerce
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRecordInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PaymentRecordInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PaymentRecordInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Locked by the order''s version: a repeat at the same version
+          answers 409 and changes nothing.'
+  /api/v1/commerce/orders/{order_id}/payments/{payment_id}/void/:
+    post:
+      operationId: commerce_order_payment_void
+      description: 'The payment stays in the order''s history as `canceled` and the
+        ledger gets the opposite entry, so the order owes that amount again. Not a
+        refund: no money went back to anybody. Only a payment marked by hand can be
+        taken back. Answers with the order.'
+      summary: Take back a payment marked by mistake
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: payment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - commerce
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentVoidInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PaymentVoidInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PaymentVoidInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Locked by the order''s version: a repeat at the same version
+          answers 409 and changes nothing.'
+  /api/v1/commerce/orders/{order_id}/payments/preview/:
+    post:
+      operationId: commerce_order_payment_preview
+      description: Checks the payment exactly as the write does — the order's version,
+        the method, the amount against what is left to pay — and says what would be
+        paid, what would be left and the order's status. Writes nothing.
+      summary: What marking a payment would do
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - commerce
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRecordInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PaymentRecordInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PaymentRecordInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentEffect'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/customers/documents/:
     get:
       operationId: customers_documents_list
@@ -26944,6 +27143,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/OrderTaxRateEnum'
+        manual_methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManualPaymentMethodEnum'
+          description: The methods of a payment the company marks as received itself.
         max_page_size:
           type: integer
           description: The longest page a list returns.
@@ -26951,6 +27155,7 @@ components:
       - channels
       - currency
       - line_kinds
+      - manual_methods
       - max_page_size
       - sources
       - statuses
@@ -32434,6 +32639,14 @@ components:
       - missing
       - quantity
       - unit
+    ManualPaymentMethodEnum:
+      enum:
+      - cash
+      - transfer
+      type: string
+      description: |-
+        * `cash` - cash
+        * `transfer` - transfer
     MaterialInput:
       type: object
       description: Produkt z magazynu przy usłudze albo wizycie (ADR-055).
@@ -33142,7 +33355,20 @@ components:
             — a booking moved to dearer days — writes the next revision.
         version:
           type: integer
-          description: Goes up with every change of the order.
+          description: Goes up with every change of the order; a write names the one
+            it saw.
+        paid_minor:
+          type: integer
+          description: 'What the customer has paid: the sum of the order''s ledger.'
+        due_minor:
+          type: integer
+          description: 'What is left to pay: `gross_minor` less `paid_minor`. Negative
+            when an order priced again came to less than was already paid.'
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderPayment'
+          description: Oldest first.
         lines:
           type: array
           items:
@@ -33169,11 +33395,14 @@ components:
       - consents
       - currency
       - customer_id
+      - due_minor
       - gross_minor
       - id
       - lines
       - net_minor
       - number
+      - paid_minor
+      - payments
       - placed_at
       - revision
       - revisions
@@ -33368,6 +33597,106 @@ components:
       - page
       - page_size
       - total
+    OrderPayment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/OrderPaymentKindEnum'
+          description: |-
+            `full` — the whole at once; `deposit` — a part ahead of the rest; `balance` — the rest.
+
+            * `deposit` - deposit
+            * `balance` - balance
+            * `full` - full
+            * `security_deposit` - security_deposit
+        method:
+          allOf:
+          - $ref: '#/components/schemas/OrderPaymentMethodEnum'
+          description: |-
+            `cash` is paid at the desk, in cash or by card on the company's terminal.
+
+            * `online` - online
+            * `transfer` - transfer
+            * `cash` - cash
+            * `cash_on_delivery` - cash_on_delivery
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OrderPaymentStatusEnum'
+          description: |-
+            `succeeded` counts as paid; `canceled` was marked by mistake and taken back.
+
+            * `requires_payment` - requires_payment
+            * `processing` - processing
+            * `authorized` - authorized
+            * `succeeded` - succeeded
+            * `failed` - failed
+            * `canceled` - canceled
+            * `expired` - expired
+        amount_minor:
+          type: integer
+          description: In minor units of the order's currency.
+        paid_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        recorded_by:
+          type: string
+          description: Who marked it, by name; empty when no person did.
+      required:
+      - amount_minor
+      - id
+      - kind
+      - method
+      - paid_at
+      - recorded_by
+      - status
+    OrderPaymentKindEnum:
+      enum:
+      - deposit
+      - balance
+      - full
+      - security_deposit
+      type: string
+      description: |-
+        * `deposit` - deposit
+        * `balance` - balance
+        * `full` - full
+        * `security_deposit` - security_deposit
+    OrderPaymentMethodEnum:
+      enum:
+      - online
+      - transfer
+      - cash
+      - cash_on_delivery
+      type: string
+      description: |-
+        * `online` - online
+        * `transfer` - transfer
+        * `cash` - cash
+        * `cash_on_delivery` - cash_on_delivery
+    OrderPaymentStatusEnum:
+      enum:
+      - requires_payment
+      - processing
+      - authorized
+      - succeeded
+      - failed
+      - canceled
+      - expired
+      type: string
+      description: |-
+        * `requires_payment` - requires_payment
+        * `processing` - processing
+        * `authorized` - authorized
+        * `succeeded` - succeeded
+        * `failed` - failed
+        * `canceled` - canceled
+        * `expired` - expired
     OrderRequest:
       type: object
       properties:
@@ -35871,6 +36200,36 @@ components:
         last_name:
           type: string
           maxLength: 80
+    PaymentEffect:
+      type: object
+      properties:
+        amount_minor:
+          type: integer
+        paid_minor:
+          type: integer
+          description: What would be paid after it.
+        due_minor:
+          type: integer
+          description: What would be left to pay.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OrderStatusEnum'
+          description: |-
+            The order's status after it.
+
+            * `draft` - draft
+            * `awaiting_payment` - awaiting_payment
+            * `partially_paid` - partially_paid
+            * `paid` - paid
+            * `fulfilled` - fulfilled
+            * `completed` - completed
+            * `canceled` - canceled
+            * `refunded` - refunded
+      required:
+      - amount_minor
+      - due_minor
+      - paid_minor
+      - status
     PaymentModeEnum:
       enum:
       - stripe
@@ -35887,6 +36246,39 @@ components:
       description: |-
         * `none` - Nie określono
         * `on_site` - Płatność na miejscu
+    PaymentRecordInput:
+      type: object
+      properties:
+        amount_minor:
+          type: integer
+          minimum: 1
+          description: What the company received, in minor units of the order's currency;
+            at most what is left to pay (`due_minor`).
+        method:
+          allOf:
+          - $ref: '#/components/schemas/ManualPaymentMethodEnum'
+          description: |-
+            `cash` — at the desk, in cash or by card on the company's terminal; `transfer` — a transfer the company saw on its account.
+
+            * `cash` - cash
+            * `transfer` - transfer
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The order's `version` the caller read.
+      required:
+      - amount_minor
+      - expected_version
+      - method
+    PaymentVoidInput:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+          description: The order's `version` the caller read.
+      required:
+      - expected_version
     PeopleDay:
       type: object
       properties:

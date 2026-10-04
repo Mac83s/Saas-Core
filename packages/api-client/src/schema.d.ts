@@ -2729,6 +2729,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/commerce/orders/{order_id}/payments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a payment the company received
+         * @description The customer paid at the desk or the company saw their transfer: writes the payment and its ledger entry and moves the order's status (`partially_paid`, `paid`). More than what is left to pay is refused (`amount_exceeds_due`), so is a payment for a canceled order (`order_canceled`). Answers with the order.
+         */
+        post: operations["commerce_order_payment_record"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/orders/{order_id}/payments/{payment_id}/void/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take back a payment marked by mistake
+         * @description The payment stays in the order's history as `canceled` and the ledger gets the opposite entry, so the order owes that amount again. Not a refund: no money went back to anybody. Only a payment marked by hand can be taken back. Answers with the order.
+         */
+        post: operations["commerce_order_payment_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commerce/orders/{order_id}/payments/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What marking a payment would do
+         * @description Checks the payment exactly as the write does — the order's version, the method, the amount against what is left to pay — and says what would be paid, what would be left and the order's status. Writes nothing.
+         */
+        post: operations["commerce_order_payment_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customers/documents/": {
         parameters: {
             query?: never;
@@ -9243,6 +9303,8 @@ export interface components {
             sources: components["schemas"]["OrderSource"][];
             line_kinds: components["schemas"]["OrderLineKindEnum"][];
             tax_rates: components["schemas"]["OrderTaxRateEnum"][];
+            /** @description The methods of a payment the company marks as received itself. */
+            manual_methods: components["schemas"]["ManualPaymentMethodEnum"][];
             /** @description The longest page a list returns. */
             max_page_size: number;
         };
@@ -11639,6 +11701,12 @@ export interface components {
              */
             missing: string;
         };
+        /**
+         * @description * `cash` - cash
+         *     * `transfer` - transfer
+         * @enum {string}
+         */
+        ManualPaymentMethodEnum: "cash" | "transfer";
         /** @description Produkt z magazynu przy usłudze albo wizycie (ADR-055). */
         MaterialInput: {
             /** Format: uuid */
@@ -11975,8 +12043,14 @@ export interface components {
             vat_minor: number;
             /** @description Which lines are in force. A source that prices its record again — a booking moved to dearer days — writes the next revision. */
             revision: number;
-            /** @description Goes up with every change of the order. */
+            /** @description Goes up with every change of the order; a write names the one it saw. */
             version: number;
+            /** @description What the customer has paid: the sum of the order's ledger. */
+            paid_minor: number;
+            /** @description What is left to pay: `gross_minor` less `paid_minor`. Negative when an order priced again came to less than was already paid. */
+            due_minor: number;
+            /** @description Oldest first. */
+            payments: components["schemas"]["OrderPayment"][];
             /** @description The lines in force. */
             lines: components["schemas"]["OrderLine"][];
             /** @description Every revision with what it came to, oldest first. */
@@ -12089,6 +12163,73 @@ export interface components {
             page_size: number;
             items: components["schemas"]["OrderSummary"][];
         };
+        OrderPayment: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description `full` — the whole at once; `deposit` — a part ahead of the rest; `balance` — the rest.
+             *
+             *     * `deposit` - deposit
+             *     * `balance` - balance
+             *     * `full` - full
+             *     * `security_deposit` - security_deposit
+             */
+            kind: components["schemas"]["OrderPaymentKindEnum"];
+            /**
+             * @description `cash` is paid at the desk, in cash or by card on the company's terminal.
+             *
+             *     * `online` - online
+             *     * `transfer` - transfer
+             *     * `cash` - cash
+             *     * `cash_on_delivery` - cash_on_delivery
+             */
+            method: components["schemas"]["OrderPaymentMethodEnum"];
+            /**
+             * @description `succeeded` counts as paid; `canceled` was marked by mistake and taken back.
+             *
+             *     * `requires_payment` - requires_payment
+             *     * `processing` - processing
+             *     * `authorized` - authorized
+             *     * `succeeded` - succeeded
+             *     * `failed` - failed
+             *     * `canceled` - canceled
+             *     * `expired` - expired
+             */
+            status: components["schemas"]["OrderPaymentStatusEnum"];
+            /** @description In minor units of the order's currency. */
+            amount_minor: number;
+            /** Format: date-time */
+            paid_at: string | null;
+            /** @description Who marked it, by name; empty when no person did. */
+            recorded_by: string;
+        };
+        /**
+         * @description * `deposit` - deposit
+         *     * `balance` - balance
+         *     * `full` - full
+         *     * `security_deposit` - security_deposit
+         * @enum {string}
+         */
+        OrderPaymentKindEnum: "deposit" | "balance" | "full" | "security_deposit";
+        /**
+         * @description * `online` - online
+         *     * `transfer` - transfer
+         *     * `cash` - cash
+         *     * `cash_on_delivery` - cash_on_delivery
+         * @enum {string}
+         */
+        OrderPaymentMethodEnum: "online" | "transfer" | "cash" | "cash_on_delivery";
+        /**
+         * @description * `requires_payment` - requires_payment
+         *     * `processing` - processing
+         *     * `authorized` - authorized
+         *     * `succeeded` - succeeded
+         *     * `failed` - failed
+         *     * `canceled` - canceled
+         *     * `expired` - expired
+         * @enum {string}
+         */
+        OrderPaymentStatusEnum: "requires_payment" | "processing" | "authorized" | "succeeded" | "failed" | "canceled" | "expired";
         OrderRequest: {
             /** @description The (object, language) pairs to translate. */
             targets: components["schemas"]["Target"][];
@@ -13245,6 +13386,26 @@ export interface components {
             first_name?: string;
             last_name?: string;
         };
+        PaymentEffect: {
+            amount_minor: number;
+            /** @description What would be paid after it. */
+            paid_minor: number;
+            /** @description What would be left to pay. */
+            due_minor: number;
+            /**
+             * @description The order's status after it.
+             *
+             *     * `draft` - draft
+             *     * `awaiting_payment` - awaiting_payment
+             *     * `partially_paid` - partially_paid
+             *     * `paid` - paid
+             *     * `fulfilled` - fulfilled
+             *     * `completed` - completed
+             *     * `canceled` - canceled
+             *     * `refunded` - refunded
+             */
+            status: components["schemas"]["OrderStatusEnum"];
+        };
         /**
          * @description * `stripe` - stripe
          *     * `simulated` - simulated
@@ -13257,6 +13418,23 @@ export interface components {
          * @enum {string}
          */
         PaymentPolicyEnum: "none" | "on_site";
+        PaymentRecordInput: {
+            /** @description What the company received, in minor units of the order's currency; at most what is left to pay (`due_minor`). */
+            amount_minor: number;
+            /**
+             * @description `cash` — at the desk, in cash or by card on the company's terminal; `transfer` — a transfer the company saw on its account.
+             *
+             *     * `cash` - cash
+             *     * `transfer` - transfer
+             */
+            method: components["schemas"]["ManualPaymentMethodEnum"];
+            /** @description The order's `version` the caller read. */
+            expected_version: number;
+        };
+        PaymentVoidInput: {
+            /** @description The order's `version` the caller read. */
+            expected_version: number;
+        };
         PeopleDay: {
             /** Format: date */
             date: string;
@@ -24572,6 +24750,184 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    commerce_order_payment_record: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentRecordInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PaymentRecordInput"];
+                "multipart/form-data": components["schemas"]["PaymentRecordInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    commerce_order_payment_void: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentVoidInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PaymentVoidInput"];
+                "multipart/form-data": components["schemas"]["PaymentVoidInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    commerce_order_payment_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentRecordInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PaymentRecordInput"];
+                "multipart/form-data": components["schemas"]["PaymentRecordInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentEffect"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

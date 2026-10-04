@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:7018c87338294bda6528c789d7df9a121fb2e18864926ea15d007ce4bbb45903",
+  "profileHash": "sha256:3d5af5b18abf3a9fbc83a66b5c7e66eb67aeb20320cd6883aed82db453c5db43",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -590,17 +590,21 @@
         "djangoApp": "saas_core.modules.shared.commerce",
         "urlPrefix": "/api/v1/commerce",
         "permissions": [
-          "commerce.orders.read"
+          "commerce.orders.read",
+          "commerce.payments.manage"
         ],
         "roleGrants": {
           "manager": [
-            "commerce.orders.read"
+            "commerce.orders.read",
+            "commerce.payments.manage"
           ],
           "admin": [
-            "commerce.orders.read"
+            "commerce.orders.read",
+            "commerce.payments.manage"
           ],
           "owner": [
-            "commerce.orders.read"
+            "commerce.orders.read",
+            "commerce.payments.manage"
           ]
         },
         "entitlements": [

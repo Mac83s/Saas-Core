@@ -28,7 +28,7 @@ import { PlanGate } from "#components/panel/plan-gate";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { formatDateTime } from "#lib/dates";
-import { formatMoney } from "./money";
+import { formatMoney } from "#lib/money";
 
 const PAGE_SIZE = 25;
 type Failure = "loadError" | "permission" | "plan";

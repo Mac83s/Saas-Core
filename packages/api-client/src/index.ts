@@ -6635,3 +6635,46 @@ export async function readOrder(orderId: string): Promise<Order> {
   if (error || !data) throwProblem(error, response);
   return data;
 }
+
+export type OrderPayment = components["schemas"]["OrderPayment"];
+export type PaymentRecordInput = components["schemas"]["PaymentRecordInput"];
+
+/** Marks a payment the company received for an order — at the desk or by a
+ *  transfer — and answers with the order (ADR-073 §4). Locked by the order's
+ *  version: a stale one is 409 `order_version_conflict`. */
+export async function recordOrderPayment(
+  orderId: string,
+  input: PaymentRecordInput,
+): Promise<Order> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/commerce/orders/{order_id}/payments/",
+    {
+      params: { path: { order_id: orderId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Takes back a payment marked by mistake; it stays in the order's history
+ *  as canceled. Not a refund. */
+export async function voidOrderPayment(
+  orderId: string,
+  paymentId: string,
+  expectedVersion: number,
+): Promise<Order> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/commerce/orders/{order_id}/payments/{payment_id}/void/",
+    {
+      params: { path: { order_id: orderId, payment_id: paymentId } },
+      body: { expected_version: expectedVersion },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": await getCsrfToken() },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
