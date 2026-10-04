@@ -181,6 +181,28 @@ def test_the_words_are_graded_too() -> None:
     assert grade(polish, plain, {}) == []
     noun = ScenarioResult(key=polish.key, answer="Czy zająć się zespołem albo tytułem strony?")
     assert grade(polish, noun, {}) == []
+    # Any verb, in either aspect — not a list of stems (a walk-through of 04.10 read
+    # „Tej nie zmieniałem”) — and the future and „powinienem” have a gender too.
+    for answer in (
+        "Tej ceny nie zmieniałem. Jaka nazwa?",
+        "Podałam trzy ceny. Jaka nazwa?",
+        "Wziąłem to pod uwagę. Jaka nazwa?",
+        "Zaczęłam od cennika. Jaka nazwa?",
+        "Będę potrzebował nazwy. Jaka ma być?",
+        "Powinnam zapytać: jaka nazwa?",
+    ):
+        assert grade(polish, ScenarioResult(key=polish.key, answer=answer), {}) == [
+            "gendered_verb"
+        ], answer
+    # Nouns and present-tense verbs that end the same way are not such forms.
+    for answer in (
+        "Ogółem są trzy ceny, razem z hasłem i modułem. Jaka nazwa?",
+        "Zajmę się działem sprzedaży, materiałem i kwartałem. Jaka nazwa?",
+        "Działam w panelu i wysyłam podgląd. Jaka nazwa?",
+        "Porozmawiam z Michałem i Rafałem. Jaka nazwa?",
+        "Będę potrzebować nazwy. Jaka ma być?",
+    ):
+        assert grade(polish, ScenarioResult(key=polish.key, answer=answer), {}) == [], answer
     assert failed("Which name should it be? It is now Studio Żółw.") == []
 
 
@@ -201,7 +223,7 @@ def test_the_command_writes_a_report_within_its_budget(tmp_path: Path) -> None:
     (path,) = tmp_path.glob("*.json")
     report = json.loads(path.read_text(encoding="utf-8"))
     assert (report["model"], report["scenarios"], report["passed"]) == (MODEL, 1, 1)
-    assert report["cost_usd"] == 0.002
+    assert (report["cost_usd"], report["rewritten"]) == (0.002, 0)
     assert report["results"][0]["calls"] == ["organization.update@1"]
     assert "1/1" in out.getvalue()
     # Once the budget is spent, the scenarios left are not run.
@@ -506,7 +528,7 @@ def test_an_answer_with_a_gendered_verb_is_sent_back_once_as_in_a_conversation()
     assert (result.passed, result.failed) == (True, [])
     assert result.answer == "Zmieniono nazwę firmy na Studio Urody Anna."
     # The third call is paid for and counted.
-    assert (result.steps, result.cost_usd_micros) == (3, 3_000)
+    assert (result.steps, result.cost_usd_micros, result.rewritten) == (3, 3_000, 1)
     note = FAKE.calls[2].request.messages[-1].content or ""
     assert note.startswith("[panel]") and '"Zmieniłem"' in note
 

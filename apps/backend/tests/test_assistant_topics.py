@@ -32,22 +32,27 @@ def size(tools: list[str]) -> int:
 def test_a_question_brings_the_tools_that_read_its_area_and_nothing_else() -> None:
     offered = names(said("Ile kosztuje noc w Wigwamach?"))
 
-    assert offered == [
-        "more_tools",
-        "booking_prices_read_v1",
-        "booking_quote_read_v1",
-        "pricing_settings_entry_read_v1",
-    ]
-    # A twentieth of the registry's definitions, not all of them.
-    assert size(offered) * 15 < size([tool["name"] for tool in ALL])
+    assert offered == ["more_tools", "booking_prices_read_v1", "pricing_settings_entry_read_v1"]
+    # A fortieth of the registry's definitions, not all of them.
+    assert size(offered) * 40 < size([tool["name"] for tool in ALL])
+    # What a booking would cost is a question of its own.
+    assert names(said("Policz, ile zapłaci klient za trzy noce"))[1:] == ["booking_quote_read_v1"]
 
 
 def test_asking_for_a_change_brings_the_tools_that_change() -> None:
     offered = names(said("Zmień cenę Wigwamów na 300 zł"))
 
-    assert offered[:4] == names(said("Ile kosztuje noc w Wigwamach?"))
+    assert offered[:3] == names(said("Ile kosztuje noc w Wigwamach?"))
     assert "booking_price_save_v1" in offered and "booking_extra_save_v1" in offered
-    assert not [name for name in offered if name.startswith(("sites_", "translation_"))]
+    assert {name.split("_")[0] for name in offered[1:]} == {"booking", "pricing"}
+    # „oferty” is too common a word to open the services' area beside the price list…
+    assert offered == names(said("Zmień cenę podstawową oferty Wigwamy na 300 zł za noc"))
+    assert "booking_offer_update_v1" not in offered
+    # …and opens it only while nothing more exact was said.
+    assert "booking_offer_create_v1" in names(said("Dodaj usługę strzyżenie, 30 minut"))
+    assert "booking_setup_read_v1" not in names(
+        said("Ile kosztuje noc?"), said("A jakie mam usługi?")
+    )
     # A change asked for later opens the areas already touched; the tools the
     # model was shown before keep their place, so a provider's cache holds.
     later = names(said("Ile kosztuje noc w Wigwamach?"), said("Podnieś ją o 20"))
@@ -79,7 +84,7 @@ def test_words_that_name_no_area_leave_the_one_tool_that_lists_them() -> None:
 
     assert more["name"] == "more_tools"
     listed = more["input_schema"]["properties"]["topics"]["items"]["enum"]
-    assert listed[:4] == ["company", "offers", "prices", "seasons"]
+    assert listed[:5] == ["company", "offers", "prices", "quote", "seasons"]
     for key in listed:
         assert f"- {key}: " in more["description"]
     # Every command the person has is within reach of some area.

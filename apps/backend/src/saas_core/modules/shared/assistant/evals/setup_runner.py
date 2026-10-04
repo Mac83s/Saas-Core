@@ -45,9 +45,9 @@ from .runner import (
 )
 from .setup_scenarios import ACCOUNT, SETUP_REF, SetupScenario
 
-#: Model calls one message may take: status, note, status again, the answer —
-#: and one spare.
-MAX_STEPS = 5
+#: Model calls one message may take: status, note, status again, the answer,
+#: the answer written again — and one spare.
+MAX_STEPS = 6
 _DECLINED = {"status": "declined", "error": {"code": "consent_declined", "errors": []}}
 #: What an owner writes in their own words; a key (a kind of booking, a
 #: category) is the owner's when they chose its label, which no text shows.
@@ -148,6 +148,7 @@ def run_setup_scenario(
             if not response.tool_calls:
                 form = style.gendered(response.text or "")
                 if form:
+                    result.rewritten += 1
                     first = response.as_message()
                     held = style.rewrite_messages(response, form)
                     continue

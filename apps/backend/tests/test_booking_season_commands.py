@@ -162,3 +162,7 @@ def test_the_read_answers_what_the_panel_lists() -> None:
         7,
     )
     assert (season["service_id"], season["version"]) == (str(_stay(person).id), 1)
+    # Whose the season is, in words — and that nobody can book that offer yet.
+    stay = _stay(person)
+    assert result.output["names"] == {str(stay.id): stay.name}
+    assert result.output["switched_off"] == ([] if stay.active else [str(stay.id)])

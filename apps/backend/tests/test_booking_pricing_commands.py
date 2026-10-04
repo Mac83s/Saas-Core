@@ -370,7 +370,10 @@ def test_the_quote_answers_what_the_price_list_says_and_writes_nothing() -> None
         if row.get(field)
     }
     assert set(prices.output["names"]) == pointed
-    assert prices.output["names"][arguments["service_id"]] == _stay(person).name
+    stay = _stay(person)
+    assert prices.output["names"][arguments["service_id"]] == stay.name
+    # …and says which of those services nobody can book yet.
+    assert prices.output["switched_off"] == ([] if stay.active else [str(stay.id)])
     # The pools are in the setup read, so a unit's `group_id` says something.
     assert [group["name"] for group in setup.output["groups"]] == ["Domki"]
 

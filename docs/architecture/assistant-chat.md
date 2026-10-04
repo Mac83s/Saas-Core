@@ -80,18 +80,20 @@ GET rozmowa  <-  tura done
 
 ## Co widzi model
 
-- Stały prompt (`prompts.py`: `assistant.operate@2`, w rozmowie zakładającej
+- Stały prompt (`prompts.py`: `assistant.operate@3`, w rozmowie zakładającej
   `assistant.setup@4`) i język panelu rozmowy.
 - Wiadomości osoby z czasem wysłania w nawiasie kwadratowym (UTC).
 - Narzędzia zwykłej rozmowy: z `command_tools(context)` — poleceń, do których osoba
   ma uprawnienie i moduł — te z obszarów, których rozmowa dotyka (`topics.select`,
   ADR-076 „słowa serwera, dobór narzędzi i koszt rozmowy” pkt 3):
   - obszar otwierają słowa osoby, najpierw same odczyty; polecenia zmieniające
-    dochodzą, gdy osoba prosi o zmianę;
+    dochodzą, gdy osoba prosi o zmianę; słowa ogólne („usługa”, „firma”, „strona”)
+    liczą się tylko, dopóki żaden obszar nie jest otwarty;
   - `more_tools` (`topics`: lista obszarów, `change`: czy także zmieniające) —
     narzędzie własne asystenta, którym model poszerza zestaw; wynik
     `{"opened", "unknown", "change"}`, nowe narzędzia przy następnym wywołaniu;
   - wybór jest funkcją transkryptu, a kolejność narzędzi — kolejnością dodania;
+    zestaw tylko rośnie, bo każda jego zmiana zapisuje cache rozmowy od nowa;
   - rejestr do 12 poleceń idzie w całości, bez `more_tools`.
   Wykonawca sprawdza wszystko jeszcze raz, cokolwiek model dostał.
 - Wynik kroku jako wiadomość `tool`: `{"status": "done", "output": …}` albo

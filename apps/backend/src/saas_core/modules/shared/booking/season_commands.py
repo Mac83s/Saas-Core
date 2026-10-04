@@ -25,7 +25,16 @@ from saas_core.modules.core.organizations.api import CommandSpec, Preview
 
 from .command_declarations import _effect, _given, _id, _nullable
 from .models import BookingRule, RangeUnit
-from .pricing_commands import _DAYS, _PUBLIC, _bounded, _live_scope, _plain, _raised, _scope
+from .pricing_commands import (
+    _DAYS,
+    _PUBLIC,
+    _bounded,
+    _live_scope,
+    _owners,
+    _plain,
+    _raised,
+    _scope,
+)
 from .rules import list_rules, save_rule
 from .serializers import BookingRuleInputSerializer, BookingRuleUpdateSerializer
 from .services import BOOKING_ENABLED, BOOKING_MANAGE
@@ -67,8 +76,10 @@ _LENGTH: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {
 
 
 def _read_seasons(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
+    seasons = [_rule_payload(item) for item in list_rules()]
     return cast(
-        dict[str, Any], _plain({"seasons": [_rule_payload(item) for item in list_rules()]})
+        dict[str, Any],
+        _plain({**_owners(call.context.organization_id, seasons), "seasons": seasons}),
     )
 
 
@@ -88,7 +99,9 @@ SEASONS_READ = CommandSpec(
         "(nights, days), whole multiples, the weekdays a booking may begin and end on "
         "(0 is Monday; an empty list is any day), how long before its start and how far "
         "ahead it can be made, closed, the break after. Use it before changing a season, to "
-        "know its id. For a day the unit's season wins over its group's, and that over the "
+        "know its id. `names` gives, by id, the name of every service, group and unit a "
+        "season belongs to, and `switched_off` the ids of the services among them that are "
+        "switched off. For a day the unit's season wins over its group's, and that over the "
         "service's. A season's price is not here: booking.prices.read has the price list."
     ),
     input_schema={
@@ -100,7 +113,11 @@ SEASONS_READ = CommandSpec(
     output_schema={
         "type": "object",
         "x-data-class": _PUBLIC,
-        "properties": {"seasons": {"type": "array"}},
+        "properties": {
+            "names": {"type": "object"},
+            "switched_off": {"type": "array"},
+            "seasons": {"type": "array"},
+        },
     },
     permission=BOOKING_MANAGE,
     entitlement=BOOKING_ENABLED,

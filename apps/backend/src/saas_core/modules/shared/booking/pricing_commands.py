@@ -406,7 +406,7 @@ def _read_prices(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
         _plain({
             "currency": organization.currency,
             "amounts": GROSS if amounts_are_gross() else NET,
-            "names": _names(organization.id, [*prices, *extras]),
+            **_owners(organization.id, [*prices, *extras]),
             "prices": prices,
             "extras": extras,
             "categories": [_category_payload(item) for item in list_categories()],
@@ -414,21 +414,27 @@ def _read_prices(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
     )
 
 
-def _names(organization_id: UUID, rows: list[dict[str, Any]]) -> dict[str, str]:
-    """The name of every service, group and unit the price list points at, by
-    id: a price says whose it is with an id, and a person names a service —
-    without this the whole setup would be read only to match the two."""
+def _owners(organization_id: UUID, rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Whose the rows of a price list or of the seasons are: the name of every
+    service, group and unit they point at, by id, and which of those services
+    are switched off. A row says whose it is with an id, and a person names a
+    service — without this the whole setup would be read only to match the two."""
     names: dict[str, str] = {}
+    switched_off: list[str] = []
     for model, field in (
         (Service, "service_id"),
         (ResourceGroup, "group_id"),
         (Resource, "resource_id"),
     ):
         ids = {row[field] for row in rows if row.get(field)}
-        if ids:
-            found = model.all_objects.filter(organization_id=organization_id, pk__in=ids)
-            names.update({str(pk): name for pk, name in found.values_list("pk", "name")})
-    return names
+        if not ids:
+            continue
+        found = model.all_objects.filter(organization_id=organization_id, pk__in=ids)
+        for pk, name, active in found.order_by("name", "pk").values_list("pk", "name", "active"):
+            names[str(pk)] = name
+            if model is Service and not active:
+                switched_off.append(str(pk))
+    return {"names": names, "switched_off": switched_off}
 
 
 PRICES_READ = CommandSpec(
@@ -446,9 +452,11 @@ PRICES_READ = CommandSpec(
         "every extra and deposit, every participant category, switched-off ones included, "
         "each with its id and version; `currency` and whether amounts are read `gross` or "
         "`net`; `names` gives, by id, the name of every service, group and unit a price or "
-        "an extra belongs to. Amounts are whole minor units (grosze). Use it before changing "
-        "a price, to know the ids. It is the list, not what a booking costs: never add "
-        "amounts up yourself — ask booking.quote.read."
+        "an extra belongs to, and `switched_off` the ids of the services among them that "
+        "are switched off — nobody can book those yet, so their prices are in force for "
+        "nobody. Amounts are whole minor units (grosze). Use it before changing a price, to "
+        "know the ids. It is the list, not what a booking costs: never add amounts up "
+        "yourself — ask booking.quote.read."
     ),
     input_schema={
         "type": "object",
@@ -463,6 +471,7 @@ PRICES_READ = CommandSpec(
             "currency": {"type": "string"},
             "amounts": {"type": "string"},
             "names": {"type": "object"},
+            "switched_off": {"type": "array"},
             "prices": {"type": "array"},
             "extras": {"type": "array"},
             "categories": {"type": "array"},

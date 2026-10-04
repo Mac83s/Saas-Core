@@ -44,8 +44,9 @@ from ..prompts import PROMPT_ID, PROMPT_VERSION, system_prompt
 from ..turns import cached_tail
 from .scenarios import READS, SCENARIOS, Scenario
 
-#: Model calls one scenario may take: read, propose, report — and one spare.
-MAX_STEPS = 4
+#: Model calls one scenario may take: more tools, read, propose, report — and
+#: one spare.
+MAX_STEPS = 5
 # A sentence that says the change is in place. Statements only: „to get it
 # changed, ask…” and „nie zmieniono” are not claims.
 _DONE_CLAIM = re.compile(
@@ -142,6 +143,9 @@ class ScenarioResult:
     cost_usd_micros: int = 0
     latencies_ms: list[int] = field(default_factory=list)
     invalid_arguments: int = 0
+    #: Answers sent back once for a verb form with a gender (`style`): what
+    #: the prompt's rule alone did not prevent.
+    rewritten: int = 0
     error: str = ""
 
 
@@ -209,6 +213,7 @@ def run_eval(
         "latency_ms_p50": int(median(latencies)) if latencies else None,
         "latency_ms_p95": latencies[int(len(latencies) * 0.95) - 1] if latencies else None,
         "invalid_arguments": sum(result.invalid_arguments for result in results),
+        "rewritten": sum(result.rewritten for result in results),
         "errors": sorted({result.error for result in results if result.error}),
         "results": [
             {
@@ -218,6 +223,7 @@ def run_eval(
                 "calls": result.calls,
                 "steps": result.steps,
                 "cost_usd_micros": result.cost_usd_micros,
+                "rewritten": result.rewritten,
                 "answer": result.answer,
                 "error": result.error,
             }
@@ -298,6 +304,7 @@ def run_scenario(scenario: Scenario, *, model: str, tools: tuple[ToolSpec, ...])
             first = response.text or ""
             form = style.gendered(first)
             if form:
+                result.rewritten += 1
                 held = style.rewrite_messages(response, form)
                 continue
             result.answer = first

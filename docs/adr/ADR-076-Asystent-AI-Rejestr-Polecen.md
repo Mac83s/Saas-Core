@@ -804,28 +804,42 @@ nieodwracalności i szkic przemianowany w panelu), i to, co uzupełnienie A3-2 o
    wstrzymana odpowiedź, ani notatka nie trafiają do rozmowy. Pierwsza odpowiedź
    zostaje, gdy wiadomość nie ma już wywołania modelu, przepisanie się nie uda albo
    zamiast słów wraca wywołanie narzędzia; druga odpowiedź jest pokazywana, jaka jest.
-   Wzorzec jest ten sam, którym ocenia eval — ocena się nie zmienia, a runner evali
-   robi to samo co rozmowa. Koszt: jedno wywołanie więcej w około jednej odpowiedzi
-   na dziesięć. Słowa pisane obok wywołania narzędzia nie są sprawdzane (przepisanie
-   powtórzyłoby wywołanie) — zostają regule promptu.
+   Wzorzec jest ten sam, którym ocenia eval, a runner evali robi to samo co rozmowa
+   i liczy przepisane odpowiedzi (`rewritten` w raporcie) — to one mówią, czy sama
+   reguła promptu działa. Wzorzec jest szerszy niż dotąd: nie lista rdzeni czasowników
+   („zmieniłem” tak, „zmieniałem” nie), tylko każde słowo zakończone jak taki
+   czasownik, bez rzeczowników i czasowników w czasie teraźniejszym o tym samym
+   zakończeniu („działem”, „z Michałem”, „działam”, „wysyłam”), oraz „będę
+   sprawdzał” i „powinienem”. Ocena jest przez to surowsza, nie łagodniejsza;
+   rzeczownik wzięty za czasownik kosztuje w rozmowie jedno wywołanie, nie błędną
+   odpowiedź. Koszt: jedno wywołanie więcej w około jednej odpowiedzi na dziesięć.
+   Słowa pisane obok wywołania narzędzia nie są sprawdzane (przepisanie powtórzyłoby
+   wywołanie) — zostają regule promptu.
 3. **Zwykła rozmowa dostaje narzędzia obszarów, których dotyka** (`topics.py`), nie
    cały rejestr: każda definicja narzędzia jedzie z każdym wywołaniem modelu.
    - **Obszar** to grupa poleceń nazwana wzorcami ich nazw (firma, usługi i grafik,
-     cennik, sezony, ustawienia rezerwacji, wizytówka, strona, tłumaczenia, dokumenty,
-     magazyn). Polecenie, którego żaden obszar nie nazywa — polecenie produktu — jest
-     obszarem po pierwszym członie nazwy, opisanym tytułami swoich poleceń.
+     cennik, wycena, sezony, ustawienia rezerwacji, wizytówka, strona, tłumaczenia,
+     dokumenty, magazyn). Polecenie, którego żaden obszar nie nazywa — polecenie
+     produktu — jest obszarem po pierwszym członie nazwy, opisanym tytułami swoich
+     poleceń.
    - **Obszar otwierają słowa osoby** (początki słów po polsku i angielsku: „cen”,
      „koszt”, „godzin”…), najpierw tylko jego odczyty. Polecenia zmieniające dochodzą,
      gdy osoba prosi o zmianę („zmień”, „ustaw”, „dodaj”…) — wtedy we wszystkich
-     obszarach już otwartych.
+     obszarach już otwartych. Słowa zbyt częste, żeby coś znaczyły („usługa”,
+     „oferta”, „firma”, „strona”, „rezerwacja”), otwierają obszar tylko wtedy, gdy
+     żaden nie jest jeszcze otwarty: „zmień cenę oferty Wigwamy” to cennik, nie
+     usługi.
    - **Model poszerza na żądanie** jednym narzędziem własnym asystenta, `more_tools`
      (obszary i `change`); jego opis wymienia wszystkie obszary osoby, więc nic nie
      jest poza zasięgiem — kosztuje jedno wywołanie więcej. Jak trzy narzędzia rozmowy
      ustawiającej, nie jest poleceniem rejestru: niczego nie zmienia na koncie.
    - **Wybór jest czystą funkcją transkryptu**: te same wiadomości dają te same
-     narzędzia, w kolejności dodania, więc cache dostawcy z wcześniejszych wywołań
-     zostaje ważny, gdy dochodzi obszar. Narzędzie raz wywołane zostaje w zestawie.
-     Rejestr do 12 poleceń idzie w całości, bez `more_tools`.
+     narzędzia, w kolejności dodania; zestaw tylko rośnie, a narzędzie raz wywołane
+     w nim zostaje. Rejestr do 12 poleceń idzie w całości, bez `more_tools`.
+   - **Poszerzenie kosztuje.** Dostawca liczy cache od narzędzi, więc narzędzie
+     dodane w środku rozmowy zapisuje do cache całą rozmowę od nowa (zmierzone 04.10:
+     4 centy przy rozmowie o 17 tys. tokenów). Stąd słowa dokładne zamiast ogólnych i
+     wycena jako osobny obszar: zestaw ma być trafny od pierwszej wiadomości.
    - Wybór decyduje tylko o tym, co model dostaje: egzekutor sprawdza każde wywołanie
      jak dotąd, a port odrzuca wywołanie narzędzia, którego w żądaniu nie było. Pytanie
      o usługi nie niesie więc poleceń zmieniających — treść wszyta w wynik odczytu
@@ -840,10 +854,12 @@ nieodwracalności i szkic przemianowany w panelu), i to, co uzupełnienie A3-2 o
    przyjmuje cztery): kolejne wywołanie czyta wcześniejsze wyniki narzędzi za dziesiątą
    część ceny, zamiast płacić za nie od nowa — to one, nie definicje, kosztowały
    najwięcej po pierwszym odczycie. Wynik polecenia idzie do modelu bez pól `null` i
-   bez spacji po przecinkach. `booking.prices.read@1` zwraca `names` — nazwy usług,
-   grup i jednostek, do których należą ceny (dodane pole wyjścia) — więc pytanie o
-   cenę nie czyta całego ustawienia firmy tylko po to, żeby dopasować nazwę do
-   identyfikatora.
+   bez spacji po przecinkach. `booking.prices.read@1` i `booking.seasons.read@1`
+   zwracają `names` — nazwy usług, grup i jednostek, do których należą ceny albo
+   sezony — i `switched_off` — które z tych usług są wyłączone (dodane pola wyjścia).
+   Pytanie o cenę nie czyta więc całego ustawienia firmy tylko po to, żeby dopasować
+   nazwę do identyfikatora, a asystent nadal wie, że ceny oferty wyłączonej nikogo
+   jeszcze nie obowiązują.
 5. **Dowody i evale liczone osobno.** `ASSISTANT_PROOF_ACCOUNTS` (zmienna
    środowiskowa, lista e-maili, domyślnie pusta) nazywa konta, których rozmowy są
    dowodami: ich wywołania idą do portu z celem `eval`. Port liczy wywołania `eval` i
@@ -866,7 +882,10 @@ nieodwracalności i szkic przemianowany w panelu), i to, co uzupełnienie A3-2 o
    zostają przy nazwie. Odrzucone: pochodzenie w profilu albo w usłudze — drugi zapis
    tej samej prawdy albo zmiana modelu rezerwacji dla czegoś, co asystent już wie z
    własnych planów.
-7. **Prompty i evale.** `assistant.operate@2` (reguła o obszarach, wspólna reguła
-   stylu) i `assistant.setup@4`. Scenariusz `undo_pl` sprawdza to, co osoba czyta w
+7. **Prompty i evale.** `assistant.operate@3` (reguła o obszarach: najpierw
+   narzędzia, które są, `more_tools` dopiero gdy żadne nie pasuje — `@2` z tego samego
+   dnia kazał sięgać po nie „zanim powiesz, że się nie da” i model wołał je także
+   wtedy, gdy miał już właściwe narzędzie; wspólna reguła stylu) i
+   `assistant.setup@4`. Scenariusz `undo_pl` sprawdza to, co osoba czyta w
    rozmowie: słowa modelu i zdanie serwera obok planu. Runner zwykłej rozmowy dobiera
    narzędzia tak jak rozmowa i odpowiada na `more_tools`.

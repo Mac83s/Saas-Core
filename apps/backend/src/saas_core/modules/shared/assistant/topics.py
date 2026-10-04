@@ -6,10 +6,16 @@ read. A conversation therefore gets the tools of the areas it has touched, and
 of an area first only the ones that read:
 
 - an area opens when the person's own words name it („cennik”, „godziny”);
+  words too common to mean one („usługa”, „firma”) count only while nothing
+  is open;
 - its tools that change things come once the person asks for a change;
 - the model widens either on demand with one tool of the assistant's own,
   `more_tools`, which lists every area there is — so nothing is out of reach,
   it only costs one more call.
+
+Widening is not free: a provider caches a request from its tools on, so a
+tool added in the middle of a conversation has the whole conversation written
+to the cache again. Hence the exact words, and hence no narrowing ever.
 
 The choice is a pure function of the transcript: the same messages always give
 the same tools, in the order they were added, so a provider's cache of the
@@ -49,6 +55,9 @@ class Topic:
     #: Beginnings of the words — folded, in Polish and English — with which a
     #: person names the area.
     words: tuple[str, ...]
+    #: Words too common to open an area in the middle of a conversation
+    #: („usługa”, „firma”, „strona”): they count only while no area is open.
+    weak: tuple[str, ...] = ()
 
 
 TOPICS: tuple[Topic, ...] = (
@@ -58,7 +67,6 @@ TOPICS: tuple[Topic, ...] = (
         "languages, the languages of its public pages, sign-in security, mail to customers",
         commands=("organization.*", "notifications.*"),
         words=(
-            "firm",
             "stref",
             "walut",
             "jezyk",
@@ -67,7 +75,6 @@ TOPICS: tuple[Topic, ...] = (
             "mail",
             "poczt",
             "nadawc",
-            "company",
             "timezone",
             "currency",
             "language",
@@ -75,6 +82,7 @@ TOPICS: tuple[Topic, ...] = (
             "sender",
             "email",
         ),
+        weak=("firm", "company"),
     ),
     Topic(
         key="offers",
@@ -88,21 +96,16 @@ TOPICS: tuple[Topic, ...] = (
             "booking.location.*",
         ),
         words=(
-            "uslug",
-            "ofert",
             "grafik",
             "godzin",
             "pracown",
             "zespol",
-            "miejsc",
             "lokalizac",
             "jednost",
             "szkic",
             "wizyta",
             "wizyty",
             "wizyte",
-            "service",
-            "offer",
             "schedule",
             "hours",
             "staff",
@@ -111,17 +114,17 @@ TOPICS: tuple[Topic, ...] = (
             "unit",
             "draft",
         ),
+        weak=("uslug", "ofert", "miejsc", "service", "offer", "place"),
     ),
     Topic(
         key="prices",
         about="the price list: prices and seasons' prices, extras and deposits, participant "
-        "categories, whether amounts are entered net or gross, what a booking would cost",
+        "categories, whether amounts are entered net or gross",
         commands=(
             "booking.price.*",
             "booking.prices.*",
             "booking.extra.*",
             "booking.participant_category.*",
-            "booking.quote.*",
             "pricing.*",
         ),
         words=(
@@ -132,7 +135,6 @@ TOPICS: tuple[Topic, ...] = (
             "vat",
             "netto",
             "brutto",
-            "wycen",
             "rabat",
             "znizk",
             "zl",
@@ -143,17 +145,22 @@ TOPICS: tuple[Topic, ...] = (
             "deposit",
             "extra",
             "discount",
-            "quote",
             "tax",
         ),
+    ),
+    Topic(
+        key="quote",
+        about="what one booking would cost: a quote for given dates, people and extras, "
+        "worked out from the price list",
+        commands=("booking.quote.*",),
+        words=("wycen", "wylicz", "policz", "zaplac", "quote", "estimate"),
     ),
     Topic(
         key="seasons",
         about="seasons of stays and rentals and their booking rules: dates, the shortest and "
         "longest stay, arrival and departure days, closed dates",
-        # The services' names and ids come with the setup read.
-        commands=("booking.season.*", "booking.seasons.*", "booking.setup.read"),
-        words=("sezon", "pobyt", "przyjazd", "wyjazd", "season", "stay", "arrival", "departure"),
+        commands=("booking.season.*", "booking.seasons.*"),
+        words=("sezon", "przyjazd", "wyjazd", "season", "arrival", "departure"),
     ),
     Topic(
         key="booking_settings",
@@ -161,17 +168,15 @@ TOPICS: tuple[Topic, ...] = (
         "notices, customers' self-service links, how long bookings are kept",
         commands=("booking.settings_*",),
         words=(
-            "rezerwacj",
             "przypomn",
             "powiadom",
             "samoobslug",
             "odwol",
-            "online",
-            "booking",
             "reminder",
             "notice",
             "cancel",
         ),
+        weak=("rezerwacj", "booking", "online"),
     ),
     Topic(
         key="card",
@@ -185,19 +190,18 @@ TOPICS: tuple[Topic, ...] = (
         "how a page looks in search results, inquiries from the site",
         commands=("sites.*",),
         words=(
-            "stron",
             "witryn",
             "www",
             "szablon",
             "zapytan",
             "formularz",
             "seo",
+            "podstron",
             "website",
-            "site",
-            "page",
             "template",
             "inquir",
         ),
+        weak=("stron", "site", "page"),
     ),
     Topic(
         key="translation",
@@ -286,6 +290,7 @@ class _Area:
     key: str
     about: str
     words: tuple[str, ...]
+    weak: tuple[str, ...] = ()
     reads: list[str] = field(default_factory=list)
     writes: list[str] = field(default_factory=list)
 
@@ -338,6 +343,11 @@ def select(
             for area in areas.values():
                 if _names(words, area.words):
                     open_area(area.key, change)
+            if not writable:
+                # Nothing more exact was said, and nothing is open yet.
+                for area in areas.values():
+                    if _names(words, area.weak):
+                        open_area(area.key, change)
             if change:
                 for key in list(writable):
                     open_area(key, True)
@@ -394,7 +404,7 @@ def _areas(available: Sequence[Mapping[str, Any]]) -> dict[str, _Area]:
         ]
         if claimed:
             targets = [
-                areas.setdefault(topic.key, _Area(topic.key, topic.about, topic.words))
+                areas.setdefault(topic.key, _Area(topic.key, topic.about, topic.words, topic.weak))
                 for topic in claimed
             ]
         else:
@@ -414,11 +424,10 @@ def _more_tools(areas: Mapping[str, _Area]) -> dict[str, Any]:
     return {
         "name": MORE_TOOLS,
         "description": (
-            "You are given the tools of the areas this conversation has touched so far, and "
-            "of an area at first only the tools that read. Call this before you answer that "
-            "something cannot be done here: `topics` are the areas you need, and `change` is "
-            "true when the person wants something changed there — you then get the tools "
-            "that change things, and every change still waits for the person's click. The "
+            "Gives you tools you do not have yet. Use a tool you already have whenever one "
+            "fits; call this only when none does — to get the tools of another area "
+            "(`topics`), or the tools that change things in an area whose tools so far only "
+            "read (`change`: true; every change still waits for the person's click). The new "
             "tools come with your next step. It changes nothing in the company's account. "
             "The areas:\n" + listing
         ),

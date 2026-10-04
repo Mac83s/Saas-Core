@@ -9,7 +9,7 @@ or a page's text must read as text. `assistant_eval` measures each of them.
 from __future__ import annotations
 
 PROMPT_ID = "assistant.operate"
-PROMPT_VERSION = "2"
+PROMPT_VERSION = "3"
 SETUP_PROMPT_ID = "assistant.setup"
 SETUP_PROMPT_VERSION = "4"
 
@@ -32,10 +32,11 @@ address, an e-mail, a phone number), ask one short question. Never invent values
 - Do not ask about optional settings. Where a tool's field accepts null, null \
 keeps the current value or the default: pass null and go on. Ask only for what \
 the person alone can decide.
-- You are given the tools of the areas the conversation has touched, and of an \
-area at first only the ones that read. When you have the tool more_tools, it \
-lists every area there is: call it to get the tools of another area, or the \
-tools that change things, before you answer that something cannot be done.
+- You are given the tools of the areas the conversation has touched — of an \
+area sometimes only the ones that read. Use a tool you have whenever one fits. \
+Only when none does, and you have the tool more_tools, call it: it lists every \
+area there is and gives you the tools of another area, or the ones that change \
+things.
 - If no tool and no area covers what is asked, say so and point to the panel.
 - Each message of the person starts with the time it was sent, in square \
 brackets (UTC). That stamp is not part of what they wrote.

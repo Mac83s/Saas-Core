@@ -1274,7 +1274,7 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns the company's price list as it was entered: every price (of a service, a group of units or a unit — the base price without dates, a season's with them), every extra and deposit, every participant category, switched-off ones included, each with its id and version; `currency` and whether amounts are read `gross` or `net`; `names` gives, by id, the name of every service, group and unit a price or an extra belongs to. Amounts are whole minor units (grosze). Use it before changing a price, to know the ids. It is the list, not what a booking costs: never add amounts up yourself — ask booking.quote.read.",
+      "model_description": "Returns the company's price list as it was entered: every price (of a service, a group of units or a unit — the base price without dates, a season's with them), every extra and deposit, every participant category, switched-off ones included, each with its id and version; `currency` and whether amounts are read `gross` or `net`; `names` gives, by id, the name of every service, group and unit a price or an extra belongs to, and `switched_off` the ids of the services among them that are switched off — nobody can book those yet, so their prices are in force for nobody. Amounts are whole minor units (grosze). Use it before changing a price, to know the ids. It is the list, not what a booking costs: never add amounts up yourself — ask booking.quote.read.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -1297,6 +1297,9 @@
             "type": "object"
           },
           "prices": {
+            "type": "array"
+          },
+          "switched_off": {
             "type": "array"
           }
         },
@@ -1736,14 +1739,20 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns every season of the company — of a service, a group of units or a unit — switched-off ones included, each with its id, its version, its first and last local day and its rules: the shortest and the longest booking in the offer's time units (nights, days), whole multiples, the weekdays a booking may begin and end on (0 is Monday; an empty list is any day), how long before its start and how far ahead it can be made, closed, the break after. Use it before changing a season, to know its id. For a day the unit's season wins over its group's, and that over the service's. A season's price is not here: booking.prices.read has the price list.",
+      "model_description": "Returns every season of the company — of a service, a group of units or a unit — switched-off ones included, each with its id, its version, its first and last local day and its rules: the shortest and the longest booking in the offer's time units (nights, days), whole multiples, the weekdays a booking may begin and end on (0 is Monday; an empty list is any day), how long before its start and how far ahead it can be made, closed, the break after. Use it before changing a season, to know its id. `names` gives, by id, the name of every service, group and unit a season belongs to, and `switched_off` the ids of the services among them that are switched off. For a day the unit's season wins over its group's, and that over the service's. A season's price is not here: booking.prices.read has the price list.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
       "no_version_reason": "A read checks no version.",
       "output_schema": {
         "properties": {
+          "names": {
+            "type": "object"
+          },
           "seasons": {
+            "type": "array"
+          },
+          "switched_off": {
             "type": "array"
           }
         },
