@@ -73,10 +73,11 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   językowej (publikuje osoba albo akceptacja wersji czekającej); status operacji
   po kluczu i dzienny limit grantu nie widzą zestawu zmian, który w innym języku
   zmienił tylko tytuły; wersja czekająca z zestawu zmian nie ma własnych
-  etykiet w centrum tłumaczeń (powód `change_set`, pochodzenie `integration`
-  pokazują się jako „inne”), a jej przyjęcie tam zostawia propozycję w kolejce
-  jako nieaktualną razem z czekającymi tytułami; `sites.entry.draft_saved` nie
-  niesie `locale`. SCR: korzystanie z pól inventory per język i rozróżnianie
+  etykiet w edytorze języka i centrum tłumaczeń (powód `change_set` pokazuje
+  się jako „inne”, pochodzenie wersji `change_set` jako „Zapis”), a jej
+  przyjęcie tam zostawia propozycję w kolejce jako nieaktualną razem z
+  czekającymi tytułami; okno propozycji mówi o „szkicu” także dla wersji
+  językowej; `sites.entry.draft_saved` nie niesie `locale`. SCR: korzystanie z pól inventory per język i rozróżnianie
   nowych odmów to jego plan; Condictor — lista w worklogu pakietu T.
 - **Kredyty:** operacje content-ops zasiane jako nieaktywne do kontraktu SCR
   (`shared/billing/migrations/0016_seed_credit_catalog.py:89-100`);
