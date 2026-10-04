@@ -14,6 +14,7 @@ import {
 import { Progress } from "@saas-core/ui/components/progress";
 import { Link } from "#i18n/navigation";
 import { jobProgress, jobWaiting } from "./job-words";
+import { translationComposed } from "./use-translation";
 
 const POLL_MS = 4000;
 /** More than these run only in a burst; the „Zadania” tab lists them all. */
@@ -36,6 +37,8 @@ export function TranslationJobsBar({
   }>();
 
   useEffect(() => {
+    // No engine in this deployment: no jobs to ask about.
+    if (!translationComposed()) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let followed = new Set<string>();

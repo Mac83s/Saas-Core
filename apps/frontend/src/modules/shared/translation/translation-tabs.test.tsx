@@ -8,6 +8,10 @@ import { TranslationTabs } from "./translation-tabs";
 const { api } = vi.hoisted(() => ({
   api: { listTranslationReview: vi.fn() },
 }));
+// These screens ask the translation engine: the deployment composes it here.
+vi.mock("../../../generated/deployment", async (original) =>
+  (await import("./testing")).withTranslationEngine(original),
+);
 vi.mock("@saas-core/api-client", async (original) => ({
   ...(await original<typeof import("@saas-core/api-client")>()),
   ...api,

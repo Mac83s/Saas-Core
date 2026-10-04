@@ -12,6 +12,10 @@ const api = vi.hoisted(() => ({
   updateProfileTranslation: vi.fn(),
 }));
 
+// These screens ask the translation engine: the deployment composes it here.
+vi.mock("../../../generated/deployment", async (original) =>
+  (await import("../translation/testing")).withTranslationEngine(original),
+);
 vi.mock("@saas-core/api-client", async (original) => ({
   ...(await original<typeof import("@saas-core/api-client")>()),
   ...api,

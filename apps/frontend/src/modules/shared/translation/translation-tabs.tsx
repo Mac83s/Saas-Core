@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { listTranslationReview } from "@saas-core/api-client";
 
 import { PageTabs } from "#components/panel/page-tabs";
+import { translationComposed } from "./use-translation";
 
 /** „Tłumaczenia”: the overview, what waits for a person and the jobs, one
  *  menu entry (TL16). The views beside the overview exist only where the
@@ -21,7 +22,8 @@ export function TranslationTabs({
   const known = waiting !== undefined;
 
   useEffect(() => {
-    if (known) return;
+    // Known already, or no engine in this deployment: nothing to ask.
+    if (known || !translationComposed()) return;
     let alive = true;
     listTranslationReview({ limit: 1 })
       .then((page) => {

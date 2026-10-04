@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { LanguagesIcon } from "lucide-react";
 
 import {
-  getTranslationOffer,
   orderTranslation,
   quoteTranslation,
   type TranslationQuote,
@@ -21,7 +20,7 @@ import {
   DialogTitle,
 } from "@saas-core/ui/components/dialog";
 
-type Offer = "absent" | "unavailable" | "available";
+import { useTranslationOffer } from "./use-translation";
 
 /**
  * „Przetłumacz brakujące” (TL12d): quote what is missing or out of date in
@@ -39,26 +38,13 @@ export function TranslateMissing({
   onOrdered?: () => void;
 }) {
   const t = useTranslations("Translations");
-  const [offer, setOffer] = useState<Offer>();
+  // Asks nothing where the deployment has no translation engine.
+  const offer = useTranslationOffer().state;
   const [quote, setQuote] = useState<TranslationQuote>();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    let alive = true;
-    getTranslationOffer()
-      .then((answer) => {
-        if (alive) setOffer(answer.available ? "available" : "unavailable");
-      })
-      .catch(() => {
-        if (alive) setOffer("absent");
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  if (offer === undefined || offer === "absent" || targets.length === 0)
+  if (offer === "loading" || offer === "absent" || targets.length === 0)
     return null;
   if (offer === "unavailable")
     return (

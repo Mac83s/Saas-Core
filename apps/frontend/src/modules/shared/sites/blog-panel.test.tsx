@@ -65,6 +65,10 @@ const {
   getTranslationJob: vi.fn(),
 }));
 
+// These screens ask the translation engine: the deployment composes it here.
+vi.mock("../../../generated/deployment", async (original) =>
+  (await import("../translation/testing")).withTranslationEngine(original),
+);
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   createContentCollection,

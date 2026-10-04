@@ -9,6 +9,14 @@ import {
   type TranslationOffer,
 } from "@saas-core/api-client";
 
+import { deployment } from "../../../generated/deployment";
+
+/** Whether this deployment composes the translation engine at all. A product
+ *  without it has no translation API mounted, so a screen must not even ask:
+ *  every question would be a 404 on a page that has nothing to do with it. */
+export const translationComposed = () =>
+  (deployment.modules as readonly string[]).includes("shared.translation");
+
 /** Whether automatic translation can be ordered here:
  *  - `absent`: the deployment has no translation engine — nothing is said;
  *  - `unavailable`: the engine is there but cannot take an order now, with
@@ -25,10 +33,13 @@ export type TranslationOfferState =
   | { state: "available"; offer: TranslationOffer };
 
 export function useTranslationOffer(): TranslationOfferState {
+  const composed = translationComposed();
   const [offer, setOffer] = useState<TranslationOfferState>({
-    state: "loading",
+    state: composed ? "loading" : "absent",
   });
   useEffect(() => {
+    // No engine in this deployment: nothing is asked, `absent` it stays.
+    if (!composed) return;
     let alive = true;
     getTranslationOffer()
       .then((answer) => {
@@ -45,7 +56,7 @@ export function useTranslationOffer(): TranslationOfferState {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [composed]);
   return offer;
 }
 
