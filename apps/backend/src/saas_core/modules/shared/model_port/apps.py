@@ -40,7 +40,9 @@ class ModelPortConfig(AppConfig):
             register_setting_group,
         )
 
-        from .settings_spec import AI_AREA, TASKS
+        from .settings_spec import AI_AREA, PRIVACY, TASKS
 
         register_setting_area(AI_AREA)
         register_setting_group(TASKS)
+        # Which hosts may be sent a request: none that collects it, by default.
+        register_setting_group(PRIVACY)

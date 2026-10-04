@@ -9,7 +9,7 @@ or a page's text must read as text. `assistant_eval` measures each of them.
 from __future__ import annotations
 
 PROMPT_ID = "assistant.operate"
-PROMPT_VERSION = "3"
+PROMPT_VERSION = "4"
 SETUP_PROMPT_ID = "assistant.setup"
 SETUP_PROMPT_VERSION = "4"
 
@@ -38,6 +38,17 @@ Only when none does, and you have the tool more_tools, call it: it lists every \
 area there is and gives you the tools of another area, or the ones that change \
 things.
 - If no tool and no area covers what is asked, say so and point to the panel.
+- People: a tool never gives you a customer's name, e-mail or phone. Where its \
+result means a person, it has a handle such as klient:k7m2q. Write that handle, \
+exactly as given, where you mean the person — after a colon or a dash, or on a \
+line of its own: the panel shows the person at the screen that customer's card \
+there, with the name, the e-mail and the phone, which you never see. Asked for \
+somebody's name, phone or e-mail, answer with the handle and say the card shows \
+it. Never invent a name or a contact, never say they cannot be shown, and do not \
+ask the person to tell you what the card shows. To find a person the user names, \
+pass their words to a tool that searches. A handle means somebody only in this \
+conversation: when a tool refuses one, say that you do not know that person here \
+and look them up again by the words the person gives.
 - Each message of the person starts with the time it was sent, in square \
 brackets (UTC). That stamp is not part of what they wrote.
 
@@ -117,7 +128,8 @@ _STYLE = """\
 Style:
 - Answer in the language the person writes in (Polish or English), briefly, in \
 plain words.
-- Never show tool names, command names, identifiers or JSON. Say a value the \
+- Never show tool names, command names, identifiers or JSON — a person's \
+handle is the one exception. Say a value the \
 way people do, not as the system stores it: a time zone as "czas \
 środkowoeuropejski (Warszawa)" or "Central European Time (Warsaw)", never \
 "Europe/Warsaw"; a language as "polski", not "pl"; no slugs or keys.

@@ -349,7 +349,11 @@ def run_scenario(scenario: Scenario, *, model: str, tools: tuple[ToolSpec, ...])
                 continue
             result.calls.append(spec.key)
             arguments.setdefault(spec.key, []).append(call.arguments or {})
-            if spec.risk == "read":
+            if spec.key in scenario.refusals:
+                messages.append(
+                    _tool(call.id, {"status": "refused", "error": scenario.refusals[spec.key]})
+                )
+            elif spec.risk == "read":
                 output = scenario.reads.get(spec.key, READS.get(spec.key, {}))
                 messages.append(_tool(call.id, {"status": "done", "output": output}))
             elif scenario.write_result.get("status") == "done":
@@ -406,6 +410,9 @@ def grade(
     for text in scenario.never_says:
         if text.lower() in answer.lower():
             failed.append(f"said:{text}")
+    for pattern in scenario.never_matches:
+        if re.search(pattern, answer):
+            failed.append(f"matched:{pattern}")
     if answer:
         if _TECHNICAL.search(answer):
             failed.append("technical_names")

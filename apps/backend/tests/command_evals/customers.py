@@ -41,6 +41,14 @@ def _bump(context: TenantContext) -> None:
 
 
 EVALS = {
+    "customers.find@1": CommandEval(
+        arguments=lambda _context: {"q": "Kowalska"},
+        # One letter finds half the company: refused before anything is read.
+        wrong_arguments={"q": "K"},
+        wrong_field="q",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_state,
+    ),
     "customers.documents.read@1": CommandEval(
         arguments=lambda _context: {"kind": None},
         wrong_arguments={"kind": "regulamin"},

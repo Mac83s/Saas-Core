@@ -70,6 +70,12 @@ class BookingConfig(AppConfig):
         from .services import strip_customer_visits
 
         register_customer_anonymizer("shared.booking.visits", strip_customer_visits)
+        # Whose card the assistant's conversation may show: the calendar's rule.
+        from saas_core.modules.shared.customers.api import register_customer_viewer
+
+        from .people import customers_in_calendar
+
+        register_customer_viewer("bookings", customers_in_calendar)
         # How long customers' personal data is kept (D1, answer 37a).
         from .retention import register_retention
 

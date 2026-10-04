@@ -25436,6 +25436,58 @@ components:
       - max_message_characters
       - reasons
       - setup
+    AssistantPersonCard:
+      type: object
+      description: |-
+        A person the assistant named by a handle. The model has the handle only;
+        the card is read for the signed-in person, as the panel would show it.
+      properties:
+        handle:
+          type: string
+          description: 'As it stands in the text (`klient:k7m2q`): show the card in
+            its place.'
+        kind:
+          type: string
+          description: '`customer` — a customer of the company.'
+        name:
+          type:
+          - string
+          - 'null'
+          description: 'Null: the signed-in person may not see who this is.'
+        email:
+          type:
+          - string
+          - 'null'
+          description: 'Null: there is none, or this person may not see it.'
+        phone:
+          type:
+          - string
+          - 'null'
+          description: 'Null: there is none, or this person may not see it.'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantPersonLink'
+          description: 'Where the panel shows this person: an order, a day of the
+            calendar.'
+      required:
+      - email
+      - handle
+      - kind
+      - links
+      - name
+      - phone
+    AssistantPersonLink:
+      type: object
+      properties:
+        title:
+          $ref: '#/components/schemas/LocalizedText'
+        href:
+          type: string
+          description: A path in the panel, without the language prefix.
+      required:
+      - href
+      - title
     AssistantProfile:
       type: object
       properties:
@@ -25779,6 +25831,12 @@ components:
             * `action` - action
         text:
           type: string
+        people:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantPersonCard'
+          description: The people a `text` names by a handle, in the order it names
+            them.
         step_id:
           type: string
           format: uuid

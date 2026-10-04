@@ -1,5 +1,6 @@
-"""The assistant's commands for the company's documents for customers
-(ADR-076 §1; ADR-073 §9, phase 4d).
+"""The assistant's commands for the company's customers: finding one by what
+the person typed (ADR-076, uzupełnienie 2026-10-04 „karty osób”), and the
+company's documents for them (ADR-076 §1; ADR-073 §9, phase 4d).
 
 Thin adapters over the services the panel's „Dokumenty dla klientów” calls.
 The assistant reads the documents and writes a draft, marked with the
@@ -13,8 +14,15 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from saas_core.modules.core.organizations.api import CommandSpec, Effect, Preview, register_command
+from saas_core.modules.core.organizations.api import (
+    CommandSpec,
+    Effect,
+    Preview,
+    person_handle,
+    register_command,
+)
 from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.core.organizations.permissions import ORGANIZATION_READ
 
 from .documents import (
     CUSTOMERS_MANAGE,
@@ -27,6 +35,7 @@ from .documents import (
     save_draft,
 )
 from .models import DocumentKind
+from .people import CUSTOMER, FOUND_AT_ONCE, find_customers
 
 _KINDS = list(DocumentKind.values)
 _LABELS = {
@@ -309,6 +318,93 @@ DRAFT_SAVE = CommandSpec(
 )
 
 
+# --- customers.find@1 ------------------------------------------------------------------
+
+
+def _find(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
+    total, found = find_customers(arguments["q"])
+    return {
+        "total": total,
+        "people": [
+            {
+                "handle": person_handle(CUSTOMER, person.customer_id),
+                "matched": list(person.matched),
+                "seen_in": list(person.seen_in),
+            }
+            for person in found
+        ],
+    }
+
+
+FIND = CommandSpec(
+    name="customers.find",
+    version=1,
+    module="shared.customers",
+    title={"pl": "Znajdź klienta", "en": "Find a customer"},
+    summary={
+        "pl": "Klienci firmy pasujący do imienia, nazwiska, e-maila albo telefonu, które "
+        "wpisała osoba — jako karty, które widzi tylko ona.",
+        "en": "The company's customers matching the name, e-mail or phone the person typed — "
+        "as cards only the person sees.",
+    },
+    model_description=(
+        "Finds the company's customers by what the person typed: a name, an e-mail or a "
+        "phone number. Pass in `q` the person's own words for the customer and nothing else "
+        "— a name in its dictionary form with its Polish letters („Wiśniewska” for „pani "
+        f"Wiśniewskiej”). The answer has `total` and up to {FOUND_AT_ONCE} `people`, each "
+        "with a `handle` such as klient:k7m2q, which of the customer's data matched "
+        "(`matched`: name, email, phone) and where the panel knows them from (`seen_in`: "
+        "bookings, orders). You never get a customer's name, e-mail or phone: write the "
+        "handle where you mean the person and the panel shows the person their card with "
+        "all three there. With several people found, list their handles and let the person "
+        "choose. Pass a handle on to the tools that take one (commerce.orders.read "
+        "`customer`); a handle means somebody only in the conversation that gave it. Use it "
+        "when the person asks about a customer by name, e-mail or phone and no other tool "
+        "you have searches by those."
+    ),
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["q"],
+        "properties": {
+            "q": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 120,
+                "description": "The name, e-mail or phone as the person typed it.",
+            },
+        },
+    },
+    # Handles and what matched: nobody's name, e-mail or phone.
+    output_schema={
+        "type": "object",
+        "x-data-class": "public",
+        "properties": {
+            "total": {"type": "integer"},
+            "people": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "handle": {"type": "string"},
+                        "matched": {"type": "array", "items": {"type": "string"}},
+                        "seen_in": {"type": "array", "items": {"type": "string"}},
+                    },
+                },
+            },
+        },
+    },
+    # Everybody of the company may ask; whom they find is what the panel
+    # shows them — on their visits, on the orders they read (`people.py`).
+    permission=ORGANIZATION_READ,
+    risk="read",
+    run=_find,
+    undo="none:a read changes nothing",
+    no_preview_reason="A read changes nothing, so there is nothing to show first.",
+    no_version_reason="A read checks no version.",
+)
+
+
 def register_customer_commands() -> None:
-    for spec in (DOCUMENTS_READ, DRAFT_SAVE):
+    for spec in (FIND, DOCUMENTS_READ, DRAFT_SAVE):
         register_command(spec)

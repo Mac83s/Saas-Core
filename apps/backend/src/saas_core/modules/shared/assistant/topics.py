@@ -184,6 +184,44 @@ TOPICS: tuple[Topic, ...] = (
         words=("prosb", "odmow", "odmaw", "request", "declin"),
     ),
     Topic(
+        key="customers",
+        about="the company's customers as people, and the calendar: finding a customer by "
+        "the name, e-mail or phone the person typed; the visits and stays of a day and who "
+        "each is for",
+        commands=("customers.find", "booking.appointments.*"),
+        words=(
+            "telefon",
+            "nazwisk",
+            "kontakt",
+            "kalendarz",
+            # Whose e-mail is asked for as often as the company's own is set.
+            "mail",
+            "email",
+            "wizyta",
+            "wizyty",
+            "wizyte",
+            "wizycie",
+            "pobyt",
+            "phone",
+            "contact",
+            "calendar",
+            "appointment",
+            "visit",
+            "stay",
+        ),
+        # „klient” and „dziś” are said about prices and payments just as often.
+        weak=(
+            "klient",
+            "jutr",
+            "pojutrz",
+            "dzis",
+            "customer",
+            "client",
+            "tomorrow",
+            "today",
+        ),
+    ),
+    Topic(
         key="orders",
         about="customers' orders and what was paid for them: reading an order, marking a "
         "payment the company received, taking back one marked by mistake",
@@ -192,6 +230,10 @@ TOPICS: tuple[Topic, ...] = (
             "zamowien",
             "wplat",
             "wplac",
+            # „czy zapłacił?”, „opłacone?” — the past; „ile zapłaci” is a quote.
+            "zaplacil",
+            "zaplacon",
+            "oplac",
             "platnos",
             "przelew",
             "przedplat",
@@ -259,7 +301,7 @@ TOPICS: tuple[Topic, ...] = (
     Topic(
         key="documents",
         about="documents customers accept: terms, privacy policy",
-        commands=("customers.*",),
+        commands=("customers.document.*", "customers.documents.*"),
         words=(
             "regulamin",
             "polityk",

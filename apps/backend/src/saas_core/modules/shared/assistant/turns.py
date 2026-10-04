@@ -22,6 +22,12 @@ answer with a Polish verb that has a gender goes back once to be written again
 (`style`). An ordinary conversation is offered the tools of the areas it has
 touched, not the whole registry (`topics`), and the transcript is marked for
 the provider's cache up to its last message.
+
+A person in a tool's answer is a handle (uzupełnienie 2026-10-04 „karty
+osób”): the conversation keeps which record each handle stands for with the
+tool result that carried it (`result["people"]`, never part of what a model
+is sent), runs its plans with that book, and the panel reads a card per
+handle from the record itself.
 """
 
 from __future__ import annotations
@@ -29,7 +35,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from typing import Any
@@ -51,6 +57,8 @@ from saas_core.modules.core.organizations.api import (
     command_for_tool,
     command_tools,
     execute_plan,
+    handles_in,
+    known_people,
     offer_plan,
     platform_setting,
 )
@@ -140,8 +148,31 @@ class _Scope:
     conversation: AssistantConversation
 
 
+#: handle → (kind, the record's id), as `core.organizations.api` keeps it.
+type People = dict[str, tuple[str, UUID]]
+
+
 def conversation_ref(conversation_id: UUID) -> str:
     return f"conversation:{conversation_id}"
+
+
+def people_of(rows: Iterable[AssistantMessage]) -> People:
+    """The conversation's book of people: every handle one of its tool results
+    carried, and the record it stands for. A handle outside it stands for
+    nobody here — another conversation's, another company's, a made-up one."""
+    book: People = {}
+    for row in rows:
+        for handle, (kind, subject_id) in ((row.result or {}).get("people") or {}).items():
+            book[handle] = (kind, UUID(subject_id))
+    return book
+
+
+def people_book(conversation_id: UUID) -> People:
+    return people_of(
+        AssistantMessage.all_objects.filter(
+            conversation_id=conversation_id, role=MessageRole.TOOL
+        ).only("result")
+    )
 
 
 def run_turn(organization_id: UUID, turn_id: UUID) -> None:
@@ -450,7 +481,12 @@ def _record_answer(organization_id: UUID, turn_id: UUID, response: ModelResponse
             )
             for call in calls
         ]
-        plan = offer_plan(invocations)
+        # The people this conversation was told of: their handles resolve, and
+        # the ones a command issues now are kept with its result.
+        people = people_book(scope.conversation.id)
+        with known_people(people):
+            plan = offer_plan(invocations)
+            results = [] if plan.refusals or plan.groups else execute_plan(invocations)
         if plan.refusals:
             refused = {refusal.step_id: refusal for refusal in plan.refusals}
             for call in calls:
@@ -479,7 +515,7 @@ def _record_answer(organization_id: UUID, turn_id: UUID, response: ModelResponse
             scope.turn.state = TurnState.AWAITING_CONSENT
             scope.turn.save(update_fields=["pending", "state", "updated_at"])
             return False
-        record_results(scope.turn, scope.conversation, calls, execute_plan(invocations))
+        record_results(scope.turn, scope.conversation, calls, results, people=people)
         return True
 
 
@@ -685,10 +721,12 @@ def record_results(
     calls: Sequence[Mapping[str, Any]],
     results: Sequence[CallResult],
     said: str = "",
+    people: People | None = None,
 ) -> None:
     """Each step's result as the tool message that answers its call. `said`
     is the server's sentence the plan waited under: kept with its first call,
-    so the conversation still shows it."""
+    so the conversation still shows it. `people` is the book the plan ran
+    with: a result keeps the record of every handle it carries."""
     by_step = {result.step_id: result for result in results}
     for position, call in enumerate(calls):
         result = by_step[call["step_id"]]
@@ -701,6 +739,7 @@ def record_results(
             errors=result.errors,
             output=_lean(result.output),
             said="" if position else said,
+            people=people,
         )
 
 
@@ -781,12 +820,21 @@ def _write_result(
     errors: Sequence[Mapping[str, str | None]] = (),
     output: Mapping[str, Any] | None = None,
     said: str = "",
+    people: People | None = None,
 ) -> None:
+    content = _tool_content(status, code, errors, output)
+    # Beside the result, never in it: which record each handle the model now
+    # reads stands for. The panel makes the cards from these.
+    carried = {
+        handle: [people[handle][0], str(people[handle][1])]
+        for handle in handles_in(content)
+        if people and handle in people
+    }
     append_message(
         turn,
         conversation,
         role=MessageRole.TOOL,
-        content=_tool_content(status, code, errors, output),
+        content=content,
         tool_call_id=call["id"],
         result={
             "step_id": call["step_id"],
@@ -794,6 +842,7 @@ def _write_result(
             "status": status,
             "code": code or "",
             **({"said": said} if said else {}),
+            **({"people": carried} if carried else {}),
         },
     )
 

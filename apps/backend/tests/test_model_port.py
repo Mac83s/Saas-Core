@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from saas_core.modules.core.organizations import platform_settings
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.model_port import registry
 from saas_core.modules.shared.model_port.adapters.base import AdapterCall, RawToolCall
@@ -48,6 +49,7 @@ from saas_core.modules.shared.model_port.matrix import (
 from saas_core.modules.shared.model_port.models import EntryState, UsageEntry
 from saas_core.modules.shared.model_port.registry import task_spec
 from saas_core.modules.shared.model_port.service import web_request
+from saas_core.modules.shared.model_port.settings_spec import NO_TRAINING
 
 pytestmark = pytest.mark.django_db
 
@@ -576,6 +578,7 @@ def test_the_openrouter_request_keeps_the_model_denies_collection_and_obeys_the_
         (403, "flagged", {}, "refused", "openrouter_moderation"),
         (401, "", {}, "configuration", "openrouter_unauthorized"),
         (404, "", {}, "configuration", "openrouter_not_found"),
+        (404, "No endpoints found matching your data policy", {}, "configuration", "no_provider"),
         (408, "", {}, "unknown_outcome", "openrouter_http_408"),
         (502, "", {}, "unknown_outcome", "openrouter_http_502"),
         (429, "", {"retry-after": "7"}, "retryable", "openrouter_http_429"),
@@ -609,6 +612,75 @@ def test_every_status_maps_to_one_kind(
 
     assert (error.value.kind, error.value.code) == (kind, code)
     assert message not in str(error.value) or message == ""
+
+
+STRICT = {"data_collection": "deny", "require_parameters": True, "zdr": True}
+
+
+@pytest.mark.django_db
+def test_a_request_goes_only_to_hosts_that_collect_nothing_unless_the_platform_lets_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`model_port.privacy.no_training_providers`: on unless an operator turns
+    it off, and a request with personal data does not ask."""
+    org = organization("port-prywatnosc")
+    assert (NO_TRAINING.default, NO_TRAINING.scopes) == (True, ("platform",))
+
+    def sent() -> list[dict[str, Any]]:
+        FAKE.reset()
+        FAKE.script(
+            reply_json({"translations": [{"id": "1", "text": "Good morning"}]}),
+            FakeReply(text="Dzień dobry."),
+        )
+        complete(translation(org))
+        complete(conversation(org))
+        # What OpenRouter would be asked for each: the adapter's own body.
+        return [request_body(call)["provider"] for call in FAKE.calls]
+
+    # Nobody chose anything: no host that stores prompts or trains on them,
+    # and zero data retention where the model has it.
+    assert sent() == [STRICT, STRICT]
+
+    monkeypatch.setattr(platform_settings, "platform_overrides", lambda: {NO_TRAINING.key: False})
+
+    # Switched off, a public text may go to any host of the model; a
+    # conversation is personal and goes the strict way whatever the switch says.
+    assert sent() == [{"data_collection": "allow", "require_parameters": True}, STRICT]
+
+
+def test_no_host_within_the_data_policy_closes_the_call_and_nothing_is_sent_again() -> None:
+    """Fail closed: the preferences only narrow the hosts. With none left the
+    call ends as a configuration problem; there is no second request with less."""
+    refused = json.dumps({
+        "error": {"message": "No endpoints found matching your data policy.", "code": 404}
+    }).encode()
+    transport = Transport(HttpAnswer(status=404, headers={}, body=refused))
+    adapter = OpenRouterAdapter(
+        transport=transport, api_key="test-key", base_url="https://openrouter.test/api/v1"
+    )
+    request = ModelRequest(
+        task="assistant.conversation",
+        messages=(Message(role="user", content="Czy pan Kowalski zapłacił?"),),
+        prompt_id="assistant.operate",
+        prompt_version="4",
+        context=ModelContext(organization_id=uuid.uuid4()),
+        data_class="personal",
+    )
+
+    with pytest.raises(ModelError) as error:
+        adapter.complete(adapter_call(request, OPUS, structured="none"))
+
+    assert (error.value.kind, error.value.code) == ("configuration", "no_provider")
+    (body,) = transport.bodies
+    assert body["provider"] == STRICT
+    # The same 200-with-an-error shape OpenRouter also uses.
+    wrapped = Transport(HttpAnswer(status=200, headers={}, body=refused))
+    with pytest.raises(ModelError) as inside:
+        OpenRouterAdapter(
+            transport=wrapped, api_key="test-key", base_url="https://openrouter.test/api/v1"
+        ).complete(adapter_call(request, OPUS, structured="none"))
+    assert (inside.value.kind, inside.value.code) == ("configuration", "no_provider")
+    assert len(wrapped.bodies) == 1
 
 
 def test_the_openrouter_answer_gives_tokens_cost_resolved_model_and_tool_calls() -> None:

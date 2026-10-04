@@ -8439,6 +8439,29 @@ export interface components {
             /** @description The conversation that sets the company up: free, within these budgets. */
             setup: components["schemas"]["AssistantSetupOffer"];
         };
+        /**
+         * @description A person the assistant named by a handle. The model has the handle only;
+         *     the card is read for the signed-in person, as the panel would show it.
+         */
+        AssistantPersonCard: {
+            /** @description As it stands in the text (`klient:k7m2q`): show the card in its place. */
+            handle: string;
+            /** @description `customer` — a customer of the company. */
+            kind: string;
+            /** @description Null: the signed-in person may not see who this is. */
+            name: string | null;
+            /** @description Null: there is none, or this person may not see it. */
+            email: string | null;
+            /** @description Null: there is none, or this person may not see it. */
+            phone: string | null;
+            /** @description Where the panel shows this person: an order, a day of the calendar. */
+            links: components["schemas"]["AssistantPersonLink"][];
+        };
+        AssistantPersonLink: {
+            title: components["schemas"]["LocalizedText"];
+            /** @description A path in the panel, without the language prefix. */
+            href: string;
+        };
         AssistantProfile: {
             /** @description The document's contract: `company-profile.v1`. */
             schema: string;
@@ -8604,6 +8627,8 @@ export interface components {
              */
             kind: components["schemas"]["AssistantTurnItemKindEnum"];
             text?: string;
+            /** @description The people a `text` names by a handle, in the order it names them. */
+            people?: components["schemas"]["AssistantPersonCard"][];
             /** Format: uuid */
             step_id?: string;
             /** @description The step's command as a person reads it. */

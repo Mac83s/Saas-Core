@@ -146,4 +146,4 @@ def test_no_command_approves_a_document() -> None:
     """Approval is a person's, with a fresh second factor, in the panel."""
     assert sorted(
         spec.key for spec in registered_commands() if spec.module == "shared.customers"
-    ) == [SAVE, READ]
+    ) == [SAVE, READ, "customers.find@1"]

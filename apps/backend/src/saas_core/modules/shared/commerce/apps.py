@@ -19,6 +19,7 @@ class CommerceConfig(AppConfig):
         from saas_core.modules.shared.customers.api import (
             CUSTOMER_RETENTION_SWEEP,
             register_customer_anonymizer,
+            register_customer_viewer,
         )
 
         from .balance import register_balance_settings
@@ -27,6 +28,7 @@ class CommerceConfig(AppConfig):
         from .models import PaymentRoute
         from .names import DEADLINES_PERMISSIONS, DEADLINES_ROLE
         from .orders import holds_amounts, name_orders, strip_buyer
+        from .people import buyers_of_orders
         from .retention import BUYERS, WHY_CUSTOMER_STAYS, customers_held, kept_of
         from .transfer_account import register_transfer_settings
 
@@ -42,6 +44,9 @@ class CommerceConfig(AppConfig):
         # …and the nightly privacy run removes a buyer left on an order of a
         # customer taken out by hand, once it has ended.
         register_retention_sweep(BUYERS)
+        # Whose card the assistant's conversation may show: whoever reads orders
+        # reads their buyers.
+        register_customer_viewer("orders", buyers_of_orders)
         # A company with orders keeps its currency (ADR-073 §8).
         register_currency_use(holds_amounts)
         # The company's history names an order by its number.

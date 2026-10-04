@@ -14,6 +14,15 @@ from .command_executor import (
     preview_plan,
     register_command_gate,
 )
+from .command_people import (
+    PersonKind,
+    handles_in,
+    known_people,
+    person_cards,
+    person_handle,
+    register_person_kind,
+    resolve_person,
+)
 from .command_registry import (
     CommandSpec,
     Effect,
@@ -191,4 +200,11 @@ __all__ = [
     "register_resource_reference_handler",
     "register_seat_limit",
     "registered_commands",
+    "PersonKind",
+    "handles_in",
+    "known_people",
+    "person_cards",
+    "person_handle",
+    "register_person_kind",
+    "resolve_person",
 ]

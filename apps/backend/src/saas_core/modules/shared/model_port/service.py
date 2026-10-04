@@ -25,11 +25,14 @@ import jsonschema
 from django.conf import settings
 from django.utils.crypto import salted_hmac
 
+from saas_core.modules.core.organizations.api import platform_setting
+
 from . import admission, metrics, state
 from .adapters.base import Adapter, AdapterCall, AdapterResult, StructuredMode
 from .matrix import ModelProfile, model_profile
 from .models import EntryState, UsageEntry
 from .registry import task_spec
+from .settings_spec import NO_TRAINING
 from .test_double import routed
 from .types import (
     DATA_CLASS_RANK,
@@ -134,6 +137,10 @@ def complete(request: ModelRequest) -> ModelResponse:
         messages, dropped = _without_foreign_continuations(
             request.messages, {profile.model, *profile.dated_variants}
         )
+        # Personal data goes only to hosts that keep and train on nothing,
+        # whatever the platform's setting says about the rest.
+        personal = request.data_class == "personal"
+        no_training = personal or bool(platform_setting(NO_TRAINING.key))
         call = AdapterCall(
             spec=spec,
             request=replace(request, messages=messages),
@@ -141,8 +148,9 @@ def complete(request: ModelRequest) -> ModelResponse:
             max_tokens=max_tokens,
             deadline=time.monotonic() + timeout,
             user=user_tag(request.context.organization_id),
-            zdr=request.data_class == "personal" or "zdr" in profile.capabilities,
+            zdr=personal or (no_training and "zdr" in profile.capabilities),
             structured=_structured_mode(request, profile),
+            no_training=no_training,
             parameters=dict(spec.defaults),
         )
         UsageEntry.objects.using(admission.alias()).filter(

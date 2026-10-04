@@ -929,8 +929,7 @@ def _starting_terms(service: Service) -> tuple[str, str]:
                 steps_en.append(f"{percent}% later")
         deposit = service.cancellation_applies_to == "deposit"
         pl.append(
-            f"zwrot {'przedpłaty' if deposit else 'wpłat'} przy rezygnacji: "
-            + ", ".join(steps_pl)
+            f"zwrot {'przedpłaty' if deposit else 'wpłat'} przy rezygnacji: " + ", ".join(steps_pl)
         )
         en.append(
             f"what comes back of {'the prepayment' if deposit else 'what was paid'} when a "
@@ -1019,6 +1018,7 @@ PRESET_APPLY = CommandSpec(
 
 def register_booking_commands() -> None:
     # Imported here: the price-list and season commands use this module's helpers.
+    from .appointment_commands import APPOINTMENTS_READ  # noqa: PLC0415
     from .pricing_commands import PRICING_COMMANDS  # noqa: PLC0415
     from .request_commands import REQUEST_COMMANDS  # noqa: PLC0415
     from .season_commands import SEASON_COMMANDS  # noqa: PLC0415
@@ -1035,5 +1035,6 @@ def register_booking_commands() -> None:
         *PRICING_COMMANDS,
         *SEASON_COMMANDS,
         *REQUEST_COMMANDS,
+        APPOINTMENTS_READ,
     ):
         register_command(spec)

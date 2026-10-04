@@ -658,6 +658,17 @@ EVALS = {
         prepare=_stay_company,
         preview_rolls_back=ROLLED_BACK,
     ),
+    "booking.appointments.read@1": CommandEval(
+        arguments=lambda _context: {
+            "from": timezone.localdate().isoformat(),
+            "to": (timezone.localdate() + timedelta(days=14)).isoformat(),
+        },
+        wrong_arguments={"from": "jutro", "to": "2026-10-05"},
+        wrong_field="from",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_request_state,
+        prepare=_request_company,
+    ),
     "booking.requests.read@1": CommandEval(
         arguments=lambda _context: {},
         wrong_arguments={"waiting": True},

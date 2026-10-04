@@ -139,8 +139,8 @@ def _bump(context: TenantContext) -> None:
 
 EVALS = {
     "commerce.orders.read@1": CommandEval(
-        arguments=lambda _context: {"status": None, "q": None, "page": None},
-        wrong_arguments={"status": "lost", "q": None, "page": None},
+        arguments=lambda _context: {"status": None, "q": None, "page": None, "customer": None},
+        wrong_arguments={"status": "lost", "q": None, "page": None, "customer": None},
         wrong_field="status",
         stale=NOT_A_VERSION,
         state=_state,

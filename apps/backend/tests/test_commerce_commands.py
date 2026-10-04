@@ -8,6 +8,7 @@ back is not a refund."""
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterator
 from typing import Any
 
@@ -64,7 +65,7 @@ def payment(person: TenantContext, amount: int, method: str = "cash") -> list[An
 def test_orders_are_read_by_number_and_money_and_never_by_buyer() -> None:
     person = owner("orders-read", ORDERS)
 
-    listed = read(person, ORDERS, {"status": None, "q": None, "page": None})
+    listed = read(person, ORDERS, {"status": None, "q": None, "page": None, "customer": None})
 
     assert listed.status == "done", listed
     (order,) = listed.output["orders"]
@@ -75,8 +76,10 @@ def test_orders_are_read_by_number_and_money_and_never_by_buyer() -> None:
     )
     assert (order["gross_minor"], order["paid_minor"], order["due_minor"]) == (15000, 5000, 10000)
     # The person may search by the buyer they named; the answer still does not name them.
-    by_buyer = read(person, ORDERS, {"status": None, "q": "kowalska", "page": None})
-    nobody = read(person, ORDERS, {"status": "paid", "q": None, "page": None})
+    by_buyer = read(
+        person, ORDERS, {"status": None, "q": "kowalska", "page": None, "customer": None}
+    )
+    nobody = read(person, ORDERS, {"status": "paid", "q": None, "page": None, "customer": None})
     assert (by_buyer.output["total"], nobody.output["total"]) == (1, 0)
 
     one = read(person, ORDER, {"order_id": None, "number": "r/2026/0001"})
@@ -96,9 +99,13 @@ def test_orders_are_read_by_number_and_money_and_never_by_buyer() -> None:
         "succeeded",
         5000,
     )
-    # Neither the buyer nor the person of the company who marked the payment.
+    # The buyer is a handle, never a name — and each of these reads is a
+    # conversation of its own, so each has its own handle for the same buyer.
+    assert re.fullmatch(r"klient:[a-z2-7]{5,}", order["buyer"])
+    assert re.fullmatch(r"klient:[a-z2-7]{5,}", one.output["buyer"])
+    assert one.output["buyer"] != order["buyer"]
     said = json.dumps([listed.output, by_buyer.output, one.output], ensure_ascii=False)
-    assert "Anna" not in said and "Kowalska" not in said and "buyer" not in said
+    assert "Anna" not in said and "Kowalska" not in said and "buyer_" not in said
     assert "recorded_by" not in said
 
     missing = read(person, ORDER, {"order_id": None, "number": "R/2026/0099"})
@@ -150,9 +157,7 @@ def test_a_payment_that_covers_the_awaited_prepayment_says_what_it_confirms() ->
         order = order_of(booked)
         assert order is not None and booked.status == "pending_payment"
     person = context_from_membership(configured["owner"])
-    plan = [
-        invocation(RECORD, {"order_id": str(order.id), "amount_minor": 4500, "method": "cash"})
-    ]
+    plan = [invocation(RECORD, {"order_id": str(order.id), "amount_minor": 4500, "method": "cash"})]
 
     risk, words = shown(person, plan)
 
@@ -162,9 +167,7 @@ def test_a_payment_that_covers_the_awaited_prepayment_says_what_it_confirms() ->
         "klient dostanie potwierdzenie."
     ) in words
     # A part of it confirms nothing, and the words do not say it would.
-    part = [
-        invocation(RECORD, {"order_id": str(order.id), "amount_minor": 2000, "method": "cash"})
-    ]
+    part = [invocation(RECORD, {"order_id": str(order.id), "amount_minor": 2000, "method": "cash"})]
     assert "potwierdzona" not in shown(person, part)[1]
 
     result = run(person, plan)

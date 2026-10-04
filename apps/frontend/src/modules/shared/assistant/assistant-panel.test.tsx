@@ -538,3 +538,81 @@ test("an empty conversation that costs credits does not take the free setup mess
     expect.any(String),
   );
 });
+
+test("a person the assistant names by a handle is shown as a card the reader may see", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
+  api.listAssistantConversations.mockResolvedValue([{ id: "c1" }]);
+  api.getAssistantConversation.mockResolvedValue(
+    conversation(
+      turn({
+        text: "Podaj telefon do klienta z jutrzejszej wizyty",
+        items: [
+          {
+            kind: "text",
+            text: "Jutro o 10:00 przychodzi: klient:k7m2q. Drugą wizytę ma klient:q4n7x.",
+            people: [
+              {
+                handle: "klient:k7m2q",
+                kind: "customer",
+                name: "Zenobia Nowak",
+                email: "zenobia@poczta.test",
+                phone: "+48 601 234 567",
+                links: [
+                  {
+                    title: {
+                      pl: "Wizyta w kalendarzu",
+                      en: "The visit in the calendar",
+                    },
+                    href: "/panel/calendar?view=day&date=2026-10-05",
+                  },
+                ],
+              },
+              {
+                handle: "klient:q4n7x",
+                kind: "customer",
+                name: null,
+                email: null,
+                phone: null,
+                links: [],
+              },
+            ],
+          },
+        ],
+      }),
+    ),
+  );
+  const { container } = view();
+
+  // The name stands where the model wrote the handle; no handle is shown.
+  const card = await screen.findByRole("region", {
+    name: "Karta klienta: Zenobia Nowak",
+  });
+  expect(container.textContent).toContain(
+    "Jutro o 10:00 przychodzi: Zenobia Nowak. Drugą wizytę ma osoba, której danych nie widzisz.",
+  );
+  expect(container.textContent).not.toContain("klient:");
+  expect(within(card).getByText("zenobia@poczta.test")).toBeInTheDocument();
+  expect(within(card).getByText("+48 601 234 567")).toBeInTheDocument();
+  expect(
+    within(card).getByRole("link", { name: "Wizyta w kalendarzu" }),
+  ).toHaveAttribute("href", "/panel/calendar?view=day&date=2026-10-05");
+
+  fireEvent.click(
+    within(card).getByRole("button", { name: "Kopiuj: Telefon" }),
+  );
+  expect(writeText).toHaveBeenCalledWith("+48 601 234 567");
+  expect(await within(card).findByText("Skopiowano")).toBeInTheDocument();
+
+  // Somebody the reader may not see: said so, with nothing of theirs.
+  const hidden = screen.getByRole("region", {
+    name: "Karta klienta: osoba, której danych nie widzisz",
+  });
+  expect(
+    within(hidden).getByText("Nie masz dostępu do danych tej osoby."),
+  ).toBeInTheDocument();
+  expect((await axe.run(container)).violations).toEqual([]);
+});

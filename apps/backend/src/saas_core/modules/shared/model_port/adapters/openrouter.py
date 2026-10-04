@@ -10,6 +10,13 @@ Exactly the model asked for: no `models` list, no `openrouter/auto` and
 `transforms: []`, so OpenRouter neither swaps the model nor trims the
 conversation. Another host of the same model is fine; another model never is
 (ADR-033:152-155).
+
+Which hosts: the request's provider preferences say it, every time
+(`provider.data_collection: "deny"` — no host that stores prompts or trains on
+them — and `provider.zdr: true` — only zero-data-retention endpoints). They
+restrict routing and are never relaxed here: when no host of the model meets
+them, OpenRouter answers that it has no endpoint, the call fails as
+`configuration` / `no_provider`, and nothing is sent again with less.
 """
 
 from __future__ import annotations
@@ -32,7 +39,8 @@ REQUEST_MAX_BYTES = 2 * 1024 * 1024
 RESPONSE_MAX_BYTES = 2 * 1024 * 1024
 ERROR_BODY_MAX_BYTES = 64 * 1024
 CHUNK_BYTES = 64 * 1024
-#: Words of OpenRouter's 503 when no host meets `deny`, ZDR and the parameters.
+#: Words of OpenRouter's answer (a 404 or a 503) when no host meets `deny`,
+#: ZDR and the parameters.
 NO_PROVIDER_MARKERS = ("no endpoints", "no allowed providers", "no providers")
 
 
@@ -196,7 +204,12 @@ def request_body(call: AdapterCall) -> dict[str, Any]:
                 + json.dumps(request.response_format.schema, ensure_ascii=False),
             },
         )
-    provider: dict[str, Any] = {"data_collection": "deny", "require_parameters": True}
+    # Preferences that only narrow the hosts: with none left the provider
+    # refuses the request, and the port does not ask again with fewer.
+    provider: dict[str, Any] = {
+        "data_collection": "deny" if call.no_training else "allow",
+        "require_parameters": True,
+    }
     if call.zdr:
         provider["zdr"] = True
     body: dict[str, Any] = {
@@ -358,8 +371,10 @@ def parse_response(
 ) -> AdapterResult:
     error = payload.get("error")
     if isinstance(error, Mapping):
-        # A 200 carrying an error object means what its code would mean as a status.
-        raise http_error(HttpAnswer(status=_int(error.get("code"), 500), headers={}, body=b""))
+        # A 200 carrying an error object means what its code would mean as a
+        # status; its message says only whether no host was left.
+        body = json.dumps({"error": {"message": str(error.get("message") or "")}}).encode()
+        raise http_error(HttpAnswer(status=_int(error.get("code"), 500), headers={}, body=body))
     try:
         choice = payload["choices"][0]
         message = choice.get("message") or {}
@@ -416,6 +431,9 @@ def http_error(answer: HttpAnswer) -> ModelError:
         return ModelError("refused", "openrouter_moderation")
     if status == 401:
         return ModelError("configuration", "openrouter_unauthorized")
+    if status == 404 and any(marker in message for marker in NO_PROVIDER_MARKERS):
+        # „No endpoints found matching your data policy”: closed, not relaxed.
+        return ModelError("configuration", "no_provider")
     if status == 404:
         return ModelError("configuration", "openrouter_not_found")
     if status in {408, 502, 504}:

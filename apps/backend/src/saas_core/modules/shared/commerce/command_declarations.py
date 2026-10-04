@@ -7,11 +7,12 @@ and a payment marked by mistake taken back.
 
 Three rules decide how they look:
 
-- **No buyer.** An order is named by its number and by what it is for. The
-  buyer's name, e-mail and phone never reach a model: a command that returns
-  `personal` fields needs the audited read ADR-076 §1 describes, and nobody
-  has built it. A search still takes the words the person said (`q`), and
-  the answer says which orders matched, not whose they are.
+- **The buyer is a handle.** An order is named by its number and by what it
+  is for. The buyer's name, e-mail and phone never reach a model: where an
+  answer means the buyer it carries a handle (`klient:k7m2q`), and the panel
+  shows the person at the screen the buyer's card in its place (ADR-076,
+  uzupełnienie „karty osób”). A search takes the words the person said (`q`)
+  or a handle this conversation was given (`customer`).
 - **Money is never guessed.** The amount and how it came are the person's
   own words; the words the person agrees to are written here from the
   service's own preview — the amount, the order, what is paid afterwards and
@@ -32,7 +33,15 @@ from uuid import UUID
 
 from rest_framework.exceptions import NotFound, ValidationError
 
-from saas_core.modules.core.organizations.api import CommandSpec, Effect, Preview, register_command
+from saas_core.modules.core.organizations.api import (
+    CommandSpec,
+    Effect,
+    Preview,
+    person_handle,
+    register_command,
+    resolve_person,
+)
+from saas_core.modules.shared.customers.api import CUSTOMER
 
 from .emails import money
 from .ledger import MANUAL_METHODS, paid_by_order
@@ -101,14 +110,21 @@ def _read_orders(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
         page_size=PAGE_SIZE,
         status=arguments["status"] or "",
         query=arguments["q"] or "",
+        # A handle of this conversation; any other names nobody and is refused.
+        customer_id=(
+            resolve_person(CUSTOMER, arguments["customer"], field="customer")
+            if arguments["customer"]
+            else None
+        ),
     )
     organization_id = call.context.organization_id
     ids = [item["id"] for item in listed["items"]]
-    revisions = dict(
-        Order.all_objects.filter(organization_id=organization_id, pk__in=ids).values_list(
-            "id", "revision"
-        )
-    )
+    revisions, buyers = {}, {}
+    for order_id, revision, customer_id in Order.all_objects.filter(
+        organization_id=organization_id, pk__in=ids
+    ).values_list("id", "revision", "customer_id"):
+        revisions[order_id] = revision
+        buyers[order_id] = person_handle(CUSTOMER, customer_id)
     subjects = _subjects(organization_id, revisions)
     paid = paid_by_order(organization_id, ids)
     return {
@@ -124,6 +140,7 @@ def _read_orders(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
                 "source": item["source"],
                 "placed_at": _iso(item["placed_at"]),
                 "for": subjects.get(item["id"], ""),
+                "buyer": buyers[item["id"]],
                 "currency": item["currency"],
                 "gross_minor": item["gross_minor"],
                 "paid_minor": paid.get(item["id"], 0),
@@ -149,16 +166,19 @@ ORDERS_READ_COMMAND = CommandSpec(
         "answered yet), status, what it is for, and in minor units of its currency what it "
         "comes to (gross_minor), what was paid (paid_minor) and what is left (due_minor). "
         "status: awaiting_payment, partially_paid, paid, canceled, refunded (canceled and the "
-        "money given back), draft. Filter with status, or search with q — a part of an "
-        "order's number, or of the buyer's name or e-mail exactly as the person said it. "
-        "The buyer is never in the answer: name an order by its number and what it is for. "
-        "Use it to find an order the person talks about before commerce.order.read; an "
-        "amount is said as money (4500 minor units of PLN is 45,00 zł)."
+        "money given back), draft. Filter with status, search with q — a part of an "
+        "order's number, or of the buyer's name or e-mail exactly as the person said it — "
+        "or pass in customer a handle this conversation was given, for that person's "
+        "orders. `buyer` is a handle such as klient:k7m2q, never a name: write it where you "
+        "mean who bought and the panel shows the person the buyer's card (name, e-mail, "
+        "phone); name the order itself by its number and what it is for. Use it to find an "
+        "order the person talks about before commerce.order.read; an amount is said as "
+        "money (4500 minor units of PLN is 45,00 zł)."
     ),
     input_schema={
         "type": "object",
         "additionalProperties": False,
-        "required": ["status", "q", "page"],
+        "required": ["status", "q", "page", "customer"],
         "properties": {
             "status": {
                 "type": ["string", "null"],
@@ -172,6 +192,12 @@ ORDERS_READ_COMMAND = CommandSpec(
                 maxLength=120,
             ),
             "page": _nullable("integer", "Which twenty; null for the newest.", minimum=1),
+            "customer": _nullable(
+                "string",
+                "A person's handle from this conversation (klient:k7m2q), for the orders "
+                "of that person only; null for everybody's.",
+                pattern="^klient:[a-z2-7]{5,32}$",
+            ),
         },
     },
     output_schema={
@@ -219,6 +245,7 @@ def _read_order(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
         "status": order["status"],
         "source": order["source"],
         "placed_at": _iso(order["placed_at"]),
+        "buyer": person_handle(CUSTOMER, order["customer_id"]),
         "currency": order["currency"],
         # Whether the company's prices were entered net or gross.
         "amounts": order["amounts"],
@@ -284,9 +311,10 @@ ORDER_READ_COMMAND = CommandSpec(
         "cancellation). payments: each with its payment_id, kind (deposit, full, balance), "
         "method (cash — at the desk; transfer; online), status (requires_payment — awaited "
         "until due_at; succeeded; canceled — taken back; expired) and amount. refunds: what "
-        "the company marked as given back. The buyer is never in the answer. Read it before "
-        "marking a payment or taking one back: both need the order_id, and taking back the "
-        "payment_id."
+        "the company marked as given back. `buyer` is a handle (klient:k7m2q), never a "
+        "name: write it where you mean who bought, and the panel shows the person the "
+        "buyer's card. Read it before marking a payment or taking one back: both need the "
+        "order_id, and taking back the payment_id."
     ),
     input_schema={
         "type": "object",
@@ -308,6 +336,7 @@ ORDER_READ_COMMAND = CommandSpec(
             "status": {"type": "string"},
             "source": {"type": "string"},
             "placed_at": {"type": ["string", "null"]},
+            "buyer": {"type": "string"},
             "currency": {"type": "string"},
             "amounts": {"type": "string"},
             "gross_minor": {"type": "integer"},
@@ -462,7 +491,7 @@ PAYMENT_RECORD = CommandSpec(
         "Marks money the company received for an order: writes the payment and moves the "
         "order's status. It moves no money — it records what the person says happened. "
         "amount_minor and method are the person's own words: never work an amount out, "
-        "never assume one. When the person said \"the rest\" or \"everything\", that is the "
+        'never assume one. When the person said "the rest" or "everything", that is the '
         "order's due_minor from commerce.order.read — say the amount in your answer. When "
         "no amount or no way of paying was said, ask; do not call. method: cash — at the "
         "desk, in cash or by card on the company's terminal; transfer — a transfer the "

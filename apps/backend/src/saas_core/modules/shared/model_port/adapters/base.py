@@ -30,6 +30,11 @@ class AdapterCall:
     user: str
     zdr: bool
     structured: StructuredMode
+    #: Only hosts that do not collect what they are sent — not to train on and
+    #: not for anything else (`model_port.privacy.no_training_providers`;
+    #: always so for `personal`). An adapter that cannot ask its provider for
+    #: that must refuse the call instead of sending it.
+    no_training: bool = True
     #: Continuations of another model already removed by the core.
     parameters: dict[str, Any] = field(default_factory=dict)
 

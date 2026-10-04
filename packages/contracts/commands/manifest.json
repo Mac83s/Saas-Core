@@ -1,6 +1,116 @@
 {
   "commands": [
     {
+      "command": "booking.appointments.read@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "The first day, YYYY-MM-DD, as the company's local day.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+            "type": "string"
+          },
+          "to": {
+            "description": "The last day, YYYY-MM-DD; the same as `from` for one day.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "type": "object"
+      },
+      "model_description": "Returns the bookings that start on the days `from`–`to` (both included, the company's local days, at most 31 at once), earliest first, up to 60 (`more` says there are others — ask for fewer days): each with its service, starts_at and ends_at as the company's local time, its place, the unit it takes when it is a stay or a rental, its status — pending_request (waits for the company's answer), pending_payment (waits for a prepayment), confirmed, completed, canceled, no_show — the number of its order when it has one, and `customer`: a handle such as klient:k7m2q. You never get the customer's name, e-mail or phone; write the handle where you mean the person and the panel shows the person their card — so „who comes tomorrow” and „give me the phone of tomorrow's customer” are both answered with the handle. The person may see only their own visits; then only those are here. Work the day out from the time stamp of the person's message („jutro” is the day after it, in the company's time zone).",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "appointments": {
+            "items": {
+              "properties": {
+                "appointment_id": {
+                  "type": "string"
+                },
+                "customer": {
+                  "type": "string"
+                },
+                "ends_at": {
+                  "type": "string"
+                },
+                "order": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "place": {
+                  "type": "string"
+                },
+                "service": {
+                  "type": "string"
+                },
+                "starts_at": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "pending_request",
+                    "pending_payment",
+                    "confirmed",
+                    "completed",
+                    "canceled",
+                    "no_show"
+                  ],
+                  "type": "string"
+                },
+                "timezone": {
+                  "type": "string"
+                },
+                "unit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "more": {
+            "type": "boolean"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "The visits and stays of the chosen days: service, time, place, state and the customer as a card only the person at the screen sees.",
+        "pl": "Wizyty i pobyty z wybranych dni: usługa, termin, miejsce, stan i klient jako karta, którą widzi tylko osoba przy ekranie."
+      },
+      "title": {
+        "en": "Read the calendar's bookings",
+        "pl": "Odczytaj wizyty i pobyty z kalendarza"
+      },
+      "tool_name": "booking_appointments_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
       "command": "booking.extra.save@1",
       "entitlement": "booking.enabled",
       "exposure": [
@@ -1651,7 +1761,7 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns the customers' bookings of services taken on request that nobody has answered yet, the one whose time to answer runs out first on top: each with its request_id, the service, the unit it holds (a cottage, a room) when it is a stay, starts_at and ends_at as the company's local time, answer_by — after it the request expires by itself and the time is let go — and, where the booking has a price, gross_minor and the prepayment the offer asks for (prepayment_minor), in minor units of currency. The customer is never in the answer: name a request by its service and dates; who asked is on the panel's page „Prośby”. Use it before accepting or declining a request, to know its request_id.",
+      "model_description": "Returns the customers' bookings of services taken on request that nobody has answered yet, the one whose time to answer runs out first on top: each with its request_id, the service, the unit it holds (a cottage, a room) when it is a stay, starts_at and ends_at as the company's local time, answer_by — after it the request expires by itself and the time is let go — and, where the booking has a price, gross_minor and the prepayment the offer asks for (prepayment_minor), in minor units of currency. `customer` is a handle such as klient:k7m2q, never a name: write it where you mean who asked and the panel shows the person the customer's card (name, e-mail, phone); name the request itself by its service and dates. Use it before accepting or declining a request, to know its request_id.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -3243,7 +3353,7 @@
         ],
         "type": "object"
       },
-      "model_description": "Returns one order by its order_id (from commerce.orders.read) or by its number as the person wrote it (R/2026/0007) — pass the one you have and null for the other. The answer has its lines with what each is for and when, and in minor units of its currency: gross_minor, paid_minor, due_minor (left to pay), refunded_minor (given back) and refund_owed_minor (what its terms still owe the customer after a cancellation). payments: each with its payment_id, kind (deposit, full, balance), method (cash — at the desk; transfer; online), status (requires_payment — awaited until due_at; succeeded; canceled — taken back; expired) and amount. refunds: what the company marked as given back. The buyer is never in the answer. Read it before marking a payment or taking one back: both need the order_id, and taking back the payment_id.",
+      "model_description": "Returns one order by its order_id (from commerce.orders.read) or by its number as the person wrote it (R/2026/0007) — pass the one you have and null for the other. The answer has its lines with what each is for and when, and in minor units of its currency: gross_minor, paid_minor, due_minor (left to pay), refunded_minor (given back) and refund_owed_minor (what its terms still owe the customer after a cancellation). payments: each with its payment_id, kind (deposit, full, balance), method (cash — at the desk; transfer; online), status (requires_payment — awaited until due_at; succeeded; canceled — taken back; expired) and amount. refunds: what the company marked as given back. `buyer` is a handle (klient:k7m2q), never a name: write it where you mean who bought, and the panel shows the person the buyer's card. Read it before marking a payment or taking one back: both need the order_id, and taking back the payment_id.",
       "modifiers": [],
       "module": "shared.commerce",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -3251,6 +3361,9 @@
       "output_schema": {
         "properties": {
           "amounts": {
+            "type": "string"
+          },
+          "buyer": {
             "type": "string"
           },
           "currency": {
@@ -3332,6 +3445,14 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
+          "customer": {
+            "description": "A person's handle from this conversation (klient:k7m2q), for the orders of that person only; null for everybody's.",
+            "pattern": "^klient:[a-z2-7]{5,32}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "page": {
             "description": "Which twenty; null for the newest.",
             "minimum": 1,
@@ -3370,11 +3491,12 @@
         "required": [
           "status",
           "q",
-          "page"
+          "page",
+          "customer"
         ],
         "type": "object"
       },
-      "model_description": "Returns the company's orders, newest first, twenty at a time: each with its order_id, its number (R/2026/0007; empty for a draft — a booking request nobody answered yet), status, what it is for, and in minor units of its currency what it comes to (gross_minor), what was paid (paid_minor) and what is left (due_minor). status: awaiting_payment, partially_paid, paid, canceled, refunded (canceled and the money given back), draft. Filter with status, or search with q — a part of an order's number, or of the buyer's name or e-mail exactly as the person said it. The buyer is never in the answer: name an order by its number and what it is for. Use it to find an order the person talks about before commerce.order.read; an amount is said as money (4500 minor units of PLN is 45,00 zł).",
+      "model_description": "Returns the company's orders, newest first, twenty at a time: each with its order_id, its number (R/2026/0007; empty for a draft — a booking request nobody answered yet), status, what it is for, and in minor units of its currency what it comes to (gross_minor), what was paid (paid_minor) and what is left (due_minor). status: awaiting_payment, partially_paid, paid, canceled, refunded (canceled and the money given back), draft. Filter with status, search with q — a part of an order's number, or of the buyer's name or e-mail exactly as the person said it — or pass in customer a handle this conversation was given, for that person's orders. `buyer` is a handle such as klient:k7m2q, never a name: write it where you mean who bought and the panel shows the person the buyer's card (name, e-mail, phone); name the order itself by its number and what it is for. Use it to find an order the person talks about before commerce.order.read; an amount is said as money (4500 minor units of PLN is 45,00 zł).",
       "modifiers": [],
       "module": "shared.commerce",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -3913,6 +4035,82 @@
         "pl": "Odczytaj dokumenty dla klientów"
       },
       "tool_name": "customers_documents_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
+      "command": "customers.find@1",
+      "entitlement": null,
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "q": {
+            "description": "The name, e-mail or phone as the person typed it.",
+            "maxLength": 120,
+            "minLength": 2,
+            "type": "string"
+          }
+        },
+        "required": [
+          "q"
+        ],
+        "type": "object"
+      },
+      "model_description": "Finds the company's customers by what the person typed: a name, an e-mail or a phone number. Pass in `q` the person's own words for the customer and nothing else — a name in its dictionary form with its Polish letters („Wiśniewska” for „pani Wiśniewskiej”). The answer has `total` and up to 10 `people`, each with a `handle` such as klient:k7m2q, which of the customer's data matched (`matched`: name, email, phone) and where the panel knows them from (`seen_in`: bookings, orders). You never get a customer's name, e-mail or phone: write the handle where you mean the person and the panel shows the person their card with all three there. With several people found, list their handles and let the person choose. Pass a handle on to the tools that take one (commerce.orders.read `customer`); a handle means somebody only in the conversation that gave it. Use it when the person asks about a customer by name, e-mail or phone and no other tool you have searches by those.",
+      "modifiers": [],
+      "module": "shared.customers",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "people": {
+            "items": {
+              "properties": {
+                "handle": {
+                  "type": "string"
+                },
+                "matched": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "seen_in": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "organization.read",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "The company's customers matching the name, e-mail or phone the person typed — as cards only the person sees.",
+        "pl": "Klienci firmy pasujący do imienia, nazwiska, e-maila albo telefonu, które wpisała osoba — jako karty, które widzi tylko ona."
+      },
+      "title": {
+        "en": "Find a customer",
+        "pl": "Znajdź klienta"
+      },
+      "tool_name": "customers_find_v1",
       "undo": "none:a read changes nothing",
       "version_field": null
     },

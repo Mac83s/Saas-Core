@@ -77,6 +77,24 @@ def test_a_polish_ending_that_changes_the_stem_still_names_the_area() -> None:
     assert "booking_setup_read_v1" not in names(said("Ile kosztuje noc?"), said("A w ofercie?"))
 
 
+def test_a_question_about_a_person_brings_the_tools_that_answer_with_a_handle() -> None:
+    """„Karty osób”: the customers' area finds a person and reads the calendar."""
+    people = ["customers_find_v1", "booking_appointments_read_v1"]
+
+    asked = names(said("Podaj mi telefon do klienta z jutrzejszej wizyty"))
+    assert set(people) <= set(asked)
+    assert names(said("Kto przychodzi jutro?"))[1:] == sorted(people)
+    # Whether somebody paid is a question about orders, which search by a name.
+    paid = names(said("Czy pan Kowalski zapłacił?"))
+    assert {"commerce_orders_read_v1", "commerce_order_read_v1"} <= set(paid)
+    # „klient” and „dziś” alone open nothing where something more exact was said.
+    assert names(said("Policz, ile zapłaci klient za trzy noce"))[1:] == ["booking_quote_read_v1"]
+    marked = names(said("Klient zapłacił dziś 300 zł gotówką za zamówienie. Oznacz tę wpłatę."))
+    assert not set(people) & set(marked)
+    # The documents' area keeps to documents.
+    assert "customers_find_v1" not in names(said("Co jest w regulaminie?"))
+
+
 def test_the_model_widens_on_demand_and_what_it_called_stays() -> None:
     opening = json.dumps({"topics": ["offers"], "change": False})
     offered = names(said("Cześć"), called("more_tools", opening))

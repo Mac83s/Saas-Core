@@ -17,6 +17,11 @@ and `record_consent(...)` appends who saw which text row to the journal;
 records back, for the screen that shows the record. `document_locales(kind)`
 says which languages the document in force has, and `marketing_wording`
 (over `MARKETING_WORDING`) is the one sentence of a marketing consent.
+
+A customer in a command's answer is a handle, never a name (ADR-076 „karty
+osób”): a command writes `person_handle(CUSTOMER, customer_id)` from
+`core.organizations.api`, and a module that shows customers in the panel says
+whom the caller sees there with `register_customer_viewer` (`people.py`).
 """
 
 from .documents import (
@@ -29,6 +34,7 @@ from .documents import (
     record_consent,
 )
 from .models import ConsentKind, Customer, DocumentKind
+from .people import CUSTOMER, Sight, register_customer_viewer
 from .services import (
     CUSTOMER_RETENTION_SWEEP,
     CustomerAnonymizer,
@@ -42,8 +48,8 @@ from .services import (
 CUSTOMER_MODEL = "customers.Customer"
 
 __all__ = [
+    "CUSTOMER",
     "CUSTOMER_MODEL",
-    "MARKETING_WORDING",
     "CUSTOMER_RETENTION_SWEEP",
     "ConsentKind",
     "Customer",
@@ -52,6 +58,7 @@ __all__ = [
     "DocumentKind",
     "Kept",
     "MARKETING_WORDING",
+    "Sight",
     "consents_of",
     "current_document",
     "document_locales",
@@ -60,5 +67,6 @@ __all__ = [
     "match_or_create",
     "record_consent",
     "register_customer_anonymizer",
+    "register_customer_viewer",
     "strip_customer",
 ]

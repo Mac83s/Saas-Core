@@ -26,8 +26,11 @@ from saas_core.modules.core.organizations.api import (
     UnknownCommand,
     command,
     execute_plan,
+    handles_in,
+    known_people,
     offer_plan,
     pending_consent,
+    person_cards,
     platform_setting,
 )
 from saas_core.modules.core.organizations.authorization import authorize
@@ -67,6 +70,8 @@ from .turns import (
     append_message,
     close_open_calls,
     conversation_ref,
+    people_book,
+    people_of,
     record_plan,
     record_results,
     warning,
@@ -325,10 +330,9 @@ def get_conversation(conversation_id: UUID) -> dict[str, Any]:
     messages = list(
         AssistantMessage.all_objects.filter(conversation=conversation).order_by("index")
     )
-    return {
-        "conversation": conversation,
-        "turns": [_shown_turn(turn, messages) for turn in turns],
-    }
+    shown = [_shown_turn(turn, messages) for turn in turns]
+    _show_people(shown, messages)
+    return {"conversation": conversation, "turns": shown}
 
 
 def _conversations(context: TenantContext) -> QuerySet[AssistantConversation]:
@@ -448,13 +452,17 @@ def answer_consent(
     if declined:
         close_open_calls(turn, conversation, "consent_declined")
     else:
-        with activate_tenant_context(conversation_context(context, conversation)):
+        people = people_book(conversation.id)
+        with (
+            activate_tenant_context(conversation_context(context, conversation)),
+            known_people(people),
+        ):
             results = execute_plan(_pending_invocations(pending), dict(consents))
         said = pending.get("said", "")
         if "steps" in pending:
             record_plan(turn, conversation, calls[0], pending["steps"], results, said)
         else:
-            record_results(turn, conversation, calls, results, said)
+            record_results(turn, conversation, calls, results, said, people)
         turn.pending = None
     turn.state = TurnState.RUNNING
     turn.save(update_fields=["pending", "state", "updated_at"])
@@ -487,7 +495,11 @@ def _offer_again(
     pending: dict[str, Any] = turn.pending or {}
     if all(pending_consent(context, group["digest"]) for group in pending["groups"]):
         return
-    with activate_tenant_context(conversation_context(context, conversation)), transaction.atomic():
+    with (
+        activate_tenant_context(conversation_context(context, conversation)),
+        known_people(people_book(conversation.id)),
+        transaction.atomic(),
+    ):
         plan = offer_plan(_pending_invocations(pending))
     groups = [
         {"id": group.id, "digest": group.digest, "steps": [call.step_id for call in group.calls]}
@@ -543,6 +555,29 @@ def _shown_turn(turn: AssistantTurn, messages: list[AssistantMessage]) -> dict[s
         if turn.state == TurnState.AWAITING_CONSENT
         else [],
     }
+
+
+def _show_people(turns: list[dict[str, Any]], messages: list[AssistantMessage]) -> None:
+    """Puts a card beside each text of the assistant that names a person by a
+    handle of this conversation. The model wrote the handle and never had the
+    card: it is read here, from the record as it is now and as the person
+    reading may see it in the panel. A handle the conversation was never given
+    stays the text it is."""
+    book = people_of(messages)
+    texts = [item for turn in turns for item in turn["items"] if item["kind"] == "text"]
+    named = {
+        handle: book[handle]
+        for item in texts
+        for handle in handles_in(item["text"])
+        if handle in book
+    }
+    if not named:
+        return
+    cards = person_cards(named)
+    for item in texts:
+        people = [cards[handle] for handle in handles_in(item["text"]) if handle in cards]
+        if people:
+            item["people"] = people
 
 
 def _said(turn: AssistantTurn, call: Mapping[str, Any], result: Mapping[str, Any]) -> str:

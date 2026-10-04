@@ -7,9 +7,10 @@ import {
   useState,
   type FormEvent,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { SearchIcon, SendHorizontalIcon } from "lucide-react";
+import { CopyIcon, SearchIcon, SendHorizontalIcon } from "lucide-react";
 
 import {
   ApiProblemError,
@@ -31,11 +32,13 @@ import { Textarea } from "@saas-core/ui/components/textarea";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { PlanGate } from "#components/panel/plan-gate";
+import { Link } from "#i18n/navigation";
 import { useMedia } from "#lib/use-media";
 import { ConsentDialog } from "./consent-dialog";
 import { SetupProfile } from "./setup-profile";
 
 type Locale = "pl" | "en";
+type Person = NonNullable<AssistantTurnItem["people"]>[number];
 
 const POLL_MS = 1200;
 const WORKING = new Set(["queued", "running"]);
@@ -400,9 +403,7 @@ function Turn({
         <span className="sr-only">{t("assistant")}: </span>
         {turn.items.map((item, index) =>
           item.kind === "text" ? (
-            <p className="text-sm whitespace-pre-wrap" key={index}>
-              {item.text}
-            </p>
+            <Words item={item} key={index} locale={locale} />
           ) : (
             <Action item={item} key={item.step_id ?? index} locale={locale} />
           ),
@@ -424,6 +425,128 @@ function Turn({
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * What the assistant wrote. Where it names a person it wrote a handle
+ * (`klient:k7m2q`) — the model never has the name, the e-mail or the phone.
+ * The server sends a card for each handle of this conversation, read for the
+ * signed-in person: the name stands in the handle's place and the card
+ * follows the text.
+ */
+function Words({ item, locale }: { item: AssistantTurnItem; locale: Locale }) {
+  const t = useTranslations("Assistant");
+  const text = item.text ?? "";
+  const people = item.people ?? [];
+  if (people.length === 0) {
+    return <p className="text-sm whitespace-pre-wrap">{text}</p>;
+  }
+  const byHandle = new Map(people.map((person) => [person.handle, person]));
+  const parts: ReactNode[] = [];
+  let rest = text;
+  while (rest) {
+    // The handle that comes first in what is left of the text.
+    let at = -1;
+    let found: Person | undefined;
+    for (const person of byHandle.values()) {
+      const index = rest.indexOf(person.handle);
+      if (index >= 0 && (at < 0 || index < at)) {
+        at = index;
+        found = person;
+      }
+    }
+    if (!found) {
+      parts.push(rest);
+      break;
+    }
+    parts.push(rest.slice(0, at));
+    parts.push(
+      <span className="font-medium" key={parts.length}>
+        {found.name ?? t("personHidden")}
+      </span>,
+    );
+    rest = rest.slice(at + found.handle.length);
+  }
+  return (
+    <div className="space-y-2">
+      <p className="text-sm whitespace-pre-wrap">{parts}</p>
+      {[...byHandle.values()].map((person) => (
+        <PersonCard key={person.handle} locale={locale} person={person} />
+      ))}
+    </div>
+  );
+}
+
+/** A person as the signed-in person may see them in the panel. */
+function PersonCard({ person, locale }: { person: Person; locale: Locale }) {
+  const t = useTranslations("Assistant");
+  const name = person.name ?? t("personHidden");
+  const contact = [
+    { label: t("personEmail"), value: person.email },
+    { label: t("personPhone"), value: person.phone },
+  ].filter((row): row is { label: string; value: string } =>
+    Boolean(row.value),
+  );
+  return (
+    <section
+      aria-label={t("personCard", { name })}
+      className="max-w-md space-y-2 rounded-lg border p-3 text-sm"
+    >
+      <p className="font-medium">{name}</p>
+      {contact.length > 0 ? (
+        <dl className="space-y-1">
+          {contact.map((row) => (
+            <div
+              className="flex flex-wrap items-center gap-x-2"
+              key={row.label}
+            >
+              <dt className="text-muted-foreground">{row.label}</dt>
+              <dd className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                <span className="min-w-0 flex-1 break-all">{row.value}</span>
+                <Copy label={row.label} value={row.value} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="text-muted-foreground">
+          {person.name === null ? t("personNoAccess") : t("personNoContact")}
+        </p>
+      )}
+      {person.links.length > 0 ? (
+        <p className="flex flex-wrap gap-x-4 gap-y-1">
+          {person.links.map((link) => (
+            <Link
+              className="underline underline-offset-4"
+              href={link.href}
+              key={link.href}
+            >
+              {link.title[locale]}
+            </Link>
+          ))}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function Copy({ label, value }: { label: string; value: string }) {
+  const t = useTranslations("Assistant");
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button
+      aria-label={t("copyValue", { label })}
+      onClick={() => {
+        void navigator.clipboard.writeText(value).then(() => setCopied(true));
+      }}
+      size="sm"
+      type="button"
+      variant="outline"
+    >
+      <CopyIcon aria-hidden="true" />
+      <span aria-live="polite">{copied ? t("copied") : t("copy")}</span>
+    </Button>
   );
 }
 

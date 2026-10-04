@@ -9,8 +9,10 @@ panel's buttons (`services.answer_request`).
 An answer is a message to somebody outside the company and a booking that
 holds or lets go of its time, so each takes its own click as a step nobody
 takes back. The customer is never named to a model: a request is its service,
-its dates and until when the company may answer. The company's own words to
-a customer it declines are the person's words — a model never writes them.
+its dates and until when the company may answer, and who asked is a handle the
+panel turns into a card for the person at the screen (ADR-076 „karty osób”).
+The company's own words to a customer it declines are the person's words — a
+model never writes them.
 """
 
 from __future__ import annotations
@@ -21,8 +23,9 @@ from zoneinfo import ZoneInfo
 
 from rest_framework.exceptions import NotFound
 
-from saas_core.modules.core.organizations.api import CommandSpec, Preview
+from saas_core.modules.core.organizations.api import CommandSpec, Preview, person_handle
 from saas_core.modules.shared.billing.authorization import authorize_entitled
+from saas_core.modules.shared.customers.api import CUSTOMER
 
 from . import orders
 from .command_declarations import _effect, _id, _nullable
@@ -70,6 +73,8 @@ def _read_requests(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
             "currency": quote.get("currency"),
             "gross_minor": quote.get("gross_minor"),
             "prepayment_minor": prepayment.get("amount_minor"),
+            # Who asked, as a handle: the panel shows the person their card.
+            "customer": person_handle(CUSTOMER, item.customer_id),
         })
     return {"requests": listed}
 
@@ -90,9 +95,10 @@ REQUESTS_READ = CommandSpec(
         "starts_at and ends_at as the company's local time, answer_by — after it the "
         "request expires by itself and the time is let go — and, where the booking has a "
         "price, gross_minor and the prepayment the offer asks for (prepayment_minor), in "
-        "minor units of currency. The customer is never in the answer: name a request by "
-        "its service and dates; who asked is on the panel's page „Prośby”. Use it before "
-        "accepting or declining a request, to know its request_id."
+        "minor units of currency. `customer` is a handle such as klient:k7m2q, never a "
+        "name: write it where you mean who asked and the panel shows the person the "
+        "customer's card (name, e-mail, phone); name the request itself by its service and "
+        "dates. Use it before accepting or declining a request, to know its request_id."
     ),
     input_schema={
         "type": "object",
@@ -281,8 +287,7 @@ REQUEST_ACCEPT = CommandSpec(
     entitlement=BOOKING_ENABLED,
     risk="irreversible",
     run=_accept,
-    undo="none:the customer has been written to; an accepted booking is called off in the "
-    "calendar",
+    undo="none:the customer has been written to; an accepted booking is called off in the calendar",
     preview=_preview_accept,
     no_version_reason="A request has no version: the consent binds its state "
     "(pending_request), and the service answers a request once.",

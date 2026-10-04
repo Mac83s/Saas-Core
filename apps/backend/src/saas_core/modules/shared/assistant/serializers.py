@@ -80,12 +80,44 @@ class AssistantConversationListQuerySerializer(serializers.Serializer[Any]):
     )
 
 
+class AssistantPersonLinkSerializer(serializers.Serializer[Any]):
+    title = LocalizedTextSerializer()
+    href = serializers.CharField(help_text="A path in the panel, without the language prefix.")
+
+
+class AssistantPersonCardSerializer(serializers.Serializer[Any]):
+    """A person the assistant named by a handle. The model has the handle only;
+    the card is read for the signed-in person, as the panel would show it."""
+
+    handle = serializers.CharField(
+        help_text="As it stands in the text (`klient:k7m2q`): show the card in its place."
+    )
+    kind = serializers.CharField(help_text="`customer` — a customer of the company.")
+    name = serializers.CharField(
+        allow_null=True, help_text="Null: the signed-in person may not see who this is."
+    )
+    email = serializers.CharField(
+        allow_null=True, help_text="Null: there is none, or this person may not see it."
+    )
+    phone = serializers.CharField(
+        allow_null=True, help_text="Null: there is none, or this person may not see it."
+    )
+    links = AssistantPersonLinkSerializer(
+        many=True, help_text="Where the panel shows this person: an order, a day of the calendar."
+    )
+
+
 class AssistantTurnItemSerializer(serializers.Serializer[Any]):
     kind = serializers.ChoiceField(
         choices=("text", "action"),
         help_text="`text`: what the assistant wrote. `action`: one step it took or proposed.",
     )
     text = serializers.CharField(required=False)
+    people = AssistantPersonCardSerializer(
+        many=True,
+        required=False,
+        help_text="The people a `text` names by a handle, in the order it names them.",
+    )
     step_id = serializers.UUIDField(required=False)
     title = LocalizedTextSerializer(
         required=False, help_text="The step's command as a person reads it."
