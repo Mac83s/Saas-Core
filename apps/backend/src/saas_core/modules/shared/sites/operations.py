@@ -12,6 +12,7 @@ from .models import (
     ContentEntryPublication,
     ContentEntryVersion,
     Page,
+    PageLocaleVersion,
     PageVersion,
     Publication,
 )
@@ -30,6 +31,8 @@ class OperationStatus(TypedDict):
 _OPERATION_RESOURCES: tuple[tuple[str, Any], ...] = (
     ("page", Page),
     ("page_version", PageVersion),
+    # A change set's write to a page in another language (ADR-070 pkt 17).
+    ("page_locale_version", PageLocaleVersion),
     ("site_publication", Publication),
     ("content_collection", ContentCollection),
     ("content_entry", ContentEntry),

@@ -239,6 +239,7 @@ def test_blueprint_receipt_rls_relations_erasure_and_rollback(surface: Any, blue
         organization=organization,
         resource_type="site_page",
         resource_id=page_id,
+        locale="pl",
         version=1,
         summary="Synthetic B",
         risk="low",

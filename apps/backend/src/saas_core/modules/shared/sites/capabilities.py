@@ -57,6 +57,8 @@ REPORTED_QUOTAS = ("storage.bytes", SITES_MAX, PAGES_MAX)
 def read_content_capabilities() -> dict[str, Any]:
     """Shape and limits for the calling tenant, never its unpublished content."""
     from .change_sets import CHANGE_SET_COMMANDS
+    from .locale_change_sets import LOCALE_COMMANDS
+
     context = authorize_entitled(
         SITE_CONTENT_EDIT,
         SITES_ENABLED,
@@ -67,9 +69,9 @@ def read_content_capabilities() -> dict[str, Any]:
     # do not enforce row-level security, so the unscoped manager here would have
     # handed every tenant the slugs and hostnames of every other one.
     sites = list(
-        Site.all_objects.filter(organization_id=context.organization_id).order_by(
-            "created_at"
-        )
+        Site.all_objects.select_related("organization")
+        .filter(organization_id=context.organization_id)
+        .order_by("created_at")
     )
     return {
         "contract_version": CONTENT_CONTRACT_VERSION,
@@ -88,6 +90,11 @@ def read_content_capabilities() -> dict[str, Any]:
         # none, because a client believes it.
         "commands": supported_commands(),
         "change_set_commands": sorted(CHANGE_SET_COMMANDS),
+        # A page in a language other than its site's source follows the
+        # source's structure (ADR-070 pkt 17): only these apply there, and a
+        # `block.replace` only when it changes text. The rest answer
+        # `locale_structure_locked`.
+        "language_version_commands": sorted(LOCALE_COMMANDS),
         # What this particular caller may do. A session gets `null` — the
         # question only means something for a credential.
         "grant": _grant_summary(context),
@@ -189,6 +196,8 @@ def _quota(quota_key: str) -> dict[str, Any]:
 
 
 def _site(site: Site, *, organization_id: Any) -> dict[str, Any]:
+    from .language_versions import site_locales
+
     # Only verified hostnames: an address still waiting on DNS is not somewhere
     # a connector should be publishing links to.
     hostnames = list(
@@ -205,6 +214,10 @@ def _site(site: Site, *, organization_id: Any) -> dict[str, Any]:
         "slug": site.slug,
         "purpose": site.purpose,
         "default_locale": site.default_locale,
+        # The languages this site's content may have, the source first: what a
+        # change set may name as `target.locale`. `locales.supported` above is
+        # the platform's list, which a company narrows.
+        "locales": list(site_locales(site)),
         "hostnames": hostnames,
         # Whether the site has ever been published, not what is in its drafts.
         "published": site.current_publication_id is not None,

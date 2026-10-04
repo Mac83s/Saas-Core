@@ -563,7 +563,13 @@ class ContentProposalSerializer(serializers.Serializer[dict[str, Any]]):
     proposal_id = serializers.UUIDField()
     resource_type = serializers.CharField()
     resource_id = serializers.UUIDField()
-    version = serializers.IntegerField()
+    locale = serializers.CharField(
+        help_text="The language the proposal is about. A page has one line per language."
+    )
+    version = serializers.IntegerField(
+        help_text="The version the proposal produced in that language: the page's draft in "
+        "the source language, the language version's own lock in any other."
+    )
     credential_id = serializers.UUIDField(allow_null=True)
     summary = serializers.CharField()
     risk = serializers.CharField()
@@ -584,6 +590,11 @@ class ContentProposalDetailSerializer(ContentProposalSerializer):
     blocks_after = serializers.ListField(child=serializers.DictField())
     metadata_before = serializers.DictField()
     metadata_after = serializers.DictField()
+    language_version_waiting = serializers.BooleanField(
+        help_text="The proposal's text waits as a version of the page in another language: "
+        "accepting it makes it the working version and publishes it where that language of "
+        "the page is live."
+    )
     page_presentation_before = serializers.DictField(required=False)
     page_presentation_after = serializers.DictField(required=False)
     review_token = serializers.CharField()
@@ -625,6 +636,11 @@ class ContentCapabilitiesSerializer(serializers.Serializer[dict[str, Any]]):
     commands = serializers.ListField(child=serializers.CharField())
     grant = serializers.DictField(allow_null=True)
     change_set_commands = serializers.ListField(child=serializers.CharField())
+    language_version_commands = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="The change-set commands accepted for a page in a language other than its "
+        "site's source language; a `block.replace` there may change text only.",
+    )
     locales = serializers.DictField()
     block_schemas = serializers.ListField(child=serializers.DictField())
     content_types = serializers.DictField()

@@ -2,7 +2,8 @@
   "accepted": {
     "rewrite-service-page-copy.json": "Metadata and one block replaced on a published service page.",
     "publish-blog-entry.json": "A new blog entry created, filled and scheduled in one set.",
-    "add-internal-link.json": "An internal link into an existing canonical target, plus a full reorder."
+    "add-internal-link.json": "An internal link into an existing canonical target, plus a full reorder.",
+    "rewrite-german-page-copy.json": "Metadata and the text of one block replaced in the German version of a page. The envelope accepts any language code of this shape; whether the site has the language, and whether the block kept the structure of its source, is the server's answer."
   },
   "rejected": {
     "unknown-command.json": {
@@ -40,6 +41,10 @@
     "script-link-in-rich-text.json": {
       "by": "block_schema",
       "why": "Structured text still carries links, and a link is where script gets in. Only a path, https, mailto, tel or an in-page anchor passes; javascript: and protocol-relative addresses fail the canonical block schema."
+    },
+    "locale-not-a-language-code.json": {
+      "by": "envelope",
+      "why": "A language is a two-letter code, optionally with a region. A name, an upper-case code or an empty string is refused before anything is looked up; a well-formed code the site does not have is the server's `locale_not_enabled`, not a schema error."
     },
     "unknown-rich-text-node.json": {
       "by": "block_schema",

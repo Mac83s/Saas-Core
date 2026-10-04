@@ -27,6 +27,12 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .block_decoration import stored_block_payload
+from .locale_change_sets import (
+    accept_proposed_version,
+    discard_proposed_version,
+    proposal_blocks,
+    proposal_translation,
+)
 from .models import (
     ContentAutomationGrant,
     ContentEntry,
@@ -39,7 +45,7 @@ from .models import (
     canonical_json_hash,
 )
 from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED
-from .services import assert_person_required
+from .services import PageNotFound, assert_person_required
 
 PROPOSAL_DISCARDED = "sites.proposal.discarded"
 PROPOSAL_ACCEPTED = "sites.proposal.accepted"
@@ -102,9 +108,11 @@ def list_pending_proposals(*, limit: int = 50) -> list[dict[str, Any]]:
             organization_id=context.organization_id, review_state="pending"
         ).order_by("-created_at")[: limit * 4]
     )
-    current: dict[tuple[str, UUID], ContentProposal] = {}
+    # One line per resource and language: a page's German proposal does not
+    # supersede its Polish one (ADR-070 pkt 17).
+    current: dict[tuple[str, UUID, str], ContentProposal] = {}
     for proposal in proposals:
-        key = (proposal.resource_type, proposal.resource_id)
+        key = (proposal.resource_type, proposal.resource_id, proposal.locale)
         held = current.get(key)
         if held is None or proposal.version > held.version:
             current[key] = proposal
@@ -137,26 +145,44 @@ def read_proposal(*, proposal_id: UUID) -> dict[str, Any]:
     if proposal is None:
         raise ProposalNotFound
 
-    version_model: Any = (
-        PageVersion if proposal.resource_type == "site_page" else ContentEntryVersion
-    )
-    field = "page_id" if proposal.resource_type == "site_page" else "entry_id"
-    versions = {
-        version.number: version
-        for version in version_model.all_objects.filter(
-            organization_id=context.organization_id,
-            **{field: proposal.resource_id},
-            number__in=[proposal.version, proposal.version - 1],
+    before: Any = None
+    after: Any = None
+    language = _language(proposal, context)
+    if language is not None:
+        # Another language of a page: the two bodies its language version
+        # assembles into, not the source's drafts.
+        blocks_before, blocks_after = proposal_blocks(language, proposal.locale_version_id)
+    else:
+        version_model: Any = (
+            PageVersion if proposal.resource_type == "site_page" else ContentEntryVersion
         )
-    }
-    before = versions.get(proposal.version - 1)
-    after = versions.get(proposal.version)
+        field = "page_id" if proposal.resource_type == "site_page" else "entry_id"
+        versions = {
+            version.number: version
+            for version in version_model.all_objects.filter(
+                organization_id=context.organization_id,
+                **{field: proposal.resource_id},
+                number__in=[proposal.version, proposal.version - 1],
+            )
+        }
+        before = versions.get(proposal.version - 1)
+        after = versions.get(proposal.version)
+        blocks_before = _blocks(context, proposal, before)
+        blocks_after = _blocks(context, proposal, after)
     result = {
         **_proposal_payload(proposal),
-        "blocks_before": _blocks(context, proposal, before),
-        "blocks_after": _blocks(context, proposal, after),
+        "blocks_before": blocks_before,
+        "blocks_after": blocks_after,
         "metadata_before": proposal.metadata_before,
         "metadata_after": proposal.metadata_after,
+        # Accepting such a proposal is accepting the language version: it
+        # becomes the working one and goes out at once where the page is live
+        # in that language. The person is told before they decide.
+        "language_version_waiting": (
+            language is not None
+            and proposal.locale_version_id is not None
+            and language.body_pending_id == proposal.locale_version_id
+        ),
     }
     # Page presentation is part of what gets accepted, like decoration.
     for key, version in (("page_presentation_before", before), ("page_presentation_after", after)):
@@ -223,6 +249,7 @@ def _proposal_payload(proposal: ContentProposal) -> dict[str, Any]:
         "proposal_id": str(proposal.id),
         "resource_type": proposal.resource_type,
         "resource_id": str(proposal.resource_id),
+        "locale": proposal.locale,
         "version": proposal.version,
         "credential_id": (str(proposal.credential_id) if proposal.credential_id else None),
         # Stated as a claim, not as a finding: the panel shows what
@@ -325,6 +352,25 @@ def _locked_proposal(proposal_id: UUID, context: Any) -> tuple[ContentProposal, 
     return proposal, resource
 
 
+def _language(
+    proposal: ContentProposal, context: Any, *, lock: bool = False
+) -> PageTranslation | None:
+    """The language version a proposal is about, when it is a page's version in
+    a language other than the site's source; None otherwise."""
+    if proposal.resource_type != "site_page":
+        return None
+    try:
+        return proposal_translation(
+            context.organization_id,
+            page_id=proposal.resource_id,
+            locale=proposal.locale,
+            lock=lock,
+        )
+    except PageNotFound as error:
+        # The language version is gone; so is what the proposal was about.
+        raise ProposalSuperseded from error
+
+
 def _current_translation(proposal: ContentProposal, context: Any) -> PageTranslation | None:
     if not proposal.metadata_before:
         return None
@@ -380,7 +426,9 @@ def accept_proposal(*, proposal_id: UUID, review_token: str) -> dict[str, Any]:
             "version": proposal.decision_version,
             "published": False,
         }
-    if proposal.review_state != "pending" or resource.version != proposal.version:
+    language = _language(proposal, context, lock=True)
+    current_version = language.body_version if language is not None else resource.version
+    if proposal.review_state != "pending" or current_version != proposal.version:
         raise ProposalSuperseded
     translation = _current_translation(proposal, context)
     try:
@@ -392,20 +440,33 @@ def accept_proposal(*, proposal_id: UUID, review_token: str) -> dict[str, Any]:
     expected = {
         "organization_id": str(context.organization_id),
         "actor_id": str(context.actor_id),
-        "digest": _review_digest(
-            proposal,
-            _blocks(context, proposal, resource.current_draft),
-            _page_presentation(resource.current_draft),
+        "digest": (
+            _review_digest(proposal, proposal_blocks(language, proposal.locale_version_id)[1])
+            if language is not None
+            else _review_digest(
+                proposal,
+                _blocks(context, proposal, resource.current_draft),
+                _page_presentation(resource.current_draft),
+            )
         ),
     }
     if reviewed != expected:
         raise ProposalReviewMismatch
+    published = False
+    if language is not None:
+        # Through the language version: a waiting body becomes the working one
+        # and goes out when it may, as accepting a translation does.
+        published = accept_proposed_version(
+            language, proposal.locale_version_id, f"proposal-accept-{proposal.id}"
+        )
+        language.refresh_from_db(fields=["body_version"])
+        current_version = language.body_version
     if translation is not None and proposal.metadata_pending:
         _save_metadata(
             proposal, translation, proposal.metadata_after, f"proposal-accept-{proposal.id}"
         )
     proposal.review_state = "accepted"
-    proposal.decision_version = resource.version
+    proposal.decision_version = current_version
     proposal.decided_at = timezone.now()
     proposal.save(update_fields=["review_state", "decision_version", "decided_at"])
     record_audit(
@@ -416,16 +477,17 @@ def accept_proposal(*, proposal_id: UUID, review_token: str) -> dict[str, Any]:
         target_id=proposal.id,
         metadata={
             "resource_id": str(proposal.resource_id),
-            "version": resource.version,
+            "version": current_version,
             "locale": proposal.target.get("locale"),
             "metadata_applied": proposal.metadata_pending,
+            "published": published,
         },
     )
     return {
         "proposal_id": str(proposal.id),
         "review_state": "accepted",
-        "version": resource.version,
-        "published": False,
+        "version": current_version,
+        "published": published,
     }
 
 
@@ -444,20 +506,29 @@ def discard_proposal(*, proposal_id: UUID) -> dict[str, Any]:
             "resource_id": str(proposal.resource_id),
             "restored_version": proposal.decision_version,
         }
-    if proposal.review_state != "pending" or resource.version != proposal.version:
+    language = _language(proposal, context, lock=True)
+    current_version = language.body_version if language is not None else resource.version
+    if proposal.review_state != "pending" or current_version != proposal.version:
         raise ProposalSuperseded
     translation = _current_translation(proposal, context)
-    version_model: Any = (
-        PageVersion if proposal.resource_type == "site_page" else ContentEntryVersion
-    )
-    field = "page_id" if proposal.resource_type == "site_page" else "entry_id"
-    previous = version_model.all_objects.filter(
-        organization_id=context.organization_id,
-        **{field: proposal.resource_id},
-        number=proposal.version - 1,
-    ).first()
+    previous: Any = None
+    if language is None:
+        version_model: Any = (
+            PageVersion if proposal.resource_type == "site_page" else ContentEntryVersion
+        )
+        field = "page_id" if proposal.resource_type == "site_page" else "entry_id"
+        previous = version_model.all_objects.filter(
+            organization_id=context.organization_id,
+            **{field: proposal.resource_id},
+            number=proposal.version - 1,
+        ).first()
     blocks = _blocks(context, proposal, previous)
-    if proposal.resource_type == "site_page":
+    if language is not None:
+        # Through the language version; the source page's draft is not touched.
+        restored_version = discard_proposed_version(
+            context, language, proposal.locale_version_id, f"proposal-reject-{proposal.id}"
+        )
+    elif proposal.resource_type == "site_page":
         # Copy the previous version's references, not the rejected draft's.
         from .services import get_draft_preview
 

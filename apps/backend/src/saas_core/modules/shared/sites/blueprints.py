@@ -277,6 +277,7 @@ def import_blueprint(*, site_id: UUID, document: dict[str, Any]) -> tuple[dict[s
         organization_id=context.organization_id,
         resource_type="site_page",
         resource_id=page.id,
+        locale=document["locale"],
         version=version.number,
         credential_id=context.credential_id,
         summary=(

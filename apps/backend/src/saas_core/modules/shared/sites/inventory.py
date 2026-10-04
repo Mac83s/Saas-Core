@@ -15,11 +15,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.conf import settings
 from django.utils import timezone
 
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .capabilities import CONTENT_CONTRACT_VERSION, MINIMUM_CONTENT_CONTRACT_VERSION
+from .language_publication import home_page
+from .language_versions import _page_rows, _published_bodies, site_locales
+from .localization import localized_path
 from .models import (
     ContentCollection,
     ContentEntry,
@@ -50,7 +54,7 @@ def read_inventory() -> dict[str, Any]:
     automation = _is_automation(context)
     sites = list(
         Site.all_objects.filter(organization_id=context.organization_id)
-        .select_related("current_publication")
+        .select_related("current_publication", "organization")
         .order_by("created_at")
     )
     payload: list[dict[str, Any]] = []
@@ -116,15 +120,10 @@ def _site_entry(
         "slug": site.slug,
         "purpose": site.purpose,
         "default_locale": site.default_locale,
-        "hostnames": list(
-            Domain.all_objects.filter(
-                organization_id=context.organization_id,
-                site_id=site.id,
-                status=DomainStatus.VERIFIED,
-            )
-            .order_by("-is_canonical", "hostname")
-            .values_list("hostname", flat=True)
-        ),
+        # The languages a change set may name here, the source first; any
+        # other answers `locale_not_enabled`.
+        "locales": list(site_locales(site)),
+        "hostnames": _hostnames(context, site),
         # Published state only. A change set reads its actual target draft and
         # localized metadata through content-base; this hash cannot replace it.
         "publication": (
@@ -156,11 +155,23 @@ def _site_entry(
     }
 
 
+def _hostnames(context: Any, site: Site) -> list[str]:
+    return list(
+        Domain.all_objects.filter(
+            organization_id=context.organization_id,
+            site_id=site.id,
+            status=DomainStatus.VERIFIED,
+        )
+        .order_by("-is_canonical", "hostname")
+        .values_list("hostname", flat=True)
+    )
+
+
 def _pages(context: Any, site: Site) -> list[dict[str, Any]]:
     pages = list(
-        Page.all_objects.filter(
-            organization_id=context.organization_id, site_id=site.id, deleted_at__isnull=True
-        ).order_by("created_at")
+        Page.all_objects.select_related("current_draft")
+        .filter(organization_id=context.organization_id, site_id=site.id, deleted_at__isnull=True)
+        .order_by("created_at")
     )
     translations: dict[Any, list[PageTranslation]] = {}
     for translation in PageTranslation.all_objects.filter(
@@ -168,6 +179,7 @@ def _pages(context: Any, site: Site) -> list[dict[str, Any]]:
         page_id__in=[page.id for page in pages],
     ).order_by("locale"):
         translations.setdefault(translation.page_id, []).append(translation)
+    languages = _languages(context, site, pages)
     return [
         {
             "page_id": str(page.id),
@@ -175,8 +187,10 @@ def _pages(context: Any, site: Site) -> list[dict[str, Any]]:
             "name": page.name,
             "page_type": page.page_type,
             "automation_policy": page.automation_policy,
-            # The version a change set must declare as its base. A stale one
-            # is a 409 and an explicit recomputation, never a silent overwrite.
+            # The version a change set must declare as its base in the site's
+            # source language. A stale one is a 409 and an explicit
+            # recomputation, never a silent overwrite. Each language has its
+            # own: `locales[].base_version`.
             "version": page.version,
             "locales": [
                 {
@@ -184,9 +198,93 @@ def _pages(context: Any, site: Site) -> list[dict[str, Any]]:
                     "slug": translation.slug,
                     "version": translation.version,
                     "slug_locked": translation.slug_locked_at is not None,
+                    **languages[page.id, translation.locale],
                 }
                 for translation in translations.get(page.id, [])
             ],
         }
         for page in pages
     ]
+
+
+def _languages(
+    context: Any, site: Site, pages: list[Page]
+) -> dict[tuple[Any, str], dict[str, Any]]:
+    """Each page in each language it has: where it answers, the version a
+    change set for that language declares, how far its translation is and
+    whether visitors get it (plan TL13). State, never text."""
+    enabled = site_locales(site)
+    snapshot = site.current_publication.snapshot if site.current_publication else {}
+    published = _published_bodies(snapshot)
+    published_pages = {
+        str(page.get("page_id")): page
+        for page in snapshot.get("pages", [])
+        if isinstance(page, dict)
+    }
+    cells = {
+        (row.id, cell.locale): cell
+        for row in _page_rows(
+            site, tuple(code for code in enabled if code != site.default_locale)
+        )
+        for cell in row.cells
+    }
+    hostnames = _hostnames(context, site)
+    home = home_page(pages)
+    rows = PageTranslation.all_objects.select_related("body_current").filter(
+        organization_id=context.organization_id, page_id__in=[page.id for page in pages]
+    )
+    by_page = {page.id: page for page in pages}
+    found: dict[tuple[Any, str], dict[str, Any]] = {}
+    for row in rows:
+        page = by_page[row.page_id]
+        source = row.locale == site.default_locale
+        if home is not None and page.id == home.id:
+            # The home page answers at the root of its language.
+            path = "/" if source else f"/{row.locale}/"
+        else:
+            path = localized_path(
+                default_locale=site.default_locale, locale=row.locale, slug=row.slug
+            )
+        out = published_pages.get(str(page.id), {})
+        if source:
+            state, untranslated = "source", 0
+            is_published = bool(out)
+            in_sync = is_published and out.get("version") == page.version
+            base_version = page.version
+        else:
+            cell = cells.get((page.id, row.locale))
+            state = cell.state if cell is not None else "disabled"
+            untranslated = (cell.untranslated or 0) if cell is not None else 0
+            is_published = (str(page.id), row.locale) in published
+            entry = next(
+                (
+                    item
+                    for item in out.get("locales", [])
+                    if isinstance(item, dict) and item.get("locale") == row.locale
+                ),
+                {},
+            )
+            in_sync = is_published and entry.get("locale_version_id") == str(row.body_current_id)
+            base_version = row.body_version
+        found[page.id, row.locale] = {
+            "source": source,
+            # Off for a language the company turned off: its content stays,
+            # and a change set for it answers `locale_not_enabled`.
+            "enabled": row.locale in enabled,
+            "path": path,
+            "url": (
+                f"{settings.PUBLIC_SITE_SCHEME}://{hostnames[0]}{path}" if hostnames else None
+            ),
+            # What `base.version` of a change set for this language must be.
+            "base_version": base_version,
+            # `source`, or how far this language's body is: `untranslated`,
+            # `complete`, `outdated` (the source moved on), `pending` (a
+            # version waits for a person).
+            "state": state,
+            "untranslated_units": untranslated,
+            # Whether visitors get this language of the page, and whether what
+            # they get is the working version.
+            "published": is_published,
+            "published_in_sync": in_sync,
+        }
+    return found

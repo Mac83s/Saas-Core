@@ -23,6 +23,7 @@ def test_proposal_metadata_isolated_under_real_nonowner_role() -> None:
             organization=tenant,
             resource_type="site_page",
             resource_id=uuid4(),
+            locale="pl",
             version=1,
             summary="Synthetic review",
             risk="low",

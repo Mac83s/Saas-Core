@@ -135,3 +135,28 @@ test("no command can move a published address", async () => {
     ["title", "description", "social_title", "social_description"],
   );
 });
+
+test("a language is a shape, not a list", async () => {
+  const validate = await changeSetValidator();
+  const fixture = await readJson(
+    "fixtures/accepted/rewrite-service-page-copy.json",
+  );
+  const withLocale = (locale) => ({
+    ...fixture,
+    target: { ...fixture.target, locale },
+  });
+
+  // Which languages a site has is the server's answer (`locale_not_enabled`);
+  // a list here would have to change every time a customer adds a language.
+  for (const locale of ["pl", "en", "de", "uk", "de-AT"]) {
+    assert.ok(validate(withLocale(locale)), `${locale} should validate`);
+  }
+  for (const locale of ["", "DE", "german", "de_AT", "de-at", "deu"]) {
+    assert.equal(validate(withLocale(locale)), false, `${locale} should not`);
+  }
+  // Still required: a change set that names no language names no base.
+  const withoutLocale = Object.fromEntries(
+    Object.entries(fixture.target).filter(([name]) => name !== "locale"),
+  );
+  assert.equal(validate({ ...fixture, target: withoutLocale }), false);
+});

@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from django.conf import settings
@@ -38,6 +38,7 @@ from saas_core.modules.shared.billing.api import FeatureOperation, authorize_ent
 from .block_contracts import validate_site_block
 from .block_decoration import normalize_block, stored_block_payload
 from .capabilities import CONTENT_CONTRACT_VERSION, MINIMUM_CONTENT_CONTRACT_VERSION
+from .language_versions import LocaleNotEnabled, site_locales
 from .metrics import (
     CHANGE_SET_LATENCY,
     CHANGE_SET_REFUSALS,
@@ -54,6 +55,9 @@ from .models import (
 )
 from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED
 from .rich_content import assert_unique_anchors
+
+if TYPE_CHECKING:
+    from .locale_change_sets import LocaleBase
 
 
 class ChangeSetMalformed(APIException):
@@ -140,6 +144,10 @@ class ChangeSetPlan:
     commands: list[str]
     binding: dict[str, Any]
     blocks_before: list[dict[str, Any]]
+    # A page in a language other than the site's source (ADR-070 pkt 17): the
+    # language's base, and the text units the change set would write there.
+    locale_base: LocaleBase | None = None
+    locale_texts: dict[str, str] | None = None
 
     @property
     def digest(self) -> str:
@@ -235,10 +243,15 @@ def read_content_base(target: dict[str, Any]) -> dict[str, Any]:
         SITES_ENABLED,
         operation=FeatureOperation.READ,
     )
-    return _content_base(target, context)
+    return _content_base(target, context)[0]
 
 
-def _content_base(target: dict[str, Any], context: TenantContext) -> dict[str, Any]:
+def _content_base(
+    target: dict[str, Any], context: TenantContext
+) -> tuple[dict[str, Any], LocaleBase | None]:
+    """The base as the sender reads it, and — for a page in a language other
+    than the site's source — the language version it was read from."""
+    from .locale_change_sets import read_locale_base
     from .services import assert_within_grant
 
     target = {key: str(value) for key, value in target.items()}
@@ -246,10 +259,11 @@ def _content_base(target: dict[str, Any], context: TenantContext) -> dict[str, A
     target_schema = {"$ref": "#/$defs/target", "$defs": schema["$defs"]}
     if not Draft202012Validator(target_schema).is_valid(target):
         raise ChangeSetMalformed
-    site = Site.all_objects.filter(
-        pk=target["site_id"],
-        organization_id=context.organization_id,
-    ).first()
+    site = (
+        Site.all_objects.select_related("organization")
+        .filter(pk=target["site_id"], organization_id=context.organization_id)
+        .first()
+    )
     if site is None:
         raise ChangeSetTargetNotFound
     assert_within_grant(
@@ -257,13 +271,32 @@ def _content_base(target: dict[str, Any], context: TenantContext) -> dict[str, A
         site_id=site.id,
         collection_id=UUID(target["collection_id"]) if target["kind"] == "content_entry" else None,
     )
+    # The contract fixes a language's shape; which languages this site has is
+    # answered here, after the grant, so a key learns it only about its own.
+    if target["locale"] not in site_locales(site):
+        raise LocaleNotEnabled
+    locale_base: LocaleBase | None = None
+    if target["kind"] == "site_page" and target["locale"] != site.default_locale:
+        # Another language: its own lock and the blocks its working version
+        # assembles into, never the source's draft (ADR-070 pkt 17).
+        locale_base = read_locale_base(
+            context, site_id=site.id, page_id=target["page_id"], locale=target["locale"]
+        )
+        if locale_base is None:
+            raise ChangeSetTargetNotFound(
+                detail="Ta podstrona nie ma wersji w tym języku; najpierw nadaj jej adres i tytuł."
+            )
     if target["kind"] == "site_page":
-        _resource, version, blocks = _page_base(target, context)
-        translation = PageTranslation.all_objects.filter(
-            organization_id=context.organization_id,
-            page_id=target["page_id"],
-            locale=target["locale"],
-        ).first()
+        if locale_base is not None:
+            version, blocks = locale_base.translation.body_version, locale_base.blocks
+            translation: PageTranslation | None = locale_base.translation
+        else:
+            _resource, version, blocks = _page_base(target, context)
+            translation = PageTranslation.all_objects.filter(
+                organization_id=context.organization_id,
+                page_id=target["page_id"],
+                locale=target["locale"],
+            ).first()
         metadata = (
             {
                 field: getattr(translation, field)
@@ -304,15 +337,21 @@ def _content_base(target: dict[str, Any], context: TenantContext) -> dict[str, A
         "blocks": blocks,
         "translation_fields": fields,
         "observed_at": observed_at,
-    }
+    }, locale_base
 
 
 def _plan_change_set(document: dict[str, Any], context: TenantContext) -> ChangeSetPlan:
+    from .locale_change_sets import (
+        STRUCTURAL_COMMANDS,
+        LocaleStructureLocked,
+        assert_no_other_version_waits,
+        plan_locale_body,
+    )
     from .services import assert_links_within_grant, default_automation_rel
 
     validate_change_set(document)
     target = document["target"]
-    current = _content_base(target, context)
+    current, locale_base = _content_base(target, context)
     base_version = current["base"]["version"]
     blocks = current["blocks"]
     resource = UUID(target["page_id"] if target["kind"] == "site_page" else target["entry_id"])
@@ -333,10 +372,19 @@ def _plan_change_set(document: dict[str, Any], context: TenantContext) -> Change
     removals: set[int] = set()
     order: list[int] | None = None
 
-    for command in document["commands"]:
-        name = command["command"]
+    names = [command["command"] for command in document["commands"]]
+    # First, for the whole set: a command this door does not execute is the
+    # same refusal in every language.
+    for name in names:
         if name not in CHANGE_SET_COMMANDS:
             raise ChangeSetCommandUnsupported(detail=f"Komenda {name} wymaga osobnej operacji.")
+    if locale_base is not None:
+        if STRUCTURAL_COMMANDS.intersection(names):
+            raise LocaleStructureLocked
+        assert_no_other_version_waits(locale_base)
+
+    for command in document["commands"]:
+        name = command["command"]
         if name == "translation.update":
             if target["kind"] != "site_page":
                 raise ChangeSetCommandUnsupported(
@@ -398,6 +446,11 @@ def _plan_change_set(document: dict[str, Any], context: TenantContext) -> Change
     resulting = default_automation_rel(
         context, site_id=UUID(target["site_id"]), blocks=resulting, base_blocks=blocks
     )
+    locale_texts: dict[str, str] | None = None
+    if locale_base is not None:
+        # What the language version would assemble into, which is what the
+        # preview shows and the approval binds.
+        resulting, locale_texts = plan_locale_body(locale_base, resulting)
     return ChangeSetPlan(
         target_kind=target["kind"],
         resource_id=resource,
@@ -415,6 +468,8 @@ def _plan_change_set(document: dict[str, Any], context: TenantContext) -> Change
             "snapshot_hash": current["base"]["snapshot_hash"],
             "idempotency_key": document["idempotency_key"],
         },
+        locale_base=locale_base,
+        locale_texts=locale_texts,
     )
 
 
@@ -580,6 +635,7 @@ def _apply_change_set(
     approval_token: str | None,
 ) -> dict[str, Any]:
     from .collections import get_entry_draft, save_entry_draft
+    from .locale_change_sets import write_locale_change_set
     from .services import (
         VERSION_ORIGIN_CHANGE_SET,
         _is_automation,
@@ -625,29 +681,50 @@ def _apply_change_set(
     metadata_before: dict[str, Any] = {}
     metadata_after: dict[str, Any] = {}
     metadata_pending = False
+    locale_version_id: UUID | None = None
     if plan.target_kind == "site_page":
-        draft = get_draft(page_id=plan.resource_id)
-        save_draft(
-            page_id=plan.resource_id,
-            expected_version=plan.base_version,
-            blocks=plan.blocks,
-            media_asset_ids=list(draft.media_asset_ids),
-            idempotency_key=idempotency_key,
-            request_context={"change_set": document},
-            origin=VERSION_ORIGIN_CHANGE_SET,
-        )
-        if plan.translation_fields:
-            translation = PageTranslation.all_objects.filter(
-                organization_id=context.organization_id,
+        translation: PageTranslation | None
+        if plan.locale_base is not None:
+            # Another language: text units through the language version, the
+            # language's own lock, and `Page.version` left where it is.
+            written = write_locale_change_set(
+                context,
+                plan.locale_base,
+                base_version=plan.base_version,
+                blocks=plan.blocks,
+                texts=plan.locale_texts or {},
+                idempotency_key=idempotency_key,
+                document=document,
+            )
+            locale_version_id = written.version.id if written.version is not None else None
+            proposed = written.pending
+            translation = plan.locale_base.translation
+        else:
+            draft = get_draft(page_id=plan.resource_id)
+            save_draft(
                 page_id=plan.resource_id,
-                locale=target["locale"],
-            ).first()
+                expected_version=plan.base_version,
+                blocks=plan.blocks,
+                media_asset_ids=list(draft.media_asset_ids),
+                idempotency_key=idempotency_key,
+                request_context={"change_set": document},
+                origin=VERSION_ORIGIN_CHANGE_SET,
+            )
+            proposed = _is_automation(context) and draft.page.automation_policy == "proposed"
+            translation = (
+                PageTranslation.all_objects.filter(
+                    organization_id=context.organization_id,
+                    page_id=plan.resource_id,
+                    locale=target["locale"],
+                ).first()
+                if plan.translation_fields
+                else None
+            )
+        if plan.translation_fields:
             if translation is None:
                 raise ChangeSetTargetNotFound(detail="Najpierw utwórz tłumaczenie strony.")
             metadata_before = translation_snapshot(translation)
-            metadata_pending = (
-                _is_automation(context) and draft.page.automation_policy == "proposed"
-            )
+            metadata_pending = proposed
             values = {field: getattr(translation, field) for field in TRANSLATION_FIELDS}
             values.update(plan.translation_fields)
             metadata_after = {**metadata_before, **values, "version": translation.version + 1}
@@ -684,8 +761,10 @@ def _apply_change_set(
         organization_id=context.organization_id,
         resource_type=plan.target_kind,
         resource_id=plan.resource_id,
+        locale=target["locale"],
         version=plan.base_version + 1,
         defaults={
+            "locale_version_id": locale_version_id,
             "credential_id": context.credential_id,
             "summary": rationale["summary"],
             "risk": rationale["risk"],

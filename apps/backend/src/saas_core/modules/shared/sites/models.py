@@ -1468,10 +1468,19 @@ class ContentProposal(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     resource_type = models.CharField(max_length=32)
     resource_id = models.UUIDField()
-    #: The version this reasoning produced. A later version supersedes it
+    #: The language the change set named (ADR-070 pkt 17). A page has one base
+    #: per language, so its German and its Polish proposal may carry the same
+    #: version number.
+    locale = models.CharField(max_length=10)
+    #: The version this reasoning produced, in that language: the page's draft
+    #: in the source language, the language version's lock (`body_version`) in
+    #: any other. A later version supersedes it
     #: rather than overwriting it: what was argued last week is still what was
     #: argued, even after somebody proposed something else.
     version = models.PositiveBigIntegerField()
+    #: Outside the source language: the `PageLocaleVersion` the change set
+    #: wrote, when it changed the body's text.
+    locale_version_id = models.UUIDField(null=True, blank=True)
     credential_id = models.UUIDField(null=True, blank=True)
     summary = models.TextField()
     risk = models.CharField(max_length=16)
@@ -1499,8 +1508,12 @@ class ContentProposal(TenantScopedModel):
         ordering = ("organization_id", "-created_at", "id")
         constraints = [
             models.UniqueConstraint(
-                fields=["organization", "resource_type", "resource_id", "version"],
-                name="sites_proposal_org_resource_version_uq",
+                fields=["organization", "resource_type", "resource_id", "locale", "version"],
+                name="sites_proposal_org_resource_locale_version_uq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"),
+                name="sites_proposal_locale_format_ck",
             ),
         ]
         indexes = [
@@ -1511,7 +1524,7 @@ class ContentProposal(TenantScopedModel):
         ]
 
     def __str__(self) -> str:
-        return f"{self.resource_type}:{self.resource_id}@{self.version}"
+        return f"{self.resource_type}:{self.resource_id}:{self.locale}@{self.version}"
 
 
 class BlueprintImportReceipt(TenantScopedModel):

@@ -88,6 +88,7 @@ from .models import (
     Page,
     PageAutomationPolicy,
     PageBlock,
+    PageLocaleVersion,
     PageTranslation,
     PageTranslationMutation,
     PageType,
@@ -965,6 +966,12 @@ def _assert_grant_permits(
                 created_by_credential=context.credential_id,
                 created_at__gte=since,
             ).count()
+            # A page's version in another language is a change like any other.
+            + PageLocaleVersion.all_objects.filter(
+                organization_id=context.organization_id,
+                created_by_credential=context.credential_id,
+                created_at__gte=since,
+            ).count()
         )
         if written >= grant.max_changes_per_day:
             raise AutomationChangeLimitReached
@@ -1215,9 +1222,12 @@ def assert_page_writable(
     *,
     publishing: bool = False,
     payload_bytes: int | None = None,
+    editing_lock: bool = True,
 ) -> None:
     """Refuses an automated write the operator has not allowed, or that would
-    land on a page a person currently has open."""
+    land on a page a person currently has open. `editing_lock`: off for a
+    write to another language's version, which the source editor's lock does
+    not cover (ADR-035 §4a) — it has its own, `body_version`."""
     if not _is_automation(context):
         # Only the person-only part binds a membership acting for its person.
         if page.page_type in PERSON_ONLY_PAGE_TYPES:
@@ -1235,7 +1245,11 @@ def assert_page_writable(
     allowed = {PageAutomationPolicy.AUTOMATED} if publishing else DRAFTABLE_POLICIES
     if page.automation_policy not in allowed:
         raise PageAutomationForbidden
-    if page.editing_locked_until is not None and page.editing_locked_until > timezone.now():
+    if (
+        editing_lock
+        and page.editing_locked_until is not None
+        and page.editing_locked_until > timezone.now()
+    ):
         raise PageEditingLocked(
             detail=(f"Podstrona jest edytowana ręcznie do {page.editing_locked_until.isoformat()}.")
         )
@@ -1474,6 +1488,7 @@ def save_draft(
         resource_type="site_page",
         resource_id=page.id,
         version=version.number,
+        locale=page.site.default_locale,
     )
     record_audit(
         organization=page.site.organization,
@@ -2097,13 +2112,23 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         )
     from .models import ContentProposal
 
-    current_versions = {page.id: page.version for page in pages}
+    # Per language (ADR-070 pkt 17): a proposal is current while its language's
+    # base still stands at its version — the page's draft in the source
+    # language, the language version's lock in any other.
+    current_versions = {(page.id, initial_site.default_locale): page.version for page in pages}
+    current_versions.update({
+        (row.page_id, row.locale): row.body_version
+        for row in PageTranslation.all_objects.filter(
+            organization_id=context.organization_id,
+            page_id__in=[page.id for page in pages],
+        ).exclude(locale=initial_site.default_locale)
+    })
     if any(
-        current_versions.get(proposal.resource_id) == proposal.version
+        current_versions.get((proposal.resource_id, proposal.locale)) == proposal.version
         for proposal in ContentProposal.all_objects.filter(
             organization_id=context.organization_id,
             resource_type="site_page",
-            resource_id__in=current_versions,
+            resource_id__in=[page.id for page in pages],
             review_state="pending",
             metadata_pending=True,
         )
@@ -2498,12 +2523,18 @@ def emit_draft_saved_event(
     resource_type: str,
     resource_id: UUID,
     version: int,
+    locale: str | None = None,
+    causation_id: str | None = None,
 ) -> None:
     """Tells a subscriber that a proposal landed.
 
     Only for automation-authored drafts. A person saving their own work does
     not need to be told about it, and an operator's queue is meant to show what
     arrived while they were not looking.
+
+    `locale`: a page's draft exists per language (ADR-070 pkt 17), and
+    `version` is that language's — the page's own in the source language,
+    the language version's lock in any other.
     """
     if not _is_automation(context):
         return
@@ -2514,12 +2545,13 @@ def emit_draft_saved_event(
         version=1,
         actor_id=context.actor_id,
         correlation_id=(UUID(active_correlation_id) if active_correlation_id else uuid7()),
-        causation_id=f"sites-draft:{resource_id}:{version}",
+        causation_id=causation_id or f"sites-draft:{resource_id}:{version}",
         payload={
             "resource_type": resource_type,
             "resource_id": str(resource_id),
             "version": version,
             "credential_id": str(context.credential_id) if context.credential_id else "",
+            **({"locale": locale} if locale is not None else {}),
         },
     )
     _schedule_site_outbox_delivery(event)

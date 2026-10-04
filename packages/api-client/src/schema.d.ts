@@ -9551,6 +9551,8 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             change_set_commands: string[];
+            /** @description The change-set commands accepted for a page in a language other than its site's source language; a `block.replace` there may change text only. */
+            language_version_commands: string[];
             locales: {
                 [key: string]: unknown;
             };
@@ -9683,6 +9685,9 @@ export interface components {
             resource_type: string;
             /** Format: uuid */
             resource_id: string;
+            /** @description The language the proposal is about. A page has one line per language. */
+            locale: string;
+            /** @description The version the proposal produced in that language: the page's draft in the source language, the language version's own lock in any other. */
             version: number;
             /** Format: uuid */
             credential_id: string | null;
@@ -9710,6 +9715,9 @@ export interface components {
             resource_type: string;
             /** Format: uuid */
             resource_id: string;
+            /** @description The language the proposal is about. A page has one line per language. */
+            locale: string;
+            /** @description The version the proposal produced in that language: the page's draft in the source language, the language version's own lock in any other. */
             version: number;
             /** Format: uuid */
             credential_id: string | null;
@@ -9741,6 +9749,8 @@ export interface components {
             metadata_after: {
                 [key: string]: unknown;
             };
+            /** @description The proposal's text waits as a version of the page in another language: accepting it makes it the working version and publishes it where that language of the page is live. */
+            language_version_waiting: boolean;
             page_presentation_before?: {
                 [key: string]: unknown;
             };

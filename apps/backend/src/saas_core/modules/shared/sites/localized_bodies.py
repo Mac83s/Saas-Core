@@ -405,3 +405,60 @@ def _blanked(value: Any, fields: Mapping[str, Field], path: tuple[str | int, ...
     if isinstance(value, list):
         return [_blanked(child, fields, (*path, index)) for index, child in enumerate(value)]
     return value
+
+
+class StructureDiffers(ValueError):
+    """The blocks are not the source body with other text."""
+
+
+def texts_against(
+    source: Sequence[Mapping[str, Any]], blocks: Sequence[Mapping[str, Any]]
+) -> dict[str, str]:
+    """The text of every unit of `blocks`, written against `source`.
+
+    For whole blocks that arrive from outside (a change set, ADR-070 pkt 17):
+    what a language version must hold to assemble into them. An inline run's
+    tokens are numbered as the source numbers its marks, wherever the marked
+    parts stand in the sentence. Raises `StructureDiffers` for another number
+    of blocks, another block type or a mark the source does not have; what
+    else differs shows when the assembled body is compared with the blocks.
+    """
+    if len(source) != len(blocks):
+        raise StructureDiffers
+    texts: dict[str, str] = {}
+    for position, (origin, block) in enumerate(zip(source, blocks, strict=True)):
+        kind = (str(origin["block_type"]), int(origin["schema_version"]))
+        if kind != (str(block["block_type"]), int(block["schema_version"])):
+            raise StructureDiffers
+        fields = text_fields(*kind)
+        marks = {
+            path: _marks(value)
+            for path, field, value in _places(origin["data"], fields, ())
+            if field.kind == UNIT_INLINE
+        }
+        for path, field, value in _places(block["data"], fields, ()):
+            if field.kind != UNIT_INLINE:
+                texts[_key(position, path)] = value
+            elif path in marks:
+                texts[_key(position, path)] = _inline_against(marks[path], value)
+            else:
+                raise StructureDiffers
+    return texts
+
+
+def _inline_against(source_marks: list[dict[str, Any]], spans: Sequence[Mapping[str, Any]]) -> str:
+    free = dict(enumerate(source_marks, start=1))
+    parts: list[str] = []
+    for span in spans:
+        text = str(span.get("text", ""))
+        mark = {name: span[name] for name in _MARKS if name in span}
+        if not mark:
+            parts.append(text)
+            continue
+        # Equal marks are interchangeable: the first one still free.
+        number = next((number for number, held in free.items() if held == mark), None)
+        if number is None:
+            raise StructureDiffers
+        del free[number]
+        parts.append(f"{open_token(number)}{text}{close_token(number)}")
+    return "".join(parts)

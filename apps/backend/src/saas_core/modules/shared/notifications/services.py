@@ -110,6 +110,8 @@ EVENT_PAYLOAD_ALLOWLISTS: dict[str, set[str]] = {
         "resource_id",
         "version",
         "credential_id",
+        # A page's draft is per language; `version` is that language's.
+        "locale",
     },
     "sites.entry.draft_saved": {
         "resource_type",

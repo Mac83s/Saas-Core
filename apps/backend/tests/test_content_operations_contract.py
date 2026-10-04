@@ -128,3 +128,28 @@ def test_the_contract_offers_no_way_to_move_a_published_address() -> None:
         "title",
     ]
     assert fields["additionalProperties"] is False
+
+
+def test_a_language_is_a_shape_and_the_site_decides_which_it_has() -> None:
+    """ADR-070 pkt 17: a list of languages in the contract would have to change
+    with every customer. The envelope checks the shape; a well-formed language
+    the site does not have is the server's `locale_not_enabled`
+    (`test_content_change_sets_per_language.py`), not a schema error."""
+    validator = _change_set_validator()
+    fixture = _read("fixtures/accepted/rewrite-service-page-copy.json")
+
+    def errors(locale: str) -> list[Any]:
+        document = {**fixture, "target": {**fixture["target"], "locale": locale}}
+        return list(validator.iter_errors(document))
+
+    for locale in ("pl", "en", "de", "uk", "de-AT"):
+        assert errors(locale) == [], locale
+    for locale in ("", "DE", "german", "de_AT", "de-at", "deu"):
+        assert errors(locale) != [], locale
+    german = _read("fixtures/accepted/rewrite-german-page-copy.json")
+    assert german["target"]["locale"] == "de"
+    # Only what a language version can take (`language_version_commands`).
+    assert {command["command"] for command in german["commands"]} <= {
+        "translation.update",
+        "block.replace",
+    }

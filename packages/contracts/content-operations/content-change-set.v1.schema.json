@@ -41,7 +41,11 @@
       "type": "string",
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     },
-    "locale": { "type": "string", "enum": ["pl", "en"] },
+    "locale": {
+      "description": "The language of the surface, as a shape and not a list: which languages exist is the receiving site's own, read from inventory and capabilities, and a language the site does not have is refused by the server with `locale_not_enabled`. A site page has one base per language. In the site's source language the base is the page's draft and every block command applies. In any other language the base is that language version: `translation.update` and a `block.replace` that changes text only are accepted, while `block.insert`, `block.remove`, `block.reorder` and a `block.replace` that changes structure are refused with `locale_structure_locked`, because a language version follows the structure of its source.",
+      "type": "string",
+      "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+    },
     "position": { "type": "integer", "minimum": 0, "maximum": 200 },
     "target": {
       "description": "Exactly one surface. The two surfaces of ADR-035 §1 are addressed differently because they publish differently: a site page rides the atomic site snapshot, an entry publishes on its own.",
@@ -81,7 +85,7 @@
       ]
     },
     "base": {
-      "description": "What the sender was looking at. Both halves are required: the version is what the server locks against, the hash is what proves the sender read the same bytes.",
+      "description": "What the sender was looking at, for the language the target names. Both halves are required: the version is what the server locks against, the hash is what proves the sender read the same bytes. A change in one language never makes a base read in another language stale.",
       "type": "object",
       "additionalProperties": false,
       "required": ["version", "snapshot_hash", "observed_at"],

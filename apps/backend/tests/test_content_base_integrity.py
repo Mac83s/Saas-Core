@@ -60,6 +60,11 @@ def test_base_hash_stays_stable_between_reads_but_binds_locale_and_metadata(surf
     assert third["version"] == first["version"] == 1
     assert third["snapshot_hash"] != first["snapshot_hash"]
     document["target"]["locale"] = "en"
+    # A page has no base in a language it has no version in (ADR-070 pkt 17).
+    missing = person.get(BASE_URL, document["target"])
+    assert missing.status_code == 404
+    assert missing.json()["code"] == "change_set_target_not_found"
+    translation_for(surface, "en")
     other = person.get(BASE_URL, document["target"])
     assert other.json()["base"]["snapshot_hash"] != third["snapshot_hash"]
     assert other["Cache-Control"] == "private, no-store"

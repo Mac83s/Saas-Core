@@ -27761,6 +27761,13 @@ components:
           type: array
           items:
             type: string
+        language_version_commands:
+          type: array
+          items:
+            type: string
+          description: The change-set commands accepted for a page in a language other
+            than its site's source language; a `block.replace` there may change text
+            only.
         locales:
           type: object
           additionalProperties: {}
@@ -27790,6 +27797,7 @@ components:
       - contract_version
       - contract_versions
       - grant
+      - language_version_commands
       - locales
       - minimum_contract_version
       - quotas
@@ -28093,8 +28101,15 @@ components:
         resource_id:
           type: string
           format: uuid
+        locale:
+          type: string
+          description: The language the proposal is about. A page has one line per
+            language.
         version:
           type: integer
+          description: 'The version the proposal produced in that language: the page''s
+            draft in the source language, the language version''s own lock in any
+            other.'
         credential_id:
           type:
           - string
@@ -28136,6 +28151,7 @@ components:
       - credential_id
       - decided_at
       - expected_outcome
+      - locale
       - metadata_pending
       - proposal_id
       - resource_id
@@ -28158,8 +28174,15 @@ components:
         resource_id:
           type: string
           format: uuid
+        locale:
+          type: string
+          description: The language the proposal is about. A page has one line per
+            language.
         version:
           type: integer
+          description: 'The version the proposal produced in that language: the page''s
+            draft in the source language, the language version''s own lock in any
+            other.'
         credential_id:
           type:
           - string
@@ -28211,6 +28234,11 @@ components:
         metadata_after:
           type: object
           additionalProperties: {}
+        language_version_waiting:
+          type: boolean
+          description: 'The proposal''s text waits as a version of the page in another
+            language: accepting it makes it the working version and publishes it where
+            that language of the page is live.'
         page_presentation_before:
           type: object
           additionalProperties: {}
@@ -28230,6 +28258,8 @@ components:
       - credential_id
       - decided_at
       - expected_outcome
+      - language_version_waiting
+      - locale
       - metadata_after
       - metadata_before
       - metadata_pending

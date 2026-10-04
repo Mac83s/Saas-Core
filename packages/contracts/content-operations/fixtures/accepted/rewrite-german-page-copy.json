@@ -1,0 +1,47 @@
+{
+  "contract_version": 1,
+  "idempotency_key": "scr-2026-10-04-service-copy-de-01",
+  "target": {
+    "kind": "site_page",
+    "site_id": "019ff20d-a000-7000-8000-000000000001",
+    "page_id": "019ff20d-a000-7000-8000-000000000002",
+    "locale": "de"
+  },
+  "base": {
+    "version": 2,
+    "snapshot_hash": "sha256:b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+    "observed_at": "2026-10-04T09:00:00Z"
+  },
+  "rationale": {
+    "summary": "Die deutsche Fassung der Leistungsseite beantwortet die Suchanfrage nicht, über die Besucher sie finden.",
+    "risk": "low",
+    "expected_outcome": "Die deutsche Fassung passt zur Suchintention der Hauptanfrage.",
+    "sources": [
+      {
+        "kind": "search_console",
+        "reference": "query=physiotherapie+wirbelsaeule;country=deu;position=17.4",
+        "observed_at": "2026-10-03T22:00:00Z"
+      }
+    ]
+  },
+  "commands": [
+    {
+      "command": "translation.update",
+      "fields": {
+        "title": "Physiotherapie der Wirbelsäule — Beratung und Behandlungsplan",
+        "description": "Diagnose, Therapieplan und Übungen für zu Hause, angeleitet von einem Physiotherapeuten."
+      }
+    },
+    {
+      "command": "block.replace",
+      "position": 1,
+      "block": {
+        "type": "core.rich_text",
+        "schema_version": 1,
+        "data": {
+          "text": "Der erste Termin umfasst das Gespräch, die Funktionsuntersuchung und den Therapieplan."
+        }
+      }
+    }
+  ]
+}
