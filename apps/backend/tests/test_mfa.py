@@ -250,6 +250,36 @@ def test_an_operator_without_mfa_gets_it_on_the_server_not_with_the_password() -
     assert UserSession.objects.filter(user=user, revoked_at__isnull=True).count() == 1
 
 
+def test_on_a_local_stack_an_operator_sets_the_first_factor_at_sign_in(settings) -> None:
+    """Owner's call 2026-10-05: the test instances run as APP_ENV=local, and
+    there the login form sets the first factor up (QR code), as before 0c."""
+    settings.APP_ENV = "local"
+    user = active_user("operator@example.com", staff=True)
+    client = APIClient(enforce_csrf_checks=True)
+
+    first_factor = login(client, user)
+    assert first_factor.status_code == 403
+    assert first_factor.data["code"] == "mfa_setup_at_login"
+    assert client.get(ME_URL).status_code == 403
+
+    setup = client.post(MFA_SETUP_URL, HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value)
+    assert setup.status_code == 200, setup.data
+    confirmed = client.post(
+        MFA_CONFIRM_URL,
+        {"code": current_totp_code(setup.data["secret"])},
+        format="json",
+        HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
+    )
+    assert confirmed.status_code == 200, confirmed.data
+    assert confirmed.data["recovery_codes"]
+    assert client.get(ME_URL).status_code == 200
+    assert UserSession.objects.filter(user=user, revoked_at__isnull=True).count() == 1
+
+    # Without that sign-in challenge nobody starts a setup.
+    stranger = APIClient(enforce_csrf_checks=True)
+    assert stranger.post(MFA_SETUP_URL, HTTP_X_CSRFTOKEN=csrf_token(stranger)).status_code == 403
+
+
 def test_a_session_never_sets_an_operators_first_factor() -> None:
     """A member promoted mid-session still cannot bind an app to the staff
     account, nor replace the one the server administrator started."""

@@ -82,7 +82,9 @@ type Step = "start" | "scan" | "codes" | "on";
  * but neither reports whether it is on nor switches it off: the card offers
  * the setup and learns that it is already on from the answer.
  */
-export function TwoFactorCard() {
+/** `onDone`: where the person goes once the recovery codes are saved — the
+ * login form uses it to finish an operator's first sign-in on a local stack. */
+export function TwoFactorCard({ onDone }: { onDone?: () => void } = {}) {
   const t = useTranslations("Settings");
   const identity = useTranslations("Identity");
   const common = useTranslations("Common");
@@ -263,7 +265,9 @@ export function TwoFactorCard() {
                 <li key={code}>{code}</li>
               ))}
             </ul>
-            <Button onClick={() => setStep("on")}>{t("mfaCodesSaved")}</Button>
+            <Button onClick={() => (onDone ? onDone() : setStep("on"))}>
+              {t("mfaCodesSaved")}
+            </Button>
           </div>
         ) : null}
         {problem ? (

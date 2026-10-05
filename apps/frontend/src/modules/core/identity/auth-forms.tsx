@@ -12,6 +12,7 @@ import {
 import { z } from "zod";
 
 import {
+  ApiProblemError,
   completeMfaLogin,
   confirmEmailVerification,
   confirmPasswordReset,
@@ -38,6 +39,7 @@ import {
 } from "@saas-core/ui/components/select";
 
 import { Link, useRouter } from "#i18n/navigation";
+import { TwoFactorCard } from "./account-security";
 import { identityErrorMessage, identityFieldError } from "./problem";
 
 type LoginValues = { email: string; password: string };
@@ -68,7 +70,7 @@ function problemMessages(t: IdentityTranslator) {
 export function LoginForm({ returnTo = "/panel" }: { returnTo?: string }) {
   const t = useTranslations("Identity");
   const router = useRouter();
-  const [stage, setStage] = useState<"password" | "mfa">("password");
+  const [stage, setStage] = useState<"password" | "mfa" | "setup">("password");
   const [problem, setProblem] = useState<string>();
   const loginSchema = useMemo(
     () =>
@@ -98,7 +100,15 @@ export function LoginForm({ returnTo = "/panel" }: { returnTo?: string }) {
     } catch (error) {
       // An operator's first MFA is set on the server, never here with a
       // password alone (platform settings 0c): `mfa_setup_required` is shown
-      // as its message.
+      // as its message. A local stack answers `mfa_setup_at_login` instead
+      // and the QR code is set up right here.
+      if (
+        error instanceof ApiProblemError &&
+        error.problem.code === "mfa_setup_at_login"
+      ) {
+        setStage("setup");
+        return;
+      }
       const emailError = identityFieldError(error, "email");
       const passwordError = identityFieldError(error, "password");
       if (emailError)
@@ -121,6 +131,17 @@ export function LoginForm({ returnTo = "/panel" }: { returnTo?: string }) {
         codeForm.setError("code", { type: "server", message: codeError });
       setProblem(identityErrorMessage(error, problemMessages(t)));
     }
+  }
+
+  if (stage === "setup") {
+    return (
+      <TwoFactorCard
+        onDone={() => {
+          router.replace(returnTo);
+          router.refresh();
+        }}
+      />
+    );
   }
 
   if (stage !== "password") {

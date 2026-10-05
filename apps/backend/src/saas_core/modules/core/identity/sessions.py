@@ -34,6 +34,7 @@ MFA_CHALLENGE_USER_KEY = "identity_mfa_user_id"
 MFA_CHALLENGE_PURPOSE_KEY = "identity_mfa_purpose"
 MFA_CHALLENGE_EXPIRES_KEY = "identity_mfa_expires_at"
 MFA_CHALLENGE_VERIFY = "verify"
+MFA_CHALLENGE_ENROLL = "enroll"
 #: Set only where a session is born from a checked second factor (a login
 #: challenge). The operator admin requires it: a session
 #: that started without MFA keeps no such mark even if MFA is enabled later.
@@ -61,6 +62,18 @@ class MfaSetupRequired(APIException):
     status_code = 403
     default_detail = "Konto operatora nie ma jeszcze MFA. Pierwsze ustawia administrator serwera."
     default_code = "mfa_setup_required"
+
+
+class MfaSetupAtLogin(MfaSetupRequired):
+    default_detail = "Konto operatora nie ma jeszcze MFA. Ustaw je teraz."
+    default_code = "mfa_setup_at_login"
+
+
+def first_mfa_at_login() -> bool:
+    """A local stack (`APP_ENV=local`, which the test instances run as) lets an
+    operator set the first factor at sign-in, with the QR code in the login
+    form (owner's call, 2026-10-05). Staging keeps the rule of plan 0c."""
+    return bool(settings.APP_ENV == "local")
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,7 +120,8 @@ def login_user(*, request: HttpRequest, email: str, password: str) -> LoginResul
     if user.is_staff:
         # No session and no challenge: an operator's first factor is set on
         # the server (`enroll_operator_mfa`), never by whoever has the password
-        # (platform settings plan 0c).
+        # (platform settings plan 0c) — except on a local stack, where the
+        # sign-in opens the enrolment challenge (`first_mfa_at_login`).
         _record_login_attempt(
             request=request,
             user=user,
@@ -118,6 +132,9 @@ def login_user(*, request: HttpRequest, email: str, password: str) -> LoginResul
             "identity_mfa_setup_required",
             extra={"security_event": "identity.mfa_setup_required", "user_id": str(user.id)},
         )
+        if first_mfa_at_login():
+            _start_mfa_challenge(request=request, user=user, purpose=MFA_CHALLENGE_ENROLL)
+            raise MfaSetupAtLogin
         raise MfaSetupRequired
 
     _record_login_attempt(
@@ -141,6 +158,28 @@ def complete_mfa_login(*, request: HttpRequest, code: str) -> User:
         extra={"security_event": "identity.mfa_login_succeeded", "user_id": str(user.id)},
     )
     return user
+
+
+def enrolling_at_login(request: HttpRequest) -> bool:
+    return first_mfa_at_login() and (
+        request.session.get(MFA_CHALLENGE_PURPOSE_KEY) == MFA_CHALLENGE_ENROLL
+    )
+
+
+def mfa_enrollment_user(*, request: HttpRequest) -> tuple[User, bool]:
+    """Who sets TOTP up, and whether from the sign-in challenge of a local stack."""
+    if request.user.is_authenticated:
+        return cast(User, request.user), False
+    return _challenge_user(request=request, purpose=MFA_CHALLENGE_ENROLL), True
+
+
+def complete_mfa_enrollment_login(*, request: HttpRequest, user: User) -> None:
+    challenge_user = _challenge_user(request=request, purpose=MFA_CHALLENGE_ENROLL)
+    if challenge_user.pk != user.pk:
+        raise InvalidMfaChallenge
+    _clear_mfa_challenge(request)
+    _establish_user_session(request=request, user=user)
+    _mark_mfa_verified(request)
 
 
 def _mark_mfa_verified(request: HttpRequest) -> None:

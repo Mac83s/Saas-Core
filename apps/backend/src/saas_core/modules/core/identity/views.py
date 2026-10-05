@@ -56,9 +56,12 @@ from .services import (
     update_profile,
 )
 from .sessions import (
+    complete_mfa_enrollment_login,
     complete_mfa_login,
+    enrolling_at_login,
     login_user,
     logout_user,
+    mfa_enrollment_user,
     revoke_other_sessions,
     revoke_user_session,
 )
@@ -73,6 +76,16 @@ class PublicIdentityView(APIView):
 
 class ProtectedIdentityView(APIView):
     permission_classes = [IsAuthenticated]
+
+
+class SignedInOrEnrollingAtLogin(IsAuthenticated):
+    """The signed-in person, or an operator in the sign-in challenge that sets
+    the first factor on a local stack (`sessions.first_mfa_at_login`)."""
+
+    def has_permission(self, request: Request, view: APIView) -> bool:
+        return super().has_permission(request, view) or enrolling_at_login(
+            cast(HttpRequest, request)
+        )
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -164,8 +177,10 @@ class MfaLoginView(PublicIdentityView):
 class TotpSetupView(ProtectedIdentityView):
     """Starts TOTP setup for the signed-in person. There is no setup before
     sign-in: a staff account's first factor is set on the server
-    (`enroll_operator_mfa`), and here it gets 403 operator_mfa_by_command."""
+    (`enroll_operator_mfa`), and here it gets 403 operator_mfa_by_command —
+    except in the sign-in challenge of a local stack (`first_mfa_at_login`)."""
 
+    permission_classes = [SignedInOrEnrollingAtLogin]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "identity_mfa_enrollment"
 
@@ -180,7 +195,10 @@ class TotpSetupView(ProtectedIdentityView):
         },
     )
     def post(self, request: Request) -> Response:
-        enrollment = begin_totp_enrollment(user=cast(User, request.user))
+        user, at_login = mfa_enrollment_user(request=cast(HttpRequest, request))
+        # `on_server` is the door for an operator's first factor; the sign-in
+        # challenge of a local stack opens the same one.
+        enrollment = begin_totp_enrollment(user=user, on_server=at_login)
         return Response({
             "secret": enrollment.secret,
             "provisioning_uri": enrollment.provisioning_uri,
@@ -189,6 +207,7 @@ class TotpSetupView(ProtectedIdentityView):
 
 @method_decorator(csrf_protect, name="dispatch")
 class TotpConfirmView(ProtectedIdentityView):
+    permission_classes = [SignedInOrEnrollingAtLogin]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "identity_mfa_enrollment"
 
@@ -204,11 +223,16 @@ class TotpConfirmView(ProtectedIdentityView):
     def post(self, request: Request) -> Response:
         serializer = MfaCodeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        http_request = cast(HttpRequest, request)
+        user, at_login = mfa_enrollment_user(request=http_request)
         recovery_codes = confirm_totp_enrollment(
-            user=cast(User, request.user),
+            user=user,
             **serializer.validated_data,
             correlation_id=getattr(request, "correlation_id", None),
+            on_server=at_login,
         )
+        if at_login:
+            complete_mfa_enrollment_login(request=http_request, user=user)
         return Response({"status": "mfa_enabled", "recovery_codes": recovery_codes})
 
 
