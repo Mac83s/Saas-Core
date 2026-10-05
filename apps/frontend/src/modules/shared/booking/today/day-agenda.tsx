@@ -3,6 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
+  ApiProblemError,
   getBookingQueue,
   listBookingAppointments,
   type BookingAppointment,
@@ -46,8 +47,16 @@ export function DayAgenda({
       .then((items) => {
         if (live) setVisits(items.filter((item) => item.status !== "canceled"));
       })
-      .catch(() => {
-        if (live) setFailed(true);
+      .catch((error: unknown) => {
+        if (!live) return;
+        // Before a plan is picked the calendar is not open yet (403
+        // `entitlement_required`): the day is empty then, not broken.
+        if (
+          error instanceof ApiProblemError &&
+          error.problem.code === "entitlement_required"
+        )
+          setVisits([]);
+        else setFailed(true);
       });
     if (team)
       getBookingQueue()

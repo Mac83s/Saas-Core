@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import polishMessages from "../../../../../messages/pl.json";
 import type { PanelAccess } from "#lib/panel-navigation";
+import { ApiProblemError } from "@saas-core/api-client";
 import { DayAgenda } from "./day-agenda";
 
 const api = vi.hoisted(() => ({
@@ -114,4 +115,21 @@ test("everybody else sees their own day, without the queue", async () => {
     expect.objectContaining({ mine: true }),
   );
   expect(api.getBookingQueue).not.toHaveBeenCalled();
+});
+
+test("a company that has not picked a plan sees an empty day, not an error", async () => {
+  api.listBookingAppointments.mockRejectedValue(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Żądanie nie może zostać obsłużone",
+      status: 403,
+      code: "entitlement_required",
+      detail: "Plan organizacji nie pozwala na tę operację.",
+    } as ConstructorParameters<typeof ApiProblemError>[0]),
+  );
+  api.getBookingQueue.mockRejectedValue(new Error("403"));
+  view(["booking.appointment.read", "booking.appointment.manage"]);
+
+  expect(await screen.findAllByText("Nie ma wizyt.")).toHaveLength(2);
+  expect(screen.queryByRole("alert")).toBeNull();
 });

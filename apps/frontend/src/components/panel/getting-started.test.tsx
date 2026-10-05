@@ -6,6 +6,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import englishMessages from "../../../messages/en.json";
 import polishMessages from "../../../messages/pl.json";
 import type { PanelAccess } from "#lib/panel-navigation";
+import { ApiProblemError } from "@saas-core/api-client";
 import { GettingStarted } from "./getting-started";
 
 const { api } = vi.hoisted(() => ({
@@ -204,6 +205,25 @@ test("błąd odczytu daje ponowienie zamiast zmyślonego postępu", async () => 
   api.listFarms.mockResolvedValue([]);
   fireEvent.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
   expect(await screen.findByText("Gotowe 0 z 7")).toBeInTheDocument();
+});
+
+test("firma bez planu widzi listę z krokiem „Wybierz plan”, a nie błąd", async () => {
+  // What the modules answer before a plan is picked.
+  const refused = new ApiProblemError({
+    type: "about:blank",
+    title: "Żądanie nie może zostać obsłużone",
+    status: 403,
+    code: "entitlement_required",
+    detail: "Plan organizacji nie pozwala na tę operację.",
+  } as ConstructorParameters<typeof ApiProblemError>[0]);
+  api.getBookingSetup.mockRejectedValue(refused);
+  api.listBookingAppointments.mockRejectedValue(refused);
+  api.listSites.mockRejectedValue(refused);
+  renderList();
+
+  expect(await screen.findByText("Gotowe 0 z 7")).toBeInTheDocument();
+  expect(screen.getAllByText("Wybierz plan").length).toBeGreaterThan(0);
+  expect(screen.queryByRole("alert")).toBeNull();
 });
 
 test("ukrycie listy zapamiętuje się lokalnie i przeżywa brak storage", async () => {

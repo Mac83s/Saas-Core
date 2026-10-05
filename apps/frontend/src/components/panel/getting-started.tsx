@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { ArrowRightIcon, CheckIcon } from "lucide-react";
 
 import {
+  ApiProblemError,
   getBookingSetup,
   getCustomerBillingOverview,
   listBookingAppointments,
@@ -141,6 +142,24 @@ const STEPS: readonly Step[] = [
   },
 ];
 
+/**
+ * A step the plan does not open yet is a step still to do: a company that has
+ * not picked a plan gets 403 `entitlement_required` from the modules, and the
+ * list has to show then — picking the plan is its first step.
+ */
+async function answered(step: Step): Promise<boolean> {
+  try {
+    return await step.load();
+  } catch (error) {
+    if (
+      error instanceof ApiProblemError &&
+      error.problem.code === "entitlement_required"
+    )
+      return false;
+    throw error;
+  }
+}
+
 // ponytail: one key per person, not per organization — a second organization
 // of the same person starts hidden. Key it by id if that ever bites.
 const HIDDEN_KEY = "saas-core.getting-started.hidden";
@@ -172,7 +191,7 @@ export function GettingStarted({ access }: { access: PanelAccess }) {
     setFailed(false);
     try {
       const answers = await Promise.all(
-        steps.map(async (step) => [step.key, await step.load()] as const),
+        steps.map(async (step) => [step.key, await answered(step)] as const),
       );
       setDone(Object.fromEntries(answers));
     } catch {
