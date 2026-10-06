@@ -12,6 +12,7 @@ import uuid
 from datetime import timedelta
 
 import pytest
+from django.conf import settings
 from django.core.management import CommandError, call_command
 from django.db import transaction
 from django.utils import timezone
@@ -250,6 +251,15 @@ def test_orphan_apply_with_a_wrong_total_rolls_back() -> None:
     assert PublicBookingRoute.objects.filter(public_slug="purge-gone-form").exists()
 
 
+# The platform's usage rows belong to the model port; a product that does not compose it
+# (HoofCare, MedPlano) has no such table, and the import inside the test would not load.
+needs_model_port = pytest.mark.skipif(
+    "shared.model-port" not in settings.ACTIVE_MODULES,
+    reason="wiersze zużycia platformy należą do portu modeli",
+)
+
+
+@needs_model_port
 def test_orphan_apply_removes_only_the_named_table_and_keeps_live_rows() -> None:
     from saas_core.modules.shared.booking.models import PublicBookingRoute
     from saas_core.modules.shared.model_port.models import EntryState, UsageEntry
@@ -285,6 +295,7 @@ def test_orphan_sweep_refuses_when_there_are_no_organizations() -> None:
         )
 
 
+@needs_model_port
 def test_rows_that_name_no_organization_are_not_orphans() -> None:
     from saas_core.modules.shared.model_port.models import EntryState, UsageEntry
 
