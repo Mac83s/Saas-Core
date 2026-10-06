@@ -122,6 +122,57 @@ describe("pictures of a published page", () => {
     expect(loading(html)).toEqual(["eager", "eager", "lazy", "lazy"]);
   });
 
+  it("goes on to the next block's pictures where the first one names fewer than a first screen holds", () => {
+    expect(
+      loading(page([text, figures(FIRST), text, figures(SECOND, THIRD)])),
+    ).toEqual(["eager", "eager", "lazy"]);
+
+    // A unit with one photo: the first of the other units' covers, under its
+    // map, is the page's second picture (the audit of 07.10).
+    const sizes = Object.fromEntries(
+      [FIRST, SECOND, THIRD].map((id) => [id, { width: 1536, height: 1024 }]),
+    );
+    const other = (photo: string, slug: string): JsonObject => ({
+      kind: "unit",
+      id: UNIT.replace(/2$/, slug),
+      name: `Domek ${slug}`,
+      capacity: 4,
+      town: null,
+      from_price: null,
+      page_path: `/stay/domek-${slug}/`,
+      photos: [photo],
+    });
+    const place = {
+      name: "Domek nad jeziorem",
+      town: { slug: "mragowo", name: "Mrągowo" },
+      exact: false,
+      latitude: 53.8645,
+      longitude: 21.305,
+    };
+    const own = page(
+      [
+        {
+          block_type: "core.stay_unit",
+          schema_version: 1,
+          data: { unit: UNIT, main: true },
+        },
+        {
+          block_type: "core.stay_map",
+          schema_version: 1,
+          data: { unit: UNIT },
+        },
+      ],
+      {
+        live: {
+          "0": shown([FIRST]),
+          "1": { place, others: [other(SECOND, "3"), other(THIRD, "4")] },
+        },
+        imageSizes: sizes,
+      },
+    );
+    expect(loading(own)).toEqual(["eager", "eager", "lazy"]);
+  });
+
   it("treats a unit's photos as any block's pictures: size, first ones eager, the AI marking", () => {
     const sizes = Object.fromEntries(
       [FIRST, SECOND, THIRD].map((id) => [id, { width: 1536, height: 1024 }]),

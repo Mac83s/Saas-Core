@@ -18,7 +18,11 @@ import {
   renderResponsiveNavigation,
 } from "./site-chrome";
 import { siteUiTexts } from "./site-ui-texts";
-import { namesPicture, publishedImageRenderer } from "./published-images";
+import {
+  leadingImages,
+  picturesNamed,
+  publishedImageRenderer,
+} from "./published-images";
 import { InvalidDesignTokensError } from "./errors";
 import type {
   AppearanceLang,
@@ -355,11 +359,17 @@ export function renderPublishedPage(
   const sizes = document.imageSizes ?? {};
   const aiIds = new Set(document.aiMediaIds ?? []);
   const known = new Set([...Object.keys(sizes), ...aiIds]);
-  // The first block that shows pictures: its first ones load with the page.
-  const leading = kept.findIndex(
-    ({ data, position }) =>
-      namesPicture(data, known) ||
-      namesPicture(document.live?.[String(position)], known),
+  // The pictures each block names — its own and what its live answer shows
+  // now — say whose first ones load with the page.
+  const eager = leadingImages(
+    kept.map(
+      ({ data, position }) =>
+        picturesNamed(
+          document.live?.[String(position)],
+          known,
+          picturesNamed(data, known),
+        ).size,
+    ),
   );
   const imageRenderer = publishedImageRenderer({
     sizes,
@@ -399,7 +409,7 @@ export function renderPublishedPage(
       positions: kept.map(({ position }) => position),
       live: document.live,
       liveRenderer,
-      imageRendererAt: (index) => imageRenderer(index === leading),
+      imageRendererAt: (index) => imageRenderer(eager[index] ?? 0),
     },
     renderBreadcrumbs(
       document.breadcrumbs,
