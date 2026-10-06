@@ -3646,6 +3646,8 @@
     "localEnvironment": "lokalne środowisko",
     "loginTitle": "Zaloguj się",
     "loginDescription": "Podaj adres e-mail i hasło swojego konta.",
+    "loginSetupTitle": "Ustaw weryfikację dwuetapową",
+    "loginSetupDescription": "Konto operatora wymaga drugiego składnika, zanim wejdziesz do panelu.",
     "registerTitle": "Utwórz konto",
     "registerDescription": "Po rejestracji wyślemy wiadomość weryfikacyjną.",
     "verifyTitle": "Potwierdź adres e-mail",

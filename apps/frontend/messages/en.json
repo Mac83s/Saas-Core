@@ -3646,6 +3646,8 @@
     "localEnvironment": "local environment",
     "loginTitle": "Sign in",
     "loginDescription": "Enter the email address and password of your account.",
+    "loginSetupTitle": "Set up two-step verification",
+    "loginSetupDescription": "An operator account needs a second factor before it opens the panel.",
     "registerTitle": "Create account",
     "registerDescription": "We will send a verification email after registration.",
     "verifyTitle": "Confirm email address",

@@ -41,6 +41,7 @@ import {
 import { Link, useRouter } from "#i18n/navigation";
 import { TwoFactorCard } from "./account-security";
 import { identityErrorMessage, identityFieldError } from "./problem";
+import { AuthShell } from "./auth-shell";
 
 type LoginValues = { email: string; password: string };
 type RegistrationValues = LoginValues & { locale: "pl" | "en" };
@@ -67,7 +68,32 @@ function problemMessages(t: IdentityTranslator) {
   };
 }
 
-export function LoginForm({ returnTo = "/panel" }: { returnTo?: string }) {
+/**
+ * The whole sign-in screen: the shell's header follows the step. While an
+ * operator sets the first factor the form is no longer about e-mail and
+ * password, so its heading says so.
+ */
+export function LoginScreen({ returnTo = "/panel" }: { returnTo?: string }) {
+  const t = useTranslations("Identity");
+  const [setup, setSetup] = useState(false);
+  return (
+    <AuthShell
+      title={t(setup ? "loginSetupTitle" : "loginTitle")}
+      description={t(setup ? "loginSetupDescription" : "loginDescription")}
+    >
+      <LoginForm onSetupChange={setSetup} returnTo={returnTo} />
+    </AuthShell>
+  );
+}
+
+export function LoginForm({
+  returnTo = "/panel",
+  onSetupChange,
+}: {
+  returnTo?: string;
+  /** Told when the first-factor set-up step opens, so the screen can retitle. */
+  onSetupChange?: (setup: boolean) => void;
+}) {
   const t = useTranslations("Identity");
   const router = useRouter();
   const [stage, setStage] = useState<"password" | "mfa" | "setup">("password");
@@ -100,13 +126,14 @@ export function LoginForm({ returnTo = "/panel" }: { returnTo?: string }) {
     } catch (error) {
       // An operator's first MFA is set on the server, never here with a
       // password alone (platform settings 0c): `mfa_setup_required` is shown
-      // as its message. A local stack answers `mfa_setup_at_login` instead
+      // as its message. A stack with `OPERATOR_MFA_SETUP_AT_LOGIN` on answers `mfa_setup_at_login` instead
       // and the QR code is set up right here.
       if (
         error instanceof ApiProblemError &&
         error.problem.code === "mfa_setup_at_login"
       ) {
         setStage("setup");
+        onSetupChange?.(true);
         return;
       }
       const emailError = identityFieldError(error, "email");

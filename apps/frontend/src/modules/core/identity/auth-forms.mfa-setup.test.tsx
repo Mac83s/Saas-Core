@@ -6,7 +6,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 import { ApiProblemError } from "@saas-core/api-client";
 import messages from "../../../../messages/pl.json";
-import { LoginForm } from "./auth-forms";
+import { LoginForm, LoginScreen } from "./auth-forms";
 
 // The first MFA of an operator set inside the login form: the step a stack
 // opens with `OPERATOR_MFA_SETUP_AT_LOGIN` (ADR-023, uzupełnienie 2026-10-06).
@@ -142,4 +142,22 @@ test("nieudany start konfiguracji zostawia operatora na kroku z komunikatem, bez
     ).toBeEnabled(),
   );
   expect(router.replace).not.toHaveBeenCalled();
+});
+
+test("ekran logowania zmienia nagłówek, gdy otwiera się krok ustawiania MFA", async () => {
+  renderPl(<LoginScreen />);
+  expect(
+    screen.getByText("Podaj adres e-mail i hasło swojego konta."),
+  ).toBeInTheDocument();
+
+  signIn();
+  await screen.findByRole("button", { name: "Włącz weryfikację dwuetapową" });
+
+  expect(
+    screen.getByRole("heading", { name: "Ustaw weryfikację dwuetapową" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByText("Podaj adres e-mail i hasło swojego konta."),
+  ).toBeNull();
+  expect(screen.queryByText("Zaloguj się")).toBeNull();
 });

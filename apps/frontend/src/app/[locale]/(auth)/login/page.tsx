@@ -1,8 +1,7 @@
-import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 
 import { getServerUser } from "#lib/server-auth";
-import { AuthShell, LoginForm } from "../../../../modules/core/identity";
+import { LoginScreen } from "../../../../modules/core/identity";
 
 export default async function LoginPage({
   params,
@@ -11,19 +10,11 @@ export default async function LoginPage({
   params: Promise<{ locale: string }>;
   searchParams: Promise<{ next?: string }>;
 }) {
-  const [{ locale }, { next }, t] = await Promise.all([
-    params,
-    searchParams,
-    getTranslations("Identity"),
-  ]);
+  const [{ locale }, { next }] = await Promise.all([params, searchParams]);
   if (await getServerUser()) {
     redirect(locale === "pl" ? "/panel" : `/${locale}/panel`);
   }
   const returnTo =
     next?.startsWith("/") && !next.startsWith("//") ? next : "/panel";
-  return (
-    <AuthShell title={t("loginTitle")} description={t("loginDescription")}>
-      <LoginForm returnTo={returnTo} />
-    </AuthShell>
-  );
+  return <LoginScreen returnTo={returnTo} />;
 }

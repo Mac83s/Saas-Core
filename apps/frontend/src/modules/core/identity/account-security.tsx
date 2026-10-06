@@ -24,6 +24,7 @@ import {
 } from "@saas-core/ui/components/card";
 import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
+import { cn } from "@saas-core/ui/lib/utils";
 
 import { MfaQrCode } from "./mfa-qr";
 
@@ -83,7 +84,7 @@ type Step = "start" | "scan" | "codes" | "on";
  * the setup and learns that it is already on from the answer.
  */
 /** `onDone`: where the person goes once the recovery codes are saved — the
- * login form uses it to finish an operator's first sign-in on a local stack. */
+ * login form uses it to finish an operator's first sign-in on a stack with `OPERATOR_MFA_SETUP_AT_LOGIN` on. */
 export function TwoFactorCard({ onDone }: { onDone?: () => void } = {}) {
   const t = useTranslations("Settings");
   const identity = useTranslations("Identity");
@@ -204,7 +205,10 @@ export function TwoFactorCard({ onDone }: { onDone?: () => void } = {}) {
                   </code>
                 </div>
                 <a
-                  className={buttonVariants({ variant: "outline" })}
+                  className={cn(
+                    buttonVariants({ variant: "outline" }),
+                    "h-auto min-h-8 text-center whitespace-normal",
+                  )}
                   href={setup.provisioning_uri}
                 >
                   {t("mfaOpenApp")}

@@ -335,6 +335,18 @@ def test_the_start_warns_for_as_long_as_the_switch_is_on(settings) -> None:
     assert warnings() == ["identity.W001"]
 
 
+def test_staging_refuses_to_start_with_the_switch_on(settings) -> None:
+    """Variant b of 2026-10-06: an Error (the process does not start) naming the
+    variable under staging; `local` keeps the warning (test above)."""
+    settings.OPERATOR_MFA_SETUP_AT_LOGIN = True
+    settings.APP_ENV = "staging"
+    found = [item for item in run_checks() if item.id.startswith("identity.")]
+    assert [item.id for item in found] == ["identity.E001"]
+    assert "OPERATOR_MFA_SETUP_AT_LOGIN" in found[0].msg
+    settings.OPERATOR_MFA_SETUP_AT_LOGIN = False
+    assert [i for i in run_checks() if i.id.startswith("identity.")] == []
+
+
 def test_a_session_never_sets_an_operators_first_factor() -> None:
     """A member promoted mid-session still cannot bind an app to the staff
     account, nor replace the one the server administrator started."""

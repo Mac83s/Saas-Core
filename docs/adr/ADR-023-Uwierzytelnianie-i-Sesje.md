@@ -139,7 +139,9 @@ Od 2026-10-06:
 - każdy start procesu z włączonym przełącznikiem zgłasza ostrzeżenie
   `identity.W001` (system check). To ostrzeżenie, nie błąd: właściciel
   świadomie trzyma przełącznik na stackach testowych do czasu pierwszego
-  klienta. Wyłączenie przed pierwszym klientem jest zadaniem w memeksie
+  klienta. Wyjątek (decyzja 2026-10-06, wariant b): przy `APP_ENV=staging`
+  włączony przełącznik to błąd `identity.E001` i backend się nie uruchamia;
+  `local` zostaje przy ostrzeżeniu. Wyłączenie przed pierwszym klientem jest zadaniem w memeksie
   (follow-up projektu `saas-core`), nie domyślnym stanem któregokolwiek
   środowiska.
 
