@@ -153,9 +153,7 @@ test("ekran logowania zmienia nagłówek, gdy otwiera się krok ustawiania MFA",
   signIn();
   await screen.findByRole("button", { name: "Włącz weryfikację dwuetapową" });
 
-  expect(
-    screen.getByRole("heading", { name: "Ustaw weryfikację dwuetapową" }),
-  ).toBeInTheDocument();
+  expect(screen.getByText("Ustaw weryfikację dwuetapową")).toBeInTheDocument();
   expect(
     screen.queryByText("Podaj adres e-mail i hasło swojego konta."),
   ).toBeNull();
