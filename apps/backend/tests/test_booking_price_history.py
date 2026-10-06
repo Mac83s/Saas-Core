@@ -321,8 +321,11 @@ def test_the_history_api_answers_management_and_refuses_the_others() -> None:
         )
 
     history = client.get("/api/v1/booking/setup/prices/history/", {"price_id": str(made.id)})
+    # The company's day, as the record counts it: between midnight in Warsaw
+    # and midnight UTC the server's own day is still the one before.
     today = client.get(
-        "/api/v1/booking/setup/prices/on-day/", {"day": timezone.localdate().isoformat()}
+        "/api/v1/booking/setup/prices/on-day/",
+        {"day": owner.organization.local_today().isoformat()},
     )
     early = client.get("/api/v1/booking/setup/prices/on-day/", {"day": "2020-01-01"})
     undated = client.get("/api/v1/booking/setup/prices/on-day/")
