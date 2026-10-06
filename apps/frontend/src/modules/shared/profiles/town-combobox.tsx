@@ -23,12 +23,28 @@ function plain(text: string): string {
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
     .replace(/ł/giu, "l")
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 /** Two towns may share a name; the region tells them apart. */
 function townLabel(town: Town): string {
   return town.voivodeship ? `${town.name}, ${town.voivodeship}` : town.name;
+}
+
+/**
+ * A town answers the typed letters when its name, a word of it or its region
+ * begins with them — „ol” is Olsztyn, not every town with „ol” inside, and
+ * „olsztyn śl” is the Silesian one.
+ */
+function answers(town: Town, query: string): boolean {
+  const asked = plain(query);
+  const label = plain(townLabel(town));
+  return (
+    label.startsWith(asked) ||
+    label.split(" ").some((word) => word.startsWith(asked))
+  );
 }
 
 /**
@@ -66,9 +82,7 @@ export function TownCombobox({
   return (
     <Combobox
       disabled={disabled}
-      filter={(town: Town, query: string) =>
-        plain(townLabel(town)).includes(plain(query.trim()))
-      }
+      filter={answers}
       isItemEqualToValue={(town: Town, other: Town) =>
         town?.slug === other?.slug
       }

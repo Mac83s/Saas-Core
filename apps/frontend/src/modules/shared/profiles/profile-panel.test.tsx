@@ -173,6 +173,7 @@ test("a town is found by typing its name, with or without Polish letters", async
       { slug: "lomianki", name: "Łomianki", voivodeship: "mazowieckie" },
       { slug: "lomza", name: "Łomża", voivodeship: "podlaskie" },
       { slug: "olsztyn-slaskie", name: "Olsztyn", voivodeship: "śląskie" },
+      { slug: "wolsztyn", name: "Wolsztyn", voivodeship: "wielkopolskie" },
     ],
   });
   api.updateProfile.mockResolvedValue(
@@ -203,12 +204,16 @@ test("a town is found by typing its name, with or without Polish letters", async
   });
   await waitFor(() => expect(town).toHaveValue("Łomża, podlaskie"));
 
-  // Two towns of one name are told apart by the region.
+  // Two towns of one name are told apart by the region; the letters begin a
+  // name, so Wolsztyn is not offered for them.
   type("olsztyn");
   expect(await offered()).toEqual([
     "Olsztynwarmińsko-mazurskie",
     "Olsztynśląskie",
   ]);
+  // The region typed after the name picks one of the two.
+  type("olsztyn, śl");
+  expect(await offered()).toEqual(["Olsztynśląskie"]);
 });
 
 test("switching the card on shows where the entry leads", async () => {
