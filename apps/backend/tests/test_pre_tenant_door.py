@@ -33,9 +33,10 @@ DECLARED_DOOR: dict[str, tuple[int, str]] = {
         "logowanie: znaleźć członkostwo, żeby dopiero z niego zbudować kontekst",
     ),
     "modules/core/organizations/erasure.py": (
-        1,
+        2,
         "usunięcie tenanta: sprawdzenie, czy rejestr nadal zna tę organizację, "
-        "gdy tenanta już nie ma",
+        "gdy tenanta już nie ma; oraz trasy osierocone po organizacjach, których "
+        "rejestr już nie zna (purge_test_tenants --orphans)",
     ),
     "modules/core/organizations/demo.py": (
         1,
