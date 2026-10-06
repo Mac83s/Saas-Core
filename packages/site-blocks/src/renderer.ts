@@ -17,7 +17,7 @@ import {
   renderResponsiveNavigation,
 } from "./site-chrome";
 import { siteUiTexts } from "./site-ui-texts";
-import { aiBadgeImageRenderer } from "./ai-badge";
+import { namesPicture, publishedImageRenderer } from "./published-images";
 import { InvalidDesignTokensError } from "./errors";
 import type {
   AppearanceLang,
@@ -213,6 +213,8 @@ function renderDocument(
     positions: readonly number[];
     live?: Readonly<Record<string, JsonObject>>;
     liveRenderer?: BlockLiveRenderer;
+    /** What the page adds to the pictures of the block at that index. */
+    imageRendererAt?: (index: number) => BlockImageRenderer | undefined;
   },
 ): ReactElement {
   const menu = renderNavigation(navigation, navigationLabel);
@@ -254,7 +256,7 @@ function renderDocument(
           block,
           String(index),
           undefined,
-          imageRenderer,
+          published?.imageRendererAt?.(index) ?? imageRenderer,
           formRenderer ? (data) => formRenderer(data, position) : undefined,
           options,
           answer === undefined
@@ -346,6 +348,20 @@ export function renderPublishedPage(
     },
   );
   const blocks = kept.map(({ block, data }) => ({ ...block, data }));
+  const sizes = document.imageSizes ?? {};
+  const aiIds = new Set(document.aiMediaIds ?? []);
+  const known = new Set([...Object.keys(sizes), ...aiIds]);
+  // The first block that shows pictures: its first ones load with the page.
+  const leading = kept.findIndex(
+    ({ data, position }) =>
+      namesPicture(data, known) ||
+      namesPicture(document.live?.[String(position)], known),
+  );
+  const imageRenderer = publishedImageRenderer({
+    sizes,
+    aiIds,
+    locale: document.locale ?? "pl",
+  });
   return renderDocument(
     blocks,
     document.designTokens,
@@ -355,10 +371,7 @@ export function renderPublishedPage(
     "main",
     document.pagination ?? null,
     document.paginationLabels ?? siteUiTexts(document.locale).pagination,
-    // Without AI images the page renders exactly as it always did.
-    document.aiMediaIds?.length
-      ? aiBadgeImageRenderer(document.aiMediaIds, document.locale ?? "pl")
-      : undefined,
+    undefined,
     document.appearance,
     formRenderer,
     { preview: false, locale: document.locale ?? "pl" },
@@ -382,6 +395,7 @@ export function renderPublishedPage(
       positions: kept.map(({ position }) => position),
       live: document.live,
       liveRenderer,
+      imageRendererAt: (index) => imageRenderer(index === leading),
     },
   );
 }

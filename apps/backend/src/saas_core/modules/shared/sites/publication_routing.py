@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 from django.conf import settings
 from django.db import transaction
@@ -22,7 +24,7 @@ from saas_core.modules.core.organizations.public_sources import (
     live_site_blocks,
     page_sources,
 )
-from saas_core.modules.shared.media.api import ai_generated_asset_ids
+from saas_core.modules.shared.media.api import shown_image_facts
 
 from .ai_badge import badge_visible
 from .domains import InvalidHostname, normalize_hostname
@@ -348,9 +350,13 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         ),
     )
     canonical_origin = f"{settings.PUBLIC_SITE_SCHEME}://{page.canonical_hostname}"
+    versions = page.page.get("hreflang", {})
+    # Language alternates are pages that name each other, each one itself
+    # included. A page that is none of its own versions — a document asked for
+    # in a language it has no text in — names none: nothing would name it back.
     hreflang = {
         locale: f"{canonical_origin}{path}"
-        for locale, path in page.page.get("hreflang", {}).items()
+        for locale, path in (versions if page.locale in versions else {}).items()
     }
     canonical_url = f"{canonical_origin}{page.canonical_path}"
     # Derived from the menu, never stored: a stored trail is wrong the moment
@@ -363,11 +369,29 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         path=page.canonical_path,
     )
     article = _localized_article(page, site_snapshot, default_locale)
+    # What the blocks that show live records show now, by position — a unit's
+    # price or a free day is never in a snapshot (ADR-072, 5d).
+    live = live_site_blocks(
+        page.organization_id,
+        page.locale,
+        blocks,
+        lambda segment: source_page_base(default_locale, page.locale, segment),
+    )
+    ai_media_ids, image_sizes, live_picture = _shown_images(page, live)
     image = (
         _source_image(page.publication.page, canonical_origin)
         if isinstance(page.publication, SourcePublication)
         else _social_image(page, blocks, canonical_origin)
     )
+    if image is None and live_picture is not None:
+        # A page whose only pictures are its live records' shares the first
+        # of them, in the copy the site serves.
+        image = {
+            "url": f"{canonical_origin}/media/{live_picture}/preview",
+            "alt": str(selected_locale["title"]),
+        }
+    if image is None:
+        image = _home_image(site_snapshot, canonical_origin)
     machine = machine_text(selected_locale.get("origin"))
     # The work a machine's version translates: an article's own source, a
     # page's version in the site's language.
@@ -398,21 +422,17 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         # The language's own body (ADR-070); the source language uses the
         # page's blocks.
         "blocks": blocks,
-        # What the blocks that show live records show now, by position — a
-        # unit's price or a free day is never in a snapshot (ADR-072, 5d).
-        "live": live_site_blocks(
-            page.organization_id,
-            page.locale,
-            blocks,
-            lambda segment: source_page_base(default_locale, page.locale, segment),
-        ),
+        "live": live,
         "navigation": navigation,
         "breadcrumbs": breadcrumbs,
         # Present only where they mean something: an index has pages, an
         # article has an author and dates, a plain page has neither.
         "pagination": _absolute_pagination(page.page.get("pagination"), canonical_origin),
         "article": article,
-        "ai_media_ids": _ai_media_ids(page),
+        "ai_media_ids": ai_media_ids,
+        # The stored size of each picture the page shows, so the document can
+        # reserve its place before the file arrives.
+        "image_sizes": image_sizes,
         # Pages that ask not to be indexed (thin tag archives, entries marked
         # by their author) say so in the document itself; a sitemap that
         # leaves them out is not enough for a crawler that arrives by link.
@@ -555,12 +575,40 @@ def _social_image(
 ) -> dict[str, str] | None:
     """The page's first published picture, with its description in the page's
     language, for a link shared elsewhere; none when the page has no picture."""
-    published = set(
-        page.page["selected_locale"].get("media_asset_ids")
-        or page.page.get("media_asset_ids")
-        or []
+    return _first_picture(
+        blocks,
+        set(
+            page.page["selected_locale"].get("media_asset_ids")
+            or page.page.get("media_asset_ids")
+            or []
+        ),
+        origin,
     )
 
+
+def _home_image(site_snapshot: dict[str, Any], origin: str) -> dict[str, str] | None:
+    """The home page's first published picture, for a page that shows none: a
+    link to the contact page or to a document, shared elsewhere, carries the
+    company's picture rather than nothing. None where the home page has no
+    published picture either."""
+    home = next(
+        (
+            entry
+            for entry in site_snapshot.get("pages", [])
+            if isinstance(entry, dict) and entry.get("page_type") == "homepage"
+        ),
+        None,
+    )
+    if home is None:
+        return None
+    return _first_picture(
+        home.get("blocks") or [],
+        {str(asset_id) for asset_id in home.get("media_asset_ids") or []},
+        origin,
+    )
+
+
+def _first_picture(blocks: Any, published: set[str], origin: str) -> dict[str, str] | None:
     def first(value: Any) -> dict[str, str] | None:
         if isinstance(value, dict):
             asset_id = value.get("asset_id")
@@ -682,29 +730,67 @@ def _localized_href(href: str, targets: dict[str, str], prefix: str = "") -> str
     return href
 
 
-def _ai_media_ids(page: PublicPage) -> list[str]:
-    """AI images on the page, read at render time (ADR-059 pkt 7).
+def _identifiers(value: Any) -> Iterator[str]:
+    """Every identifier a live block's answer carries, in the answer's own
+    order — the pictures it shows are among them."""
+    if isinstance(value, dict):
+        for item in value.values():
+            yield from _identifiers(item)
+    elif isinstance(value, list | tuple):
+        for item in value:
+            yield from _identifiers(item)
+    elif isinstance(value, str) and len(value) == 36:
+        try:
+            yield str(UUID(value))
+        except ValueError:
+            return
 
-    Provenance is not in the snapshot, so publications made before an asset
-    was marked get the badge too. The operator switch hides the list; the XMP
-    inside the files stays either way.
+
+def _shown_images(
+    page: PublicPage, live: dict[str, Any]
+) -> tuple[list[str], dict[str, dict[str, int]], str | None]:
+    """The pictures the page shows, read at render time: which of them a model
+    made (ADR-059 pkt 7), the stored size of each, and the first one its live
+    blocks show.
+
+    Both the pictures its publication names and those its live blocks show now
+    — a unit's photos are in no snapshot, and a unit's own page is published by
+    nobody. Provenance is not in the snapshot either, so publications made
+    before an asset was marked get the badge too. The operator switch hides the
+    list; the XMP inside the files stays either way.
     """
-    asset_ids = (
-        page.page["selected_locale"].get("media_asset_ids")
+    published = [
+        str(asset_id)
+        for asset_id in page.page["selected_locale"].get("media_asset_ids")
         or page.page.get("media_asset_ids")
         or []
+    ]
+    # A live answer names its pictures among other identifiers; media tells
+    # which of them are the company's pictures.
+    mentioned = list(
+        dict.fromkeys(
+            found for position in sorted(live, key=int) for found in _identifiers(live[position])
+        )
     )
-    if not asset_ids or not badge_visible():
-        return []
+    if not published and not mentioned:
+        return [], {}, None
+    marked = badge_visible()
     # media_mediaasset forces RLS: the tenant the host named goes first.
     with transaction.atomic():
         set_local_organization_id(page.publication.organization_id)
-        return sorted(
-            ai_generated_asset_ids(
-                organization_id=page.publication.organization_id,
-                asset_ids=asset_ids,
-            )
+        facts = shown_image_facts(
+            organization_id=page.publication.organization_id,
+            asset_ids=[*published, *mentioned],
         )
+    return (
+        sorted(asset_id for asset_id, fact in facts.items() if fact.ai) if marked else [],
+        {
+            asset_id: {"width": fact.width, "height": fact.height}
+            for asset_id, fact in facts.items()
+            if fact.width and fact.height
+        },
+        next((asset_id for asset_id in mentioned if asset_id in facts), None),
+    )
 
 
 def _absolute_pagination(pagination: dict[str, Any] | None, origin: str) -> dict[str, Any] | None:

@@ -94,6 +94,7 @@ def test_page_payload_lists_ai_images_until_the_operator_hides_the_badge() -> No
     publish_home(client, site, page, key="publish")
     # Marked after publication: provenance is read at render time.
     MediaAsset.all_objects.filter(pk=ai_asset.id).update(ai_origin=AiOrigin.GENERATED)
+    MediaAsset.all_objects.filter(pk=real_asset.id).update(width=2400, height=1600)
 
     with CaptureQueriesContext(connection) as captured:
         assert public_home(site)["ai_media_ids"] == [str(ai_asset.id)]
@@ -103,9 +104,15 @@ def test_page_payload_lists_ai_images_until_the_operator_hides_the_badge() -> No
     # The tenant is set again inside the badge block, before the media read.
     assert any("SET LOCAL app.organization_id" in sql for sql in statements[switch_read:media_read])
 
+    # Each picture's stored size goes with the page; an unmeasured one is left out.
+    sizes = {str(real_asset.id): {"width": 2400, "height": 1600}}
+    assert public_home(site)["image_sizes"] == sizes
+
     staff = operator()
     switch("--operator", staff.email, "--off", "--reason", "Przegląd prawny oznaczeń.")
     assert public_home(site)["ai_media_ids"] == []
+    # The switch hides the marking, never the sizes.
+    assert public_home(site)["image_sizes"] == sizes
     switch("--operator", staff.email, "--on", "--reason", "Wracamy do oznaczania.")
     assert public_home(site)["ai_media_ids"] == [str(ai_asset.id)]
 

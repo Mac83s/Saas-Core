@@ -16,7 +16,12 @@ from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.models import Membership
 from saas_core.modules.shared.customers.documents import add_text
-from saas_core.modules.shared.customers.site_pages import KIND_NAMES, SLUGS
+from saas_core.modules.shared.customers.site_pages import (
+    DESCRIPTION_LENGTH,
+    KIND_NAMES,
+    SLUGS,
+    _description,
+)
 from saas_core.modules.shared.sites.block_contracts import (
     ServerBuiltSiteBlock,
     site_block_contracts,
@@ -92,6 +97,11 @@ def test_a_document_in_force_has_a_page_on_the_companys_site(settings: Any) -> N
     # What the renderer is handed is the block's contract.
     assert valid(shown["data"])
     assert found["title"] == "Polityka prywatności"
+    # A search result says whose document it is and how it begins.
+    assert found["description"] == (
+        f"Polityka prywatności — {owner.organization.name}. "
+        "Administratorem danych jest Studio. Dane przetwarzamy, żeby umówić wizytę."
+    )
     assert found["locale"] == "pl" and found["noindex"] is False
     origin = f"{settings.PUBLIC_SITE_SCHEME}://{host}"
     assert found["canonical_url"] == f"{origin}/documents/privacy-policy/"
@@ -149,10 +159,15 @@ def test_a_language_without_the_text_says_where_the_document_can_be_read(
     ]
     assert valid(shown["data"])
     assert TEXT not in str(english)
-    # Out of search, and no language alternate names it.
+    # Out of search, and no language alternate names it — so it names none
+    # either: an alternate that does not name the page back is an error to a
+    # search engine (the audit of 06.10).
     assert english["noindex"] is True
     assert english["canonical_url"] == f"{origin}/en/documents/booking-terms/"
-    assert list(english["hreflang"]) == ["pl"]
+    assert english["hreflang"] == {}
+    assert english["social"]["alternate_locales"] == []
+    # Without the text there is nothing to quote under the title.
+    assert english["description"] == f"Booking terms — {owner.organization.name}"
     assert list(page(host, "/documents/booking-terms/")["hreflang"]) == ["pl"]
     assert "/en/documents/" not in sitemap(host)
 
@@ -203,7 +218,7 @@ def test_the_sites_own_language_is_no_exception(settings: Any) -> None:
     assert own["blocks"][0]["data"]["elsewhere"] == [
         {"locale": "pl", "name": "Polski", "href": "/pl/documents/privacy-policy/"}
     ]
-    assert own["noindex"] is True
+    assert own["noindex"] is True and own["hreflang"] == {}
     polish = page(host, "/pl/documents/privacy-policy/")
     assert polish["blocks"][0]["data"]["text"] == TEXT
     assert polish["noindex"] is False and list(polish["hreflang"]) == ["pl"]
@@ -212,6 +227,14 @@ def test_the_sites_own_language_is_no_exception(settings: Any) -> None:
     listed = sitemap(host)
     assert f"<loc>{origin}/pl/documents/privacy-policy/</loc>" in listed
     assert f"<loc>{origin}/documents/privacy-policy/</loc>" not in listed
+
+
+def test_a_long_documents_description_is_cut_at_a_word() -> None:
+    described = _description("Regulamin rezerwacji", "Domki nad Jeziorem", "pobyt, " * 60)
+
+    assert described.startswith("Regulamin rezerwacji — Domki nad Jeziorem. pobyt, pobyt")
+    assert 70 <= len(described) <= DESCRIPTION_LENGTH
+    assert described.endswith("pobyt…")
 
 
 def test_every_kind_has_an_address_and_a_name() -> None:

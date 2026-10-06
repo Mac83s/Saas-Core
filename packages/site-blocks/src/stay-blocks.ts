@@ -1,9 +1,11 @@
 import { createElement as h, type ReactNode } from "react";
 
+import { renderImage } from "./ai-badge";
 import { plainBlockText } from "./block-text";
 import { siteUiTexts, type StayTexts } from "./site-ui-texts";
 import type {
   BlockComponentProps,
+  BlockImageRenderer,
   StayBlockV1Data,
   StayLive,
   StayLiveChoice,
@@ -51,17 +53,27 @@ export function stayAmount(
 }
 
 /** One picture of a unit at the site's own host: our two copies, never the
- *  original — as the company's form serves it. */
-function unitPhoto(assetId: string, alt: string, sizes: string) {
+ *  original — as the company's form serves it. Handed to the page's renderer
+ *  like any block's picture: its size, the AI marking, which load first. */
+function unitPhoto(
+  assetId: string,
+  alt: string,
+  sizes: string,
+  imageRenderer: BlockImageRenderer | undefined,
+): ReactNode {
   const base = `/media/${assetId}`;
-  return h("img", {
-    src: `${base}/preview`,
-    srcSet: `${base}/thumbnail 320w, ${base}/preview 1280w`,
-    sizes,
-    alt,
-    loading: "lazy",
-    decoding: "async",
-  });
+  return renderImage(
+    { asset_id: assetId, alt },
+    h("img", {
+      src: `${base}/preview`,
+      srcSet: `${base}/thumbnail 320w, ${base}/preview 1280w`,
+      sizes,
+      alt,
+      loading: "lazy",
+      decoding: "async",
+    }),
+    imageRenderer,
+  );
 }
 
 /** How many amenities a card names before „+N”. */
@@ -76,6 +88,7 @@ function unitCard(
   heading: "h3" | "h4",
   actionLabel: string,
   sizes: string,
+  imageRenderer: BlockImageRenderer | undefined,
 ): ReactNode {
   const href = stayFormHref(live.form_url, { offer: offer.id, choice });
   const cover = choice.photos?.[0];
@@ -94,7 +107,7 @@ function unitCard(
       ? h(
           "div",
           { className: "site-stay-unit__cover" },
-          unitPhoto(cover, choice.name, sizes),
+          unitPhoto(cover, choice.name, sizes, imageRenderer),
         )
       : null,
     h(
@@ -193,6 +206,7 @@ function previewNote(note: string): ReactNode {
 export function StayUnitsBlock({
   data,
   editor,
+  imageRenderer,
   live,
   options,
 }: BlockComponentProps) {
@@ -220,6 +234,7 @@ export function StayUnitsBlock({
           heading,
           actionLabel,
           sizes,
+          imageRenderer,
         ),
       ),
     );
@@ -379,6 +394,7 @@ export function StayCalendarBlock(props: BlockComponentProps) {
 export function StayUnitBlock({
   data,
   editor,
+  imageRenderer,
   live,
   options,
 }: BlockComponentProps) {
@@ -459,6 +475,7 @@ export function StayUnitBlock({
                   index === 0
                     ? "(min-width: 64rem) 55vw, 100vw"
                     : "(min-width: 48rem) 20vw, 33vw",
+                  imageRenderer,
                 ),
               ),
             ),

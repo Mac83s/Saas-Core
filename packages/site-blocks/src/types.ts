@@ -641,6 +641,12 @@ export interface BlockEditor {
 /** Code-only media projection. Publications always use canonical public URLs.
  *  `element` is the block's own `<img>` (loading, decoding, src), so a
  *  renderer that only decorates it — the AI badge — keeps the block's choices. */
+/** A picture's stored size in pixels. */
+export interface ImageSize {
+  readonly width: number;
+  readonly height: number;
+}
+
 export type BlockImageRenderer = (
   image: { asset_id: string; alt: string },
   element: ReactElement<{ alt?: string }>,
@@ -777,6 +783,10 @@ export interface PublishedPageDocument {
   readonly paginationLabels?: PaginationLabels;
   /** AI-generated images on the page; each gets the visible badge. */
   readonly aiMediaIds?: readonly string[];
+  /** The stored size of the pictures the page shows, by media asset id:
+   *  each `<img>` states it, so the page keeps the picture's place before the
+   *  file arrives. */
+  readonly imageSizes?: Readonly<Record<string, ImageSize>>;
   /** What the blocks that show live records show now, by the block's
    *  position in `blocks` as published. */
   readonly live?: Readonly<Record<string, JsonObject>>;

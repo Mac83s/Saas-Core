@@ -33,13 +33,3 @@ export function withAiBadge(
     h("span", { className: "site-ai-badge", "aria-hidden": "true" }, "AI"),
   );
 }
-
-/** Badges the listed assets; every other image comes back untouched. */
-export function aiBadgeImageRenderer(
-  ids: readonly string[],
-  locale = "pl",
-): BlockImageRenderer {
-  const generated = new Set(ids);
-  return (image, element) =>
-    generated.has(image.asset_id) ? withAiBadge(element, locale) : element;
-}

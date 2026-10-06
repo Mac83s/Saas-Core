@@ -168,7 +168,13 @@ export function publicSiteMetadata(page: PublicSitePage): Metadata {
     description: page.description,
     alternates: {
       canonical: page.canonical_url,
-      languages: { ...page.hreflang, "x-default": page.x_default },
+      // A page that is no language version of anything — a document asked
+      // for in a language it has no text in — names no alternates, not even
+      // a default one.
+      languages:
+        Object.keys(page.hreflang).length > 0
+          ? { ...page.hreflang, "x-default": page.x_default }
+          : undefined,
       // Without these a reader's browser has no way to find either feed: the
       // addresses exist, and nothing on the page says so. Only the feeds of
       // the page's own language (TL14).
@@ -237,6 +243,9 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       navigation: page.navigation,
       // AI images get the visible badge; empty when the operator hid it.
       aiMediaIds: page.ai_media_ids,
+      // Each picture's stored size, for its `width` and `height`. Absent in
+      // an older payload: the pictures render without them.
+      imageSizes: page.image_sizes,
       // The visitor is reading one language; what the site says by itself —
       // the menu's name, pagination, the language switch — is in it too, not in
       // the panel's language (TL14).

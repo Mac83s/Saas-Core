@@ -39,6 +39,8 @@ from .security import public_documents_context
 PAGE_SEGMENT = "documents"
 #: The block the page is: built here, written by nobody.
 DOCUMENT_BLOCK = "core.document"
+#: How much of a document a search result shows under its title.
+DESCRIPTION_LENGTH = 160
 #: A document's address under the segment, the same in every language.
 SLUGS: dict[str, str] = {
     "booking-terms": DocumentKind.BOOKING_TERMS,
@@ -101,6 +103,21 @@ def _version_in_force(organization: Organization, kind: str) -> DocumentVersion 
     return _in_force(document, organization.local_today()) if document else None
 
 
+def _description(title: str, company: str, text: str) -> str:
+    """What a search result says under the document's title: whose it is and
+    how it begins. The name and the company alone are some forty characters —
+    too short for a search engine to show as written — so the text's opening
+    follows, cut at a word within `DESCRIPTION_LENGTH`."""
+    described = f"{title} — {company}"
+    opening = " ".join(text.split())
+    if not opening:
+        return described
+    described = f"{described}. {opening}"
+    if len(described) <= DESCRIPTION_LENGTH:
+        return described
+    return described[: DESCRIPTION_LENGTH - 1].rsplit(" ", 1)[0].rstrip(" ,;:—-") + "…"
+
+
 def site_page(
     organization_id: UUID, locale: str, slug: str, address: PageAddress | None = None
 ) -> SourcePage | None:
@@ -137,7 +154,7 @@ def site_page(
     return SourcePage(
         key=str(version.document_id),
         title=title,
-        description=f"{title} — {organization.name}",
+        description=_description(title, organization.name, row.text if row else ""),
         blocks=[{"block_type": DOCUMENT_BLOCK, "schema_version": 1, "data": data}],
         locales=frozenset(texts),
         per_language=True,

@@ -1,7 +1,7 @@
 export const SITE_BLOCK_SCHEMA_VERSION = 1 as const;
 
 export * from "./errors";
-export { aiBadgeImageRenderer, withAiBadge } from "./ai-badge";
+export { withAiBadge } from "./ai-badge";
 export {
   SITE_UI_LOCALES,
   siteUiTexts,

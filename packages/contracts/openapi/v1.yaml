@@ -41926,6 +41926,18 @@ components:
       - currency
       - gross_minor
       - per
+    PublicImageSize:
+      type: object
+      properties:
+        width:
+          type: integer
+          minimum: 1
+        height:
+          type: integer
+          minimum: 1
+      required:
+      - height
+      - width
     PublicLanguageLink:
       type: object
       properties:
@@ -42530,6 +42542,14 @@ components:
           items:
             type: string
             format: uuid
+        image_sizes:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/PublicImageSize'
+          description: 'The stored size of the pictures the page shows, by media asset
+            id — those of its publication and those its live blocks show now. Print
+            it as the image''s `width` and `height`, whichever copy is loaded: the
+            proportions are the same. An asset whose size is unknown is left out.'
         noindex:
           type: boolean
           description: The page asks search engines not to index it (robots noindex,follow).

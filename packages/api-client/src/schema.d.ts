@@ -15787,6 +15787,10 @@ export interface components {
              */
             per: components["schemas"]["PerEnum"];
         };
+        PublicImageSize: {
+            width: number;
+            height: number;
+        };
         PublicLanguageLink: {
             locale: string;
             /** @description The language's name in itself, e.g. Deutsch. */
@@ -16073,6 +16077,10 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             ai_media_ids: string[];
+            /** @description The stored size of the pictures the page shows, by media asset id — those of its publication and those its live blocks show now. Print it as the image's `width` and `height`, whichever copy is loaded: the proportions are the same. An asset whose size is unknown is left out. */
+            image_sizes?: {
+                [key: string]: components["schemas"]["PublicImageSize"];
+            };
             /** @description The page asks search engines not to index it (robots noindex,follow). */
             noindex: boolean;
             /** @description Where to read the page in each language the site is live in; empty while there is only one. */

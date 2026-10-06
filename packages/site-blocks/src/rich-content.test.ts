@@ -235,8 +235,9 @@ describe("core.rich_text v2", () => {
     expect(html).toContain(
       '<div class="site-note site-note--warning" role="note"><strong class="site-note__title">Uwaga</strong><p>Wyłącz zasilanie.</p></div>',
     );
+    // The page's first picture loads with the page (published-images.ts).
     expect(html).toContain(
-      `<figure class="site-figure site-figure--wide"><img src="/media/${photo}" srcSet="/media/${photo}/thumbnail 320w, /media/${photo}/preview 1280w, /media/${photo} 2560w" sizes="100vw" alt="Warsztat" loading="lazy" decoding="async"/><figcaption>Stanowisko pracy</figcaption></figure>`,
+      `<figure class="site-figure site-figure--wide"><img src="/media/${photo}" srcSet="/media/${photo}/thumbnail 320w, /media/${photo}/preview 1280w, /media/${photo} 2560w" sizes="100vw" alt="Warsztat" loading="eager" decoding="async"/><figcaption>Stanowisko pracy</figcaption></figure>`,
     );
     expect(html).toContain(
       '<aside class="site-section__aside"><h3>Najważniejsze</h3><p>Fakt pierwszy</p><ol><li>Krok</li></ol></aside>',
@@ -1359,7 +1360,7 @@ describe("core.quote and core.product", () => {
     const html = publication([product]);
     expect(html).toContain('data-section-layout="showcase"');
     expect(html).toContain(
-      `<div class="site-product__gallery"><figure class="site-product__photo"><img src="/media/${photo}" srcSet="/media/${photo}/thumbnail 320w, /media/${photo}/preview 1280w, /media/${photo} 2560w" sizes="(min-width: 64rem) 50vw, 100vw" alt="Przód" loading="lazy" decoding="async"/><figcaption>Widok z przodu</figcaption></figure><ul class="site-product__strip"><li><figure><img src="/media/${other}" srcSet="/media/${other}/thumbnail 320w, /media/${other}/preview 1280w, /media/${other} 2560w" sizes="(min-width: 64rem) 50vw, 100vw" alt="Bok" loading="lazy" decoding="async"/><figcaption>Widok z boku</figcaption></figure></li></ul></div>`,
+      `<div class="site-product__gallery"><figure class="site-product__photo"><img src="/media/${photo}" srcSet="/media/${photo}/thumbnail 320w, /media/${photo}/preview 1280w, /media/${photo} 2560w" sizes="(min-width: 64rem) 50vw, 100vw" alt="Przód" loading="eager" decoding="async"/><figcaption>Widok z przodu</figcaption></figure><ul class="site-product__strip"><li><figure><img src="/media/${other}" srcSet="/media/${other}/thumbnail 320w, /media/${other}/preview 1280w, /media/${other} 2560w" sizes="(min-width: 64rem) 50vw, 100vw" alt="Bok" loading="eager" decoding="async"/><figcaption>Widok z boku</figcaption></figure></li></ul></div>`,
     );
     expect(html).toContain(
       '<div class="site-product__text"><p>Pierwszy akapit.</p><p>Drugi akapit.</p></div>',

@@ -16,7 +16,7 @@ from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.sites.models import Site
-from saas_core.modules.shared.sites.publication_routing import _social_image
+from saas_core.modules.shared.sites.publication_routing import _home_image, _social_image
 from test_site_language_publication import _get, _publish, _site, _translate_all
 from test_site_language_versions_api import _draft, _hero
 from test_sites_blog_languages import Blog, _translate_entry
@@ -183,3 +183,29 @@ def test_the_shared_picture_is_the_pages_first_published_one_described_in_its_la
         "alt": "Salon from the street",
     }
     assert _social_image(page, blocks[:1], "https://studio.example.test") is None  # type: ignore[arg-type]
+
+
+def test_a_page_without_a_picture_shares_the_home_pages() -> None:
+    front, elsewhere = (
+        "019ff20d-a000-7000-8000-000000000001",
+        "019ff20d-a000-7000-8000-0000000000ff",
+    )
+
+    def entry(kind: str, asset: str, published: list[str]) -> dict[str, object]:
+        image = {"asset_id": asset, "alt": "Salon od ulicy"}
+        return {
+            "page_type": kind,
+            "blocks": [{"block_type": "core.hero", "data": {"image": image}}],
+            "media_asset_ids": published,
+        }
+
+    origin = "https://studio.example.test"
+    pages = [entry("standard", elsewhere, [elsewhere]), entry("homepage", front, [front])]
+
+    assert _home_image({"pages": pages}, origin) == {
+        "url": f"{origin}/media/{front}",
+        "alt": "Salon od ulicy",
+    }
+    # A home page without a published picture, a site nobody published.
+    assert _home_image({"pages": [entry("homepage", front, [])]}, origin) is None
+    assert _home_image({}, origin) is None

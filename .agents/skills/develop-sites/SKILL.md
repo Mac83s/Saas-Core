@@ -215,6 +215,10 @@ most three options: `feature_list` v5 keeps column values under fixed keys
 - **Reading media before setting the tenant.** `media_mediaasset` forces RLS, so
   `serve_public_media` sets the tenant the host named before the read. That bug
   once made every image on every published page answer 404.
+- **A block's picture goes through `renderImage`** (`ai-badge.ts`): there the
+  published page adds its stored size, the AI badge and eager loading
+  (`published-images.ts`). A bare `<img>` gets none: the stay blocks'
+  generated photos once had no badge.
 - **Scheduled publication cannot carry a signed contract.** It expires long
   before the date. `publish_scheduled_entry` rebuilds the context from the
   stored `scheduled_membership_id`, or for an integration from

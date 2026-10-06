@@ -13,6 +13,7 @@ from uuid import uuid7
 
 import pytest
 from django.core.cache import cache
+from django.db import connection
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.api import live_site_blocks, served_media_ids
@@ -22,6 +23,7 @@ from saas_core.modules.shared.booking.item_translations import save_item_transla
 from saas_core.modules.shared.booking.models import PublicBookingRoute, Service
 from saas_core.modules.shared.booking.setup import save_service
 from saas_core.modules.shared.booking.site_blocks import SITE_BLOCK_TYPES, site_blocks
+from saas_core.modules.shared.media.models import AiOrigin, MediaAsset
 from saas_core.modules.shared.profiles.api import cities
 from saas_core.modules.shared.sites.localization import first_segment_reserved
 from saas_core.modules.shared.sites.measurement import COUNT_VIEW_HEADER
@@ -349,6 +351,53 @@ def test_the_sites_host_serves_a_shown_units_picture_in_our_copies(
     # Switched off, the unit's picture is nobody's to see.
     change(owner, shown, active=False)
     assert get(cover.id).status_code == 404
+
+
+def test_a_page_knows_the_pictures_its_stay_blocks_show() -> None:
+    """A unit's photos are in no snapshot and a unit's page is published by
+    nobody, so the page reads them from what its stay blocks show now: which a
+    model made (ADR-059 pkt 7), each one's size, and the first as the picture
+    a shared link carries (the audit of 06.10)."""
+    configured = form("bloki-obrazy", priced=False, units=2)
+    owner: Membership = configured["owner"]
+    shown, hidden = configured["units"]
+    cover, second, private = (picture(owner) for _ in range(3))
+    MediaAsset.all_objects.filter(pk=cover.id).update(
+        ai_origin=AiOrigin.GENERATED, width=1600, height=1200
+    )
+    # A size nobody measured is not stated; a hidden unit's picture is not
+    # the page's to speak of.
+    MediaAsset.all_objects.filter(pk=second.id).update(width=None, height=None)
+    MediaAsset.all_objects.filter(pk=private.id).update(ai_origin=AiOrigin.GENERATED)
+    change(owner, shown, public=True, photo_ids=[cover.id, second.id])
+    change(owner, hidden, photo_ids=[private.id])
+    host = published(owner, [block("hero"), block("stay_units")])
+    sizes = {str(cover.id): {"width": 1600, "height": 1200}}
+
+    home = page(host)
+    assert home["ai_media_ids"] == [str(cover.id)]
+    assert home["image_sizes"] == sizes
+    origin = home["canonical_url"].removesuffix("/")
+    assert home["social"]["image"] == {
+        "url": f"{origin}/media/{cover.id}/preview",
+        "alt": home["title"],
+    }
+    own = page(host, "/stay/domek-1/")
+    assert own["ai_media_ids"] == [str(cover.id)]
+    assert own["image_sizes"] == sizes
+
+    # A page that shows no picture asks media nothing.
+    plain = published(owner, [block("hero")])
+    statements: list[str] = []
+
+    def record(execute: Any, sql: str, params: Any, many: bool, context: Any) -> Any:
+        statements.append(sql)
+        return execute(sql, params, many, context)
+
+    with connection.execute_wrapper(record):
+        bare = page(plain)
+    assert (bare["ai_media_ids"], bare["image_sizes"], bare["social"]["image"]) == ([], {}, None)
+    assert not any("media_mediaasset" in sql for sql in statements)
 
 
 def own_domain(host: str, name: str, *, status: str = DomainStatus.VERIFIED) -> str:

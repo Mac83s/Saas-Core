@@ -10,6 +10,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import PurePosixPath
+from typing import NamedTuple
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from django.conf import settings
@@ -849,6 +850,30 @@ def ai_generated_asset_ids(*, organization_id: UUID, asset_ids: Iterable[str]) -
             pk__in=ids,
             ai_origin=AiOrigin.GENERATED,
         ).values_list("pk", flat=True)
+    }
+
+
+class ShownImage(NamedTuple):
+    """A picture as a page states it: its stored size in pixels (0 while
+    unknown) and whether a model made it."""
+
+    width: int
+    height: int
+    ai: bool
+
+
+def shown_image_facts(*, organization_id: UUID, asset_ids: Iterable[str]) -> dict[str, ShownImage]:
+    """What a page says of the pictures it shows, by asset id. An id that is
+    no asset of the company is left out, so a caller may ask about identifiers
+    it is not sure are pictures. The caller has set the tenant."""
+    ids = list(asset_ids)
+    if not ids:
+        return {}
+    return {
+        str(pk): ShownImage(width or 0, height or 0, origin == AiOrigin.GENERATED)
+        for pk, width, height, origin in MediaAsset.all_objects.filter(
+            organization_id=organization_id, pk__in=ids
+        ).values_list("pk", "width", "height", "ai_origin")
     }
 
 

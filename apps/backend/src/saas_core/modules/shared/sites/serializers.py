@@ -195,6 +195,11 @@ class PublicSiteNotFoundSerializer(ProblemDetailsSerializer):
     )
 
 
+class PublicImageSizeSerializer(serializers.Serializer[dict[str, Any]]):
+    width = serializers.IntegerField(min_value=1)
+    height = serializers.IntegerField(min_value=1)
+
+
 class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     publication_id = serializers.UUIDField()
     snapshot_hash = serializers.CharField()
@@ -252,6 +257,14 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     article = serializers.DictField(allow_null=True)
     # AI images on this page; empty when the operator switched the badge off.
     ai_media_ids = serializers.ListField(child=serializers.UUIDField())
+    image_sizes = serializers.DictField(
+        child=PublicImageSizeSerializer(),
+        required=False,
+        help_text="The stored size of the pictures the page shows, by media asset id — those "
+        "of its publication and those its live blocks show now. Print it as the image's "
+        "`width` and `height`, whichever copy is loaded: the proportions are the same. An "
+        "asset whose size is unknown is left out.",
+    )
     noindex = serializers.BooleanField(
         help_text="The page asks search engines not to index it (robots noindex,follow)."
     )

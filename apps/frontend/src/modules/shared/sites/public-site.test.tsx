@@ -226,15 +226,17 @@ test("oznacza obrazy AI odznaką i dopiskiem w alt (ADR-059)", async () => {
           },
         ],
         ai_media_ids: [aiId],
+        image_sizes: { [aiId]: { width: 2400, height: 1600 } },
       }}
     />,
   );
 
-  expect(
-    screen.getByRole("img", {
-      name: "Jasna pracownia — obraz wygenerowany przez AI",
-    }),
-  ).not.toBeNull();
+  const image = screen.getByRole("img", {
+    name: "Jasna pracownia — obraz wygenerowany przez AI",
+  });
+  // The picture's stored size goes with it, so the page keeps its place.
+  expect(image.getAttribute("width")).toBe("2400");
+  expect(image.getAttribute("height")).toBe("1600");
   const badge = rendered.container.querySelector(".site-ai-badge");
   expect(badge?.textContent).toBe("AI");
   expect(badge?.getAttribute("aria-hidden")).toBe("true");
@@ -254,6 +256,19 @@ test("a page that asks not to be indexed says so in its head", () => {
     index: false,
     follow: true,
   });
+});
+
+test("a page that is no language version of anything names no alternates", () => {
+  // A document asked for in a language it has no text in: the server lists
+  // no versions, and a lone x-default would be an alternate without a return.
+  const alternates = publicSiteMetadata({
+    ...page,
+    noindex: true,
+    hreflang: {},
+  }).alternates;
+
+  expect(alternates?.languages).toBeUndefined();
+  expect(alternates?.canonical).toBe(page.canonical_url);
 });
 
 test("switches language with plain links and names the menu in the page's language", () => {
