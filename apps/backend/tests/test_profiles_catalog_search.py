@@ -466,7 +466,10 @@ def test_distance_is_town_to_town_and_the_same_on_both_paths(
         CATALOG_URL, {"lat": "52.23", "lng": "21.01", "radius_km": "30", "q": "weterynarz"}
     )
     assert [item["slug"] for item in near.data["items"]] == ["szukaj-warszawa"]
-    assert engine.searches[-1]["filter"] == ['city_slug IN ["warszawa"]']
+    # Every town within 30 km of the point: Warsaw with its neighbours, no further.
+    (towns,) = engine.searches[-1]["filter"]
+    assert towns.startswith("city_slug IN [")
+    assert '"warszawa"' in towns and '"piaseczno"' in towns and '"radom"' not in towns
 
     engine.down = True
     fallback = APIClient().get(

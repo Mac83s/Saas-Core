@@ -5739,7 +5739,7 @@
       "version_field": null
     },
     {
-      "command": "profiles.catalog_options.read@1",
+      "command": "profiles.catalog_options.read@2",
       "entitlement": null,
       "exposure": [
         "assistant"
@@ -5747,11 +5747,22 @@
       "extra_features": [],
       "input_schema": {
         "additionalProperties": false,
-        "properties": {},
-        "required": [],
+        "properties": {
+          "town": {
+            "description": "The town as the person names it, with its region when they say one („Olsztyn, śląskie”); null to read the categories only.",
+            "maxLength": 120,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "town"
+        ],
         "type": "object"
       },
-      "model_description": "Returns the public company directory's dictionary for this kind of company: every category with its key, its name in each language and the trades it is found by (keywords), and every town with its slug, name and region. Use it to match what the person says about their business and town to a category key and a town slug for the company card. Only these keys and slugs are accepted; a town outside the list cannot be set.",
+      "model_description": "Returns the public company directory's dictionary for this kind of company: every category with its key, its name in each language and the trades it is found by (keywords), and the towns that `town` may name, each with its slug, name and region. The directory knows every town of Poland (`cities_total`), so towns are looked up, not listed: pass the town as the person names it. Several towns come back when they share the name — ask which one; when no town is called exactly that, the towns whose names begin with it. A village is not a town: the company is listed under the nearest town and keeps the village in its address. Use the category key and the town slug on the company card; nothing else is accepted.",
       "modifiers": [],
       "module": "shared.profiles",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -5791,6 +5802,9 @@
               "type": "object"
             },
             "type": "array"
+          },
+          "cities_total": {
+            "type": "integer"
           }
         },
         "type": "object",
@@ -5802,19 +5816,19 @@
       "preview": false,
       "risk": "read",
       "summary": {
-        "en": "The directory's categories with names and keywords, and its towns with names.",
-        "pl": "Kategorie katalogu firm z nazwami i słowami kluczowymi oraz miasta z nazwami."
+        "en": "The directory's categories with names and keywords, and the towns of a given name.",
+        "pl": "Kategorie katalogu firm z nazwami i słowami kluczowymi oraz miasta o podanej nazwie."
       },
       "title": {
-        "en": "Read the directory's categories and towns",
-        "pl": "Odczytaj kategorie i miasta katalogu"
+        "en": "Read the directory's categories and find a town",
+        "pl": "Odczytaj kategorie katalogu i znajdź miasto"
       },
-      "tool_name": "profiles_catalog_options_read_v1",
+      "tool_name": "profiles_catalog_options_read_v2",
       "undo": "none:a read changes nothing",
       "version_field": null
     },
     {
-      "command": "profiles.organization.read@1",
+      "command": "profiles.organization.read@2",
       "entitlement": null,
       "exposure": [
         "assistant"
@@ -5826,7 +5840,7 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns the company's public business card (name, one-line headline, description, contact details, town, kind of business), whether it exists yet, whether it is in the public company directory, its version, and the towns and categories the directory accepts. Use it before changing or publishing the card.",
+      "model_description": "Returns the company's public business card (name, one-line headline, description, contact details, town, kind of business), whether it exists yet, whether it is in the public company directory, its version, and the categories the directory accepts. Use it before changing or publishing the card. The town is a slug: look it up by the town's name with profiles.catalog_options.read.",
       "modifiers": [],
       "module": "shared.profiles",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -5841,9 +5855,6 @@
           },
           "category": {
             "type": "string"
-          },
-          "cities": {
-            "type": "array"
           },
           "city_slug": {
             "type": "string"
@@ -5885,14 +5896,14 @@
       "preview": false,
       "risk": "read",
       "summary": {
-        "en": "The company card, whether it is in the directory, and allowed towns and kinds.",
-        "pl": "Wizytówka firmy, czy jest w katalogu, oraz dozwolone miasta i kategorie."
+        "en": "The company card, whether it is in the directory, and the allowed kinds.",
+        "pl": "Wizytówka firmy, czy jest w katalogu, oraz dozwolone kategorie."
       },
       "title": {
         "en": "Read the company card",
         "pl": "Odczytaj wizytówkę firmy"
       },
-      "tool_name": "profiles_organization_read_v1",
+      "tool_name": "profiles_organization_read_v2",
       "undo": "none:a read changes nothing",
       "version_field": null
     },
@@ -5921,7 +5932,7 @@
             ]
           },
           "city_slug": {
-            "description": "The town, as a catalogue city slug from profiles.organization.read.",
+            "description": "The town, as a catalogue city slug from profiles.catalog_options.read.",
             "type": [
               "string",
               "null"

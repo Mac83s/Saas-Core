@@ -25,7 +25,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@saas-core/ui/components/card";
-import { Field, FieldLabel } from "@saas-core/ui/components/field";
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+} from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Switch } from "@saas-core/ui/components/switch";
@@ -33,6 +37,7 @@ import { Textarea } from "@saas-core/ui/components/textarea";
 
 import { profileProblem } from "./problem";
 import { ProfileTranslations } from "./profile-translations";
+import { TownCombobox } from "./town-combobox";
 
 /** The three catalogue page layouts (ADR-053 §6); the keys are the contract. */
 const LAYOUTS = ["card", "cover", "compact"] as const;
@@ -267,21 +272,18 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="profile-city">{t("city")}</FieldLabel>
-              <NativeSelect
+              <TownCombobox
+                describedBy="profile-city-hint"
                 disabled={readOnly}
                 id="profile-city"
-                onChange={(event) =>
-                  void save({ city_slug: event.target.value })
-                }
+                onChange={(slug) => void save({ city_slug: slug })}
+                placeholder={t("cityPlaceholder")}
+                towns={dictionary.cities}
                 value={profile.city_slug}
-              >
-                <option value="">{t("choose")}</option>
-                {dictionary.cities.map((city) => (
-                  <option key={city.slug} value={city.slug}>
-                    {city.name}
-                  </option>
-                ))}
-              </NativeSelect>
+              />
+              <FieldDescription id="profile-city-hint">
+                {t("cityHint")}
+              </FieldDescription>
             </Field>
             <Field>
               <FieldLabel htmlFor="profile-category">

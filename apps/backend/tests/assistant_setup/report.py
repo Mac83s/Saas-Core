@@ -198,7 +198,7 @@ def render(
         "(`booking.offer.discard`); usługi choć raz włączonej nie usuwa nikt — wyłącza ją "
         "właściciel",
         *(
-            f"- miasto „{entry['detail']}” jest poza słownikiem miast katalogu firm"
+            f"- miejscowość „{entry['detail']}” nie jest miastem: firma wybiera najbliższe miasto"
             for _profile, answer in answers.values()
             for entry in answer["unsupported"]
             if entry["code"] == "city_not_in_catalog"
@@ -360,6 +360,8 @@ def _question(
         "place_needs_name": "jak nazywa się miejsce",
         "person_needs_name": "jak nazywa się osoba",
         "card_needs_city": "w jakim mieście działa firma",
+        "card_city_shared_name": "które z miast o tej nazwie (dwa miasta w Polsce nazywają się "
+        "tak samo)",
         "card_needs_category": "kategoria w katalogu firm",
         "offer_needs_units": f"ile jednostek (domków, pokoi, sztuk sprzętu) ma {name}",
         "offer_needs_price": f"ile kosztuje {name} i za co jest ta cena",
@@ -405,9 +407,9 @@ def _unsupported(
             f"({price['amount'].replace('.', ',')} {price['currency']}) — {_NO_PRICE_COMMAND}"
         )
     return {
-        "city_not_in_catalog": f"miasto „{detail}” — nie ma go w słowniku miast katalogu firm, "
-        "więc wizytówka nie trafi do katalogu; odblokuje: dopisanie miasta do słownika "
-        "(ADR-053 §7, słownik rośnie z zasięgiem sprzedaży)",
+        "city_not_in_catalog": f"miejscowość „{detail}” — nie jest miastem, a słownik katalogu "
+        "firm ma wszystkie miasta Polski; firma wybiera najbliższe miasto, a wieś zostaje w jej "
+        "adresie (ADR-053 §7)",
         "category_unknown": f"kategoria „{detail}” — nie ma jej w katalogu firm",
         "preset_unknown": f"{name} — rodzaj rezerwacji „{detail}” nie jest dostępny dla tej firmy",
         "language_not_offered": f"język „{detail}” — platforma go nie oferuje",

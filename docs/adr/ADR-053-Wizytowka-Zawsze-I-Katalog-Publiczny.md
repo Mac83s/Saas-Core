@@ -139,6 +139,28 @@ słownikowe, a słownik jest kontraktem w `packages/contracts/catalog/`:
 - **miasta** — lista pozycji `{slug, name, voivodeship}`. `city_slug` jest
   kluczem w adresie.
 
+> Zmienione 2026-10-06 (akapit niżej zostaje jako historia): słownik miast to
+> **wszystkie miasta Polski**. Pierwsza firma pilota HoofCare jest spod Łomży,
+> której na liście nie było, więc jej wizytówki nie dało się opublikować —
+> „rośnie z zasięgiem sprzedaży” znaczyło w praktyce „pierwszy klient z nowego
+> miejsca czeka na wydanie”.
+>
+> - Lista jest danymi kontraktu (`packages/contracts/catalog/cities.json`), pisanymi
+>   skryptem z dwóch rejestrów urzędowych: PRNG (GUGiK) — nazwa, województwo,
+>   identyfikator TERYT i punkt główny miasta — sprawdzony z TERYT SIMC (GUS).
+>   Źródło i jego datę podaje sam plik; nic nie jest pobierane w czasie działania.
+> - Slug raz opublikowany się nie zmienia; nazwa, którą noszą dwa miasta, dostaje
+>   województwo (`jozefow-lubelskie`). Reguły i sposób odświeżenia:
+>   `packages/contracts/catalog/README.md`.
+> - **Wsi na liście nie ma.** Firma spoza miasta wybiera najbliższe miasto, a swój
+>   adres — ze wsią — podaje w polu adresu wizytówki. Miasto jest kubełkiem filtra i
+>   segmentem adresu; kilkadziesiąt tysięcy wsi dałoby tyle samo pustych stron, a
+>   wyszukiwarka i tak liczy odległość od szukającego. W danych strukturalnych
+>   `addressLocality` to miasto z katalogu, `streetAddress` — adres firmy.
+> - Tam, gdzie miasto się wybiera, jest pole z wyszukiwaniem, nie lista tysiąca
+>   pozycji; asystent pyta rejestr o miasto po nazwie
+>   (`profiles.catalog_options.read@2`), a nie czyta całej listy.
+
 Słownik jest **niepełny z założenia** i rośnie wraz z zasięgiem sprzedaży.
 Kompletna lista miejscowości Polski w chwili, gdy pierwszy klient jest z Mazur,
 byłaby danymi na zapas. Dopisanie pozycji to zmiana kontraktu widoczna w diffie —

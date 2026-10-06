@@ -42,8 +42,8 @@ from typing import Any
 
 ORGANIZATION = "organization.read@1"
 LANGUAGES = "organization.public_locales.read@1"
-CARD = "profiles.organization.read@1"
-CARD_OPTIONS = "profiles.catalog_options.read@1"
+CARD = "profiles.organization.read@2"
+CARD_OPTIONS = "profiles.catalog_options.read@2"
 SETUP = "booking.setup.read@1"
 PRESETS = "booking.preset.list@1"
 PRICES = "booking.prices.read@1"
@@ -397,14 +397,23 @@ def _card(run: _Run) -> None:
         if not card.get("city_slug"):
             run.ask("company.city", "card_needs_city")
     elif (name := _confirmed(city)) is not None:
-        slug = next(
-            (entry["slug"] for entry in options["cities"] if fold(entry["name"]) == fold(name)),
-            None,
-        )
-        if slug is None:
+        # The directory answered with the towns these words may name; a town
+        # is said by its name, with its region where two towns share one.
+        towns = [
+            entry
+            for entry in options["cities"]
+            if fold(name) in (fold(entry["name"]), fold(_town(entry)))
+        ]
+        if not towns:
             run.cannot("company.city", "city_not_in_catalog", name)
+        elif len(towns) > 1:
+            run.ask(
+                "company.city",
+                "card_city_shared_name",
+                options=[{"value": _town(entry), "label": _label(_town(entry))} for entry in towns],
+            )
         else:
-            wanted["city_slug"] = slug
+            wanted["city_slug"] = towns[0]["slug"]
     category = run.profile.get("company", {}).get("category")
     keys = [entry["key"] for entry in options["categories"]]
     if category is None and keys and not card.get("category"):
@@ -424,6 +433,17 @@ def _card(run: _Run) -> None:
     changes = {field: value for field, value in wanted.items() if card.get(field) != value}
     if changes:
         run.step("card", _CARD_UPDATE, {**dict.fromkeys(_CARD_FIELDS), **changes})
+
+
+def _town(entry: Mapping[str, Any]) -> str:
+    return f"{entry['name']}, {entry['voivodeship']}"
+
+
+def read_arguments(profile: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    """What the account's reads are asked. The directory knows every town of
+    Poland and lists none: it looks up the one the notes name."""
+    city = profile.get("company", {}).get("city")
+    return {CARD_OPTIONS: {"town": city["value"] if city else None}}
 
 
 def _proposed_category(run: _Run, categories: list[Mapping[str, Any]]) -> str | None:

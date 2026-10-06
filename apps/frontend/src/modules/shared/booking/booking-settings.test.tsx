@@ -781,10 +781,12 @@ test("jednostka firmy z pobytami: co widzi gość — adres, miejscowość, wsp�
   expect(within(unit).getByLabelText("Sauna")).toBeChecked();
   // Two pictures are the most this unit takes: nothing more to add.
   expect(within(unit).queryByText("Dodaj zdjęcie")).toBeNull();
-  await within(unit).findByRole("option", { name: "Mrągowo" });
-  fireEvent.change(within(unit).getByLabelText("Miejscowość"), {
-    target: { value: "mragowo" },
-  });
+  // The town is typed, not scrolled to: the list is every town of Poland.
+  const town = within(unit).getByLabelText("Miejscowość");
+  town.focus();
+  fireEvent.change(town, { target: { value: "mrag" } });
+  fireEvent.keyDown(town, { key: "ArrowDown" });
+  fireEvent.click(await screen.findByRole("option", { name: /Mrągowo/ }));
   fireEvent.click(within(unit).getByLabelText("Kominek"));
   fireEvent.click(
     within(unit).getByRole("button", { name: "Ustaw zdjęcie 2 jako okładkę" }),

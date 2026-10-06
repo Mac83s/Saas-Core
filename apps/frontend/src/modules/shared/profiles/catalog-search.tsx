@@ -32,6 +32,7 @@ import { Slider } from "@saas-core/ui/components/slider";
 
 import { localizedPath } from "../../../marketing/seo";
 import { profileProblem } from "./problem";
+import { TownCombobox } from "./town-combobox";
 
 /** Typing pauses this long before the catalogue is asked. */
 const TYPING_PAUSE_MS = 300;
@@ -243,18 +244,13 @@ export function CatalogSearch({
               </Button>
             </div>
           ) : (
-            <NativeSelect
+            <TownCombobox
               id="catalog-city"
-              onChange={(event) => setCity(event.target.value)}
+              onChange={setCity}
+              placeholder={t("anyCity")}
+              towns={dictionary?.cities ?? []}
               value={city}
-            >
-              <option value="">{t("anyCity")}</option>
-              {(dictionary?.cities ?? []).map((entry) => (
-                <option key={entry.slug} value={entry.slug}>
-                  {entry.name}
-                </option>
-              ))}
-            </NativeSelect>
+            />
           )}
         </Field>
         <Field>

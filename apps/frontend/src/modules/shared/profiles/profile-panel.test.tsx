@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -144,8 +145,14 @@ test("the business card screen offers publication and is accessible", async () =
     name: "Pokazuj wizytówkę w katalogu",
   });
   expect(toggle.getAttribute("aria-checked")).toBe("false");
-  // The dictionary drives the selects, so a value outside it cannot be picked.
-  expect(screen.getByRole("option", { name: "Mrągowo" })).toBeTruthy();
+  // The dictionary drives both fields, so a value outside it cannot be picked.
+  expect(screen.getByRole("combobox", { name: "Miasto" })).toHaveValue(
+    "Mrągowo, warmińsko-mazurskie",
+  );
+  // A company from a village is told what to pick and where its address goes.
+  expect(
+    screen.getByText(/Firma spoza miasta wybiera najbliższe/),
+  ).toBeTruthy();
   expect(screen.getByRole("option", { name: "Uroda i zdrowie" })).toBeTruthy();
   // Who reads the card's public text for the search by meaning is said where
   // the card is switched on (docs/architecture/model-port.md).
@@ -155,6 +162,53 @@ test("the business card screen offers publication and is accessible", async () =
 
   const results = await axe.run(container);
   expect(results.violations).toEqual([]);
+});
+
+test("a town is found by typing its name, with or without Polish letters", async () => {
+  // Every town of Poland is on the list (ADR-053 §7): nobody scrolls it.
+  api.readCatalogDictionary.mockResolvedValue({
+    ...DICTIONARY,
+    cities: [
+      ...DICTIONARY.cities,
+      { slug: "lomianki", name: "Łomianki", voivodeship: "mazowieckie" },
+      { slug: "lomza", name: "Łomża", voivodeship: "podlaskie" },
+      { slug: "olsztyn-slaskie", name: "Olsztyn", voivodeship: "śląskie" },
+    ],
+  });
+  api.updateProfile.mockResolvedValue(
+    profile({ city_slug: "lomza", version: 2 }),
+  );
+  view(<ProfilePanel canManage />);
+  const town = await screen.findByRole("combobox", { name: "Miasto" });
+  const offered = async () =>
+    within(await screen.findByRole("listbox"))
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+
+  const type = (text: string) => {
+    town.focus();
+    fireEvent.change(town, { target: { value: text } });
+    fireEvent.keyDown(town, { key: "ArrowDown" });
+  };
+
+  type("lomz");
+
+  // Only the towns the letters name; each with its region beside it.
+  expect(await offered()).toEqual(["Łomżapodlaskie"]);
+  fireEvent.click(screen.getByRole("option", { name: /Łomża/ }));
+
+  await waitFor(() => expect(api.updateProfile).toHaveBeenCalledOnce());
+  expect(api.updateProfile.mock.calls[0]?.[1]).toMatchObject({
+    city_slug: "lomza",
+  });
+  await waitFor(() => expect(town).toHaveValue("Łomża, podlaskie"));
+
+  // Two towns of one name are told apart by the region.
+  type("olsztyn");
+  expect(await offered()).toEqual([
+    "Olsztynwarmińsko-mazurskie",
+    "Olsztynśląskie",
+  ]);
 });
 
 test("switching the card on shows where the entry leads", async () => {

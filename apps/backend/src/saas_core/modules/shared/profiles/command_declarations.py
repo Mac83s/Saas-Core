@@ -17,7 +17,7 @@ from saas_core.modules.core.organizations.api import CommandSpec, Effect, Previe
 from saas_core.modules.core.organizations.models import Organization
 
 from .catalog import ProfileNotPublishable, publish_profile, publishable, withdraw_profile
-from .catalog_contract import categories, cities
+from .catalog_contract import categories, cities, cities_named
 from .permissions import PROFILES_ENABLED, PROFILES_MANAGE
 from .services import (
     CONTACT_FIELDS,
@@ -56,28 +56,32 @@ _DESCRIPTIONS = {
     "contact_email": "A public contact e-mail; empty clears it.",
     "contact_phone": "A public contact phone number; empty clears it.",
     "contact_address": "A public address, up to 240 characters; empty clears it.",
-    "city_slug": "The town, as a catalogue city slug from profiles.organization.read.",
+    "city_slug": "The town, as a catalogue city slug from profiles.catalog_options.read.",
     "category": "The kind of business, as a catalogue category from profiles.organization.read.",
 }
-_CARD = {
-    "type": "object",
-    "x-data-class": "public",
-    "properties": {
-        "exists": {"type": "boolean"},
-        "in_catalog": {"type": "boolean"},
-        "version": {"type": "integer"},
-        "display_name": {"type": "string"},
-        "headline": {"type": "string"},
-        "bio": {"type": "string"},
-        # Public on the card, but a person's details on a small company's.
-        "contact_email": {"type": "string", "x-data-class": "public_personal"},
-        "contact_phone": {"type": "string", "x-data-class": "public_personal"},
-        "contact_address": {"type": "string", "x-data-class": "public_personal"},
-        "city_slug": {"type": "string"},
-        "category": {"type": "string"},
-        "cities": {"type": "array"},
-        "categories": {"type": "array"},
-    },
+_CARD_PROPERTIES: dict[str, dict[str, Any]] = {
+    "exists": {"type": "boolean"},
+    "in_catalog": {"type": "boolean"},
+    "version": {"type": "integer"},
+    "display_name": {"type": "string"},
+    "headline": {"type": "string"},
+    "bio": {"type": "string"},
+    # Public on the card, but a person's details on a small company's.
+    "contact_email": {"type": "string", "x-data-class": "public_personal"},
+    "contact_phone": {"type": "string", "x-data-class": "public_personal"},
+    "contact_address": {"type": "string", "x-data-class": "public_personal"},
+    "city_slug": {"type": "string"},
+    "category": {"type": "string"},
+    "cities": {"type": "array"},
+    "categories": {"type": "array"},
+}
+_CARD = {"type": "object", "x-data-class": "public", "properties": _CARD_PROPERTIES}
+#: What the read answers: the card and the category keys it accepts. Towns are
+#: looked up by name (`profiles.catalog_options.read`), never listed — there
+#: are a thousand of them.
+_CARD_READ = {
+    **_CARD,
+    "properties": {key: value for key, value in _CARD_PROPERTIES.items() if key != "cities"},
 }
 
 
@@ -97,11 +101,7 @@ def _read(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
     else:
         card = _card(profile, exists=True, in_catalog=in_catalog)
     organization_type = _organization_type(call)
-    return {
-        **card,
-        "cities": sorted(cities()),
-        "categories": sorted(categories(organization_type)),
-    }
+    return {**card, "categories": sorted(categories(organization_type))}
 
 
 def _organization_type(call: Any) -> str:
@@ -237,21 +237,22 @@ _CATALOG_OUTPUT = {
 
 CARD_READ = CommandSpec(
     name="profiles.organization.read",
-    version=1,
+    version=2,
     module="shared.profiles",
     title={"pl": "Odczytaj wizytówkę firmy", "en": "Read the company card"},
     summary={
-        "pl": "Wizytówka firmy, czy jest w katalogu, oraz dozwolone miasta i kategorie.",
-        "en": "The company card, whether it is in the directory, and allowed towns and kinds.",
+        "pl": "Wizytówka firmy, czy jest w katalogu, oraz dozwolone kategorie.",
+        "en": "The company card, whether it is in the directory, and the allowed kinds.",
     },
     model_description=(
         "Returns the company's public business card (name, one-line headline, description, "
         "contact details, town, kind of business), whether it exists yet, whether it is in "
-        "the public company directory, its version, and the towns and categories the "
-        "directory accepts. Use it before changing or publishing the card."
+        "the public company directory, its version, and the categories the directory "
+        "accepts. Use it before changing or publishing the card. The town is a slug: look "
+        "it up by the town's name with profiles.catalog_options.read."
     ),
     input_schema=_NO_INPUT,
-    output_schema=_CARD,
+    output_schema=_CARD_READ,
     permission=PROFILES_MANAGE,
     risk="read",
     run=_read,
@@ -370,12 +371,27 @@ _CATALOG_OPTIONS = {
                 },
             },
         },
+        "cities_total": {"type": "integer"},
+    },
+}
+_TOWN_INPUT = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["town"],
+    "properties": {
+        "town": {
+            "type": ["string", "null"],
+            "maxLength": 120,
+            "description": "The town as the person names it, with its region when they "
+            "say one („Olsztyn, śląskie”); null to read the categories only.",
+        },
     },
 }
 
 
 def _catalog_options(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
-    """The catalogue's own dictionary, in its order, for this company's type."""
+    """The catalogue's categories for this company's type, in their order, and
+    the towns the given words may name."""
     return {
         "categories": [
             {
@@ -387,32 +403,37 @@ def _catalog_options(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
         ],
         "cities": [
             {"slug": city.slug, "name": city.name, "voivodeship": city.voivodeship}
-            for city in cities().values()
+            for city in cities_named(arguments["town"] or "")
         ],
+        "cities_total": len(cities()),
     }
 
 
 CATALOG_OPTIONS_READ = CommandSpec(
     name="profiles.catalog_options.read",
-    version=1,
+    version=2,
     module="shared.profiles",
     title={
-        "pl": "Odczytaj kategorie i miasta katalogu",
-        "en": "Read the directory's categories and towns",
+        "pl": "Odczytaj kategorie katalogu i znajdź miasto",
+        "en": "Read the directory's categories and find a town",
     },
     summary={
-        "pl": "Kategorie katalogu firm z nazwami i słowami kluczowymi oraz miasta z nazwami.",
-        "en": "The directory's categories with names and keywords, and its towns with names.",
+        "pl": "Kategorie katalogu firm z nazwami i słowami kluczowymi oraz miasta o podanej "
+        "nazwie.",
+        "en": "The directory's categories with names and keywords, and the towns of a given name.",
     },
     model_description=(
         "Returns the public company directory's dictionary for this kind of company: "
         "every category with its key, its name in each language and the trades it is found "
-        "by (keywords), and every town with its slug, name and region. Use it to match what "
-        "the person says about their business and town to a category key and a town slug "
-        "for the company card. Only these keys and slugs are accepted; a town outside the "
-        "list cannot be set."
+        "by (keywords), and the towns that `town` may name, each with its slug, name and "
+        "region. The directory knows every town of Poland (`cities_total`), so towns are "
+        "looked up, not listed: pass the town as the person names it. Several towns come "
+        "back when they share the name — ask which one; when no town is called exactly "
+        "that, the towns whose names begin with it. A village is not a town: the company "
+        "is listed under the nearest town and keeps the village in its address. Use the "
+        "category key and the town slug on the company card; nothing else is accepted."
     ),
-    input_schema=_NO_INPUT,
+    input_schema=_TOWN_INPUT,
     output_schema=_CATALOG_OPTIONS,
     permission=PROFILES_MANAGE,
     risk="read",

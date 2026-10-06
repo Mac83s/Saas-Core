@@ -16,7 +16,7 @@ planu asystenta): z tego, co powiedział właściciel, wylicza cztery listy.
 
 | Firma | Ustawi od razu | Zapyta | Czeka | Produkt jeszcze nie umie |
 | --- | --- | --- | --- | --- |
-| Fryzjer — Salon Fryzjerski Ania | 4 | 5 | 2 | 0 |
+| Fryzjer — Salon Fryzjerski Ania | 4 | 6 | 2 | 0 |
 | Hydraulik — Hydraulik Kowalski | 2 | 5 | 0 | 0 |
 | Domki letniskowe — Domki nad Jeziorem | 2 | 2 | 0 | 0 |
 | Wypożyczalnia kajaków — Kajaki Krutynia | 2 | 2 | 3 | 0 |
@@ -34,7 +34,7 @@ Właściciel powiedział: „fryzjer damski i męski”.
 
 **Ustawi od razu**
 
-- wizytówkę firmy: nazwa, telefon, adres, miasto
+- wizytówkę firmy: nazwa, telefon, adres
 - miejsce „Salon na Mazurskiej”
 - osoba „Ania” — bez konta w panelu
 - osoba „Ola” — bez konta w panelu
@@ -44,6 +44,7 @@ Właściciel powiedział: „fryzjer damski i męski”.
 - jaka stawka VAT obowiązuje dla ceny „Strzyżenie damskie” (wybór z listy)
 - potwierdzenie — „Koloryzacja”: rodzaj rezerwacji: „Wizyta u specjalisty” (propozycja asystenta)
 - w jakich godzinach pracuje Ola
+- które z miast o tej nazwie (dwa miasta w Polsce nazywają się tak samo)
 - kategoria w katalogu firm — asystent podpowie „Uroda i zdrowie”
 - potwierdzenie — jedno zdanie o firmie: „Strzyżenie i koloryzacja w centrum Olsztyna” (propozycja asystenta)
 

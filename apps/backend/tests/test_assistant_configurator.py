@@ -19,6 +19,7 @@ from rest_framework.exceptions import ValidationError
 
 from assistant_setup import (
     CARD_FIELDS,
+    CATALOG_OPTIONS,
     CATEGORY_OPTIONS,
     COMMANDS,
     CONTRACTS,
@@ -50,6 +51,7 @@ from saas_core.modules.shared.assistant.configurator import (
     SETUP,
     WRITES,
     configure,
+    read_arguments,
 )
 from saas_core.modules.shared.assistant.profile_schema import PROFILE_SCHEMA, validate_profile
 from saas_core.modules.shared.billing.models import (
@@ -1105,6 +1107,41 @@ def test_the_directorys_keywords_name_a_category_for_what_owners_say(
     assert question["proposal"] == category
 
 
+def test_a_name_two_towns_share_is_asked_about_and_said_with_its_region() -> None:
+    """The directory knows every town of Poland, and six names belong to two
+    towns each: the card takes neither until the owner says which."""
+    reads = new_company("Nowa firma")
+    towns = [
+        {"slug": "olsztyn", "name": "Olsztyn", "voivodeship": "warmińsko-mazurskie"},
+        {"slug": "olsztyn-slaskie", "name": "Olsztyn", "voivodeship": "śląskie"},
+    ]
+    reads[CARD_OPTIONS] = {**CATALOG_OPTIONS, "cities": towns}
+
+    def answer(city: str) -> dict[str, Any]:
+        profile = {"schema": "company-profile.v1", "company": {"city": said(city)}}
+        # The directory is asked for the town the notes name, confirmed or not.
+        assert read_arguments(profile) == {CARD_OPTIONS: {"town": city}}
+        return configure(profile, reads, COMMANDS)
+
+    shared = answer("Olsztyn")
+    names = ["Olsztyn, warmińsko-mazurskie", "Olsztyn, śląskie"]
+    assert (
+        ask(
+            "company.city",
+            "card_city_shared_name",
+            options=[{"value": name, "label": {"pl": name, "en": name}} for name in names],
+        )
+        in shared["missing"]
+    )
+    assert not [step for step in shared["plan"] if step["ref"] == "card"]
+
+    picked = answer("olsztyn śląskie")
+    assert card(city_slug="olsztyn-slaskie") in picked["plan"]
+    assert not [entry for entry in picked["missing"] if entry["key"] == "company.city"]
+    # No town named yet: the directory is read for its categories alone.
+    assert read_arguments({"schema": "company-profile.v1"}) == {CARD_OPTIONS: {"town": None}}
+
+
 # --- The contract ------------------------------------------------------------------
 
 SCHEMA_FILE = CONTRACTS / "assistant" / "company-profile.v1.schema.json"
@@ -1177,14 +1214,20 @@ def test_what_the_product_can_do_today(monkeypatch: pytest.MonkeyPatch) -> None:
         sources={},
     )
     keys = [key for key in READS if key in registered]
-    with activate_tenant_context(assistant(person)):
-        results = execute_plan([invocation(key, {}) for key in keys])
-    assert [result.status for result in results] == ["done"] * len(keys), results
-    reads = {key: result.output for key, result in zip(keys, results, strict=True)}
+
+    def account_reads(profile: dict[str, Any]) -> dict[str, Any]:
+        # As the setup conversation reads: the directory is asked for the town
+        # the notes name.
+        asked = read_arguments(profile)
+        with activate_tenant_context(assistant(person)):
+            results = execute_plan([invocation(key, asked.get(key, {})) for key in keys])
+        assert [result.status for result in results] == ["done"] * len(keys), results
+        return {key: result.output for key, result in zip(keys, results, strict=True)}
 
     answers: dict[str, Any] = {}
     for name in EXAMPLES:
         profile = example(name)
+        reads = account_reads(profile)
         account = {
             **reads,
             # As the company registered: under the name its owner uses.

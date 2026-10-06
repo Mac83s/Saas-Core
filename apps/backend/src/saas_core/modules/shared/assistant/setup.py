@@ -32,7 +32,16 @@ from saas_core.modules.core.organizations.api import (
 )
 from saas_core.modules.core.organizations.context import TenantContext
 
-from .configurator import CARD_OPTIONS, PRESETS, READS, SETUP, configure, fold, said_values
+from .configurator import (
+    CARD_OPTIONS,
+    PRESETS,
+    READS,
+    SETUP,
+    configure,
+    fold,
+    read_arguments,
+    said_values,
+)
 from .models import AssistantConversation, AssistantMessage, ConversationKind, MessageRole
 from .profile import ProfileState, read_profile, rewrite_profile
 
@@ -173,8 +182,9 @@ _WHY_UNSUPPORTED = {
     "stays in the notes about the company.",
     "price_currency": "The company's price list is in another currency, so this price "
     "cannot be saved as it was said. Ask for the amount in the company's currency.",
-    "city_not_in_catalog": "This town is not on the company directory's list of towns, so "
-    "the company's card cannot name it yet.",
+    "city_not_in_catalog": "The company directory lists every town of Poland and this is "
+    "not one of them — a village, or a name written differently. The card is listed under "
+    "a town: ask for the nearest one; the village stays in the company's address.",
     "category_unknown": "The company directory has no such category.",
     "language_not_offered": "The platform does not offer this language yet.",
     "language_limit": "The company's plan does not allow another language.",
@@ -502,15 +512,17 @@ def _answer(
     a note may then point at it by its key."""
     allowed = frozenset(command_for_tool(tool["name"]).key for tool in command_tools(context))
     keys = [key for key in READS if key in allowed]
+    profile = read_profile()
+    asked = read_arguments(profile.document)
     results = execute_plan([
-        Invocation(command=key, arguments={}, step_id=str(uuid.uuid4())) for key in keys
+        Invocation(command=key, arguments=asked.get(key, {}), step_id=str(uuid.uuid4()))
+        for key in keys
     ])
     reads = {
         key: result.output
         for key, result in zip(keys, results, strict=True)
         if result.status == "done" and result.output is not None
     }
-    profile = read_profile()
     seeded = _seeded(profile.document, reads)
     if seeded != profile.document:
         if keep:

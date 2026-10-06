@@ -698,6 +698,43 @@ def test_the_panel_reads_where_the_setup_stands_and_saves_nothing(talk: Any) -> 
     assert ordinary.client.get(f"{BASE}conversations/{ordinary.id}/setup/").status_code == 404
 
 
+def test_the_town_the_notes_name_is_looked_up_in_the_whole_directory(talk: Any) -> None:
+    """Against the real directory: it lists no towns, it answers the one the
+    notes name — a village with the way out, a shared name with a question."""
+    client = owner("setup-town")
+    chat = talk(client, "setup")
+
+    def overview(city: str, version: int) -> Any:
+        changed = client.patch(
+            PROFILE,
+            {"expected_version": version, "changes": {"company": {"city": said(city)}}},
+            format="json",
+            HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
+            HTTP_IDEMPOTENCY_KEY=f"town-{version}",
+        )
+        assert changed.status_code == 200, changed.data
+        return client.get(f"{BASE}conversations/{chat.id}/setup/").data
+
+    def about_city(entries: Any) -> list[Any]:
+        return [entry for entry in entries if entry["field"] == "company.city"]
+
+    village = overview("Budy Czarnockie", 0)
+    assert [(entry["code"], entry["detail"]) for entry in about_city(village["unsupported"])] == [
+        ("city_not_in_catalog", "Budy Czarnockie")
+    ]
+
+    (question,) = about_city(overview("Olsztyn", 1)["questions"])
+    assert question["reason"] == "card_city_shared_name"
+    assert [option["value"] for option in question["options"]] == [
+        "Olsztyn, warmińsko-mazurskie",
+        "Olsztyn, śląskie",
+    ]
+
+    town = overview("łomża", 2)
+    assert about_city(town["unsupported"]) == about_city(town["questions"]) == []
+    assert "card" in [step["ref"] for step in town["ready"]]
+
+
 def test_what_the_account_has_joins_the_profile_before_anything_is_asked(talk: Any) -> None:
     client = owner("setup-seed")
     organization = Organization.objects.get(slug="setup-seed")

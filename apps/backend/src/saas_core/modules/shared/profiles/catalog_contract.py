@@ -2,15 +2,17 @@
 
 ADR-053 §7. City and category are not free text: `city_slug` is a segment of a
 public URL and both are filter buckets, so three spellings of one town would be
-three addresses and three buckets. The list is deliberately incomplete and grows
-with sales reach — adding an entry is a contract change visible in a diff,
-because each entry is a public address.
+three addresses and three buckets. The towns are every town of Poland, written
+from the official registers into `cities.json` (the contract's README names the
+source and its date); a company in a village files itself under the nearest
+town and keeps the village in its own address.
 """
 
 from __future__ import annotations
 
 import json
 import math
+import unicodedata
 from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
@@ -41,19 +43,29 @@ class Category:
     schema_type: str = ""
 
 
+#: The contract's files: the categories, written by hand, and the towns,
+#: written by `packages/contracts/scripts/catalog-cities.py`.
+CONTRACT_FILES = ("manifest.json", "cities.json")
+
+
 @cache
-def _manifest() -> dict[str, object]:
-    path = Path(settings.CATALOG_CONTRACTS_PATH) / "manifest.json"
+def _read(name: str) -> dict[str, object]:
+    path = Path(settings.CATALOG_CONTRACTS_PATH) / name
     try:
-        manifest: dict[str, object] = json.loads(path.read_text(encoding="utf-8"))
-        return manifest
+        content: dict[str, object] = json.loads(path.read_text(encoding="utf-8"))
+        return content
     except (OSError, json.JSONDecodeError) as error:
         raise ImproperlyConfigured(f"Nie można odczytać kontraktu katalogu: {path}") from error
 
 
+def _manifest() -> dict[str, object]:
+    return _read("manifest.json")
+
+
 @cache
 def cities() -> dict[str, City]:
-    raw = _manifest().get("cities")
+    """Every town by its slug, in the order of the Polish alphabet."""
+    raw = _read("cities.json").get("cities")
     if not isinstance(raw, list):
         raise ImproperlyConfigured("Kontrakt katalogu nie zawiera listy miast.")
     return {
@@ -66,6 +78,33 @@ def cities() -> dict[str, City]:
         )
         for entry in raw
     }
+
+
+_STROKE = str.maketrans({"ł": "l", "Ł": "L"})
+
+
+def _plain(text: str) -> str:
+    """A name as people type it: case, accents and punctuation aside."""
+    decomposed = unicodedata.normalize("NFKD", text.translate(_STROKE))
+    letters = "".join(
+        char if char.isalnum() else " " for char in decomposed if not unicodedata.combining(char)
+    )
+    return " ".join(letters.casefold().split())
+
+
+def cities_named(text: str, limit: int = 20) -> list[City]:
+    """The towns a person may mean by these words: the name, alone or with its
+    region („Olsztyn, śląskie” — a few names belong to two towns). When no town
+    is called exactly that, the towns whose names begin with it."""
+    asked = _plain(text)
+    if not asked:
+        return []
+    known = [
+        (city, _plain(city.name), _plain(f"{city.name} {city.voivodeship}"))
+        for city in cities().values()
+    ]
+    exact = [city for city, name, full in known if asked in (name, full)]
+    return (exact or [city for city, name, _full in known if name.startswith(asked)])[:limit]
 
 
 def distance_km(lat_a: float, lng_a: float, lat_b: float, lng_b: float) -> float:

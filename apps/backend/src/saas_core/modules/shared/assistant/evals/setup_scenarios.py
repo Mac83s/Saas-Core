@@ -110,7 +110,6 @@ ACCOUNT: Mapping[str, Mapping[str, Any]] = {
         "contact_address": "",
         "city_slug": "",
         "category": "",
-        "cities": [city["slug"] for city in _CITIES],
         "categories": [category["key"] for category in _CATEGORIES],
     },
     CARD_OPTIONS: {"categories": _CATEGORIES, "cities": _CITIES},

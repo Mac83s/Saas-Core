@@ -38,7 +38,9 @@ from saas_core.modules.shared.billing.models import (
     EntitlementSnapshot,
     SubscriptionState,
 )
-from saas_core.modules.shared.profiles.catalog_contract import categories
+from saas_core.modules.shared.profiles.api import business_card_facts
+from saas_core.modules.shared.profiles.apps import check_catalog_contract
+from saas_core.modules.shared.profiles.catalog_contract import categories, cities, cities_within
 from saas_core.modules.shared.profiles.models import (
     CatalogEntry,
     ProfileSubjectKind,
@@ -172,6 +174,69 @@ def test_publication_needs_a_place_and_puts_the_company_in_the_public_listing() 
     assert listing.data["items"][0]["url"] == "/katalog/mragowo/wizytowka-publikacja/"
 
 
+def test_a_company_from_a_village_is_listed_under_the_nearest_town() -> None:
+    """The pilot's case (handoff 06.10, finding 6): a company from Budy
+    Czarnockie had no town to pick, so its card could not be published. The
+    directory holds every town of Poland; the village stays in the address."""
+    client, organization, _user = catalog_client(slug="korekcja-spod-lomzy")
+    profile = client.get(PROFILE_URL).data["profile"]
+
+    # A village is not a town of the dictionary, and is refused as before.
+    assert _fill(client, profile, city_slug="budy-czarnockie").status_code == 400
+
+    saved = _fill(client, profile, city_slug="lomza", contact_address="Budy Czarnockie 12")
+    assert saved.status_code == 200, saved.data
+    published = client.post(PUBLISH_URL, {}, format="json", HTTP_X_CSRFTOKEN=_csrf(client))
+    assert published.status_code == 200
+    assert published.data["catalog"]["path"] == "/katalog/lomza/korekcja-spod-lomzy/"
+
+    anonymous = APIClient()
+    listing = anonymous.get(CATALOG_URL, {"city": "lomza"})
+    assert [item["display_name"] for item in listing.data["items"]] == [organization.name]
+    assert listing.data["items"][0]["city"] == "Łomża"
+    card = anonymous.get(f"{CATALOG_URL}lomza/korekcja-spod-lomzy/").data
+    assert card["voivodeship"] == "podlaskie"
+    assert card["contact_address"] == "Budy Czarnockie 12"
+    # The company's identity on its site: the town it is listed under, its own address.
+    facts = business_card_facts(organization.id)
+    assert facts is not None
+    assert (facts.street_address, facts.locality, facts.region) == (
+        "Budy Czarnockie 12",
+        "Łomża",
+        "podlaskie",
+    )
+
+
+def test_the_towns_come_from_the_contract_file_in_the_order_of_the_alphabet() -> None:
+    towns = cities()
+    names = [town.name for town in towns.values()]
+    # Polish letters in their own places: Ł after L, Ż last.
+    assert names.index("Luboń") < names.index("Łomża") < names.index("Maków Mazowiecki")
+    assert names[-1] == "Żywiec"
+    # Both towns of a shared name, apart by region; the one published first keeps its slug.
+    assert (towns["olsztyn"].voivodeship, towns["olsztyn-slaskie"].voivodeship) == (
+        "warmińsko-mazurskie",
+        "śląskie",
+    )
+    # A point by Łomża finds it, and not a town across the country.
+    near = cities_within(53.12, 22.14, 25)
+    assert "lomza" in near and "szczecin" not in near
+
+
+def test_the_start_check_names_a_contract_copy_without_its_towns(
+    settings: Any, tmp_path: Any
+) -> None:
+    """An image, or a product's tree, that carries the manifest but not the
+    towns must fail at the deploy, not at the first card."""
+    (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
+    settings.CATALOG_CONTRACTS_PATH = tmp_path
+
+    assert [error.id for error in check_catalog_contract()] == ["profiles.E001"]
+
+    (tmp_path / "cities.json").write_text("{}", encoding="utf-8")
+    assert check_catalog_contract() == []
+
+
 def test_a_site_link_uses_the_deployments_scheme(settings: Any) -> None:
     from saas_core.modules.shared.profiles.public_views import site_origin  # noqa: PLC0415
 
@@ -302,6 +367,9 @@ def test_the_dictionary_is_served_for_the_search_form() -> None:
     assert {"slug": "mragowo", "name": "Mrągowo", "voivodeship": "warmińsko-mazurskie"} in body[
         "cities"
     ]
+    # Every town, for the form's search box — and only what the form shows.
+    assert len(body["cities"]) == len(cities()) > 1000
+    assert set(body["cities"][0]) == {"slug", "name", "voivodeship"}
     expected = categories(settings.DEFAULT_ORGANIZATION_TYPE)
     assert expected, "The default organization type needs public catalogue categories"
     assert {c["key"]: c["labels"] for c in body["categories"]} == {

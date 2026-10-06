@@ -74,12 +74,14 @@ def check_catalog_contract(**_kwargs: object) -> list[Error]:
     directory would surface as a 500 the first time somebody opens the catalogue
     — long after the deploy reported success.
     """
+    from .catalog_contract import CONTRACT_FILES
+
     directory = Path(settings.CATALOG_CONTRACTS_PATH)
-    if (directory / "manifest.json").is_file():
+    if all((directory / name).is_file() for name in CONTRACT_FILES):
         return []
     return [
         Error(
-            "CATALOG_CONTRACTS_PATH nie wskazuje na katalog z manifest.json.",
+            "CATALOG_CONTRACTS_PATH nie wskazuje na katalog z manifest.json i cities.json.",
             hint=(
                 "Skopiuj packages/contracts/catalog do obrazu i ustaw zmienną "
                 "środowiskową CATALOG_CONTRACTS_PATH."

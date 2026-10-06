@@ -147,7 +147,11 @@ const SETUP: AssistantSetup = {
   ],
   unsupported: [
     { field: "offers.cut.price", code: "price_list", detail: "" },
-    { field: "company.city", code: "city_not_in_catalog", detail: "Olsztyn" },
+    {
+      field: "company.city",
+      code: "city_not_in_catalog",
+      detail: "Budy Czarnockie",
+    },
     { field: "languages", code: "language_not_offered", detail: "de" },
   ],
 };
@@ -400,7 +404,7 @@ test("the notes say in words what is known, from whom, and what is still open", 
     "W kolejnym kroku: usługa „Strzyżenie damskie”. Najpierw: miejsce „Salon na Mazurskiej”, osoba „Ania”.",
     "Usługę „Koloryzacja” włączasz samodzielnie w panelu.",
     "Ceny usługi „Strzyżenie damskie” asystent jeszcze nie zapisuje — wpiszesz ją w cenniku usługi: Ustawienia › Usługi i grafik.",
-    "Miasta „Olsztyn” nie ma na liście miast katalogu firm. Wybierz najbliższe z listy w Wizytówce.",
+    "„Budy Czarnockie” nie jest miastem, a katalog firm ma listę wszystkich miast w Polsce. Podaj najbliższe miasto albo wybierz je w Wizytówce — własny adres zostaje w polu Adres.",
     "Język niemiecki nie jest jeszcze dostępny.",
   ]) {
     expect(screen.getByText(line)).toBeInTheDocument();

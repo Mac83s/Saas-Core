@@ -273,7 +273,6 @@ def new_company(name: str) -> dict[str, dict[str, Any]]:
             "in_catalog": False,
             "version": 0,
             **dict.fromkeys(CARD_FIELDS, ""),
-            "cities": [city["slug"] for city in CATALOG_OPTIONS["cities"]],
             "categories": [category["key"] for category in CATALOG_OPTIONS["categories"]],
         },
         CARD_OPTIONS: CATALOG_OPTIONS,
@@ -292,8 +291,11 @@ def new_company(name: str) -> dict[str, dict[str, Any]]:
 
 def catalog_from_contract() -> dict[str, Any]:
     """The real directory of a `business` company, in the shape of
-    `profiles.catalog_options.read@1`."""
+    `profiles.catalog_options.read@2`."""
     manifest = json.loads((CONTRACTS / "catalog" / "manifest.json").read_text(encoding="utf-8"))
+    cities = json.loads((CONTRACTS / "catalog" / "cities.json").read_text(encoding="utf-8"))[
+        "cities"
+    ]
     return {
         "categories": [
             {
@@ -305,6 +307,6 @@ def catalog_from_contract() -> dict[str, Any]:
         ],
         "cities": [
             {"slug": city["slug"], "name": city["name"], "voivodeship": city["voivodeship"]}
-            for city in manifest["cities"]
+            for city in cities
         ],
     }

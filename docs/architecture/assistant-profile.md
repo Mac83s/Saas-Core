@@ -68,8 +68,9 @@ bazy, bez wykonywania poleceń.
 
 - `reads`: wyniki poleceń odczytu, po nazwie polecenia — asystent sięga do innych
   modułów tylko przez rejestr (ADR-076 pkt 9): `organization.read@1`,
-  `organization.public_locales.read@1`, `profiles.organization.read@1`,
-  `profiles.catalog_options.read@1`, `booking.setup.read@1`, `booking.preset.list@1`,
+  `organization.public_locales.read@1`, `profiles.organization.read@2`,
+  `profiles.catalog_options.read@2` (pytane o miasto z notatek —
+  `read_arguments`), `booking.setup.read@1`, `booking.preset.list@1`,
   `booking.prices.read@1`, `booking.seasons.read@1`. Obszar bez swoich odczytów jest
   pomijany.
 - `commands`: nazwy poleceń, którymi wolno planować.

@@ -18,9 +18,9 @@ import {
   FieldSet,
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
-import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { ImageCropUpload } from "../media/crop";
+import { TownCombobox } from "../profiles/town-combobox";
 import { PrivateMediaPreview } from "../sites/private-media-preview";
 
 /** A unit as content (ADR-072, phase 5c): what a guest sees of it beyond its
@@ -139,23 +139,13 @@ export function UnitContentFields({
       </Field>
       <Field>
         <FieldLabel htmlFor="resource-town">{t("unitTown")}</FieldLabel>
-        <NativeSelect
+        <TownCombobox
           id="resource-town"
-          onChange={(event) => set({ town: event.target.value })}
+          onChange={(town) => set({ town })}
+          placeholder={t("unitTownNone")}
+          towns={dictionary?.cities ?? []}
           value={content.town}
-        >
-          <option value="">{t("unitTownNone")}</option>
-          {/* The unit's own town, before the dictionary answers. */}
-          {content.town &&
-          !dictionary?.cities.some((city) => city.slug === content.town) ? (
-            <option value={content.town}>{content.town}</option>
-          ) : null}
-          {dictionary?.cities.map((city) => (
-            <option key={city.slug} value={city.slug}>
-              {city.name}
-            </option>
-          ))}
-        </NativeSelect>
+        />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>

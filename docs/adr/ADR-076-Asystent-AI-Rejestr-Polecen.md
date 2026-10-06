@@ -550,7 +550,15 @@ Kontrakt wykonawczy: `docs/architecture/assistant-profile.md`.
    03.10 wszystkie trzy są w rejestrze. `booking.staff.add@1` dodaje osobę bez
    konta w klasie `apply`; z zaproszeniem do panelu podgląd podnosi klasę do
    `publish` (pkt 2: osobne kliknięcie), bo to e-mail do osoby trzeciej i konto
-   z rolą, a słowa zgody podają adres i rolę.
+   z rolą, a słowa zgody podają adres i rolę. — Od 06.10 słownik katalogu ma
+   wszystkie miasta Polski (ADR-053 §7), a tysiąca pozycji model nie czyta:
+   `profiles.catalog_options.read@2` bierze `town` (miasto słowami osoby, także
+   „Olsztyn, śląskie”) i oddaje miasta o tej nazwie — dwa, gdy nazwę noszą dwa
+   miasta, a gdy żadne nie nazywa się dokładnie tak, te, których nazwa się od tego
+   zaczyna; `profiles.organization.read@2` nie wymienia już miast. Obie zmiany są
+   łamiące (pkt 4), stąd `@2`; odczyt nie wiąże planu ani zgody, więc `@1` znika.
+   Konfigurator pyta o miasto z notatek (`read_arguments`), a nazwę wspólną dla
+   dwóch miast zamienia w pytanie `card_city_shared_name`.
 6. **Lista typów firm i szablonów usług przechodzi z A2 do A6.** Asystent nie zakłada
    organizacji i nie zmienia jej typu, a szablony usług zastępują presety (ADR-072
    §10); listę typów potrzebuje dopiero zakładanie firmy przez asystenta jako ścieżka

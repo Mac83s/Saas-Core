@@ -6,6 +6,7 @@ takes a click of its own."""
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Any
 
 import pytest
 from django.conf import settings
@@ -24,6 +25,9 @@ from saas_core.modules.shared.billing.models import (
 from saas_core.modules.shared.profiles.catalog import _place_entry
 from saas_core.modules.shared.profiles.catalog_contract import (
     categories as catalog_categories,
+)
+from saas_core.modules.shared.profiles.catalog_contract import (
+    cities as catalog_cities,
 )
 from saas_core.modules.shared.profiles.models import PublicProfile
 from test_command_evals import assistant, clicked, invocation, owner, writes
@@ -54,9 +58,9 @@ def _no_card(slug: str, key: str) -> TenantContext:
 
 
 def test_reading_never_creates_the_card() -> None:
-    person = _no_card("card-read", "profiles.organization.read@1")
+    person = _no_card("card-read", "profiles.organization.read@2")
     with activate_tenant_context(assistant(person)), CaptureQueriesContext(connection) as queries:
-        (result,) = execute_plan([invocation("profiles.organization.read@1", {})])
+        (result,) = execute_plan([invocation("profiles.organization.read@2", {})])
 
     assert result.status == "done", result
     assert result.output["exists"] is False
@@ -64,12 +68,21 @@ def test_reading_never_creates_the_card() -> None:
     assert not PublicProfile.all_objects.filter(organization_id=person.organization_id).exists()
 
 
+def _towns(person: Any, town: str | None) -> dict[str, Any]:
+    with activate_tenant_context(assistant(person)):
+        (result,) = execute_plan([invocation("profiles.catalog_options.read@2", {"town": town})])
+    assert result.status == "done", result
+    return result.output
+
+
 def test_the_catalogue_options_carry_what_a_match_needs() -> None:
-    """The card read lists keys only; matching „fryzjer w Olsztynie” to a
-    category and a town needs the keywords and the names (A2)."""
-    person = _no_card("card-options", "profiles.catalog_options.read@1")
+    """The card read lists category keys only; matching „fryzjer w Olsztynie” to
+    a category and a town needs the keywords and the town's slug (A2)."""
+    person = _no_card("card-options", "profiles.catalog_options.read@2")
     with activate_tenant_context(assistant(person)), CaptureQueriesContext(connection) as queries:
-        (result,) = execute_plan([invocation("profiles.catalog_options.read@1", {})])
+        (result,) = execute_plan([
+            invocation("profiles.catalog_options.read@2", {"town": "Mrągowo"})
+        ])
 
     assert result.status == "done", result
     categories = {entry["key"]: entry for entry in result.output["categories"]}
@@ -77,14 +90,45 @@ def test_the_catalogue_options_carry_what_a_match_needs() -> None:
     key, known = next(iter(catalog_categories(settings.DEFAULT_ORGANIZATION_TYPE).items()))
     assert categories[key]["keywords"]["pl"] == list(known.keywords["pl"])
     assert categories[key]["label"]["pl"]
-    towns = {entry["slug"]: entry for entry in result.output["cities"]}
-    assert towns["olsztyn"]["name"] == "Olsztyn"
-    # The same keys the card accepts, in the catalogue's own order.
+    assert result.output["cities"] == [
+        {"slug": "mragowo", "name": "Mrągowo", "voivodeship": "warmińsko-mazurskie"}
+    ]
+    # The same keys the card accepts; the card lists no towns — there are a thousand.
     with activate_tenant_context(assistant(person)):
-        (card,) = execute_plan([invocation("profiles.organization.read@1", {})])
+        (card,) = execute_plan([invocation("profiles.organization.read@2", {})])
     assert sorted(categories) == card.output["categories"]
-    assert sorted(towns) == card.output["cities"]
+    assert "cities" not in card.output
     assert writes(queries) == []
+
+
+def test_a_town_is_looked_up_by_the_name_a_person_says() -> None:
+    """Every town of Poland is in the directory, so the read answers a name
+    with its towns instead of listing them all."""
+    person = _no_card("card-towns", "profiles.catalog_options.read@2")
+
+    def slugs(town: str | None) -> list[str]:
+        return [entry["slug"] for entry in _towns(person, town)["cities"]]
+
+    # Typed without Polish letters, in any case.
+    assert slugs("lomza") == ["lomza"]
+    assert slugs("  ŁOMŻA ") == ["lomza"]
+    # Two towns share the name: both come back, each with its region…
+    shared = _towns(person, "Olsztyn")["cities"]
+    assert [(entry["slug"], entry["voivodeship"]) for entry in shared] == [
+        ("olsztyn", "warmińsko-mazurskie"),
+        ("olsztyn-slaskie", "śląskie"),
+    ]
+    # …and the region with the name picks one.
+    assert slugs("Olsztyn, śląskie") == ["olsztyn-slaskie"]
+    assert slugs("Olsztyn (warmińsko-mazurskie)") == ["olsztyn"]
+    # No town is called that: the names that begin with it.
+    assert slugs("Łom") == ["lomianki", "lomza"]
+    # A village is not a town; the company is listed under the nearest one.
+    assert slugs("Budy Czarnockie") == []
+    # No name asked: the categories alone, and how many towns there are to ask about.
+    silent = _towns(person, None)
+    assert silent["cities"] == [] and silent["categories"]
+    assert silent["cities_total"] == len(catalog_cities()) > 1000
 
 
 def test_a_company_without_a_card_gets_one_from_its_first_change() -> None:

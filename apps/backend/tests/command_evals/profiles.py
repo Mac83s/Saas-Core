@@ -88,7 +88,7 @@ def _fields(**given: Any) -> dict[str, Any]:
 
 
 EVALS = {
-    "profiles.organization.read@1": CommandEval(
+    "profiles.organization.read@2": CommandEval(
         arguments=lambda _context: {},
         wrong_arguments={"display_name": "Domki"},
         wrong_field="display_name",
@@ -96,10 +96,10 @@ EVALS = {
         state=_state,
         prepare=_card,
     ),
-    "profiles.catalog_options.read@1": CommandEval(
-        arguments=lambda _context: {},
-        wrong_arguments={"locale": "pl"},
-        wrong_field="locale",
+    "profiles.catalog_options.read@2": CommandEval(
+        arguments=lambda _context: {"town": "Łomża"},
+        wrong_arguments={"town": 7},
+        wrong_field="town",
         stale="nie dotyczy: odczyt nie sprawdza wersji",
         state=_state,
         prepare=_card,
