@@ -360,7 +360,9 @@ def secret_setting(name: str, default: str = "") -> str:
 SECRET_KEY = secret_setting("DJANGO_SECRET_KEY")
 MFA_ENCRYPTION_KEY = secret_setting("MFA_ENCRYPTION_KEY")
 INTEGRATIONS_ENCRYPTION_KEY = secret_setting("INTEGRATIONS_ENCRYPTION_KEY")
-MFA_ISSUER_NAME = os.environ.get("MFA_ISSUER_NAME", "SaaS Core")
+#: The name an authenticator app shows beside the sign-in code: the product's own,
+#: from the profile, like the sign-in screen's — not the core's.
+MFA_ISSUER_NAME = os.environ.get("MFA_ISSUER_NAME") or _deployment_product["name"]
 MFA_CHALLENGE_TTL_SECONDS = int(os.environ.get("MFA_CHALLENGE_TTL_SECONDS", "300"))
 if MFA_CHALLENGE_TTL_SECONDS <= 0:
     raise ImproperlyConfigured("Czas ważności wyzwania MFA musi być dodatni")
