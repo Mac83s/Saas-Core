@@ -177,28 +177,130 @@ def test_apply_takes_the_public_booking_route_with_the_tenant() -> None:
     assert not PublicBookingRoute.objects.filter(public_slug="purge-route-form").exists()
 
 
-def test_orphaned_routes_are_reported_then_removed_and_live_ones_stay() -> None:
+ROUTE = "booking.PublicBookingRoute"
+
+
+def _orphan_route(slug: str = "purge-gone-form") -> None:
+    from saas_core.modules.shared.booking.models import PublicBookingRoute
+
+    PublicBookingRoute.objects.create(public_slug=slug, organization_id=uuid.uuid4())
+
+
+def _live_tenant_with_route() -> None:
     from saas_core.modules.shared.booking.models import PublicBookingRoute
 
     live, _user = make_tenant(slug="purge-live", email="purge-live@example.test")
     PublicBookingRoute.objects.create(public_slug="purge-live-form", organization_id=live.id)
-    PublicBookingRoute.objects.create(public_slug="purge-gone-form", organization_id=uuid.uuid4())
+
+
+def test_orphan_dry_run_lists_every_table_and_changes_nothing(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from saas_core.modules.shared.booking.models import PublicBookingRoute
+
+    _live_tenant_with_route()
+    _orphan_route()
 
     call_command("purge_test_tenants", "--orphans")
+
+    out = capsys.readouterr().out
+    assert f"osierocone trasy {ROUTE}: 1" in out
+    assert "razem: 1" in out
     assert PublicBookingRoute.objects.filter(public_slug="purge-gone-form").exists()
 
-    call_command("purge_test_tenants", "--orphans", "--apply")
+
+def test_orphan_apply_without_only_is_refused() -> None:
+    from saas_core.modules.shared.booking.models import PublicBookingRoute
+
+    _live_tenant_with_route()
+    _orphan_route()
+
+    with pytest.raises(CommandError, match="--only"):
+        call_command("purge_test_tenants", "--orphans", "--apply", "--expect-total", "1")
+
+    assert PublicBookingRoute.objects.filter(public_slug="purge-gone-form").exists()
+
+
+def test_orphan_apply_without_expect_total_is_refused() -> None:
+    _live_tenant_with_route()
+    _orphan_route()
+
+    with pytest.raises(CommandError, match="--expect-total"):
+        call_command("purge_test_tenants", "--orphans", "--apply", "--only", ROUTE)
+
+
+def test_orphan_unknown_table_is_refused_and_lists_the_valid_ones() -> None:
+    _live_tenant_with_route()
+
+    with pytest.raises(CommandError, match=ROUTE):
+        call_command("purge_test_tenants", "--orphans", "--only", "nope.Nothing")
+
+
+def test_orphan_apply_with_a_wrong_total_rolls_back() -> None:
+    from saas_core.modules.shared.booking.models import PublicBookingRoute
+
+    _live_tenant_with_route()
+    _orphan_route()
+
+    with pytest.raises(CommandError, match="Oczekiwano 2 .*jest 1"):
+        call_command(
+            "purge_test_tenants", "--orphans", "--apply", "--only", ROUTE, "--expect-total", "2"
+        )
+
+    assert PublicBookingRoute.objects.filter(public_slug="purge-gone-form").exists()
+
+
+def test_orphan_apply_removes_only_the_named_table_and_keeps_live_rows() -> None:
+    from saas_core.modules.shared.booking.models import PublicBookingRoute
+    from saas_core.modules.shared.model_port.models import EntryState, UsageEntry
+
+    _live_tenant_with_route()
+    _orphan_route()
+    usage = UsageEntry.objects.create(
+        state=EntryState.DONE,
+        task="translation.text",
+        pool="translation",
+        organization_id=uuid.uuid4(),
+    )
+
+    call_command(
+        "purge_test_tenants", "--orphans", "--apply", "--only", ROUTE, "--expect-total", "1"
+    )
+
     assert not PublicBookingRoute.objects.filter(public_slug="purge-gone-form").exists()
     assert PublicBookingRoute.objects.filter(public_slug="purge-live-form").exists()
+    assert UsageEntry.objects.filter(pk=usage.pk).exists()
+
+
+def test_orphan_sweep_refuses_when_there_are_no_organizations() -> None:
+    assert not Organization.objects.exists()
+    _orphan_route()
+
+    with pytest.raises(CommandError, match="żadnej organizacji"):
+        call_command("purge_test_tenants", "--orphans")
+
+    with pytest.raises(CommandError, match="żadnej organizacji"):
+        call_command(
+            "purge_test_tenants", "--orphans", "--apply", "--only", ROUTE, "--expect-total", "1"
+        )
 
 
 def test_rows_that_name_no_organization_are_not_orphans() -> None:
     from saas_core.modules.shared.model_port.models import EntryState, UsageEntry
 
+    _live_tenant_with_route()
     entry = UsageEntry.objects.create(
         state=EntryState.DONE, task="translation.text", pool="translation", organization_id=None
     )
 
-    call_command("purge_test_tenants", "--orphans", "--apply")
+    call_command(
+        "purge_test_tenants",
+        "--orphans",
+        "--apply",
+        "--only",
+        "model_port.UsageEntry",
+        "--expect-total",
+        "0",
+    )
 
     assert UsageEntry.objects.filter(pk=entry.pk).exists()

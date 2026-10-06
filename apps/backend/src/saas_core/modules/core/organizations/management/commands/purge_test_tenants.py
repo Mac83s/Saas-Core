@@ -34,8 +34,10 @@ from django.db.models import Model, ProtectedError
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.erasure import (
     ErasureBlocked,
+    OrphanLookupError,
     delete_orphaned_registered_rows,
     erase_organization,
+    orphan_table_labels,
     orphaned_registered_rows,
     row_counts,
 )
@@ -173,6 +175,19 @@ class Command(BaseCommand):
             ),
         )
         parser.add_argument(
+            "--only",
+            action="append",
+            default=[],
+            metavar="APP_LABEL.MODEL",
+            help="Z --orphans: tylko te tabele (wielokrotnie). --apply wymaga tego.",
+        )
+        parser.add_argument(
+            "--expect-total",
+            type=int,
+            default=None,
+            help="Z --orphans --apply: dokładna liczba wierszy do usunięcia, inaczej wycofanie.",
+        )
+        parser.add_argument(
             "--apply",
             action="store_true",
             help="Wykonaj usunięcie zamiast wypisania planu.",
@@ -180,7 +195,11 @@ class Command(BaseCommand):
 
     def handle(self, *args: Any, **options: Any) -> None:
         if options["orphans"]:
-            self._handle_orphans(apply=bool(options["apply"]))
+            self._handle_orphans(
+                apply=bool(options["apply"]),
+                only=[str(label) for label in options["only"]],
+                expect_total=options["expect_total"],
+            )
             return
         emails = [str(email).strip().lower() for email in options["email"]]
         if not emails and not options["all"]:
@@ -259,17 +278,34 @@ class Command(BaseCommand):
             )
         )
 
-    def _handle_orphans(self, *, apply: bool) -> None:
-        found = orphaned_registered_rows()
-        if not found:
-            self.stdout.write("Nie ma osieroconych tras.")
-            return
-        for label, count in sorted(found.items()):
-            self.stdout.write(f"osierocone trasy {label}: {count}")
-        if not apply:
-            self.stdout.write(self.style.WARNING("Plan bez zmian. Uruchom ponownie z --apply."))
-            return
-        removed = delete_orphaned_registered_rows()
+    def _handle_orphans(self, *, apply: bool, only: list[str], expect_total: int | None) -> None:
+        if apply and not only:
+            raise CommandError(
+                "--apply z --orphans wymaga --only <tabela> (powtarzalne). Dostępne: "
+                + ", ".join(orphan_table_labels())
+            )
+        if apply and expect_total is None:
+            raise CommandError("--apply z --orphans wymaga --expect-total N z planu bez zmian.")
+        try:
+            found = orphaned_registered_rows(only)
+            if not found:
+                self.stdout.write("Nie ma osieroconych tras.")
+                if not apply or expect_total == 0:
+                    return
+            for label, count in sorted(found.items()):
+                self.stdout.write(f"osierocone trasy {label}: {count}")
+            self.stdout.write(f"razem: {sum(found.values())}")
+            if not apply:
+                self.stdout.write(
+                    self.style.WARNING(
+                        "Plan bez zmian. Usuwanie: --apply --only <tabela> --expect-total N."
+                    )
+                )
+                return
+            assert expect_total is not None
+            removed = delete_orphaned_registered_rows(only=only, expect_total=expect_total)
+        except OrphanLookupError as error:
+            raise CommandError(str(error)) from error
         self.stdout.write(
             self.style.SUCCESS(f"Usunięto osierocone trasy: {sum(removed.values())}.")
         )

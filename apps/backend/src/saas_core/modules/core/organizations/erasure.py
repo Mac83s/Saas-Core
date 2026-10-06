@@ -20,7 +20,7 @@ review and in the receipt.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from contextlib import contextmanager
 from typing import Any
 
@@ -198,37 +198,79 @@ def row_counts(organization_id: uuid.UUID) -> dict[str, int]:
     return counts
 
 
-def orphaned_registered_rows() -> dict[str, int]:
+class OrphanLookupError(RuntimeError):
+    """The orphan sweep refuses to guess: no organizations, an unknown table or a changed count."""
+
+
+def orphan_table_labels() -> list[str]:
+    return sorted(model._meta.label for model, _column in registered_erasure_rows())
+
+
+def _selected_tables(only: Collection[str] | None) -> list[tuple[type[Model], str]]:
+    tables = registered_erasure_rows()
+    if not only:
+        return tables
+    known = {model._meta.label: (model, column) for model, column in tables}
+    unknown = sorted(set(only) - set(known))
+    if unknown:
+        raise OrphanLookupError(
+            f"Nieznana tabela: {', '.join(unknown)}. Dozwolone: {', '.join(sorted(known))}."
+        )
+    return [known[label] for label in sorted(set(only))]
+
+
+def orphaned_registered_rows(only: Collection[str] | None = None) -> dict[str, int]:
     """Routing-index rows whose organization no longer exists, per table.
 
     Erasure removes these together with the tenant, but tenants purged before a
     module registered its index left them behind: a public slug that still
-    routes to nobody. Nothing here can touch a live tenant, because a row only
-    counts when its organization is gone.
+    routes to nobody. A row only counts when its organization is gone.
     """
+    live = _live_organization_ids()
     counts: dict[str, int] = {}
-    for model, column in registered_erasure_rows():
-        found = _orphans(model, column).count()
+    for model, column in _selected_tables(only):
+        found = _orphans(model, column, live).count()
         if found:
             counts[model._meta.label] = found
     return counts
 
 
-def delete_orphaned_registered_rows() -> dict[str, int]:
+def delete_orphaned_registered_rows(*, only: Collection[str], expect_total: int) -> dict[str, int]:
+    """Delete the orphans of the named tables, but only if there are exactly `expect_total`.
+
+    The count is taken again inside the transaction that deletes; a different
+    number rolls everything back."""
+    if not only:
+        raise OrphanLookupError("Nazwij tabele (--only): bez tego niczego nie usuwam.")
+    tables = _selected_tables(only)
     removed: dict[str, int] = {}
     with transaction.atomic():
-        for model, column in registered_erasure_rows():
-            deleted, _by_model = _orphans(model, column).delete()
+        live = _live_organization_ids()
+        actual = sum(_orphans(model, column, live).count() for model, column in tables)
+        if actual != expect_total:
+            raise OrphanLookupError(
+                f"Oczekiwano {expect_total} osieroconych wierszy, jest {actual}. Nic nie usunięto."
+            )
+        for model, column in tables:
+            deleted, _by_model = _orphans(model, column, live).delete()
             if deleted:
                 removed[model._meta.label] = deleted
     return removed
 
 
-def _orphans(model: type[Model], column: str) -> QuerySet[Model]:
-    # ADR-041: "does this organization exist" is asked across tenants on purpose.
-    # Evaluated here: the registry may live on another connection than the rows,
-    # and Django refuses a subquery across databases.
-    live = list(Organization.objects.using(PRE_TENANT_DB).values_list("id", flat=True))
+def _live_organization_ids() -> list[Any]:
+    # ADR-041: "does this organization exist" is asked across tenants on purpose,
+    # through the unfiltered manager. Evaluated here: the registry may live on
+    # another connection than the rows, and Django refuses a subquery across
+    # databases.
+    live = list(Organization._base_manager.using(PRE_TENANT_DB).values_list("id", flat=True))
+    if not live:
+        # An empty list would make every registered row look orphaned.
+        raise OrphanLookupError("Rejestr nie zwrócił żadnej organizacji — odmawiam.")
+    return live
+
+
+def _orphans(model: type[Model], column: str, live: list[Any]) -> QuerySet[Model]:
     # A NULL column names no organization at all (the port's platform-level
     # usage rows): that is not an orphan.
     return model._base_manager.filter(**{f"{column}__isnull": False}).exclude(**{
