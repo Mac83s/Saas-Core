@@ -91,17 +91,13 @@ def test_apply_removes_the_tenant_with_its_protecting_rows() -> None:
     assert not Organization.objects.filter(pk=organization.pk).exists()
     assert not User.objects.filter(pk=user.pk).exists()
     assert not Membership.objects.filter(organization_id=organization.pk).exists()
-    assert not EntitlementSnapshot.all_objects.filter(
-        organization_id=organization.pk
-    ).exists()
+    assert not EntitlementSnapshot.all_objects.filter(organization_id=organization.pk).exists()
     # A role shared by every tenant is not tenant rubble.
     assert Role.objects.filter(key="admin", organization=None).exists()
 
 
 def test_an_organization_holding_a_real_member_is_left_alone() -> None:
-    organization, test_user = make_tenant(
-        slug="purge-mixed", email="purge-mixed@example.test"
-    )
+    organization, test_user = make_tenant(slug="purge-mixed", email="purge-mixed@example.test")
     owner = User.objects.create_user(email=REAL_EMAIL, password="Purge-Test-Password-2")
     Membership.objects.create(
         organization=organization,
@@ -117,9 +113,7 @@ def test_an_organization_holding_a_real_member_is_left_alone() -> None:
 
 
 def test_a_sweep_only_takes_reserved_domains() -> None:
-    _rubble_org, rubble_user = make_tenant(
-        slug="purge-sweep", email="purge-sweep@example.test"
-    )
+    _rubble_org, rubble_user = make_tenant(slug="purge-sweep", email="purge-sweep@example.test")
     kept_org, kept_user = make_tenant(slug="purge-kept", email=REAL_EMAIL)
 
     call_command("purge_test_tenants", "--all", "--apply")
@@ -168,3 +162,31 @@ def test_a_tenant_with_media_is_erased_including_its_append_only_rows(
     # The account is its person's and leaves by its own path (ADR-036 §8); the
     # command removes it here only because it is a reserved test address.
     assert not User.objects.filter(pk=user.pk).exists()
+
+
+def test_apply_takes_the_public_booking_route_with_the_tenant() -> None:
+    from saas_core.modules.shared.booking.models import PublicBookingRoute
+
+    organization, user = make_tenant(slug="purge-route", email="purge-route@example.test")
+    PublicBookingRoute.objects.create(
+        public_slug="purge-route-form", organization_id=organization.id
+    )
+
+    call_command("purge_test_tenants", "--email", user.email, "--apply")
+
+    assert not PublicBookingRoute.objects.filter(public_slug="purge-route-form").exists()
+
+
+def test_orphaned_routes_are_reported_then_removed_and_live_ones_stay() -> None:
+    from saas_core.modules.shared.booking.models import PublicBookingRoute
+
+    live, _user = make_tenant(slug="purge-live", email="purge-live@example.test")
+    PublicBookingRoute.objects.create(public_slug="purge-live-form", organization_id=live.id)
+    PublicBookingRoute.objects.create(public_slug="purge-gone-form", organization_id=uuid.uuid4())
+
+    call_command("purge_test_tenants", "--orphans")
+    assert PublicBookingRoute.objects.filter(public_slug="purge-gone-form").exists()
+
+    call_command("purge_test_tenants", "--orphans", "--apply")
+    assert not PublicBookingRoute.objects.filter(public_slug="purge-gone-form").exists()
+    assert PublicBookingRoute.objects.filter(public_slug="purge-live-form").exists()

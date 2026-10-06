@@ -103,7 +103,10 @@ def seed_sites(run: DemoRun) -> None:
 def _site(run: DemoRun, spec: DemoOrganization, data: dict[str, Any]) -> Site:
     existing, _next = list_sites(cursor=None, limit=1)
     if existing:
-        run.log(f"= strona {spec.name}: firma ma już stronę, zostaje bez zmian")
+        run.log(
+            f"= strona {spec.name}: firma ma już stronę, seed jej NIE zmienia "
+            "(treść podmieniasz ręcznie — docs/development/demo-data.md)"
+        )
         return existing[0]
     label = data["site"]["label"]
     site = create_site(

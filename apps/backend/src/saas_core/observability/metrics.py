@@ -12,6 +12,12 @@ from prometheus_client import (
     multiprocess,
 )
 
+# `compose run … manage.py <command>` skips the service's start command, which is
+# what creates this directory; the first metric would die without it.
+_MULTIPROC_DIR = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
+if _MULTIPROC_DIR:
+    os.makedirs(_MULTIPROC_DIR, exist_ok=True)
+
 HTTP_REQUESTS = Counter(
     "saas_core_http_requests_total",
     "Liczba zakończonych żądań HTTP.",

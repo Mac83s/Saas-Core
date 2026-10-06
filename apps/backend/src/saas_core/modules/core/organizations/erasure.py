@@ -198,6 +198,38 @@ def row_counts(organization_id: uuid.UUID) -> dict[str, int]:
     return counts
 
 
+def orphaned_registered_rows() -> dict[str, int]:
+    """Routing-index rows whose organization no longer exists, per table.
+
+    Erasure removes these together with the tenant, but tenants purged before a
+    module registered its index left them behind: a public slug that still
+    routes to nobody. Nothing here can touch a live tenant, because a row only
+    counts when its organization is gone.
+    """
+    counts: dict[str, int] = {}
+    for model, column in registered_erasure_rows():
+        found = _orphans(model, column).count()
+        if found:
+            counts[model._meta.label] = found
+    return counts
+
+
+def delete_orphaned_registered_rows() -> dict[str, int]:
+    removed: dict[str, int] = {}
+    with transaction.atomic():
+        for model, column in registered_erasure_rows():
+            deleted, _by_model = _orphans(model, column).delete()
+            if deleted:
+                removed[model._meta.label] = deleted
+    return removed
+
+
+def _orphans(model: type[Model], column: str) -> QuerySet[Model]:
+    # ADR-041: "does this organization exist" is asked across tenants on purpose.
+    live = Organization.objects.using(PRE_TENANT_DB).values_list("id", flat=True)
+    return model._base_manager.exclude(**{f"{column}__in": live})
+
+
 def erase_organization(
     *,
     organization: Organization,

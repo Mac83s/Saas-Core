@@ -65,3 +65,16 @@ def test_health_checks_database_and_cache() -> None:
 
     assert response.status_code == 200
     assert response.json()["checks"] == {"database": "ok", "cache": "ok"}
+
+
+def test_metrics_module_creates_a_missing_multiprocess_directory(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import subprocess
+    import sys
+
+    target = tmp_path / "prom" / "nested"
+    subprocess.run(
+        [sys.executable, "-c", "import saas_core.observability.metrics"],
+        env={**__import__("os").environ, "PROMETHEUS_MULTIPROC_DIR": str(target)},
+        check=True,
+    )
+    assert target.is_dir()

@@ -1114,3 +1114,37 @@ def test_the_transport_keeps_its_total_deadline_and_follows_no_redirect() -> Non
         "invalid_request",
         "openrouter_http_302",
     )
+
+
+def _status_report(capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
+    from django.core.management import call_command
+
+    call_command("model_port_status")
+    report: dict[str, Any] = json.loads(capsys.readouterr().out)
+    return report
+
+
+def test_status_report_calls_an_adapter_without_a_key_not_configured(
+    settings: Any, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MODEL_PORT_TASK_TRANSLATION_TEXT_ADAPTER", "openrouter")
+    settings.MODEL_PORT_OPENROUTER_API_KEY = ""
+    settings.MODEL_PORT_OPENROUTER_API_KEY_MOUNTED = True
+
+    status = _status_report(capsys)["translation.text"]["status"]
+
+    assert status["adapter"] == "not configured"
+    assert status["available"] is False
+    assert status["reason"]
+
+
+def test_status_report_never_calls_a_configured_adapter_verified(
+    settings: Any, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MODEL_PORT_TASK_TRANSLATION_TEXT_ADAPTER", "openrouter")
+    settings.MODEL_PORT_OPENROUTER_API_KEY = "sk-test-not-a-real-key"
+    settings.MODEL_PORT_OPENROUTER_API_KEY_MOUNTED = True
+
+    status = _status_report(capsys)["translation.text"]["status"]
+
+    assert status["adapter"] == "configured, not verified — run model_port_probe"

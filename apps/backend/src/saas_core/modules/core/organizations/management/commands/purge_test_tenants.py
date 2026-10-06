@@ -34,7 +34,9 @@ from django.db.models import Model, ProtectedError
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.erasure import (
     ErasureBlocked,
+    delete_orphaned_registered_rows,
     erase_organization,
+    orphaned_registered_rows,
     row_counts,
 )
 from saas_core.modules.core.organizations.models import Membership, Organization
@@ -124,12 +126,12 @@ def _organizations_of(user: User) -> list[Organization]:
     # ADR-041: reads across organizations on purpose — the point is to find
     # every tenant this account belongs to, which is the same question the
     # switcher asks and cannot be asked from inside one of them.
-    organization_ids = Membership.objects.using(PRE_TENANT_DB).filter(user=user).values_list(
-        "organization_id", flat=True
+    organization_ids = (
+        Membership.objects.using(PRE_TENANT_DB)
+        .filter(user=user)
+        .values_list("organization_id", flat=True)
     )
-    return list(
-        Organization.objects.using(PRE_TENANT_DB).filter(id__in=list(organization_ids))
-    )
+    return list(Organization.objects.using(PRE_TENANT_DB).filter(id__in=list(organization_ids)))
 
 
 def _real_members(organization: Organization) -> list[str]:
@@ -163,12 +165,23 @@ class Command(BaseCommand):
             help="Wszystkie konta na zastrzeżonych domenach testowych.",
         )
         parser.add_argument(
+            "--orphans",
+            action="store_true",
+            help=(
+                "Tylko trasy routingu (np. publiczne formularze rezerwacji) po "
+                "organizacjach, których już nie ma."
+            ),
+        )
+        parser.add_argument(
             "--apply",
             action="store_true",
             help="Wykonaj usunięcie zamiast wypisania planu.",
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
+        if options["orphans"]:
+            self._handle_orphans(apply=bool(options["apply"]))
+            return
         emails = [str(email).strip().lower() for email in options["email"]]
         if not emails and not options["all"]:
             raise CommandError("Podaj --email albo --all.")
@@ -203,9 +216,7 @@ class Command(BaseCommand):
 
         self._report(doomed, list(organizations.values()), skipped)
         if not options["apply"]:
-            self.stdout.write(
-                self.style.WARNING("Plan bez zmian. Uruchom ponownie z --apply.")
-            )
+            self.stdout.write(self.style.WARNING("Plan bez zmian. Uruchom ponownie z --apply."))
             return
 
         refused: list[tuple[Organization, str]] = []
@@ -231,9 +242,7 @@ class Command(BaseCommand):
         for user in doomed:
             if any(org.id in refused_ids for org in _organizations_of(user)):
                 self.stdout.write(
-                    self.style.WARNING(
-                        f"pomijam {user.email}: jego organizacja została odmówiona"
-                    )
+                    self.style.WARNING(f"pomijam {user.email}: jego organizacja została odmówiona")
                 )
                 continue
             purge_user(user)
@@ -250,6 +259,21 @@ class Command(BaseCommand):
             )
         )
 
+    def _handle_orphans(self, *, apply: bool) -> None:
+        found = orphaned_registered_rows()
+        if not found:
+            self.stdout.write("Nie ma osieroconych tras.")
+            return
+        for label, count in sorted(found.items()):
+            self.stdout.write(f"osierocone trasy {label}: {count}")
+        if not apply:
+            self.stdout.write(self.style.WARNING("Plan bez zmian. Uruchom ponownie z --apply."))
+            return
+        removed = delete_orphaned_registered_rows()
+        self.stdout.write(
+            self.style.SUCCESS(f"Usunięto osierocone trasy: {sum(removed.values())}.")
+        )
+
     def _resolve_users(self, *, emails: list[str], sweep: bool) -> list[User]:
         selected: dict[uuid.UUID, User] = {}
         for email in emails:
@@ -258,8 +282,7 @@ class Command(BaseCommand):
                 raise CommandError(f"Nie ma konta {email}.")
             if not is_reserved_email(user.email):
                 raise CommandError(
-                    f"Konto {email} nie jest na zastrzeżonej domenie testowej — "
-                    "odmawiam usunięcia."
+                    f"Konto {email} nie jest na zastrzeżonej domenie testowej — odmawiam usunięcia."
                 )
             selected[user.pk] = user
         if sweep:
@@ -281,9 +304,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"    {label}: {found}")
         for user in users:
             counts = user_row_counts(user)
-            summary = ", ".join(
-                f"{label}: {found}" for label, found in sorted(counts.items())
-            )
+            summary = ", ".join(f"{label}: {found}" for label, found in sorted(counts.items()))
             self.stdout.write(f"konto {user.email}: {summary}")
         for user, reason in skipped:
             self.stdout.write(self.style.WARNING(f"pomijam {user.email}: {reason}"))

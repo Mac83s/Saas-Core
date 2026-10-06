@@ -33,8 +33,18 @@ docker compose exec -T backend python manage.py seed_demo --list
 … python manage.py seed_demo --password-stdin --scenario domki --scenario kajaki
 ```
 
+Na VPS-ie jednorazowe komendy nie idą przez `docker exec` w żywym backendzie (limit
+pamięci kontenera), tylko we własnym kontenerze: `docker compose run --rm -T … backend sh
+-c 'mkdir -p /tmp/prometheus && python manage.py seed_demo …'`. Katalog metryk tworzy się
+od teraz sam, gdy ustawiono `PROMETHEUS_MULTIPROC_DIR`, ale `mkdir -p` niczego nie psuje.
+
 Pierwsze uruchomienie trwa około pół minuty, kolejne kilka sekund. Na końcu komenda
 wypisuje konta i dla każdej firmy pięć ścieżek do przeklikania z adresami tego stosu.
+
+Istniejąca strona firmy: seed jej nie rusza. Przy każdej takiej firmie wypisuje linię
+`= strona <firma>: firma ma już stronę, seed jej NIE zmienia`. Żeby wstawić treść demo,
+trzeba stronę podmienić ręcznie: zapisz treść przez `save_draft` (strona, wersja, bloki),
+potem tłumaczenia stron i `publish_site` (albo wyedytuj ją w panelu Site Studio). Seed nie robi tego sam, bo nadpisałby pracę właściciela.
 
 Zabezpieczenia:
 

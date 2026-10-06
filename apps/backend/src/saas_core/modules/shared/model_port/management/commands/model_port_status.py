@@ -7,6 +7,7 @@ import logging
 from dataclasses import asdict
 from typing import Any
 
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from ...api import budget_state, task_status
@@ -52,6 +53,33 @@ class Command(BaseCommand):
         self.stdout.write(json.dumps(report, default=str, indent=2, ensure_ascii=False))
 
 
+NOT_CONFIGURED = "not configured"
+NOT_VERIFIED = "configured, not verified — run model_port_probe"
+
+
+def _readiness(key: str) -> str | None:
+    """What this command can honestly say about the task's adapter.
+
+    It never calls the provider, so it cannot know that a key works or that the
+    account has credit: a key in the settings is "configured", not "available".
+    The probe is the only check that spends a call."""
+    spec = task_spec(key)
+    if spec is None or spec.adapter != "openrouter":
+        return None
+    if not settings.MODEL_PORT_OPENROUTER_API_KEY_MOUNTED or not (
+        settings.MODEL_PORT_OPENROUTER_API_KEY
+    ):
+        return NOT_CONFIGURED
+    return NOT_VERIFIED
+
+
 def _status(key: str) -> dict[str, Any]:
     status = task_status(key)
-    return {**asdict(status), "capabilities": sorted(status.capabilities)}
+    report = {**asdict(status), "capabilities": sorted(status.capabilities)}
+    readiness = _readiness(key)
+    if readiness is not None:
+        report["adapter"] = readiness
+        if readiness == NOT_CONFIGURED:
+            report["available"] = False
+            report["reason"] = report["reason"] or "adapter_unconfigured"
+    return report
