@@ -198,9 +198,12 @@ export function otherLanguages(error: unknown): string[] | undefined {
  *  that have them — like the card of a paused form. */
 export function LanguageUnavailable({
   locales,
+  origin,
   publicSlug,
 }: {
   locales: string[];
+  /** Where the guest comes from: kept on the way to another language. */
+  origin?: string;
   publicSlug: string;
 }) {
   const t = useTranslations("PublicBooking");
@@ -222,7 +225,9 @@ export function LanguageUnavailable({
               <li key={code}>
                 <a
                   className="inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium"
-                  href={`/${code}/book/${encodeURIComponent(publicSlug)}`}
+                  href={`/${code}/book/${encodeURIComponent(publicSlug)}${
+                    origin ? `?origin=${encodeURIComponent(origin)}` : ""
+                  }`}
                   hrefLang={code}
                   lang={code}
                 >

@@ -14,8 +14,11 @@ from rest_framework.views import APIView
 from saas_core.content_protocol.units import unit_state
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.core.organizations.locales import ContentLocaleField
+from saas_core.modules.core.organizations.models import Organization
 
 from .catalog import catalog_entry_for, publish_profile, withdraw_profile
+from .catalog_contract import categories
+from .catalog_listing import hinted_category
 from .models import CatalogEntry, PublicProfile, PublicProfileTranslation
 from .public_views import site_url
 from .serializers import (
@@ -208,7 +211,21 @@ class ProfileTranslationView(APIView):
         return Response(_translation(translation.profile, locale, translation))
 
 
-def _catalog_state(entry: CatalogEntry | None) -> dict[str, Any]:
+def _suggested_category(profile: PublicProfile) -> str:
+    """The category the company's own setup points at, while its card has
+    none (slice 5h): a hint for the card's form, never a write."""
+    if profile.category:
+        return ""
+    organization_type = (
+        Organization.objects.filter(pk=profile.organization_id)
+        .values_list("organization_type", flat=True)
+        .first()
+    )
+    return hinted_category(profile.organization_id, categories(organization_type or ""))
+
+
+def _catalog_state(entry: CatalogEntry | None, profile: PublicProfile) -> dict[str, Any]:
+    suggested = _suggested_category(profile)
     if entry is None:
         return {
             "published": False,
@@ -217,6 +234,7 @@ def _catalog_state(entry: CatalogEntry | None) -> dict[str, Any]:
             "path": "",
             "site_url": None,
             "published_at": None,
+            "suggested_category": suggested,
         }
     return {
         "published": True,
@@ -225,6 +243,7 @@ def _catalog_state(entry: CatalogEntry | None) -> dict[str, Any]:
         "path": f"/katalog/{entry.city_slug}/{entry.slug}/",
         "site_url": site_url(entry),
         "published_at": entry.published_at,
+        "suggested_category": suggested,
     }
 
 
@@ -244,7 +263,7 @@ class OrganizationProfileView(APIView):
         profile = organization_profile()
         return Response({
             "profile": _summary(profile),
-            "catalog": _catalog_state(catalog_entry_for(profile.organization_id)),
+            "catalog": _catalog_state(catalog_entry_for(profile.organization_id), profile),
         })
 
 
@@ -263,7 +282,10 @@ class CatalogPublicationView(APIView):
     )
     def post(self, _request: Request) -> Response:
         entry = publish_profile()
-        return Response({"profile": _summary(entry.profile), "catalog": _catalog_state(entry)})
+        return Response({
+            "profile": _summary(entry.profile),
+            "catalog": _catalog_state(entry, entry.profile),
+        })
 
     @extend_schema(responses={204: None, 403: ProblemDetailsSerializer})
     def delete(self, _request: Request) -> Response:

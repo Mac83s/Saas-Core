@@ -102,6 +102,7 @@ class BookingConfig(AppConfig):
         # its stay blocks show now (ADR-072, slice 5d).
         from saas_core.modules.core.organizations.api import PublicSource, register_public_source
 
+        from .catalog_card import business_type
         from .site_blocks import (
             PAGE_SEGMENT,
             SITE_BLOCK_TYPES,
@@ -121,6 +122,9 @@ class BookingConfig(AppConfig):
                 page_segment=PAGE_SEGMENT,
                 site_page=site_page,
                 site_pages=site_pages,
+                # A company that lets units by the night is a lodging business
+                # in its site's structured data (ADR-071 pkt 16, slice 5h).
+                business_type=business_type,
             )
         )
         # The site's blocks read free days from the form's API at the site's
@@ -134,6 +138,11 @@ class BookingConfig(AppConfig):
         register_catalog_terms("shared.booking.services", service_names)
         post_save.connect(service_changed, sender=Service, dispatch_uid="booking.catalog.save")
         post_delete.connect(service_changed, sender=Service, dispatch_uid="booking.catalog.delete")
+        # The badge „rezerwacja online”, what a card lets a visitor book and
+        # the category an offer's preset points at (ADR-072 §11, slice 5h).
+        from .catalog_card import register as register_catalog_card
+
+        register_catalog_card()
 
         # Pre-tenant routing indexes: erasing the organization takes them too,
         # or its public slug would route a new organization to the old tenant.

@@ -694,7 +694,8 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
   za firmę (ADR-073, „Preset nie wybiera wpłaty z góry za firmę”).
 - **Token pochodzenia zostaje przy 5h.** Do pierwszego odnośnika z katalogu do
   formularza kanał wynika z tego, co serwer wie sam (`company_site`, `office`;
-  ADR-073, „Rozstrzygnięcia plastra 4e”).
+  ADR-073, „Rozstrzygnięcia plastra 4e”). (Od 5h token istnieje —
+  „Rozstrzygnięcia plastra 5h”.)
 - **Bloki czytają dane na żywo przez publiczne API rezerwacji** (5d–5e):
   publikacja jest migawką, a wolne terminy i ceny nią być nie mogą. Blok niesie
   tylko wybór (która oferta, która grupa, układ); resztę rozstrzyga plaster.
@@ -1309,3 +1310,134 @@ serwisów. Jedna migracja: booking 0036.
   i ewaluacje przyjdą z A6); presety produktu w profilu; powiadomienie firm z
   listy, gdy wzorzec stanie się gotowy; ustawienie kategorii i import szablonu
   jednym kliknięciem z ekranu wzorców.
+
+### Rozstrzygnięcia plastra 5h (katalog wie, kogo można zarezerwować online)
+
+Plaster 5h łączy katalog firm (`shared.profiles`, ADR-053, ADR-064) z
+rezerwacjami: odznaka i filtr „rezerwacja online”, to, co wizytówka w katalogu
+pozwala zarezerwować, strona jednostki pod wizytówką, podpisany token
+pochodzenia z kanałem na rezerwacji i podpowiedź kategorii z wzorca oferty.
+Dwie migracje: profiles 0011 i booking 0037, obie odwracalne (same kolumny i
+indeks). Razem z plastrem wchodzi rozstrzygnięcie podtypu `LodgingBusiness`
+(ADR-071, „Uzupełnienie 2026-10-06”).
+
+- **Katalog pyta, rezerwacje odpowiadają — przez rejestr w profiles.**
+  `profiles/catalog_listing.py` ma trzy rejestry obok `register_catalog_terms`:
+  odznakę (`register_catalog_badge`), to, co da się zarezerwować
+  (`register_catalog_booking`: `card` i `unit`), i podpowiedź kategorii
+  (`register_category_hint`). Profiles nie importują booking (zależność idzie w
+  drugą stronę), więc booking rejestruje je w `catalog_card.register()`.
+  Produkt bez rezerwacji nie ma odznaki, filtra ani stron jednostek — nikt ich
+  nie zarejestrował.
+- **Odznaka jest kopią na wierszu katalogu.** `CatalogEntry.badges` (lista
+  kluczy, indeks GIN; profiles 0011) — bo lista katalogu czyta jedną publiczną
+  tabelę i nie otwiera żadnego tenanta (ADR-053 §4), a filtr po dwudziestu
+  tenantach na stronę wyników byłby dokładnie tym, czego ta tabela ma
+  oszczędzić. Kopię odświeża zapis wiersza (publikacja, zmiana wizytówki) i
+  `catalog_changed` — booking woła je przy każdym zapisie i usunięciu oferty.
+  Dokument wyszukiwarki niesie `badges` jako atrybut filtrowany, więc obie
+  ścieżki wyszukiwania filtrują tym samym. `GET /public/catalog/?badge=…`
+  przyjmuje tylko zarejestrowany klucz (inny jest pomijany, jak miasto spoza
+  słownika), a słownik katalogu oddaje `badges` — formularz pokazuje filtr
+  tylko tam, gdzie odznaka istnieje.
+- **„Rezerwacja online” znaczy: formularz firmy przyjąłby rezerwację.**
+  `catalog_card.books_online`: produkt ma formularze publiczne, formularz firmy
+  jest czynny, plan obejmuje rezerwacje (ta sama bramka co adresy formularza) i
+  firma ma choć jedną włączoną ofertę „W rezerwacji online” — termin albo
+  pobyt. Pauza formularza odznaki nie zdejmuje (jest chwilowa i formularz sam
+  ją mówi). **Znane opóźnienie:** kopia nie widzi tego, o czym nikt nie
+  melduje — planu, który przestał obejmować rezerwacje. Wizytówka i formularz
+  pytają na żywo i nie pokażą przycisku; listę naprawia następna zmiana oferty
+  albo polecenie `python manage.py refresh_catalog_badges` (firma po firmie,
+  `SET LOCAL` przed każdym odczytem; to także uzupełnienie wierszy sprzed
+  wdrożenia). Zdarzenia „zmienił się plan” billing dziś nie ma.
+- **Wizytówka mówi, co da się zarezerwować, na żywo.** `GET
+  /public/catalog/<miasto>/<firma>/` dostaje `booking`: adres formularza w
+  języku strony (albo pierwszym języku firmy, jak w blokach strony), `origin` i
+  `units` — jednostki, których treść formularz pokazuje (publiczne; grupa mówi
+  swoją pierwszą publiczną jednostką, jak w 5e), każda raz, ze zdjęciem,
+  miejscowością, pojemnością i „od X zł/noc”. Firma z samymi terminami ma
+  `units` puste i sam przycisk. `null` — nic nie jest rezerwowane online.
+  Odczyt idzie tym samym `public_stays` co formularz, w jego zakresie
+  usługowym: jedna reguła tego, co jest online i co firma pokazuje.
+- **Strona jednostki w katalogu jest systemowa, jak na stronie firmy.**
+  `/katalog/<miasto>/<firma>/<jednostka>` (`GET …/units/<jednostka>/`):
+  jednostka po `public_slug`, z galerią, wyposażeniem w języku strony, „od X
+  zł”, kalendarzem wolnych dni i przyciskiem do formularza. Istnieje, dopóki
+  formularz pokazuje jednostkę (404 `catalog_unit_not_found` potem) i dopóki
+  firma jest w katalogu. Strona przyjmuje `from`, `to` i `people` z adresu i
+  niesie je dalej do formularza — tędy wejdzie wyszukiwarka wolnych terminów
+  (faza 16). Kalendarz czyta wolne dni z publicznego API formularza z
+  przeglądarki, pod hostem platformy, tym samym `StayDatePicker` co formularz i
+  bloki. Stronę rysuje katalog z rekordu, bez bloków Site Studio: bloki mają
+  style i adresy mediów strony firmy, a katalog jest stroną platformy.
+- **Jednostka ma w katalogu własny adres kanoniczny i własne zasady
+  indeksowania.** Strona jest indeksowana w językach, w których jednostka (albo
+  grupa, za którą mówi) ma własną nazwę i w których wizytówka firmy jest cała
+  (TL20); gdzie indziej pokazuje słowa firmy w jej języku, mówi to atrybutem
+  `lang` i prosi o `noindex`. Kanoniczny jest adres w katalogu, także gdy
+  firma ma własną stronę z `/stay/<adres>/` — jak wizytówka, która też istnieje
+  obok strony firmy; wspólny jest węzeł `#organization`. JSON-LD strony to
+  graf: firma (ten sam węzeł co na wizytówce) i jednostka z `thing` źródła
+  (`Accommodation` z `provider`, wynajem na dni jako `Product` z `seller`).
+  Mapy strony platformy stron jednostek nie wymienia — prowadzi do nich
+  wizytówka.
+- **Zdjęcia jednostek w katalogu serwuje adres formularza.** Strona platformy
+  nie ma publikacji, która ręczyłaby za zdjęcie, więc ręczy booking (5c):
+  `…/booking/public/<slug>/photos/<id>/<kopia>/`. Odpowiedź katalogu niesie
+  przy zdjęciu zapisany rozmiar i `ai_generated` (`media.api.shown_image_facts`),
+  a strona rysuje odznakę „AI” i dopisuje ją do `alt` (ADR-059 pkt 7).
+- **Token pochodzenia wystawia katalog, czyta formularz, a podpisuje rdzeń.**
+  `core.organizations.origin`: `issue_origin(kanał, firma)` i
+  `read_origin(token, firma)` — `django.core.signing` z własną solą: kanał,
+  firma i chwila wystawienia. Token jest ważny 30 dni (`ORIGIN_MAX_AGE`, stała
+  ochronna platformy, nie ustawienie firmy: okno przypisania jest jedno dla
+  wszystkich) i tylko u firmy, dla której go wystawiono. Wystawiany jest tylko
+  kanał `catalog`: stronę firmy i biuro serwer zna sam (ADR-073, „Rozstrzygnięcia
+  plastra 4e”). Katalog dokleja go do każdego odnośnika do formularza
+  (`?origin=…`), formularz trzyma go w stanie i odsyła w polu `origin`
+  rezerwacji terminu i pobytu — nigdy w ciasteczku (§11). Rdzeń, nie profiles
+  ani booking, bo ten sam token przyjmie zamówienie sklepu (ADR-074).
+- **Token jest podpowiedzią i nigdy nie odmawia rezerwacji.** Brak tokenu,
+  cudzy, przeterminowany albo zmieniony — rezerwacja powstaje z kanałem
+  `company_site`. Token nie należy do skrótu żądania przy kluczu idempotencji
+  (nie zmienia tego, co jest rezerwowane). Dłuższy niż 255 znaków to 400 na
+  polu `origin` — tak długich nie wystawiamy, a formularz takiego nie odeśle.
+  **Czego token nie dowodzi:** że gość naprawdę przeszedł przez katalog — kto
+  chce, weźmie świeży token z publicznej wizytówki. Dowodzi, że odnośnik
+  wystawiła platforma dla tej firmy nie dawniej niż 30 dni temu. Rozliczenia
+  oparte na kanale (pytanie 21) muszą to wziąć pod uwagę.
+- **Rezerwacja zapisuje kanał i token; zamówienie kopiuje kanał.**
+  `Appointment.channel` (`office`, `company_site`, `catalog`; puste dla
+  rezerwacji sprzed tej zmiany) i `Appointment.origin_token` (booking 0037),
+  ustawiane w jednym miejscu, `origin.booking_origin`, przez obie ścieżki
+  (`create_appointment`, `book_stay`; argument `origin` z wartością domyślną,
+  `booking.api` zmienia się addytywnie). Rezerwacja zespołu to zawsze `office`,
+  cokolwiek dostanie. Zamówienie bierze kanał rezerwacji (`orders.place`), więc
+  lista zamówień filtruje „Katalog” bez zmian. Samego tokenu zamówienie nie
+  kopiuje — §11 mówiło „zamówienie je kopiuje”; token zostaje dowodem na
+  rezerwacji, do której prowadzi pozycja zamówienia, a kolumna w commerce
+  przyjdzie ze sklepem, który nie ma rezerwacji. Panel pokazuje „Źródło
+  rezerwacji” w szczegółach wizyty i pobytu (`channel` w odczycie rezerwacji).
+- **Wzorzec podpowiada kategorię tam, gdzie firma ją wybiera.**
+  `GET /profiles/organization/` oddaje `catalog.suggested_category`: kategorię
+  wzorca, z którego powstała najnowsza oferta firmy (`Service.preset_id`), o ile
+  wizytówka nie ma jeszcze kategorii i słownik typu organizacji taką kategorię
+  ma. Wizytówka pokazuje ją pod polem „Kategoria” z przyciskiem „Ustaw…”, który
+  zapisuje ją zwykłym zapisem wizytówki (wersja, audyt). Niczego nie ustawiamy
+  za firmę — podtrzymuje to 5g („kategoria to decyzja firmy”); ekran wzorców
+  dalej odsyła do wizytówki, gdzie podpowiedź już czeka. Asystent zna kategorię
+  wzorca z `booking.preset.list` i ustawia ją poleceniem
+  `profiles.organization.update`; samo `suggested_category` w odczycie
+  `profiles.organization.read` przyjdzie z A6 (zmiana deklaracji polecenia).
+- **Odnośnik z listy katalogu.** Karta firmy na liście prowadzi nazwą tam,
+  gdzie dotąd (na stronę firmy, gdy ją ma); odznaka „Rezerwacja online” jest
+  odnośnikiem do wizytówki na platformie (`#rezerwacja`) — stamtąd rezerwacja
+  niesie token katalogu także u firmy z własną stroną.
+- **Poza 5h:** przełącznik „Pokazuj wolne terminy w katalogu” i wyszukiwarka
+  wielu firm (faza 16 — strona jednostki już przyjmuje daty i gości); strony
+  jednostek w mapie strony platformy; token dla innych kanałów i jego kopia na
+  zamówieniu (sklep); zdarzenie zmiany planu, które odświeżyłoby odznakę;
+  odznaka AI przy zdjęciach w samym formularzu rezerwacji (5d); ustawienie
+  kategorii jednym kliknięciem z ekranu wzorców; raport „rezerwacje według
+  kanału” (dziś filtr listy zamówień i wiersz w szczegółach rezerwacji).

@@ -198,6 +198,12 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
   }
 
   const readOnly = !canManage || busy;
+  const hinted = dictionary.categories.find(
+    (category) => category.key === catalog.suggested_category,
+  );
+  const suggested = hinted
+    ? { key: hinted.key, label: hinted.labels.pl ?? hinted.key }
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -304,6 +310,25 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
                   </option>
                 ))}
               </NativeSelect>
+              {/* While the card has no category: the one the company's own
+                  offers point at (the preset an offer was made from). One
+                  click takes it; nothing is set for the company. */}
+              {canManage && !profile.category && suggested ? (
+                <div className="space-y-2 text-sm">
+                  <p className="text-muted-foreground">
+                    {t("categoryHint", { category: suggested.label })}
+                  </p>
+                  <Button
+                    disabled={busy}
+                    onClick={() => void save({ category: suggested.key })}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    {t("useCategory", { category: suggested.label })}
+                  </Button>
+                </div>
+              ) : null}
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">

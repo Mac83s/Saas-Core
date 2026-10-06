@@ -36,6 +36,7 @@ const DICTIONARY: CatalogDictionary = {
   ],
   categories: [],
   locales: ["pl"],
+  badges: [],
 };
 
 function item(
@@ -57,6 +58,7 @@ function item(
     locale: "pl",
     source_locale: "pl",
     translated_locales: [],
+    badges: [],
   };
 }
 
@@ -225,5 +227,62 @@ test("the English listing asks in English and links the cards under /en", async 
   expect(screen.getByText("Hairdresser").getAttribute("lang")).toBe("en");
   expect(api.searchCatalog).toHaveBeenLastCalledWith(
     expect.objectContaining({ locale: "en" }),
+  );
+});
+
+test("a catalogue with bookings filters by them and marks who is booked online", async () => {
+  api.readCatalogDictionary.mockResolvedValue({
+    ...DICTIONARY,
+    badges: ["online_booking"],
+  });
+  api.searchCatalog.mockResolvedValue(
+    page([
+      {
+        ...item("domki", "Domki nad Jeziorem"),
+        // The company has a site of its own: its name leads there.
+        url: "https://domki.example/",
+        is_external: true,
+        badges: ["online_booking"],
+      },
+      item("salon", "Salon Anna"),
+    ]),
+  );
+  const { container } = view(<CatalogSearch locale="en" />, "en");
+
+  // The badge leads to the platform's own page of the company — where a
+  // booking starts as the catalogue's — also when the name leaves for a site.
+  const badge = await screen.findByRole("link", { name: "Online booking" });
+  expect(badge.getAttribute("href")).toBe(
+    "/en/katalog/olsztyn/domki#rezerwacja",
+  );
+  expect(screen.getAllByRole("link", { name: "Online booking" })).toHaveLength(
+    1,
+  );
+
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: "Only companies with online booking",
+    }),
+  );
+
+  await waitFor(() =>
+    expect(api.searchCatalog).toHaveBeenLastCalledWith(
+      expect.objectContaining({ badge: "online_booking" }),
+    ),
+  );
+  expect((await axe.run(container)).violations).toEqual([]);
+});
+
+test("a catalogue without bookings offers no such filter", async () => {
+  // This file's mocks keep their calls from one test to the next.
+  api.searchCatalog.mockClear();
+  api.searchCatalog.mockResolvedValue(page([item("salon", "Salon Anna")]));
+  view(<CatalogSearch locale="pl" />);
+
+  await screen.findByRole("link", { name: "Salon Anna" });
+
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(api.searchCatalog).not.toHaveBeenCalledWith(
+    expect.objectContaining({ badge: expect.anything() }),
   );
 });

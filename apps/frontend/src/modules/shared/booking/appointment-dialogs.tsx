@@ -1685,6 +1685,16 @@ function AppointmentDetails({
       crewNames(appointment, t) || t("crewNobody"),
     ],
     [t("customerChoice"), requested],
+    // Where a customer's own booking started (ADR-072 §11): the company's
+    // form, or the form reached from the catalogue. The team's own booking
+    // says nothing, and neither does one from before channels were kept.
+    [
+      t("channel"),
+      appointment.channel === "catalog" ||
+      appointment.channel === "company_site"
+        ? t(`channels.${appointment.channel}`)
+        : undefined,
+    ],
     [t("location"), appointment.location_name],
     [t("resource"), appointment.resource_name],
   ].filter((row): row is [string, string] => Boolean(row[1]));

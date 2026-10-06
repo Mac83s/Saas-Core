@@ -16,6 +16,12 @@ from saas_core.modules.core.organizations.api import OrganizationFacts
 from saas_core.modules.core.organizations.models import BillingProfile, Organization
 
 from .catalog_contract import categories, cities
+from .catalog_listing import (
+    CatalogBooking,
+    register_catalog_badge,
+    register_catalog_booking,
+    register_category_hint,
+)
 from .models import ProfileSubjectKind, PublicProfile
 from .search_index import catalog_changed, register_catalog_terms
 from .services import CATEGORY_CHANGED_NOTICE, recategorize_organization_card
@@ -148,6 +154,12 @@ def person_names(organization_id: UUID, profile_ids: Iterable[UUID | None]) -> d
 
 __all__ = [
     "CATEGORY_CHANGED_NOTICE",
+    # What a module says of its tenants in the catalogue: a badge of the
+    # listing, what a card lets a visitor book, a category hint (slice 5h).
+    "CatalogBooking",
+    "register_catalog_badge",
+    "register_catalog_booking",
+    "register_category_hint",
     "recategorize_organization_card",
     "catalog_changed",
     # The catalogue's dictionary of towns, for whoever files something under

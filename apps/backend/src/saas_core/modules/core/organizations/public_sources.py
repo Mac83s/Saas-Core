@@ -19,6 +19,9 @@ site — a unit's own page — under one first segment of the address that is th
 source's (`stay`): nobody publishes such a page, the site asks the source for
 it when no published page answers, and the source says what the record is for
 structured data (`SourcePage.thing`) and which picture a shared link shows.
+And, since slice 5h, what its records make the company itself for structured
+data (`business_type`): a company that lets units by the night is a lodging
+business whatever category its catalogue card stands in (ADR-071 pkt 16).
 
 A record whose words are written per language and never stand in for one
 another — a company's document for its customers (`documents`, slice 5f) —
@@ -121,6 +124,10 @@ class PublicSource:
     site_page: Callable[[UUID, str, str, PageAddress], SourcePage | None] | None = None
     #: `site_pages(organization_id)` → every record that has a page now.
     site_pages: Callable[[UUID], Iterable[SourcePageAddress]] | None = None
+    #: `business_type(organization_id)` → the schema.org subtype of
+    #: LocalBusiness its records make the company (`LodgingBusiness`), or ""
+    #: when they say nothing about it. Called inside the company's tenant.
+    business_type: Callable[[UUID], str] | None = None
 
 
 _sources: dict[str, PublicSource] = {}
@@ -151,6 +158,18 @@ def served_media_ids(organization_id: UUID) -> set[UUID]:
         if source.served_media is not None:
             served.update(source.served_media(organization_id))
     return served
+
+
+def stated_business_type(organization_id: UUID) -> str:
+    """What the company's live records make it, as schema.org names it; ""
+    when no source says. A fact: it stands before the subtype the company's
+    catalogue category names. The caller holds the company's tenant."""
+    for source in _sources.values():
+        if source.business_type is not None:
+            stated = source.business_type(organization_id)
+            if stated:
+                return stated
+    return ""
 
 
 def live_site_blocks(

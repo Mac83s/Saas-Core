@@ -1,6 +1,11 @@
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import type { CatalogProfile } from "@saas-core/api-client";
+import { stayAmount } from "@saas-core/site-blocks";
+
+import { localizedPath } from "../../../marketing/seo";
+import { catalogFormHref } from "./catalog-links";
+import { CatalogUnitPhoto } from "./catalog-unit-photo";
 
 /**
  * One catalogue page, rendered from a record rather than from blocks.
@@ -15,8 +20,10 @@ export async function CatalogProfilePage({
   profile: CatalogProfile;
 }) {
   const t = await getTranslations("Catalog");
+  const locale = await getLocale();
   const cover = profile.layout === "cover";
   const compact = profile.layout === "compact";
+  const booking = profile.booking;
 
   return (
     <article className="space-y-8">
@@ -40,6 +47,82 @@ export async function CatalogProfilePage({
       {profile.bio && !compact && (
         <section className="max-w-prose whitespace-pre-line leading-relaxed">
           {profile.bio}
+        </section>
+      )}
+
+      {/* What a visitor can book here now, said by the company's own form
+          (ADR-072, slice 5h). The link carries the catalogue's `origin`, so
+          the booking says where it started. */}
+      {booking && (
+        <section
+          aria-labelledby="catalog-booking"
+          className="space-y-4"
+          id="rezerwacja"
+        >
+          <h2 className="text-lg font-medium" id="catalog-booking">
+            {t("onlineBooking")}
+          </h2>
+          {booking.units.length > 0 && (
+            <ul className="grid gap-4 sm:grid-cols-2">
+              {booking.units.map((unit) => (
+                <li
+                  className="overflow-hidden rounded-lg border"
+                  key={unit.slug}
+                >
+                  {unit.photo && (
+                    <CatalogUnitPhoto
+                      alt={unit.name}
+                      className="aspect-[4/3] h-auto w-full object-cover"
+                      locale={locale}
+                      photo={unit.photo}
+                      sizes="(min-width: 640px) 22rem, 100vw"
+                    />
+                  )}
+                  <div className="space-y-1 p-4">
+                    <h3 className="font-medium">
+                      <a
+                        className="hover:underline"
+                        href={localizedPath(
+                          locale,
+                          `/katalog/${profile.city_slug}/${profile.slug}/${unit.slug}`,
+                        )}
+                      >
+                        {unit.name}
+                      </a>
+                    </h3>
+                    <p className="text-muted-foreground text-sm">
+                      {[
+                        unit.town?.name,
+                        unit.capacity
+                          ? t("capacity", { count: unit.capacity })
+                          : undefined,
+                        unit.from_price
+                          ? t("from", {
+                              per: unit.from_price.per,
+                              amount: stayAmount(unit.from_price, locale),
+                            })
+                          : undefined,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    {unit.description && (
+                      <p className="text-sm">{unit.description}</p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p>
+            <a
+              className="bg-primary text-primary-foreground inline-flex min-h-11 items-center justify-center rounded-lg px-5 text-sm font-medium"
+              href={catalogFormHref(booking)}
+              rel="nofollow"
+            >
+              {t("book")}
+            </a>
+          </p>
         </section>
       )}
 

@@ -40,6 +40,18 @@ class TimeModel(models.TextChoices):
     SESSION = "session", "Wydarzenie"
 
 
+class BookingChannel(models.TextChoices):
+    """Where a booking came from (ADR-072 §11) — the values its order's
+    channel has (ADR-073 §3)."""
+
+    #: The team booked it in the panel.
+    OFFICE = "office", "Biuro"
+    #: The company's public form, reached from its own site or its link.
+    COMPANY_SITE = "company_site", "Strona firmy"
+    #: The form, reached from the platform's catalogue (`origin_token`).
+    CATALOG = "catalog", "Katalog"
+
+
 class RangeUnit(models.TextChoices):
     NIGHT = "night", "Noc"
     DAY = "day", "Dzień"
@@ -1032,6 +1044,13 @@ class Appointment(TenantScopedModel):
     #: Empty for a booking from before quotes.
     quote = models.JSONField(null=True, blank=True)
     quote_digest = models.CharField(max_length=64, blank=True)
+    #: Where the booking came from (ADR-072 §11, `origin.booking_origin`);
+    #: empty for a booking from before channels were kept.
+    channel = models.CharField(max_length=16, choices=BookingChannel, blank=True)
+    #: The signed token that vouched for the channel, as the form sent it —
+    #: the evidence that the catalogue sent this guest. Empty where the
+    #: server knew the channel by itself.
+    origin_token = models.CharField(max_length=255, blank=True)
     status = models.CharField(
         max_length=16, choices=AppointmentStatus, default=AppointmentStatus.CONFIRMED
     )

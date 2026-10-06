@@ -300,3 +300,35 @@ Jak pkt 16 jest wykonany, żeby drugi raz tego nie rozstrzygać:
   „ai”: produkty składają strony bez portu modeli, a grupa w cudzym obszarze
   zatrzymałaby ich start (`organizations.E102`).
 
+
+## Uzupełnienie 2026-10-06: podtyp firmy z faktu, nie tylko z kategorii (pkt 16)
+
+Odbiór TL18 na VPS-ie pokazał, że firma noclegowa nie dostaje `LodgingBusiness`:
+podtyp brał się wyłącznie ze `schemaType` kategorii katalogu, a
+`turystyka-i-noclegi` nie ma go w kontrakcie rdzenia — i mieć nie może, bo
+obok domków stoją w niej wypożyczalnie i biura podróży (zasada z pkt 16:
+nieprawdziwy podtyp jest gorszy niż jego brak). Decyzja właściciela z
+2026-10-06, wariant (a): **podtyp wynika z faktu.**
+
+- **Fakt zgłasza moduł, który go zna, rejestrowi publicznych źródeł.**
+  `PublicSource.business_type(organization_id)` (ADR-074 pkt 7; rejestr w
+  `core.organizations.public_sources`) oddaje podtyp schema.org, jaki rekordy
+  modułu nadają firmie, albo nic. Booking mówi `LodgingBusiness`, gdy firma ma
+  włączoną ofertę rezerwowaną na noce z włączoną jednostką (własną albo z
+  grupy) — niezależnie od tego, czy przyjmuje te rezerwacje online: to, czym
+  firma jest, nie zależy od formularza. Wynajem na dni i wizyty nie nadają
+  niczego.
+- **Fakt stoi przed kategorią.** `organization_facts` bierze fakty wizytówki i
+  podmienia `business_type` na podtyp z rejestru, gdy jakieś źródło go mówi;
+  inaczej zostaje `schemaType` kategorii. Kategoria `turystyka-i-noclegi`
+  zostaje bez typu.
+- **Strona firmy mówi to od następnej publikacji, wizytówka w katalogu od
+  razu.** Fakty firmy są w migawce publikacji (pkt 16, „Fakty są w migawce”) i
+  ta zasada się nie zmienia: żądanie publiczne nie czyta tabel rezerwacji po
+  to, żeby nazwać firmę, a wszystkie podstrony i języki jednej publikacji mają
+  ten sam węzeł `#organization`. Karta katalogu jest odczytem na żywo, więc
+  `GET /public/catalog/<miasto>/<firma>/` oddaje `business_type` z tej samej
+  reguły, a `catalogCardJsonLd` drukuje `["LocalBusiness", "LodgingBusiness"]`.
+- **Warunek adresu zostaje.** Na stronie firmy podtyp stoi obok
+  `LocalBusiness`, czyli tylko gdy wizytówka ma ulicę; bez niej firma jest
+  `Organization`, jak dotąd.

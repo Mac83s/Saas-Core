@@ -5977,6 +5977,12 @@ export type CatalogState = components["schemas"]["CatalogState"];
 export type CatalogItem = components["schemas"]["CatalogItem"];
 export type CatalogPage = components["schemas"]["CatalogPage"];
 export type CatalogProfile = components["schemas"]["CatalogProfile"];
+/** What a visitor can book at a company from its catalogue card (ADR-072,
+ *  slice 5h): the form, the units it shows and the catalogue's `origin`. */
+export type CatalogBooking = components["schemas"]["CatalogBooking"];
+export type CatalogBookableUnit = components["schemas"]["CatalogBookableUnit"];
+/** One unit's page under a company's catalogue card. */
+export type CatalogUnitPage = components["schemas"]["CatalogUnitPage"];
 export type CatalogDictionary = components["schemas"]["CatalogDictionary"];
 /** City, category, words, page, and a radius around the town or a point. */
 export type CatalogSearch = NonNullable<

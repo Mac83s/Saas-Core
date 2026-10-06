@@ -66,6 +66,7 @@ from .models import (
     TimeOff,
 )
 from .observers import RESCHEDULED, AppointmentChange
+from .origin import booking_origin
 from .rules import rule_for
 from .security import PUBLIC_BOOKING_ROLE, issue_self_service_token
 from .services import (
@@ -322,6 +323,7 @@ def book_stay(
     quote_digest: str = "",
     preview: bool = False,
     consents: BookingConsents | None = None,
+    origin: str = "",
 ) -> CreatedAppointment | StayPlan:
     """Books a stay — the team in the panel, or a customer on the company's
     public form; with `preview`, says which unit it would take and refuses
@@ -451,6 +453,7 @@ def book_stay(
         staff_required=0,
         crew_version=1,
         customer_notes=customer_notes.strip()[:500],
+        **booking_origin(origin),
     )
     unit = _hold(appointment, plan)
     # The unit that was held, not the one planned: a lost race takes another.

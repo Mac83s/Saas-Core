@@ -180,10 +180,14 @@ function problem(status: number, code: string, extra: object = {}) {
   });
 }
 
-function show(preset?: StayPreset) {
+function show(preset?: StayPreset, origin?: string) {
   return render(
     <NextIntlClientProvider locale="pl" messages={polishMessages}>
-      <PublicBookingFlow preset={preset} publicSlug="dokumenty-demo" />
+      <PublicBookingFlow
+        origin={origin}
+        preset={preset}
+        publicSlug="dokumenty-demo"
+      />
     </NextIntlClientProvider>,
   );
 }
@@ -682,4 +686,38 @@ test("a unit named without its offer finds the offer that lists it", async () =>
     await screen.findByRole("radio", { name: /Domek nad jeziorem/ }),
   ).toBeChecked();
   await day(/ 7 listopada 2026, wolny termin/);
+});
+
+test("a guest the catalogue sent hands its token back with the booking", async () => {
+  const first = show(undefined, "token-katalogu");
+  await fillAndAccept();
+  fireEvent.click(screen.getByRole("button", { name: "Zarezerwuj" }));
+  await waitFor(() => expect(api.createPublicStay).toHaveBeenCalledTimes(1));
+  // As it came in the form's address; whether it holds is the server's call.
+  expect(api.createPublicStay.mock.calls[0][1].origin).toBe("token-katalogu");
+  first.unmount();
+
+  // A guest who came by themselves sends none.
+  api.createPublicStay.mockClear();
+  show();
+  await fillAndAccept();
+  fireEvent.click(screen.getByRole("button", { name: "Zarezerwuj" }));
+  await waitFor(() => expect(api.createPublicStay).toHaveBeenCalledTimes(1));
+  expect(api.createPublicStay.mock.calls[0][1]).not.toHaveProperty("origin");
+});
+
+test("the way to another language keeps where the guest came from", async () => {
+  api.getPublicBookingConsents.mockResolvedValue({
+    locale: "pl",
+    documents: [],
+    bookable: false,
+    bookable_locales: ["en"],
+    marketing: null,
+  });
+  show(undefined, "a:b c");
+
+  expect(await screen.findByRole("link", { name: "English" })).toHaveAttribute(
+    "href",
+    "/en/book/dokumenty-demo?origin=a%3Ab%20c",
+  );
 });

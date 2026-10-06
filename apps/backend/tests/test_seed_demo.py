@@ -58,6 +58,9 @@ from saas_core.modules.shared.inventory.models import (
     StockLocation,
 )
 from saas_core.modules.shared.notifications.models import NotificationMessage
+from saas_core.modules.shared.profiles.catalog_contract import categories as catalog_categories
+from saas_core.modules.shared.profiles.catalog_listing import hinted_category
+from saas_core.modules.shared.profiles.models import CatalogEntry, PublicProfile
 from saas_core.modules.shared.sites.models import (
     Domain,
     Page,
@@ -312,6 +315,28 @@ def test_three_companies_tell_their_stories_and_a_second_run_changes_nothing() -
     assert (rent.preset_id, rent.range_unit, rent.active) == ("core.rental", "day", True)
     assert Resource.all_objects.filter(organization=rental).count() == 4
     assert set(statuses(Order, rental)) >= {"paid", "awaiting_payment", "canceled"}
+
+    # --- the business cards (ADR-072, slice 5h): the rental stands in the
+    # catalogue, whose listing knows it is booked online; the cottages' card
+    # waits for its category with the hint of the „Nocleg” preset — where the
+    # profile's dictionary has those categories at all
+    known = catalog_categories(lodging.organization_type)
+    cards = {
+        card.organization_id: card
+        for card in PublicProfile.all_objects.filter(
+            organization__in=(lodging, rental), subject_kind="organization"
+        )
+    }
+    assert (cards[lodging.id].city_slug, cards[lodging.id].category) == ("mragowo", "")
+    assert cards[lodging.id].contact_address == "ul. Jeziorna 12"
+    assert not CatalogEntry.all_objects.filter(organization=lodging).exists()
+    placed = CatalogEntry.all_objects.filter(organization=rental).first()
+    if "turystyka-i-noclegi" in known:
+        assert hinted_category(lodging.id, known) == "turystyka-i-noclegi"
+        assert placed is not None and placed.badges == ["online_booking"]
+        assert (placed.city_slug, placed.category) == ("ruciane-nida", "turystyka-i-noclegi")
+    else:
+        assert placed is None and hinted_category(lodging.id, known) == ""
 
     # --- the bank accounts are made up: valid numbers of a bank nobody has
     for organization in (studio, lodging, rental):

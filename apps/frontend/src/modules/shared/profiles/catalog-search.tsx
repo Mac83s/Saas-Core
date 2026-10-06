@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
+  CalendarCheckIcon,
   ExternalLinkIcon,
   LocateFixedIcon,
   SearchIcon,
@@ -40,6 +41,9 @@ const TYPING_PAUSE_MS = 300;
 const NEAR_ME_RADIUS_KM = 25;
 const MAX_RADIUS_KM = 100;
 
+/** The badge of a company a visitor can book online (ADR-072, slice 5h). */
+const ONLINE_BOOKING = "online_booking";
+
 type Point = { lat: number; lng: number };
 
 function EntryCard({ item, locale }: { item: CatalogItem; locale: string }) {
@@ -69,10 +73,27 @@ function EntryCard({ item, locale }: { item: CatalogItem; locale: string }) {
         </CardTitle>
         <CardDescription lang={item.locale}>{item.headline}</CardDescription>
       </CardHeader>
-      <CardContent className="text-muted-foreground text-sm">
-        {item.city}
-        {item.distance_km !== null && item.distance_km !== undefined && (
-          <> · {t("km", { km: Math.round(item.distance_km) })}</>
+      <CardContent className="text-muted-foreground space-y-2 text-sm">
+        <p>
+          {item.city}
+          {item.distance_km !== null && item.distance_km !== undefined && (
+            <> · {t("km", { km: Math.round(item.distance_km) })}</>
+          )}
+        </p>
+        {/* Always the platform's own page of the company — also when its
+            name leads to the company's site: the booking starts here, so it
+            says the catalogue sent the guest. (`?.`: a page that loaded
+            while the backend behind it was still the older one.) */}
+        {item.badges?.includes(ONLINE_BOOKING) && (
+          <p>
+            <a
+              className="text-foreground inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium hover:underline"
+              href={`${localizedPath(locale, `/katalog/${item.city_slug}/${item.slug}`)}#rezerwacja`}
+            >
+              <CalendarCheckIcon aria-hidden="true" className="size-3.5" />
+              {t("onlineBooking")}
+            </a>
+          </p>
         )}
       </CardContent>
     </Card>
@@ -112,6 +133,7 @@ export function CatalogSearch({
   const [typed, setTyped] = useState("");
   const [query, setQuery] = useState("");
   const [radius, setRadius] = useState(0);
+  const [bookable, setBookable] = useState(false);
   const [near, setNear] = useState<Point | null>(null);
   const [locating, setLocating] = useState(false);
   const [page, setPage] = useState<CatalogPage | null>(null);
@@ -148,6 +170,7 @@ export function CatalogSearch({
         lng: near.lng,
         radius_km: radius,
         locale,
+        ...(bookable ? { badge: ONLINE_BOOKING } : {}),
       }
     : {
         city,
@@ -155,6 +178,7 @@ export function CatalogSearch({
         q: query,
         ...(city && radius ? { radius_km: radius } : {}),
         locale,
+        ...(bookable ? { badge: ONLINE_BOOKING } : {}),
       };
   const searchKey = JSON.stringify(search);
 
@@ -307,6 +331,23 @@ export function CatalogSearch({
             {t("locationPrivacy")}
           </p>
         </div>
+        {/* Only where the product's catalogue has the badge: a product
+            that takes no bookings offers no such filter. */}
+        {dictionary?.badges?.includes(ONLINE_BOOKING) && (
+          <label
+            className="flex min-h-11 items-center gap-2 text-sm font-medium sm:col-span-3"
+            htmlFor="catalog-bookable"
+          >
+            <input
+              checked={bookable}
+              className="size-4"
+              id="catalog-bookable"
+              onChange={(event) => setBookable(event.target.checked)}
+              type="checkbox"
+            />
+            {t("onlineBookingOnly")}
+          </label>
+        )}
       </form>
 
       {error && (

@@ -5837,7 +5837,7 @@ export interface paths {
         };
         /**
          * The public catalogue's listing
-         * @description One page of the catalogue's companies, filtered by city, category, words or distance. With `locale` each card's headline comes in that language where the card is whole in it, and `locale_has_entries` says whether any card is.
+         * @description One page of the catalogue's companies, filtered by city, category, words, distance or a badge (`badge=online_booking`: the companies a visitor can book online). With `locale` each card's headline comes in that language where the card is whole in it, and `locale_has_entries` says whether any card is. Each item names its `badges`.
          */
         get: operations["catalog_list"];
         put?: never;
@@ -5857,9 +5857,29 @@ export interface paths {
         };
         /**
          * One company's catalogue page
-         * @description The company's public card in the catalogue. With `locale` the headline, bio and link labels come in that language of the company when the card has them; `locale` in the answer says which language was served and `fallback` lists what stayed in the card's own language.
+         * @description The company's public card in the catalogue. With `locale` the headline, bio and link labels come in that language of the company when the card has them; `locale` in the answer says which language was served and `fallback` lists what stayed in the card's own language. `booking` is what a visitor can book there now — the company's form, the units it shows (each with a page of its own at `…/units/{unit}/`) and `origin`, the token a link to the form carries so that the booking says it came from the catalogue; null where nothing is booked online. `business_type` is the schema.org subtype of LocalBusiness the company is.
          */
         get: operations["catalog_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/catalog/{city_slug}/{slug}/units/{unit_slug}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One unit's page under a company's catalogue card
+         * @description A unit the company shows on its booking form — a cottage, a room, a kayak — as its own page in the catalogue: `company` is the card it stands under, `unit` its content (pictures at the form's address, what it has, its town, the lowest price), `offers` the offers it is booked through with the choice that books it, and `booking` the form: its address, the days it takes and `origin` — the token a link to the form carries so that the booking says it came from the catalogue. The free days are read from the form's own API (`/booking/public/{form_slug}/stays/…`). With `locale` the unit's name and description come in that language where the company wrote them; `unit.locale` says which was served. 404 `catalog_entry_not_found` without the card, 404 `catalog_unit_not_found` when the form shows no such unit.
+         */
+        get: operations["catalog_unit"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8352,6 +8372,15 @@ export interface components {
              * @description Until when a `pending_request` booking waits for the company's answer, or a `pending_payment` one for its payment; null otherwise.
              */
             hold_expires_at?: string | null;
+            /**
+             * @description Where the booking came from: `office` — the team booked it; `company_site` — the company's public form; `catalog` — the form reached from the platform's catalogue, on the word of its signed token. Empty for a booking from before channels were kept.
+             *
+             *     * `office` - office
+             *     * `company_site` - company_site
+             *     * `catalog` - catalog
+             *     * `` -
+             */
+            channel?: components["schemas"]["OrderChannelEnum"] | components["schemas"]["BlankEnum"];
             /** @description The booking's order, for a caller who may read orders (`commerce.orders.read`); null for a booking without a price, without orders in the company's plan, or for anybody else. */
             order?: components["schemas"]["AppointmentOrder"] | null;
             /** @description Confirmed and its planned end is behind us: nobody closed it with complete or no-show yet (UX-031). It is no longer ahead, and a vacancy on it is nobody's work. */
@@ -9715,6 +9744,36 @@ export interface components {
             resources: components["schemas"]["Resource"][];
             place_search?: boolean;
         };
+        CatalogAmenity: {
+            key: string;
+            /** @description In the page's language. */
+            label: string;
+        };
+        /** @description A unit the company shows on its form, as its card lists it. */
+        CatalogBookableUnit: {
+            /** @description Its address under the card: `/katalog/{city}/{company}/{slug}`. */
+            slug: string;
+            name: string;
+            /** @description Its beginning. */
+            description: string;
+            /** @description Null — nobody counts. */
+            capacity: number | null;
+            /** @description The first picture it shows. */
+            photo: components["schemas"]["CatalogPhoto"] | null;
+            town: components["schemas"]["CatalogTown"] | null;
+            from_price: components["schemas"]["CatalogFromPrice"] | null;
+            /** @description `night` or `day`: how it is booked. */
+            range_unit: string;
+        };
+        /** @description What a visitor can book at the company from its card. */
+        CatalogBooking: {
+            /** @description The company's booking form, in the page's language where the company has it. */
+            form_url: string;
+            /** @description The token a link to the form carries as `origin`: the form sends it back with the booking, which then says it came from the catalogue. Signed, for this company only, good for 30 days. */
+            origin: string;
+            /** @description The units the form shows the content of; empty for a company that books visits only. */
+            units: components["schemas"]["CatalogBookableUnit"][];
+        };
         CatalogCategory: {
             key: string;
             labels: {
@@ -9725,6 +9784,44 @@ export interface components {
             slug: string;
             name: string;
             voivodeship: string;
+        };
+        /**
+         * @description The card a unit's page stands under: the company's identity, without
+         *     what its card lists besides.
+         */
+        CatalogCompany: {
+            slug: string;
+            city_slug: string;
+            city: string;
+            category: string;
+            display_name: string;
+            headline: string;
+            photo_id: string | null;
+            url: string;
+            is_external: boolean;
+            /** Format: double */
+            distance_km: number | null;
+            /** @description The language of the card's texts in this answer: the asked one where the card is whole in it, the card's own otherwise. */
+            locale: string;
+            /** @description The language the card is written in. */
+            source_locale: string;
+            /** @description The company's languages the card has a complete translation in, in the company's order (TL20). */
+            translated_locales: string[];
+            /** @description What other modules say of the company, by key: `online_booking` — a visitor can book it online. The listing filters by one with `badge`. */
+            badges: string[];
+            business_type: string;
+            layout: string;
+            voivodeship: string;
+            bio: string;
+            contact_email: string;
+            contact_phone: string;
+            contact_address: string;
+            links: {
+                [key: string]: unknown;
+            }[];
+            languages: string[];
+            specializations: string[];
+            fallback: string[];
         };
         CatalogCreate: {
             kind: components["schemas"]["CatalogCreateKindEnum"];
@@ -9753,6 +9850,24 @@ export interface components {
             categories: components["schemas"]["CatalogCategory"][];
             /** @description Languages at least one card is whole in (its own or a complete translation): a catalogue page in any other language is not indexed (TL20). */
             locales: string[];
+            /** @description The badges this product's catalogue filters by (`badge`): `online_booking` where the product takes bookings. Empty — no such filter. */
+            badges: string[];
+        };
+        /**
+         * @description „od X zł/noc”: the lowest price of one night or day for one person in
+         *     the year ahead — an announcement, not a quote.
+         */
+        CatalogFromPrice: {
+            gross_minor: number;
+            currency: string;
+            /**
+             * @description `stay`: a price charged once.
+             *
+             *     * `night` - night
+             *     * `day` - day
+             *     * `stay` - stay
+             */
+            per: components["schemas"]["PerEnum"];
         };
         /**
          * @description One row of the public listing (ADR-053 §5).
@@ -9779,6 +9894,8 @@ export interface components {
             source_locale: string;
             /** @description The company's languages the card has a complete translation in, in the company's order (TL20). */
             translated_locales: string[];
+            /** @description What other modules say of the company, by key: `online_booking` — a visitor can book it online. The listing filters by one with `badge`. */
+            badges: string[];
         };
         CatalogPage: {
             total: number;
@@ -9788,6 +9905,22 @@ export interface components {
             similar: components["schemas"]["CatalogItem"][];
             /** @description With `locale`: whether any card of the catalogue is whole in that language. A listing in a language nobody speaks yet is not indexed. Null without `locale`. */
             locale_has_entries: boolean | null;
+        };
+        /**
+         * @description A unit's picture at the booking form's address: our copies, never the
+         *     original.
+         */
+        CatalogPhoto: {
+            /** Format: uuid */
+            id: string;
+            thumbnail_url: string;
+            preview_url: string;
+            /** @description The stored picture's width; 0 while unknown. */
+            width: number;
+            /** @description Its height; 0 while unknown. */
+            height: number;
+            /** @description A model made the picture: the page marks it (ADR-059). */
+            ai_generated: boolean;
         };
         /**
          * @description One row of the public listing (ADR-053 §5).
@@ -9814,6 +9947,12 @@ export interface components {
             source_locale: string;
             /** @description The company's languages the card has a complete translation in, in the company's order (TL20). */
             translated_locales: string[];
+            /** @description What other modules say of the company, by key: `online_booking` — a visitor can book it online. The listing filters by one with `badge`. */
+            badges: string[];
+            /** @description The schema.org subtype of LocalBusiness the company is: `LodgingBusiness` for one that lets units by the night, whatever its category; otherwise the subtype its category names, or empty. */
+            business_type: string;
+            /** @description Null — nothing is booked online at this company now. */
+            booking: components["schemas"]["CatalogBooking"] | null;
             /** @description Units shown in the card's own language. Empty since TL20: the card comes whole in the asked language or whole in its own. */
             fallback: string[];
             layout: string;
@@ -9853,6 +9992,78 @@ export interface components {
             site_url: string | null;
             /** Format: date-time */
             published_at: string | null;
+            /** @description While the card has no category: the one the company's own setup points at — the category of the preset its newest offer was made from. A key of the catalogue's dictionary for this type of company, or empty. Nothing is set by it: send it as `category` in the card's update to take it. */
+            suggested_category: string;
+        };
+        CatalogTown: {
+            slug: string;
+            name: string;
+        };
+        CatalogUnit: {
+            slug: string;
+            name: string;
+            description: string;
+            /** @description Null — nobody counts. */
+            capacity: number | null;
+            photos: components["schemas"]["CatalogPhoto"][];
+            amenities: components["schemas"]["CatalogAmenity"][];
+            town: components["schemas"]["CatalogTown"] | null;
+            from_price: components["schemas"]["CatalogFromPrice"] | null;
+            /** @description The language of the name and description in this answer. */
+            locale: string;
+            /** @description The language the company writes in. */
+            source_locale: string;
+            /** @description The company's other languages the unit has a name of its own in: the page is worth indexing in those and in `source_locale`. */
+            translated_locales: string[];
+        };
+        CatalogUnitChoice: {
+            kind: components["schemas"]["CatalogUnitChoiceKindEnum"];
+            /** Format: uuid */
+            id: string;
+        };
+        /**
+         * @description * `group` - group
+         *     * `unit` - unit
+         * @enum {string}
+         */
+        CatalogUnitChoiceKindEnum: "group" | "unit";
+        CatalogUnitForm: {
+            form_url: string;
+            /** @description The form's address in the booking API: `/booking/public/{form_slug}/…`. */
+            form_slug: string;
+            /** @description The company's: its today is the calendar's. */
+            timezone: string;
+            /**
+             * Format: date
+             * @description The last day an arrival is taken on.
+             */
+            last_day: string;
+            /** @description The company paused online booking. */
+            paused: boolean;
+            /** @description The token a link to the form carries as `origin` (see the card). */
+            origin: string;
+        };
+        /**
+         * @description An offer the unit is booked through, with the one choice that books
+         *     it: the unit itself, or the group of identical units it speaks for.
+         */
+        CatalogUnitOffer: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @description `night` or `day`. */
+            range_unit: string;
+            choice: components["schemas"]["CatalogUnitChoice"];
+        };
+        CatalogUnitPage: {
+            company: components["schemas"]["CatalogCompany"];
+            booking: components["schemas"]["CatalogUnitForm"];
+            unit: components["schemas"]["CatalogUnit"];
+            offers: components["schemas"]["CatalogUnitOffer"][];
+            /** @description What the unit is for a search engine — a schema.org node (`Accommodation`, or `Product` for a thing rented by the day); its `@id`, `url` and `image` are the page's to give. Null: nothing to state. */
+            thing: {
+                [key: string]: unknown;
+            } | null;
         };
         CategoryPrice: {
             /** Format: uuid */
@@ -13063,12 +13274,13 @@ export interface components {
             consents: components["schemas"]["OrderConsent"][];
         };
         /**
-         * @description * `company_site` - company_site
+         * @description * `office` - office
+         *     * `company_site` - company_site
          *     * `catalog` - catalog
-         *     * `office` - office
+         *     * `` -
          * @enum {string}
          */
-        OrderChannelEnum: "company_site" | "catalog" | "office";
+        OrderChannelEnum: "office" | "company_site" | "catalog";
         OrderConsent: {
             /**
              * @description A document the buyer accepted, a marketing consent or a form's field.
@@ -15605,6 +15817,8 @@ export interface components {
             extras?: components["schemas"]["ExtraPick"][];
             /** @description The `digest` of the quote the customer was shown. Required as soon as the booking has a price: without it, or when the price is another one by now, the answer is 409 `quote_changed` with the quote to show in `detail.quote`, and nothing is saved. */
             quote_digest?: string;
+            /** @description The `origin` the form's address carried, as it was — the catalogue's signed token. One that holds (ours, for this company, not too old) makes the booking the catalogue's (`channel` `catalog`); anything else is ignored, never refused. */
+            origin?: string;
             /** @description The company's documents the customer accepted — required as soon as the company has one in force in the booking's language — and the marketing consent, when they gave it. */
             consents?: components["schemas"]["PublicConsentsInput"];
         };
@@ -16148,6 +16362,8 @@ export interface components {
             customer_notes?: string;
             /** @description The `digest` of the quote the customer was shown. Required as soon as the booking has a price: without it, or when the price is another one by now, the answer is 409 `quote_changed` with the quote to show in `detail.quote`, and nothing is saved. */
             quote_digest?: string;
+            /** @description The `origin` the form's address carried, as it was — the catalogue's signed token. One that holds (ours, for this company, not too old) makes the booking the catalogue's (`channel` `catalog`); anything else is ignored, never refused. */
+            origin?: string;
             /** @description The company's documents the customer accepted — required as soon as the company has one in force in the booking's language — and the marketing consent, when they gave it. */
             consents?: components["schemas"]["PublicConsentsInput"];
         };
@@ -16373,6 +16589,15 @@ export interface components {
              * @description Until when a `pending_request` booking waits for the company's answer, or a `pending_payment` one for its payment; null otherwise.
              */
             hold_expires_at?: string | null;
+            /**
+             * @description Where the booking came from: `office` — the team booked it; `company_site` — the company's public form; `catalog` — the form reached from the platform's catalogue, on the word of its signed token. Empty for a booking from before channels were kept.
+             *
+             *     * `office` - office
+             *     * `company_site` - company_site
+             *     * `catalog` - catalog
+             *     * `` -
+             */
+            channel?: components["schemas"]["OrderChannelEnum"] | components["schemas"]["BlankEnum"];
             /** @description The booking's order, for a caller who may read orders (`commerce.orders.read`); null for a booking without a price, without orders in the company's plan, or for anybody else. */
             order?: components["schemas"]["AppointmentOrder"] | null;
             /** @description Confirmed and its planned end is behind us: nobody closed it with complete or no-show yet (UX-031). It is no longer ahead, and a vacancy on it is nobody's work. */
@@ -36253,6 +36478,8 @@ export interface operations {
     catalog_list: {
         parameters: {
             query?: {
+                /** @description Tylko firmy z tą odznaką, np. `online_booking` — rezerwacja online. Klucz spoza `badges` słownika katalogu jest pomijany. */
+                badge?: string;
                 /** @description Klucz kategorii ze słownika. */
                 category?: string;
                 /** @description Slug miasta ze słownika katalogu. */
@@ -36307,6 +36534,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogProfile"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    catalog_unit: {
+        parameters: {
+            query?: {
+                /** @description A language code of the registry, e.g. de. A language the company does not have is answered in its own. */
+                locale?: string;
+            };
+            header?: never;
+            path: {
+                city_slug: string;
+                slug: string;
+                unit_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogUnitPage"];
                 };
             };
             404: {

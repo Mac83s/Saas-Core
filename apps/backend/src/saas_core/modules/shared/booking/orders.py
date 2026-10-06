@@ -128,7 +128,10 @@ def place(
         currency=quote["currency"],
         amounts=quote["amounts"],
         lines=_lines(appointment, quote),
-        channel=OrderChannel.COMPANY_SITE if public else OrderChannel.OFFICE,
+        # The booking's own channel (`origin.booking_origin`); one from before
+        # channels were kept says what the server knows by itself.
+        channel=appointment.channel
+        or (OrderChannel.COMPANY_SITE if public else OrderChannel.OFFICE),
         draft=draft,
     )
     if order is None or draft or not hold:

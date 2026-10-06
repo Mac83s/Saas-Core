@@ -52,6 +52,14 @@ class ProfilesConfig(AppConfig):
 
         register_profile_commands()
 
+        # The demo companies stand in the catalogue (seed_demo): after their
+        # offers and their site, so the row says what it should from the start.
+        from saas_core.modules.core.organizations.demo import register_demo_part
+
+        from .demo import describe, seed_cards
+
+        register_demo_part("profiles.card", seed_cards, order=70, describe=describe)
+
         # The card as a translation source (ADR-069, TL12a).
         from .translation_source import register_profile_source
 

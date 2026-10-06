@@ -66,6 +66,7 @@ const DICTIONARY: CatalogDictionary = {
     },
   ],
   locales: ["pl"],
+  badges: [],
 };
 
 function profile(
@@ -102,6 +103,7 @@ function catalog(overrides: Partial<CatalogState> = {}): CatalogState {
     path: "",
     site_url: null,
     published_at: null,
+    suggested_category: "",
     ...overrides,
   } as CatalogState;
 }
@@ -437,4 +439,60 @@ test("the listing says so when a town has nobody yet, in en too", async () => {
       screen.getByText("Nothing found. Try another city or category."),
     ).toBeTruthy();
   });
+});
+
+test("a card without a category is offered the one its offers point at", async () => {
+  // The company made an offer from a preset that names a category (5h).
+  api.readOrganizationProfile.mockResolvedValue(
+    body({
+      profile: profile({ category: "" }),
+      catalog: catalog({ suggested_category: "uroda-i-zdrowie" }),
+    }),
+  );
+  api.updateProfile.mockResolvedValue(
+    profile({ category: "uroda-i-zdrowie", version: 4 }),
+  );
+  view(<ProfilePanel canManage />);
+
+  expect(
+    await screen.findByText(/podpowiada kategorię „Uroda i zdrowie”/),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Ustaw „Uroda i zdrowie”" }),
+  );
+
+  // One click takes it through the card's own save, with its version.
+  await waitFor(() =>
+    expect(api.updateProfile).toHaveBeenCalledWith(
+      "019c5f87-fce8-739b-b960-b7a195bfc298",
+      expect.objectContaining({
+        category: "uroda-i-zdrowie",
+        expected_version: 3,
+      }),
+    ),
+  );
+  // Taken, the hint is gone.
+  await waitFor(() =>
+    expect(screen.queryByText(/podpowiada kategorię/)).toBeNull(),
+  );
+});
+
+test("a card that has a category, or a reader who cannot change it, gets no hint", async () => {
+  api.readOrganizationProfile.mockResolvedValue(
+    body({ catalog: catalog({ suggested_category: "uroda-i-zdrowie" }) }),
+  );
+  const first = view(<ProfilePanel canManage />);
+  await screen.findByRole("switch", { name: "Pokazuj wizytówkę w katalogu" });
+  expect(screen.queryByText(/podpowiada kategorię/)).toBeNull();
+  first.unmount();
+
+  api.readOrganizationProfile.mockResolvedValue(
+    body({
+      profile: profile({ category: "" }),
+      catalog: catalog({ suggested_category: "uroda-i-zdrowie" }),
+    }),
+  );
+  view(<ProfilePanel canManage={false} />);
+  await screen.findByRole("switch", { name: "Pokazuj wizytówkę w katalogu" });
+  expect(screen.queryByText(/podpowiada kategorię/)).toBeNull();
 });

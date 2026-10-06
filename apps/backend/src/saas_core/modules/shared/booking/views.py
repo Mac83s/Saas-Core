@@ -384,6 +384,7 @@ def _appointment_payload(
         "service_id": value.service_id,
         "status": value.status,
         "hold_expires_at": value.hold_expires_at,
+        "channel": value.channel,
         "order": known.orders.get(value.id),
         "passed": has_passed(value),
         "closes_explicitly": closes_explicitly(value.service.appointment_kind),

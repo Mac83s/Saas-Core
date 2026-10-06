@@ -146,8 +146,11 @@ def _place_entry(profile: PublicProfile, organization_id: UUID | Any) -> Catalog
         "site": _site_for(organization_id),
     }
     from .card_languages import card_languages
+    from .catalog_listing import badges_of
 
     values.update(card_languages(profile))
+    # What other modules say of the company now (`online_booking`).
+    values["badges"] = badges_of(profile.organization_id)
     if entry is None:
         entry = CatalogEntry(published_at=timezone.now(), **values)
     else:

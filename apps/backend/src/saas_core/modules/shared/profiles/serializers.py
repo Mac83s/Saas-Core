@@ -116,6 +116,13 @@ class CatalogStateSerializer(serializers.Serializer[dict[str, Any]]):
     path = serializers.CharField(allow_blank=True)
     site_url = serializers.CharField(allow_blank=True, allow_null=True)
     published_at = serializers.DateTimeField(allow_null=True)
+    suggested_category = serializers.CharField(
+        allow_blank=True,
+        help_text="While the card has no category: the one the company's own setup points at "
+        "— the category of the preset its newest offer was made from. A key of the catalogue's "
+        "dictionary for this type of company, or empty. Nothing is set by it: send it as "
+        "`category` in the card's update to take it.",
+    )
 
 
 class OrganizationProfileSerializer(serializers.Serializer[dict[str, Any]]):
@@ -153,6 +160,11 @@ class CatalogItemSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="The company's languages the card has a complete translation in, in the "
         "company's order (TL20).",
     )
+    badges = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="What other modules say of the company, by key: `online_booking` — a "
+        "visitor can book it online. The listing filters by one with `badge`.",
+    )
 
 
 class CatalogPageSerializer(serializers.Serializer[dict[str, Any]]):
@@ -188,7 +200,79 @@ class CatalogSitemapPageSerializer(serializers.Serializer[dict[str, Any]]):
     items = CatalogSitemapEntrySerializer(many=True)
 
 
+class CatalogPhotoSerializer(serializers.Serializer[dict[str, Any]]):
+    """A unit's picture at the booking form's address: our copies, never the
+    original."""
+
+    id = serializers.UUIDField()
+    thumbnail_url = serializers.CharField()
+    preview_url = serializers.CharField()
+    width = serializers.IntegerField(help_text="The stored picture's width; 0 while unknown.")
+    height = serializers.IntegerField(help_text="Its height; 0 while unknown.")
+    ai_generated = serializers.BooleanField(
+        help_text="A model made the picture: the page marks it (ADR-059)."
+    )
+
+
+class CatalogTownSerializer(serializers.Serializer[dict[str, Any]]):
+    slug = serializers.CharField()
+    name = serializers.CharField()
+
+
+class CatalogFromPriceSerializer(serializers.Serializer[dict[str, Any]]):
+    """„od X zł/noc”: the lowest price of one night or day for one person in
+    the year ahead — an announcement, not a quote."""
+
+    gross_minor = serializers.IntegerField()
+    currency = serializers.CharField()
+    per = serializers.ChoiceField(
+        choices=["night", "day", "stay"], help_text="`stay`: a price charged once."
+    )
+
+
+class CatalogBookableUnitSerializer(serializers.Serializer[dict[str, Any]]):
+    """A unit the company shows on its form, as its card lists it."""
+
+    slug = serializers.CharField(
+        help_text="Its address under the card: `/katalog/{city}/{company}/{slug}`."
+    )
+    name = serializers.CharField()
+    description = serializers.CharField(allow_blank=True, help_text="Its beginning.")
+    capacity = serializers.IntegerField(allow_null=True, help_text="Null — nobody counts.")
+    photo = CatalogPhotoSerializer(allow_null=True, help_text="The first picture it shows.")
+    town = CatalogTownSerializer(allow_null=True)
+    from_price = CatalogFromPriceSerializer(allow_null=True)
+    range_unit = serializers.CharField(help_text="`night` or `day`: how it is booked.")
+
+
+class CatalogBookingSerializer(serializers.Serializer[dict[str, Any]]):
+    """What a visitor can book at the company from its card."""
+
+    form_url = serializers.CharField(
+        help_text="The company's booking form, in the page's language where the company has it."
+    )
+    origin = serializers.CharField(
+        help_text="The token a link to the form carries as `origin`: the form sends it back "
+        "with the booking, which then says it came from the catalogue. Signed, for this "
+        "company only, good for 30 days."
+    )
+    units = CatalogBookableUnitSerializer(
+        many=True,
+        help_text="The units the form shows the content of; empty for a company "
+        "that books visits only.",
+    )
+
+
 class CatalogProfileSerializer(CatalogItemSerializer):
+    business_type = serializers.CharField(
+        allow_blank=True,
+        help_text="The schema.org subtype of LocalBusiness the company is: `LodgingBusiness` "
+        "for one that lets units by the night, whatever its category; otherwise the subtype "
+        "its category names, or empty.",
+    )
+    booking = CatalogBookingSerializer(
+        allow_null=True, help_text="Null — nothing is booked online at this company now."
+    )
     fallback = serializers.ListField(
         child=serializers.CharField(),
         help_text="Units shown in the card's own language. Empty since TL20: the card comes "
@@ -203,6 +287,91 @@ class CatalogProfileSerializer(CatalogItemSerializer):
     links = serializers.ListField(child=serializers.DictField())
     languages = serializers.ListField(child=serializers.CharField())
     specializations = serializers.ListField(child=serializers.CharField())
+
+
+class CatalogCompanySerializer(CatalogItemSerializer):
+    """The card a unit's page stands under: the company's identity, without
+    what its card lists besides."""
+
+    business_type = serializers.CharField(allow_blank=True)
+    layout = serializers.CharField()
+    voivodeship = serializers.CharField(allow_blank=True)
+    bio = serializers.CharField(allow_blank=True)
+    contact_email = serializers.CharField(allow_blank=True)
+    contact_phone = serializers.CharField(allow_blank=True)
+    contact_address = serializers.CharField(allow_blank=True)
+    links = serializers.ListField(child=serializers.DictField())
+    languages = serializers.ListField(child=serializers.CharField())
+    specializations = serializers.ListField(child=serializers.CharField())
+    fallback = serializers.ListField(child=serializers.CharField())
+
+
+class CatalogAmenitySerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.CharField()
+    label = serializers.CharField(  # type: ignore[assignment]
+        help_text="In the page's language."
+    )
+
+
+class CatalogUnitSerializer(serializers.Serializer[dict[str, Any]]):
+    slug = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField(allow_blank=True)
+    capacity = serializers.IntegerField(allow_null=True, help_text="Null — nobody counts.")
+    photos = CatalogPhotoSerializer(many=True)
+    amenities = CatalogAmenitySerializer(many=True)
+    town = CatalogTownSerializer(allow_null=True)
+    from_price = CatalogFromPriceSerializer(allow_null=True)
+    locale = serializers.CharField(
+        help_text="The language of the name and description in this answer."
+    )
+    source_locale = serializers.CharField(help_text="The language the company writes in.")
+    translated_locales = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="The company's other languages the unit has a name of its own in: the "
+        "page is worth indexing in those and in `source_locale`.",
+    )
+
+
+class CatalogUnitChoiceSerializer(serializers.Serializer[dict[str, Any]]):
+    kind = serializers.ChoiceField(choices=["group", "unit"])
+    id = serializers.UUIDField()
+
+
+class CatalogUnitOfferSerializer(serializers.Serializer[dict[str, Any]]):
+    """An offer the unit is booked through, with the one choice that books
+    it: the unit itself, or the group of identical units it speaks for."""
+
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    range_unit = serializers.CharField(help_text="`night` or `day`.")
+    choice = CatalogUnitChoiceSerializer()
+
+
+class CatalogUnitFormSerializer(serializers.Serializer[dict[str, Any]]):
+    form_url = serializers.CharField()
+    form_slug = serializers.CharField(
+        help_text="The form's address in the booking API: `/booking/public/{form_slug}/…`."
+    )
+    timezone = serializers.CharField(help_text="The company's: its today is the calendar's.")
+    last_day = serializers.DateField(help_text="The last day an arrival is taken on.")
+    paused = serializers.BooleanField(help_text="The company paused online booking.")
+    origin = serializers.CharField(
+        help_text="The token a link to the form carries as `origin` (see the card)."
+    )
+
+
+class CatalogUnitPageSerializer(serializers.Serializer[dict[str, Any]]):
+    company = CatalogCompanySerializer()
+    booking = CatalogUnitFormSerializer()
+    unit = CatalogUnitSerializer()
+    offers = CatalogUnitOfferSerializer(many=True)
+    thing = serializers.DictField(
+        allow_null=True,
+        help_text="What the unit is for a search engine — a schema.org node (`Accommodation`, "
+        "or `Product` for a thing rented by the day); its `@id`, `url` and `image` are the "
+        "page's to give. Null: nothing to state.",
+    )
 
 
 class CatalogCitySerializer(serializers.Serializer[dict[str, Any]]):
@@ -225,4 +394,9 @@ class CatalogDictionarySerializer(serializers.Serializer[dict[str, Any]]):
         child=serializers.CharField(),
         help_text="Languages at least one card is whole in (its own or a complete "
         "translation): a catalogue page in any other language is not indexed (TL20).",
+    )
+    badges = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="The badges this product's catalogue filters by (`badge`): "
+        "`online_booking` where the product takes bookings. Empty — no such filter.",
     )

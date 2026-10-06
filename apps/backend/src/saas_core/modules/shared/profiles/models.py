@@ -296,6 +296,11 @@ class CatalogEntry(TenantScopedModel):
     source_locale = models.CharField(max_length=10, default="pl")
     translated_locales = ArrayField(models.CharField(max_length=10), default=list, blank=True)
     headline_by_locale = models.JSONField(default=dict, blank=True)
+    # What other modules say of the company that the listing shows and filters
+    # by — `online_booking` (ADR-072 §11, slice 5h). A copy, like the rest of
+    # the row: the listing opens no tenant. Kept by
+    # `search_index.refresh_catalog_badges`.
+    badges = ArrayField(models.SlugField(max_length=40), default=list, blank=True)
     search = SearchVectorField(null=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -316,6 +321,7 @@ class CatalogEntry(TenantScopedModel):
         indexes = [
             models.Index(fields=["city_slug", "category"], name="profiles_catalog_filter_idx"),
             GinIndex(fields=["search"], name="profiles_catalog_search_idx"),
+            GinIndex(fields=["badges"], name="profiles_catalog_badges_idx"),
         ]
 
     def __str__(self) -> str:

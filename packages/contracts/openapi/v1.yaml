@@ -17234,12 +17234,19 @@ paths:
   /api/v1/public/catalog/:
     get:
       operationId: catalog_list
-      description: One page of the catalogue's companies, filtered by city, category,
-        words or distance. With `locale` each card's headline comes in that language
+      description: 'One page of the catalogue''s companies, filtered by city, category,
+        words, distance or a badge (`badge=online_booking`: the companies a visitor
+        can book online). With `locale` each card''s headline comes in that language
         where the card is whole in it, and `locale_has_entries` says whether any card
-        is.
+        is. Each item names its `badges`.'
       summary: The public catalogue's listing
       parameters:
+      - in: query
+        name: badge
+        schema:
+          type: string
+        description: Tylko firmy z tą odznaką, np. `online_booking` — rezerwacja online.
+          Klucz spoza `badges` słownika katalogu jest pomijany.
       - in: query
         name: category
         schema:
@@ -17303,7 +17310,12 @@ paths:
       description: The company's public card in the catalogue. With `locale` the headline,
         bio and link labels come in that language of the company when the card has
         them; `locale` in the answer says which language was served and `fallback`
-        lists what stayed in the card's own language.
+        lists what stayed in the card's own language. `booking` is what a visitor
+        can book there now — the company's form, the units it shows (each with a page
+        of its own at `…/units/{unit}/`) and `origin`, the token a link to the form
+        carries so that the booking says it came from the catalogue; null where nothing
+        is booked online. `business_type` is the schema.org subtype of LocalBusiness
+        the company is.
       summary: One company's catalogue page
       parameters:
       - in: path
@@ -17341,6 +17353,62 @@ paths:
           description: ''
       x-quality-exempt:
         error-400: An unknown language is served in the card's own, never refused.
+  /api/v1/public/catalog/{city_slug}/{slug}/units/{unit_slug}/:
+    get:
+      operationId: catalog_unit
+      description: 'A unit the company shows on its booking form — a cottage, a room,
+        a kayak — as its own page in the catalogue: `company` is the card it stands
+        under, `unit` its content (pictures at the form''s address, what it has, its
+        town, the lowest price), `offers` the offers it is booked through with the
+        choice that books it, and `booking` the form: its address, the days it takes
+        and `origin` — the token a link to the form carries so that the booking says
+        it came from the catalogue. The free days are read from the form''s own API
+        (`/booking/public/{form_slug}/stays/…`). With `locale` the unit''s name and
+        description come in that language where the company wrote them; `unit.locale`
+        says which was served. 404 `catalog_entry_not_found` without the card, 404
+        `catalog_unit_not_found` when the form shows no such unit.'
+      summary: One unit's page under a company's catalogue card
+      parameters:
+      - in: path
+        name: city_slug
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: locale
+        schema:
+          type: string
+        description: A language code of the registry, e.g. de. A language the company
+          does not have is answered in its own.
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: unit_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogUnitPage'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        error-400: An unknown language is served in the company's own, never refused.
   /api/v1/public/catalog/dictionary/:
     get:
       operationId: catalog_dictionary
@@ -25287,6 +25355,15 @@ components:
           format: date-time
           description: Until when a `pending_request` booking waits for the company's
             answer, or a `pending_payment` one for its payment; null otherwise.
+        channel:
+          description: "Where the booking came from: `office` — the team booked it;
+            `company_site` — the company's public form; `catalog` — the form reached
+            from the platform's catalogue, on the word of its signed token. Empty
+            for a booking from before channels were kept.\n\n* `office` - office\n*
+            `company_site` - company_site\n* `catalog` - catalog\n* `` - "
+          oneOf:
+          - $ref: '#/components/schemas/OrderChannelEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         order:
           oneOf:
           - $ref: '#/components/schemas/AppointmentOrder'
@@ -28400,6 +28477,82 @@ components:
       - resources
       - services
       - staff
+    CatalogAmenity:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+          description: In the page's language.
+      required:
+      - key
+      - label
+    CatalogBookableUnit:
+      type: object
+      description: A unit the company shows on its form, as its card lists it.
+      properties:
+        slug:
+          type: string
+          description: 'Its address under the card: `/katalog/{city}/{company}/{slug}`.'
+        name:
+          type: string
+        description:
+          type: string
+          description: Its beginning.
+        capacity:
+          type:
+          - integer
+          - 'null'
+          description: Null — nobody counts.
+        photo:
+          oneOf:
+          - $ref: '#/components/schemas/CatalogPhoto'
+          - type: 'null'
+          description: The first picture it shows.
+        town:
+          oneOf:
+          - $ref: '#/components/schemas/CatalogTown'
+          - type: 'null'
+        from_price:
+          oneOf:
+          - $ref: '#/components/schemas/CatalogFromPrice'
+          - type: 'null'
+        range_unit:
+          type: string
+          description: '`night` or `day`: how it is booked.'
+      required:
+      - capacity
+      - description
+      - from_price
+      - name
+      - photo
+      - range_unit
+      - slug
+      - town
+    CatalogBooking:
+      type: object
+      description: What a visitor can book at the company from its card.
+      properties:
+        form_url:
+          type: string
+          description: The company's booking form, in the page's language where the
+            company has it.
+        origin:
+          type: string
+          description: 'The token a link to the form carries as `origin`: the form
+            sends it back with the booking, which then says it came from the catalogue.
+            Signed, for this company only, good for 30 days.'
+        units:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogBookableUnit'
+          description: The units the form shows the content of; empty for a company
+            that books visits only.
+      required:
+      - form_url
+      - origin
+      - units
     CatalogCategory:
       type: object
       properties:
@@ -28424,6 +28577,113 @@ components:
       required:
       - name
       - slug
+      - voivodeship
+    CatalogCompany:
+      type: object
+      description: |-
+        The card a unit's page stands under: the company's identity, without
+        what its card lists besides.
+      properties:
+        slug:
+          type: string
+        city_slug:
+          type: string
+        city:
+          type: string
+        category:
+          type: string
+        display_name:
+          type: string
+        headline:
+          type: string
+        photo_id:
+          type:
+          - string
+          - 'null'
+        url:
+          type: string
+        is_external:
+          type: boolean
+        distance_km:
+          type:
+          - number
+          - 'null'
+          format: double
+        locale:
+          type: string
+          description: 'The language of the card''s texts in this answer: the asked
+            one where the card is whole in it, the card''s own otherwise.'
+        source_locale:
+          type: string
+          description: The language the card is written in.
+        translated_locales:
+          type: array
+          items:
+            type: string
+          description: The company's languages the card has a complete translation
+            in, in the company's order (TL20).
+        badges:
+          type: array
+          items:
+            type: string
+          description: 'What other modules say of the company, by key: `online_booking`
+            — a visitor can book it online. The listing filters by one with `badge`.'
+        business_type:
+          type: string
+        layout:
+          type: string
+        voivodeship:
+          type: string
+        bio:
+          type: string
+        contact_email:
+          type: string
+        contact_phone:
+          type: string
+        contact_address:
+          type: string
+        links:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        languages:
+          type: array
+          items:
+            type: string
+        specializations:
+          type: array
+          items:
+            type: string
+        fallback:
+          type: array
+          items:
+            type: string
+      required:
+      - badges
+      - bio
+      - business_type
+      - category
+      - city
+      - city_slug
+      - contact_address
+      - contact_email
+      - contact_phone
+      - display_name
+      - distance_km
+      - fallback
+      - headline
+      - is_external
+      - languages
+      - layout
+      - links
+      - locale
+      - photo_id
+      - slug
+      - source_locale
+      - specializations
+      - translated_locales
+      - url
       - voivodeship
     CatalogCreate:
       type: object
@@ -28498,10 +28758,40 @@ components:
             type: string
           description: 'Languages at least one card is whole in (its own or a complete
             translation): a catalogue page in any other language is not indexed (TL20).'
+        badges:
+          type: array
+          items:
+            type: string
+          description: 'The badges this product''s catalogue filters by (`badge`):
+            `online_booking` where the product takes bookings. Empty — no such filter.'
       required:
+      - badges
       - categories
       - cities
       - locales
+    CatalogFromPrice:
+      type: object
+      description: |-
+        „od X zł/noc”: the lowest price of one night or day for one person in
+        the year ahead — an announcement, not a quote.
+      properties:
+        gross_minor:
+          type: integer
+        currency:
+          type: string
+        per:
+          allOf:
+          - $ref: '#/components/schemas/PerEnum'
+          description: |-
+            `stay`: a price charged once.
+
+            * `night` - night
+            * `day` - day
+            * `stay` - stay
+      required:
+      - currency
+      - gross_minor
+      - per
     CatalogItem:
       type: object
       description: |-
@@ -28549,7 +28839,14 @@ components:
             type: string
           description: The company's languages the card has a complete translation
             in, in the company's order (TL20).
+        badges:
+          type: array
+          items:
+            type: string
+          description: 'What other modules say of the company, by key: `online_booking`
+            — a visitor can book it online. The listing filters by one with `badge`.'
       required:
+      - badges
       - category
       - city
       - city_slug
@@ -28594,6 +28891,35 @@ components:
       - page_size
       - similar
       - total
+    CatalogPhoto:
+      type: object
+      description: |-
+        A unit's picture at the booking form's address: our copies, never the
+        original.
+      properties:
+        id:
+          type: string
+          format: uuid
+        thumbnail_url:
+          type: string
+        preview_url:
+          type: string
+        width:
+          type: integer
+          description: The stored picture's width; 0 while unknown.
+        height:
+          type: integer
+          description: Its height; 0 while unknown.
+        ai_generated:
+          type: boolean
+          description: 'A model made the picture: the page marks it (ADR-059).'
+      required:
+      - ai_generated
+      - height
+      - id
+      - preview_url
+      - thumbnail_url
+      - width
     CatalogProfile:
       type: object
       description: |-
@@ -28641,6 +28967,22 @@ components:
             type: string
           description: The company's languages the card has a complete translation
             in, in the company's order (TL20).
+        badges:
+          type: array
+          items:
+            type: string
+          description: 'What other modules say of the company, by key: `online_booking`
+            — a visitor can book it online. The listing filters by one with `badge`.'
+        business_type:
+          type: string
+          description: 'The schema.org subtype of LocalBusiness the company is: `LodgingBusiness`
+            for one that lets units by the night, whatever its category; otherwise
+            the subtype its category names, or empty.'
+        booking:
+          oneOf:
+          - $ref: '#/components/schemas/CatalogBooking'
+          - type: 'null'
+          description: Null — nothing is booked online at this company now.
         fallback:
           type: array
           items:
@@ -28673,7 +29015,10 @@ components:
           items:
             type: string
       required:
+      - badges
       - bio
+      - booking
+      - business_type
       - category
       - city
       - city_slug
@@ -28760,6 +29105,13 @@ components:
           - string
           - 'null'
           format: date-time
+        suggested_category:
+          type: string
+          description: 'While the card has no category: the one the company''s own
+            setup points at — the category of the preset its newest offer was made
+            from. A key of the catalogue''s dictionary for this type of company, or
+            empty. Nothing is set by it: send it as `category` in the card''s update
+            to take it.'
       required:
       - city_slug
       - path
@@ -28767,6 +29119,166 @@ components:
       - published_at
       - site_url
       - slug
+      - suggested_category
+    CatalogTown:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+      required:
+      - name
+      - slug
+    CatalogUnit:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        capacity:
+          type:
+          - integer
+          - 'null'
+          description: Null — nobody counts.
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogPhoto'
+        amenities:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogAmenity'
+        town:
+          oneOf:
+          - $ref: '#/components/schemas/CatalogTown'
+          - type: 'null'
+        from_price:
+          oneOf:
+          - $ref: '#/components/schemas/CatalogFromPrice'
+          - type: 'null'
+        locale:
+          type: string
+          description: The language of the name and description in this answer.
+        source_locale:
+          type: string
+          description: The language the company writes in.
+        translated_locales:
+          type: array
+          items:
+            type: string
+          description: 'The company''s other languages the unit has a name of its
+            own in: the page is worth indexing in those and in `source_locale`.'
+      required:
+      - amenities
+      - capacity
+      - description
+      - from_price
+      - locale
+      - name
+      - photos
+      - slug
+      - source_locale
+      - town
+      - translated_locales
+    CatalogUnitChoice:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/CatalogUnitChoiceKindEnum'
+        id:
+          type: string
+          format: uuid
+      required:
+      - id
+      - kind
+    CatalogUnitChoiceKindEnum:
+      enum:
+      - group
+      - unit
+      type: string
+      description: |-
+        * `group` - group
+        * `unit` - unit
+    CatalogUnitForm:
+      type: object
+      properties:
+        form_url:
+          type: string
+        form_slug:
+          type: string
+          description: 'The form''s address in the booking API: `/booking/public/{form_slug}/…`.'
+        timezone:
+          type: string
+          description: 'The company''s: its today is the calendar''s.'
+        last_day:
+          type: string
+          format: date
+          description: The last day an arrival is taken on.
+        paused:
+          type: boolean
+          description: The company paused online booking.
+        origin:
+          type: string
+          description: The token a link to the form carries as `origin` (see the card).
+      required:
+      - form_slug
+      - form_url
+      - last_day
+      - origin
+      - paused
+      - timezone
+    CatalogUnitOffer:
+      type: object
+      description: |-
+        An offer the unit is booked through, with the one choice that books
+        it: the unit itself, or the group of identical units it speaks for.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        range_unit:
+          type: string
+          description: '`night` or `day`.'
+        choice:
+          $ref: '#/components/schemas/CatalogUnitChoice'
+      required:
+      - choice
+      - id
+      - name
+      - range_unit
+    CatalogUnitPage:
+      type: object
+      properties:
+        company:
+          $ref: '#/components/schemas/CatalogCompany'
+        booking:
+          $ref: '#/components/schemas/CatalogUnitForm'
+        unit:
+          $ref: '#/components/schemas/CatalogUnit'
+        offers:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogUnitOffer'
+        thing:
+          type:
+          - object
+          - 'null'
+          additionalProperties: {}
+          description: 'What the unit is for a search engine — a schema.org node (`Accommodation`,
+            or `Product` for a thing rented by the day); its `@id`, `url` and `image`
+            are the page''s to give. Null: nothing to state.'
+      required:
+      - booking
+      - company
+      - offers
+      - thing
+      - unit
     CategoryPrice:
       type: object
       properties:
@@ -35982,14 +36494,12 @@ components:
       - version
     OrderChannelEnum:
       enum:
+      - office
       - company_site
       - catalog
-      - office
       type: string
-      description: |-
-        * `company_site` - company_site
-        * `catalog` - catalog
-        * `office` - office
+      description: "* `office` - office\n* `company_site` - company_site\n* `catalog`
+        - catalog\n* `` - "
     OrderConsent:
       type: object
       properties:
@@ -41543,6 +42053,13 @@ components:
             one by now, the answer is 409 `quote_changed` with the quote to show in
             `detail.quote`, and nothing is saved.'
           maxLength: 64
+        origin:
+          type: string
+          description: The `origin` the form's address carried, as it was — the catalogue's
+            signed token. One that holds (ours, for this company, not too old) makes
+            the booking the catalogue's (`channel` `catalog`); anything else is ignored,
+            never refused.
+          maxLength: 255
         consents:
           allOf:
           - $ref: '#/components/schemas/PublicConsentsInput'
@@ -42690,6 +43207,13 @@ components:
             one by now, the answer is 409 `quote_changed` with the quote to show in
             `detail.quote`, and nothing is saved.'
           maxLength: 64
+        origin:
+          type: string
+          description: The `origin` the form's address carried, as it was — the catalogue's
+            signed token. One that holds (ours, for this company, not too old) makes
+            the booking the catalogue's (`channel` `catalog`); anything else is ignored,
+            never refused.
+          maxLength: 255
         consents:
           allOf:
           - $ref: '#/components/schemas/PublicConsentsInput'
@@ -43112,6 +43636,15 @@ components:
           format: date-time
           description: Until when a `pending_request` booking waits for the company's
             answer, or a `pending_payment` one for its payment; null otherwise.
+        channel:
+          description: "Where the booking came from: `office` — the team booked it;
+            `company_site` — the company's public form; `catalog` — the form reached
+            from the platform's catalogue, on the word of its signed token. Empty
+            for a booking from before channels were kept.\n\n* `office` - office\n*
+            `company_site` - company_site\n* `catalog` - catalog\n* `` - "
+          oneOf:
+          - $ref: '#/components/schemas/OrderChannelEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         order:
           oneOf:
           - $ref: '#/components/schemas/AppointmentOrder'

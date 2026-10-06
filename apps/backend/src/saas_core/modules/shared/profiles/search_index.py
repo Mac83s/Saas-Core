@@ -57,7 +57,7 @@ INDEX_SETTINGS: dict[str, Any] = {
         "bio",
         "bio_*",
     ],
-    "filterableAttributes": ["category", "city_slug"],
+    "filterableAttributes": ["category", "city_slug", "badges"],
 }
 
 #: Fields of one language: `<field>_<code>` (TL20).
@@ -185,16 +185,49 @@ def follow_catalog_entry(sender: object, instance: CatalogEntry, **_kwargs: obje
 
 
 def catalog_changed(organization_id: UUID) -> None:
-    """Something a document shows changed outside the catalogue row.
+    """Something a document shows changed outside the catalogue row — or
+    something a badge of the row answers for (slice 5h).
 
     The row's `updated_at` moves too, so the reconcile sweep sees the document
     as stale even if the task queued here never runs.
     """
-    touched = CatalogEntry.all_objects.filter(organization_id=organization_id).update(
-        updated_at=timezone.now()
+    if not CatalogEntry.all_objects.filter(organization_id=organization_id).exists():
+        return
+    from .catalog_listing import badges_of
+
+    CatalogEntry.all_objects.filter(organization_id=organization_id).update(
+        updated_at=timezone.now(), badges=badges_of(organization_id)
     )
-    if touched:
-        enqueue(organization_id)
+    enqueue(organization_id)
+
+
+def refresh_catalog_badges() -> dict[str, int]:
+    """Every row's badges asked again — after a deploy that brought a badge,
+    and for what no module reports (a plan that stopped covering bookings).
+    One company at a time, each in its own transaction: a provider reads its
+    tenant's tables under policy."""
+    from .catalog_listing import badges_of
+
+    engine = search_engine.engine()
+    if engine is not None:
+        # The filter must know the attribute before the first search by it.
+        try:
+            engine.ensure_index(index_name(), index_settings())
+        except search_engine.SearchEngineUnavailable as error:
+            logger.warning("catalog_badges_index_settings_failed", extra={"reason": str(error)})
+    changed = 0
+    entries = list(CatalogEntry.all_objects.values_list("organization_id", "badges"))
+    for organization_id, kept in entries:
+        with transaction.atomic():
+            set_local_organization_id(organization_id)
+            badges = badges_of(organization_id)
+            if badges != list(kept or ()):
+                changed += 1
+                CatalogEntry.all_objects.filter(organization_id=organization_id).update(
+                    updated_at=timezone.now(), badges=badges
+                )
+                enqueue(organization_id)
+    return {"entries": len(entries), "changed": changed}
 
 
 def _document(entry: CatalogEntry) -> dict[str, Any] | None:
@@ -254,6 +287,7 @@ def _document(entry: CatalogEntry) -> dict[str, Any] | None:
         "city_slug": entry.city_slug,
         "city": entry.city,
         "voivodeship": voivodeship,
+        "badges": list(entry.badges or ()),
         "services": services,
         "folded": fold(
             " ".join([
@@ -356,7 +390,7 @@ def rebuild() -> int:
     return len(documents)
 
 
-def _filters(city_slugs: list[str] | None, category: str) -> list[str]:
+def _filters(city_slugs: list[str] | None, category: str, badge: str = "") -> list[str]:
     """Filters are dictionary values (ADR-053 §7), quoted anyway: a filter is a
     small language, and a value is never part of its grammar."""
     filters = []
@@ -364,6 +398,8 @@ def _filters(city_slugs: list[str] | None, category: str) -> list[str]:
         filters.append(f"city_slug IN [{', '.join(json.dumps(slug) for slug in city_slugs)}]")
     if category:
         filters.append(f"category = {json.dumps(category)}")
+    if badge:
+        filters.append(f"badges = {json.dumps(badge)}")
     return filters
 
 
@@ -396,6 +432,7 @@ def search_ids(
     page: int,
     page_size: int,
     locale: str | None = None,
+    badge: str = "",
 ) -> tuple[list[UUID], int]:
     """Organization ids of the entries that contain the words, best first, and how many."""
     body: dict[str, Any] = {
@@ -405,7 +442,7 @@ def search_ids(
         "attributesToRetrieve": ["id"],
         **_query_locales(locale),
     }
-    if filters := _filters(city_slugs, category):
+    if filters := _filters(city_slugs, category, badge):
         body["filter"] = filters
     result = _search(body)
     return [UUID(hit["id"]) for hit in result["hits"]], int(result.get("totalHits") or 0)
@@ -419,6 +456,7 @@ def similar_ids(
     exclude: set[UUID],
     limit: int,
     locale: str | None = None,
+    badge: str = "",
 ) -> list[UUID]:
     """Entries that fit the words by meaning, best first (ADR-064 §8).
 
@@ -443,7 +481,7 @@ def similar_ids(
         "rankingScoreThreshold": settings.CATALOG_SIMILAR_MIN_SCORE,
         **_query_locales(locale),
     }
-    if filters := _filters(city_slugs, category):
+    if filters := _filters(city_slugs, category, badge):
         body["filter"] = filters
     found = [UUID(hit["id"]) for hit in _search(body)["hits"]]
     return [organization_id for organization_id in found if organization_id not in exclude][:limit]

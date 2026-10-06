@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import type { CatalogProfile } from "@saas-core/api-client";
+import type { CatalogProfile, CatalogUnitPage } from "@saas-core/api-client";
 
 import { deployment } from "../../../generated/deployment";
 import {
   catalogCardJsonLd,
   catalogCardMetadata,
   catalogListMetadata,
+  catalogUnitJsonLd,
+  catalogUnitMetadata,
 } from "./catalog-seo";
 
 const origin = `https://${deployment.product.platformDomain}`;
@@ -28,6 +30,9 @@ function card(overrides: Partial<CatalogProfile> = {}): CatalogProfile {
     locale: "pl",
     source_locale: "pl",
     translated_locales: [],
+    badges: [],
+    business_type: "",
+    booking: null,
     fallback: [],
     layout: "card",
     voivodeship: "warmińsko-mazurskie",
@@ -153,6 +158,186 @@ describe("catalogue listing per language (TL20)", () => {
       pl: `${origin}/katalog`,
       en: `${origin}/en/katalog`,
       "x-default": `${origin}/katalog`,
+    });
+  });
+});
+
+describe("what the company is, and a unit's page under its card (5h)", () => {
+  const UNIT_PATH = `${PATH}/domek-sosnowy`;
+
+  function unitPage(
+    overrides: Partial<CatalogUnitPage["unit"]> = {},
+    company: Partial<CatalogProfile> = {},
+    thing: CatalogUnitPage["thing"] = {
+      "@type": "Accommodation",
+      name: "Domek Sosnowy",
+    },
+  ): CatalogUnitPage {
+    return {
+      // The card the page stands under (what it lists besides is not read).
+      company: card({
+        display_name: "Domki nad Jeziorem",
+        business_type: "LodgingBusiness",
+        ...company,
+      }),
+      booking: {
+        form_url: `${origin}/book/domki`,
+        form_slug: "domki",
+        timezone: "Europe/Warsaw",
+        last_day: "2027-10-06",
+        paused: false,
+        origin: "token",
+      },
+      unit: {
+        slug: "domek-sosnowy",
+        name: "Domek Sosnowy",
+        description: "Nad samym jeziorem.",
+        capacity: 6,
+        photos: [
+          {
+            id: "0199a000-0000-7000-8000-000000000001",
+            thumbnail_url: "/api/v1/booking/public/domki/photos/1/thumbnail/",
+            preview_url: "/api/v1/booking/public/domki/photos/1/preview/",
+            width: 1600,
+            height: 1200,
+            ai_generated: false,
+          },
+        ],
+        amenities: [],
+        town: { slug: "mragowo", name: "Mrągowo" },
+        from_price: null,
+        locale: "pl",
+        source_locale: "pl",
+        translated_locales: [],
+        ...overrides,
+      },
+      offers: [],
+      thing,
+    };
+  }
+
+  it("a company that lets units by the night is a LodgingBusiness on its card", () => {
+    const lodging = catalogCardJsonLd({
+      profile: card({ business_type: "LodgingBusiness" }),
+      locales: LOCALES,
+      path: PATH,
+    });
+
+    expect(lodging["@type"]).toEqual(["LocalBusiness", "LodgingBusiness"]);
+  });
+
+  it("the unit's graph names the company's node as the provider of the stay", () => {
+    const data = catalogUnitJsonLd({
+      page: unitPage(),
+      locales: LOCALES,
+      cardPath: PATH,
+      path: UNIT_PATH,
+      locale: "pl",
+    });
+    const [company, unit] = data["@graph"] as Record<string, unknown>[];
+
+    expect(company).toMatchObject({
+      "@type": ["LocalBusiness", "LodgingBusiness"],
+      "@id": `${origin}${PATH}#organization`,
+    });
+    expect(unit).toMatchObject({
+      "@type": "Accommodation",
+      "@id": `${origin}${UNIT_PATH}#thing`,
+      url: `${origin}${UNIT_PATH}`,
+      provider: { "@id": `${origin}${PATH}#organization` },
+      image: `${origin}/api/v1/booking/public/domki/photos/1/preview/`,
+    });
+  });
+
+  it("a thing let by the day is a product the company sells the hire of", () => {
+    const data = catalogUnitJsonLd({
+      page: unitPage(
+        {},
+        { is_external: true, url: "https://kajaki.pl/" },
+        {
+          "@type": "Product",
+          name: "Kajak",
+          offers: { "@type": "Offer" },
+        },
+      ),
+      locales: LOCALES,
+      cardPath: PATH,
+      path: UNIT_PATH,
+      locale: "pl",
+    });
+    const [, unit] = data["@graph"] as Record<string, unknown>[];
+
+    // The company's own site is its one identity (TL18).
+    expect(unit!.offers).toEqual({
+      "@type": "Offer",
+      seller: { "@id": "https://kajaki.pl/#organization" },
+    });
+    expect(unit).not.toHaveProperty("provider");
+  });
+
+  it("a unit with nothing to state leaves the company alone in the graph", () => {
+    const data = catalogUnitJsonLd({
+      page: unitPage({}, {}, null),
+      locales: LOCALES,
+      cardPath: PATH,
+      path: UNIT_PATH,
+      locale: "pl",
+    });
+
+    expect(data["@graph"]).toHaveLength(1);
+  });
+
+  it("the page is indexed where the unit and its card are both written", () => {
+    const args = {
+      locales: LOCALES,
+      path: UNIT_PATH,
+      title: "t",
+      description: "d",
+    };
+    const polish = catalogUnitMetadata({
+      ...args,
+      page: unitPage(),
+      locale: "pl",
+    });
+    const english = catalogUnitMetadata({
+      ...args,
+      page: unitPage(),
+      locale: "en",
+    });
+    // The unit has an English name, the card it stands under does not.
+    const half = catalogUnitMetadata({
+      ...args,
+      page: unitPage({ translated_locales: ["en"] }),
+      locale: "en",
+    });
+    const both = catalogUnitMetadata({
+      ...args,
+      page: unitPage(
+        { locale: "en", translated_locales: ["en"] },
+        { translated_locales: ["en"] },
+      ),
+      locale: "en",
+    });
+
+    expect(polish.robots).toBeUndefined();
+    expect(polish.alternates?.languages).toEqual({
+      pl: `${origin}${UNIT_PATH}`,
+      "x-default": `${origin}${UNIT_PATH}`,
+    });
+    expect(polish.openGraph?.images).toEqual([
+      {
+        url: `${origin}/api/v1/booking/public/domki/photos/1/preview/`,
+        alt: "Domek Sosnowy",
+      },
+    ]);
+    expect(english.robots).toEqual({ index: false, follow: true });
+    expect(english.alternates?.languages).toBeUndefined();
+    expect(half.robots).toEqual({ index: false, follow: true });
+    expect(both.robots).toBeUndefined();
+    expect(both.alternates?.languages).toEqual({
+      pl: `${origin}${UNIT_PATH}`,
+      en: `${origin}/en${UNIT_PATH}`,
+      "x-default": `${origin}${UNIT_PATH}`,
     });
   });
 });

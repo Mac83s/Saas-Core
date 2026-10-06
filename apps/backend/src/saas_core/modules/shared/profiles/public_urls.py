@@ -7,6 +7,7 @@ from .public_views import (
     PublicCatalogDictionaryView,
     PublicCatalogListView,
     PublicCatalogSitemapView,
+    PublicCatalogUnitView,
 )
 
 urlpatterns = [
@@ -17,5 +18,10 @@ urlpatterns = [
         "<slug:city_slug>/<slug:slug>/",
         PublicCatalogDetailView.as_view(),
         name="public-catalog-detail",
+    ),
+    path(
+        "<slug:city_slug>/<slug:slug>/units/<slug:unit_slug>/",
+        PublicCatalogUnitView.as_view(),
+        name="public-catalog-unit",
     ),
 ]

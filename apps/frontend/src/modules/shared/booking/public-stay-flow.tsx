@@ -134,6 +134,7 @@ export function PublicStayFlow({
   onDocuments,
   onElsewhere,
   onOffer,
+  origin,
   preset,
   publicSlug,
 }: {
@@ -150,6 +151,8 @@ export function PublicStayFlow({
   onElsewhere: (locales: string[]) => void;
   /** Another offer was chosen — a stay or a visit. */
   onOffer: (id: string) => void;
+  /** The `origin` the form's address carried (the catalogue's token). */
+  origin?: string;
   /** What the link to the form chose of this offer, if it chose anything. */
   preset?: StayPreset;
   publicSlug: string;
@@ -300,6 +303,7 @@ export function PublicStayFlow({
           ...(notes.trim() ? { customer_notes: notes.trim() } : {}),
           // The price shown: another one by now is asked about, not charged.
           ...(plan.quote ? { quote_digest: plan.quote.digest } : {}),
+          ...(origin ? { origin } : {}),
           ...ticked(documents, marketing),
           // The page's language: the documents above are in it.
           customer: { ...customer, phone: customer.phone.trim(), locale },

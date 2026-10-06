@@ -1,6 +1,10 @@
 import "server-only";
 
-import type { CatalogDictionary, CatalogProfile } from "@saas-core/api-client";
+import type {
+  CatalogDictionary,
+  CatalogProfile,
+  CatalogUnitPage,
+} from "@saas-core/api-client";
 
 const backendUrl = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
 
@@ -27,6 +31,29 @@ export async function readCatalogProfileOnServer(
     throw new Error(`Public catalog API answered ${response.status}`);
   }
   return (await response.json()) as CatalogProfile;
+}
+
+/**
+ * One unit's page under a company's card (ADR-072, slice 5h), read on the
+ * server like the card. `null`: the card is gone, or the company's booking
+ * form shows no such unit now — gone, not broken.
+ */
+export async function readCatalogUnitOnServer(
+  city: string,
+  slug: string,
+  unit: string,
+  locale?: string,
+): Promise<CatalogUnitPage | null> {
+  const query = locale ? `?locale=${encodeURIComponent(locale)}` : "";
+  const response = await fetch(
+    `${backendUrl}/api/v1/public/catalog/${encodeURIComponent(city)}/${encodeURIComponent(slug)}/units/${encodeURIComponent(unit)}/${query}`,
+    { cache: "no-store" },
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`Public catalog API answered ${response.status}`);
+  }
+  return (await response.json()) as CatalogUnitPage;
 }
 
 /**

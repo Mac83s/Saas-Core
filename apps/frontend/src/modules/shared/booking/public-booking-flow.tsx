@@ -64,9 +64,13 @@ type Values = ContactValues & {
 };
 
 export function PublicBookingFlow({
+  origin,
   preset,
   publicSlug,
 }: {
+  /** The `origin` the form's address carried — the catalogue's signed token
+   *  (ADR-072 §11): sent back with the booking, whatever is booked. */
+  origin?: string;
   /** What the link to the form chose ahead — a block of the company's site
    *  names the offer, what is booked of it, the days and the people
    *  (ADR-072, slice 5d). */
@@ -303,6 +307,7 @@ export function PublicBookingFlow({
             ...(extras.length ? { extras } : {}),
             // The price shown: another one by now is asked about, not charged.
             ...(quote ? { quote_digest: quote.digest } : {}),
+            ...(origin ? { origin } : {}),
             ...ticked(documents, marketing),
             customer: {
               display_name,
@@ -392,7 +397,13 @@ export function PublicBookingFlow({
       </Card>
     );
   if (elsewhere)
-    return <LanguageUnavailable locales={elsewhere} publicSlug={publicSlug} />;
+    return (
+      <LanguageUnavailable
+        locales={elsewhere}
+        origin={origin}
+        publicSlug={publicSlug}
+      />
+    );
   // The stay the link named: the offer itself, or the one that lists the
   // group or the unit it named. A name the form does not have is no choice.
   const linked =
@@ -419,6 +430,7 @@ export function PublicBookingFlow({
         onDocuments={setDocuments}
         onElsewhere={setElsewhere}
         onOffer={pickOffer}
+        origin={origin}
         preset={
           linked && String(linked.id) === String(stay) ? preset : undefined
         }

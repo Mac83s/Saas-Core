@@ -4,6 +4,7 @@ from typing import Any
 
 from rest_framework import serializers
 
+from saas_core.modules.core.organizations.api import ORIGIN_TOKEN_MAX_LENGTH
 from saas_core.modules.core.organizations.options import (
     SETTING_STRATEGIES,
     SETTING_TYPES,
@@ -13,6 +14,7 @@ from saas_core.modules.core.organizations.serializers import LocalizedTextSerial
 
 from .cancellation import CANCEL_REASONS, REFUND_THRESHOLDS
 from .models import (
+    BookingChannel,
     Confirmation,
     ExtraBasis,
     PaymentPolicy,
@@ -142,6 +144,17 @@ def _extras() -> serializers.ListField:
         max_length=20,
         help_text="The optional extras picked, each with how many (1 when omitted). The "
         "offer's mandatory extras are always charged.",
+    )
+
+
+def _origin() -> serializers.CharField:
+    return serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=ORIGIN_TOKEN_MAX_LENGTH,
+        help_text="The `origin` the form's address carried, as it was — the catalogue's signed "
+        "token. One that holds (ours, for this company, not too old) makes the booking the "
+        "catalogue's (`channel` `catalog`); anything else is ignored, never refused.",
     )
 
 
@@ -422,6 +435,7 @@ class PublicAppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     customer_notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
     extras = _extras()
     quote_digest = _shown_digest()
+    origin = _origin()
     consents = PublicConsentsInputSerializer(
         required=False,
         help_text="The company's documents the customer accepted — required as soon as the "
@@ -535,6 +549,14 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
         allow_null=True,
         help_text="Until when a `pending_request` booking waits for the company's answer, "
         "or a `pending_payment` one for its payment; null otherwise.",
+    )
+    channel = serializers.ChoiceField(
+        choices=[*BookingChannel.values, ""],
+        required=False,
+        help_text="Where the booking came from: `office` — the team booked it; "
+        "`company_site` — the company's public form; `catalog` — the form reached from the "
+        "platform's catalogue, on the word of its signed token. Empty for a booking from "
+        "before channels were kept.",
     )
     order = AppointmentOrderSerializer(
         required=False,

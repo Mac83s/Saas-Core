@@ -30,12 +30,14 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
+from saas_core.modules.core.organizations.api import issue_origin, stated_business_type
 from saas_core.modules.core.organizations.context import set_local_organization_id
 from saas_core.modules.core.organizations.locales import organization_content_locales
 from saas_core.modules.core.organizations.models import Organization
 
 from .card_languages import card_in_language
 from .catalog_contract import categories, cities, cities_within
+from .catalog_listing import badge_keys, booking_card, booking_unit
 from .models import (
     CatalogEntry,
     ProfileSubjectKind,
@@ -49,6 +51,7 @@ from .serializers import (
     CatalogPageSerializer,
     CatalogProfileSerializer,
     CatalogSitemapPageSerializer,
+    CatalogUnitPageSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,9 +75,19 @@ CATALOG_SEARCHES = Counter(
 )
 
 
+#: The channel of a booking that started on a page of the catalogue; the
+#: token in the link to the form vouches for it (`organizations.origin`).
+ORIGIN_CHANNEL = "catalog"
+
+
 class CatalogEntryNotFound(NotFound):
     default_detail = "Nie ma takiej wizytówki w katalogu."
     default_code = "catalog_entry_not_found"
+
+
+class CatalogUnitNotFound(NotFound):
+    default_detail = "Tej oferty nie ma już w katalogu."
+    default_code = "catalog_unit_not_found"
 
 
 def site_url(entry: CatalogEntry) -> str | None:
@@ -133,6 +146,8 @@ def _entry_payload(
         "locale": translated or entry.source_locale,
         "source_locale": entry.source_locale,
         "translated_locales": list(entry.translated_locales or ()),
+        # What other modules say of the company: `online_booking` (slice 5h).
+        "badges": list(entry.badges or ()),
         "photo_id": str(entry.photo_id) if entry.photo_id else None,
         # What the listing links to. The catalogue page is always a valid
         # target, so the client never has to decide what to do with a null.
@@ -191,6 +206,7 @@ def _similar(
     category: str,
     found: list[CatalogEntry],
     locale: str | None = None,
+    badge: str = "",
 ) -> list[CatalogEntry]:
     try:
         ids = similar_ids(
@@ -200,6 +216,7 @@ def _similar(
             exclude={entry.organization_id for entry in found},
             limit=SIMILAR_BELOW if found else PAGE_SIZE,
             locale=locale,
+            badge=badge,
         )
     except SearchEngineUnavailable:
         return []
@@ -215,9 +232,12 @@ def search_catalog(
     point: tuple[float, float] | None = None,
     radius_km: float | None = None,
     locale: str | None = None,
+    badge: str = "",
 ) -> dict[str, Any]:
     """One page of the listing; with `locale`, headlines in that language
-    where the card is whole in it (TL20), the card's own elsewhere.
+    where the card is whole in it (TL20), the card's own elsewhere. With
+    `badge`, only the companies that have it („rezerwacja online”): the
+    row's copy, so the filter opens no tenant.
 
     Words go to the search engine (ADR-064) and come back as organization ids;
     the rows themselves are read here, so the table stays the truth and an entry
@@ -242,6 +262,8 @@ def search_catalog(
         entries = entries.filter(city_slug__in=city_slugs)
     if category:
         entries = entries.filter(category=category)
+    if badge:
+        entries = entries.filter(badges__contains=[badge])
 
     found: list[CatalogEntry] | None = None
     similar: list[CatalogEntry] = []
@@ -255,6 +277,7 @@ def search_catalog(
                 page=page,
                 page_size=PAGE_SIZE,
                 locale=locale,
+                badge=badge,
             )
         except SearchEngineUnavailable as error:
             # No query text in the log: in some products a search says
@@ -264,7 +287,7 @@ def search_catalog(
             CATALOG_SEARCHES.labels(engine="search").inc()
             found = _rows(entries, ids)
             if page == 1:
-                similar = _similar(entries, query, city_slugs, category, found, locale)
+                similar = _similar(entries, query, city_slugs, category, found, locale, badge)
     if found is None:
         if query.strip():
             CATALOG_SEARCHES.labels(engine="database").inc()
@@ -333,15 +356,9 @@ def catalog_sitemap(*, page: int) -> dict[str, Any]:
     }
 
 
-def resolve_catalog_profile(
-    *, city_slug: str, slug: str, locale: str | None = None
-) -> dict[str, Any]:
-    """One catalogue page: the row names the tenant, the tenant answers for itself.
-
-    With `locale` the card comes in that language when it is whole in it —
-    every text translated, the language one the company serves (TL20) — and in
-    its own language otherwise; never a mix. `fallback` is therefore empty
-    unless the row's copy of the languages lags a write."""
+def _card(*, city_slug: str, slug: str, locale: str | None) -> tuple[CatalogEntry, dict[str, Any]]:
+    """The company's card as its catalogue page shows it, and the row that
+    named the tenant: the row is read without one, the card inside it."""
     entry = (
         CatalogEntry.all_objects.select_related("site", "photo")
         .filter(city_slug=city_slug, slug=slug)
@@ -383,6 +400,12 @@ def resolve_catalog_profile(
         translation = PublicProfileTranslation.all_objects.filter(
             organization_id=entry.organization_id, profile=profile, locale=asked or profile.locale
         ).first()
+        # What the company is, for its identity in structured data: what its
+        # live records make it before what its category names (ADR-071 pkt 16).
+        category = categories(organization.organization_type).get(entry.category)
+        business_type = stated_business_type(entry.organization_id) or (
+            category.schema_type if category else ""
+        )
 
     city = cities().get(entry.city_slug)
     payload = {
@@ -397,11 +420,69 @@ def resolve_catalog_profile(
         "languages": profile.languages,
         "specializations": profile.specializations,
         "locale": profile.locale,
+        "business_type": business_type,
         "fallback": [],
     }
     if asked is None or translation is None:
-        return payload
-    return {**payload, **card_in_language(profile, translation)}
+        return entry, payload
+    return entry, {**payload, **card_in_language(profile, translation)}
+
+
+def _page_locale(entry: CatalogEntry, locale: str | None) -> str:
+    """The language a module is asked for its part of the page in: the
+    page's, or the card's own when the page named none we know."""
+    return _locale_param(locale) or entry.source_locale
+
+
+def resolve_catalog_profile(
+    *, city_slug: str, slug: str, locale: str | None = None
+) -> dict[str, Any]:
+    """One catalogue page: the row names the tenant, the tenant answers for itself.
+
+    With `locale` the card comes in that language when it is whole in it —
+    every text translated, the language one the company serves (TL20) — and in
+    its own language otherwise; never a mix. `fallback` is therefore empty
+    unless the row's copy of the languages lags a write.
+
+    `booking` is what a visitor can book there now, said by the module that
+    books (slice 5h): the form, the units it shows, and the token that tells
+    the form the visitor came from the catalogue. Null — nothing is booked
+    online at this company."""
+    entry, payload = _card(city_slug=city_slug, slug=slug, locale=locale)
+    booking = booking_card(entry.organization_id, _page_locale(entry, locale))
+    return {
+        **payload,
+        "booking": (
+            {**booking, "origin": issue_origin(ORIGIN_CHANNEL, entry.organization_id)}
+            if booking is not None
+            else None
+        ),
+    }
+
+
+def resolve_catalog_unit(
+    *, city_slug: str, slug: str, unit_slug: str, locale: str | None = None
+) -> dict[str, Any]:
+    """One unit's page under a company's card (slice 5h): the card for the
+    page's frame and the company's identity, the unit as the company's form
+    shows it, and the token that tells the form where the guest came from.
+    Gone (404) with the card, and with the unit: it exists while the form
+    shows it."""
+    entry, payload = _card(city_slug=city_slug, slug=slug, locale=locale)
+    found = booking_unit(entry.organization_id, _page_locale(entry, locale), unit_slug)
+    if found is None:
+        raise CatalogUnitNotFound
+    return {
+        "company": payload,
+        "booking": {
+            **{key: found[key] for key in ("form_url", "form_slug", "timezone", "last_day")},
+            "paused": found["paused"],
+            "origin": issue_origin(ORIGIN_CHANNEL, entry.organization_id),
+        },
+        "unit": found["unit"],
+        "offers": found["offers"],
+        "thing": found["thing"],
+    }
 
 
 def _locale_param(raw: str | None) -> str | None:
@@ -427,9 +508,10 @@ class PublicCatalogListView(APIView):
     @extend_schema(
         operation_id="catalog_list",
         summary="The public catalogue's listing",
-        description="One page of the catalogue's companies, filtered by city, category, words "
-        "or distance. With `locale` each card's headline comes in that language where the card "
-        "is whole in it, and `locale_has_entries` says whether any card is.",
+        description="One page of the catalogue's companies, filtered by city, category, words, "
+        "distance or a badge (`badge=online_booking`: the companies a visitor can book online). "
+        "With `locale` each card's headline comes in that language where the card is whole in "
+        "it, and `locale_has_entries` says whether any card is. Each item names its `badges`.",
         extensions={
             "x-quality-exempt": {
                 "error-400": "Filters outside the dictionary are dropped, never refused.",
@@ -455,6 +537,12 @@ class PublicCatalogListView(APIView):
                 description="Język strony katalogu (kod z rejestru, np. de): nagłówki w nim, "
                 "gdzie wizytówka jest w nim cała, i `locale_has_entries`.",
             ),
+            OpenApiParameter(
+                "badge",
+                str,
+                description="Tylko firmy z tą odznaką, np. `online_booking` — rezerwacja "
+                "online. Klucz spoza `badges` słownika katalogu jest pomijany.",
+            ),
         ],
         responses={200: CatalogPageSerializer},
     )
@@ -470,6 +558,9 @@ class PublicCatalogListView(APIView):
             city_slug = ""
         if category and category not in categories(organization_type):
             category = ""
+        badge = params.get("badge", "")
+        if badge and badge not in badge_keys():
+            badge = ""
         try:
             page = int(params.get("page", "1"))
         except ValueError:
@@ -490,6 +581,7 @@ class PublicCatalogListView(APIView):
                 point=point,
                 radius_km=radius_km,
                 locale=_locale_param(params.get("locale")),
+                badge=badge,
             )
         )
 
@@ -504,7 +596,11 @@ class PublicCatalogDetailView(APIView):
         description="The company's public card in the catalogue. With `locale` the headline, "
         "bio and link labels come in that language of the company when the card has them; "
         "`locale` in the answer says which language was served and `fallback` lists what "
-        "stayed in the card's own language.",
+        "stayed in the card's own language. `booking` is what a visitor can book there now — "
+        "the company's form, the units it shows (each with a page of its own at "
+        "`…/units/{unit}/`) and `origin`, the token a link to the form carries so that the "
+        "booking says it came from the catalogue; null where nothing is booked online. "
+        "`business_type` is the schema.org subtype of LocalBusiness the company is.",
         parameters=[
             OpenApiParameter(
                 "locale",
@@ -524,6 +620,48 @@ class PublicCatalogDetailView(APIView):
     def get(self, request: Request, city_slug: str, slug: str) -> Response:
         locale = request.query_params.get("locale") or None
         return Response(resolve_catalog_profile(city_slug=city_slug, slug=slug, locale=locale))
+
+
+class PublicCatalogUnitView(APIView):
+    """One unit a company lets, as a page under its catalogue card."""
+
+    authentication_classes: list[Any] = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        operation_id="catalog_unit",
+        summary="One unit's page under a company's catalogue card",
+        description="A unit the company shows on its booking form — a cottage, a room, a "
+        "kayak — as its own page in the catalogue: `company` is the card it stands under, "
+        "`unit` its content (pictures at the form's address, what it has, its town, the lowest "
+        "price), `offers` the offers it is booked through with the choice that books it, and "
+        "`booking` the form: its address, the days it takes and `origin` — the token a link to "
+        "the form carries so that the booking says it came from the catalogue. The free days "
+        "are read from the form's own API (`/booking/public/{form_slug}/stays/…`). With "
+        "`locale` the unit's name and description come in that language where the company "
+        "wrote them; `unit.locale` says which was served. 404 `catalog_entry_not_found` "
+        "without the card, 404 `catalog_unit_not_found` when the form shows no such unit.",
+        parameters=[
+            OpenApiParameter(
+                "locale",
+                str,
+                required=False,
+                description="A language code of the registry, e.g. de. A language the company "
+                "does not have is answered in its own.",
+            )
+        ],
+        responses={200: CatalogUnitPageSerializer, 404: ProblemDetailsSerializer},
+        extensions={
+            "x-quality-exempt": {
+                "error-400": "An unknown language is served in the company's own, never refused.",
+            }
+        },
+    )
+    def get(self, request: Request, city_slug: str, slug: str, unit_slug: str) -> Response:
+        locale = request.query_params.get("locale") or None
+        return Response(
+            resolve_catalog_unit(city_slug=city_slug, slug=slug, unit_slug=unit_slug, locale=locale)
+        )
 
 
 class PublicCatalogSitemapView(APIView):
@@ -574,4 +712,5 @@ class PublicCatalogDictionaryView(APIView):
                 for category in categories(organization_type).values()
             ],
             "locales": catalog_locales(),
+            "badges": badge_keys(),
         })

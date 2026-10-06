@@ -9,16 +9,20 @@ address and one phone in every language.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Any
 from uuid import UUID
+
+from .public_sources import stated_business_type
 
 
 @dataclass(frozen=True, slots=True)
 class OrganizationFacts:
     name: str
-    #: The schema.org subtype of LocalBusiness the company's catalogue category
-    #: names ("LodgingBusiness"); "" when the category names none.
+    #: The schema.org subtype of LocalBusiness the company is: what its live
+    #: records make it ("LodgingBusiness" for one that lets units by the
+    #: night, `stated_business_type`), else what its catalogue category
+    #: names; "" when neither says.
     business_type: str = ""
     telephone: str = ""
     email: str = ""
@@ -46,9 +50,12 @@ def register_organization_facts(source: FactsSource) -> None:
 
 
 def organization_facts(organization_id: UUID) -> OrganizationFacts | None:
-    """The first source that knows the company; None when nobody does."""
+    """The first source that knows the company; None when nobody does. What
+    the company's live records make it stands before the subtype its card's
+    category names: a category is a shelf, a let cottage is a fact."""
     for source in _sources:
         facts = source(organization_id)
         if facts is not None:
-            return facts
+            stated = stated_business_type(organization_id)
+            return replace(facts, business_type=stated) if stated else facts
     return None

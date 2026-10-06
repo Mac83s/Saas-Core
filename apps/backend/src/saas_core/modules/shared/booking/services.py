@@ -90,6 +90,7 @@ from .observers import (
     AppointmentChange,
     notify_appointment_change,
 )
+from .origin import booking_origin
 from .security import (
     PUBLIC_BOOKING_ROLE,
     REMINDER_PERMISSIONS,
@@ -429,6 +430,7 @@ def create_appointment(
     extras: Sequence[Mapping[str, Any]] | None = None,
     quote_digest: str = "",
     consents: BookingConsents | None = None,
+    origin: str = "",
 ) -> CreatedAppointment:
     """Books a free slot, or — with `walk_in_minutes` — records work already under way.
 
@@ -463,6 +465,11 @@ def create_appointment(
     `consents` — the documents the customer accepted (`consents.record`): a
     customer booking for themselves must name the ones in force, 409
     `documents_changed` otherwise.
+
+    `origin` — the token the public form got in its address
+    (`origin.booking_origin`): one that holds makes the booking the
+    catalogue's; it never refuses a booking and is no part of the request a
+    retry is compared by.
     """
     place_town, place_address = place_town.strip(), place_address.strip()
     context = require_tenant_context()
@@ -696,6 +703,7 @@ def create_appointment(
                 place_address=place_address[:240],
                 quote=quote.snapshot(),
                 quote_digest=quote.digest,
+                **booking_origin(origin),
             )
             taken: list[UUID] = []
             for person_id in candidates:

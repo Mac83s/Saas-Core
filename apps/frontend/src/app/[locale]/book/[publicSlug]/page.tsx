@@ -13,6 +13,10 @@ export const metadata: Metadata = { robots: { index: false, follow: true } };
  *  5d): a block of the company's site sends these names. */
 const PRESET = ["offer", "group", "unit", "from", "to", "people"] as const;
 
+/** A token of the catalogue is about 130 characters; the API takes no more
+ *  than this, and what is longer is not a token. */
+const ORIGIN_MAX_LENGTH = 255;
+
 export default async function PublicBookingPage({
   params,
   searchParams,
@@ -35,9 +39,20 @@ export default async function PublicBookingPage({
       typeof query[name] === "string" ? [[name, query[name]]] : [],
     ),
   );
+  // Where the guest comes from, on the word of whoever sent them (ADR-072
+  // §11): the catalogue's signed token, handed back with the booking. In the
+  // address and the form's state only — never in a cookie.
+  const origin =
+    typeof query.origin === "string" && query.origin.length <= ORIGIN_MAX_LENGTH
+      ? query.origin
+      : undefined;
   return (
     <main className="mx-auto min-h-screen max-w-xl px-5 py-12">
-      <PublicBookingFlow preset={preset} publicSlug={publicSlug} />
+      <PublicBookingFlow
+        origin={origin}
+        preset={preset}
+        publicSlug={publicSlug}
+      />
     </main>
   );
 }
