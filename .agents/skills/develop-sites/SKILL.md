@@ -70,9 +70,9 @@ pages, entries, indexes and archives (`_find_source_page`,
 every language and reserved for new pages (`first_segment_reserved`); another
 language's address exists only where the record has words of its own in it,
 else one 308 to the site's own language. The sitemap lists such pages
-(`site_pages`); their views are not counted. The source also names the
-page's share picture and what the record is for structured data
-(`SourcePage.image`, `.thing` — the page's `mainEntity`).
+(`site_pages`); their views are not counted. The source names the page's
+share picture and structured-data node (`SourcePage.image`, `.thing`); the
+site lends it the home page's look and a drawn trail (`show_breadcrumbs`).
 
 A company's document (`/documents/<name>/`, `customers.site_pages`) is
 `per_language`: the page has the text only where the version in force has

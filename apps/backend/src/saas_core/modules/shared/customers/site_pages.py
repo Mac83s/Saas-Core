@@ -41,6 +41,8 @@ PAGE_SEGMENT = "documents"
 DOCUMENT_BLOCK = "core.document"
 #: How much of a document a search result shows under its title.
 DESCRIPTION_LENGTH = 160
+#: How long a title a search result shows whole.
+TITLE_LENGTH = 65
 #: A document's address under the segment, the same in every language.
 SLUGS: dict[str, str] = {
     "booking-terms": DocumentKind.BOOKING_TERMS,
@@ -103,6 +105,15 @@ def _version_in_force(organization: Organization, kind: str) -> DocumentVersion 
     return _in_force(document, organization.local_today()) if document else None
 
 
+def _title(name: str, company: str) -> str:
+    """The page's title: the document's name and whose it is — „Regulamin
+    rezerwacji” alone is every company's, and too short for a search result.
+    Only where both fit a result's line (`TITLE_LENGTH`): a title cut in the
+    middle of the company's name says less than the document's name."""
+    titled = f"{name} — {company}"
+    return titled if len(titled) <= TITLE_LENGTH else name
+
+
 def _description(title: str, company: str, text: str) -> str:
     """What a search result says under the document's title: whose it is and
     how it begins. The name and the company alone are some forty characters —
@@ -153,7 +164,8 @@ def site_page(
         ]
     return SourcePage(
         key=str(version.document_id),
-        title=title,
+        title=_title(title, organization.name),
+        name=title,
         description=_description(title, organization.name, row.text if row else ""),
         blocks=[{"block_type": DOCUMENT_BLOCK, "schema_version": 1, "data": data}],
         locales=frozenset(texts),

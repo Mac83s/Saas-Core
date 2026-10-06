@@ -253,6 +253,13 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     )
     social = PublicSocialSerializer()
     breadcrumbs = serializers.ListField(child=serializers.DictField())
+    show_breadcrumbs = serializers.BooleanField(
+        required=False,
+        help_text="The page draws its trail (`breadcrumbs`) for the visitor: a record's own "
+        "page — a unit's `/stay/…`, a document's `/documents/…` — which no menu leads to; "
+        "the trail starts at the company's name and the home page. False or absent: the "
+        "trail is in the structured data alone.",
+    )
     pagination = serializers.DictField(allow_null=True)
     article = serializers.DictField(allow_null=True)
     # AI images on this page; empty when the operator switched the badge off.

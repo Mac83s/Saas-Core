@@ -466,7 +466,12 @@ export type StayPlace = {
 };
 
 /** What the server says a map block shows now (`live` of a published page). */
-export type StayMapLive = { place: StayPlace };
+export type StayMapLive = {
+  place: StayPlace;
+  /** As `StayLive.others`, where the map is the last the page says of the
+   *  unit. */
+  others?: StayLiveChoice[];
+};
 
 /** One thing a guest chooses of an offer: a group of identical units or a
  *  unit by itself. The content comes with the list of units only. */
@@ -511,6 +516,10 @@ export type StayLive = {
   offers: StayLiveOffer[];
   /** A unit's card only: the unit's content. */
   unit?: StayLiveChoice;
+  /** On a unit's own page: a few of the company's other units to go on to —
+   *  the name, the cover and the page of each. They come with the last block
+   *  that speaks of the unit: its map, else the card. */
+  others?: StayLiveChoice[];
 };
 
 export type FooterV1Data = JsonObject & {
@@ -709,6 +718,12 @@ export interface DraftPreviewDocument {
   readonly designTokens: DesignTokensV1;
 }
 
+/** One step of a page's trail: the company first, the page itself last. */
+export interface Breadcrumb {
+  readonly title: string;
+  readonly path: string;
+}
+
 export interface NavigationLink {
   readonly page_id: string;
   readonly parent_page_id: string | null;
@@ -766,6 +781,9 @@ export interface PublishedPageDocument {
   readonly machineNotice?: boolean;
   /** Each live language of the site; nothing to switch to, no switch. */
   readonly languageLinks?: readonly LanguageLink[];
+  /** The trail the page draws above its content — only where the server
+   *  says it is shown (a unit's or a document's own page). */
+  readonly breadcrumbs?: readonly Breadcrumb[];
   readonly appearance?: SiteAppearance | null;
   readonly appearanceLang?: AppearanceLang;
   readonly pagePresentation?: PagePresentationV1 | PagePresentationV2 | null;

@@ -55,6 +55,9 @@ class SourcePage:
     title: str
     description: str
     blocks: list[dict[str, Any]]
+    #: What the record is called by itself, where the title says more (a
+    #: town, the company): the page's place in its trail, after the company.
+    name: str = ""
     #: The languages the record has words of its own in, beside the site's
     #: source language — only in those does the page have another address.
     locales: frozenset[str] = frozenset()

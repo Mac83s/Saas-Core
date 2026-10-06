@@ -16070,6 +16070,8 @@ export interface components {
             breadcrumbs: {
                 [key: string]: unknown;
             }[];
+            /** @description The page draws its trail (`breadcrumbs`) for the visitor: a record's own page — a unit's `/stay/…`, a document's `/documents/…` — which no menu leads to; the trail starts at the company's name and the home page. False or absent: the trail is in the structured data alone. */
+            show_breadcrumbs?: boolean;
             pagination: {
                 [key: string]: unknown;
             } | null;

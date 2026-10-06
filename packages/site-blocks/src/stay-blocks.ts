@@ -173,6 +173,71 @@ function unitCard(
   );
 }
 
+/** Where a unit's own page leads on (`others` of the server's answer): a
+ *  few of the company's other units, small — the cover, the name, the town
+ *  and how many it takes, „od X zł / noc” — each card one link to that
+ *  unit's page. Nothing to go on to — nothing drawn. */
+function otherUnits(
+  others: readonly StayLiveChoice[] | undefined,
+  texts: StayTexts,
+  locale: string,
+  imageRenderer: BlockImageRenderer | undefined,
+): ReactNode {
+  const shown = (others ?? []).filter((other) => other.page_path);
+  if (!shown.length) return null;
+  return h(
+    "div",
+    { className: "site-stay-others" },
+    h("h2", null, texts.others),
+    h(
+      "ul",
+      { className: "site-stay-others__list" },
+      ...shown.map((other) => {
+        const cover = other.photos?.[0];
+        const facts = [
+          other.town?.name,
+          other.capacity ? texts.capacity(other.capacity) : undefined,
+        ].filter(Boolean);
+        return h(
+          "li",
+          { key: `${other.kind}:${other.id}`, className: "site-stay-other" },
+          h(
+            "div",
+            { className: "site-stay-other__cover" },
+            cover ? unitPhoto(cover, other.name, "8rem", imageRenderer) : null,
+          ),
+          h(
+            "div",
+            { className: "site-stay-other__body" },
+            h(
+              "h3",
+              { className: "site-stay-unit__name" },
+              h("a", { href: other.page_path }, other.name),
+            ),
+            facts.length
+              ? h(
+                  "p",
+                  { className: "site-stay-unit__facts" },
+                  facts.join(" · "),
+                )
+              : null,
+            other.from_price
+              ? h(
+                  "p",
+                  { className: "site-stay-unit__price" },
+                  texts.fromPrice(
+                    stayAmount(other.from_price, locale),
+                    other.from_price.per,
+                  ),
+                )
+              : null,
+          ),
+        );
+      }),
+    ),
+  );
+}
+
 function intro(
   data: StayBlockV1Data,
   editor: BlockComponentProps["editor"],
@@ -529,6 +594,7 @@ export function StayUnitBlock({
           label,
         ),
     ),
+    otherUnits(shown.others, texts, locale, imageRenderer),
   );
 }
 
@@ -586,12 +652,15 @@ export function stayMapLink(place: StayPlace): string {
 export function StayMapBlock({
   data,
   editor,
+  imageRenderer,
   live,
   options,
 }: BlockComponentProps) {
   const block = data as StayMapV1Data;
-  const texts = siteUiTexts(options?.locale ?? "pl").stay;
-  const place = (live?.data as StayMapLive | undefined)?.place;
+  const locale = options?.locale ?? "pl";
+  const texts = siteUiTexts(locale).stay;
+  const shown = live?.data as StayMapLive | undefined;
+  const place = shown?.place;
   const text = editor?.text ?? plainBlockText;
   const header = h(
     "div",
@@ -652,5 +721,6 @@ export function StayMapBlock({
           ),
         ),
     ),
+    otherUnits(shown?.others, texts, locale, imageRenderer),
   );
 }

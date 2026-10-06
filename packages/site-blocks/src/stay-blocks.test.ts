@@ -107,6 +107,26 @@ function published(
   };
 }
 
+/** A unit's own point, and the same unit shown by its town only. */
+const point: StayPlace = {
+  name: "Domek nad jeziorem",
+  town: { slug: "mragowo", name: "Mrągowo" },
+  exact: true,
+  latitude: 53.8712,
+  longitude: 21.3184,
+};
+const town: StayPlace = {
+  ...point,
+  exact: false,
+  latitude: 53.8645,
+  longitude: 21.305,
+};
+const map = (data: JsonObject = {}): SiteBlock => ({
+  block_type: "core.stay_map",
+  schema_version: 1,
+  data,
+});
+
 describe("stay blocks", () => {
   it("lists the units the server names, each leading to the form with itself chosen", () => {
     const html = renderToStaticMarkup(
@@ -362,6 +382,88 @@ describe("stay blocks", () => {
     expect(html).toContain('<h3 class="site-stay-unit__name">Apartament</h3>');
   });
 
+  it("leads on from a unit's own page to the company's other units, after all the page says of it", () => {
+    const [group] = live.offers[0]!.choices;
+    const others = [
+      {
+        kind: "unit",
+        id: FLAT,
+        name: "Apartament",
+        capacity: 4,
+        town: { slug: "mragowo", name: "Mrągowo" },
+        from_price: { gross_minor: 45000, currency: "PLN", per: "night" },
+        page_path: "/stay/apartament/",
+        photos: [PHOTO],
+      },
+      {
+        kind: "unit",
+        id: STAY,
+        name: "Chata",
+        capacity: null,
+        town: null,
+        from_price: null,
+        page_path: "/stay/chata/",
+        photos: [],
+      },
+    ];
+    const card: SiteBlock = {
+      block_type: "core.stay_unit",
+      schema_version: 1,
+      data: { unit: COTTAGE, main: true },
+    };
+    const answer = { ...live, unit: group };
+
+    // The server sends them with the map where the page has one: under it.
+    const html = renderToStaticMarkup(
+      renderPublishedPage(
+        published([card, map({ unit: COTTAGE })], {
+          "0": answer,
+          "1": { place: point, others },
+        }),
+        registry,
+      ),
+    );
+    expect(html.match(/class="site-stay-others"/g)).toHaveLength(1);
+    expect(html.indexOf("site-stay-others")).toBeGreaterThan(
+      html.indexOf("site-stay-map__place"),
+    );
+    expect(html).toContain("<h2>Zobacz też</h2>");
+    // The cover, the name as the card's one link, the town, how many it
+    // takes and the price.
+    expect(html).toContain(
+      `<li class="site-stay-other"><div class="site-stay-other__cover"><img src="/media/${PHOTO}/preview"`,
+    );
+    expect(html).toContain(
+      '<h3 class="site-stay-unit__name"><a href="/stay/apartament/">Apartament</a></h3>' +
+        '<p class="site-stay-unit__facts">Mrągowo · do 4 osób</p>',
+    );
+    expect(html).toMatch(/od 450\szł \/ noc/);
+    // A unit without a picture or a price is still led to.
+    expect(html).toContain(
+      '<div class="site-stay-other__cover"></div><div class="site-stay-other__body">' +
+        '<h3 class="site-stay-unit__name"><a href="/stay/chata/">Chata</a></h3></div>',
+    );
+
+    // Without a map they come with the card, in the page's language; with
+    // nothing to lead to there is no heading either.
+    const alone = renderToStaticMarkup(
+      renderPublishedPage(
+        published([card], { "0": { ...answer, others } }, "en"),
+        registry,
+      ),
+    );
+    expect(alone).toContain("<h2>See also</h2>");
+    expect(alone).toContain("Mrągowo · up to 4 people");
+    expect(
+      renderToStaticMarkup(
+        renderPublishedPage(
+          published([card], { "0": { ...answer, others: [] } }),
+          registry,
+        ),
+      ),
+    ).not.toContain("site-stay-others");
+  });
+
   it("builds the form's address from what was chosen", () => {
     expect(stayFormHref(FORM)).toBe(FORM);
     expect(
@@ -376,26 +478,6 @@ describe("stay blocks", () => {
       `${FORM}?offer=${STAY}&unit=${FLAT}&from=2027-07-03&to=2027-07-10&people=4`,
     );
   });
-});
-
-/** A unit's own point, and the same unit shown by its town only. */
-const point: StayPlace = {
-  name: "Domek nad jeziorem",
-  town: { slug: "mragowo", name: "Mrągowo" },
-  exact: true,
-  latitude: 53.8712,
-  longitude: 21.3184,
-};
-const town: StayPlace = {
-  ...point,
-  exact: false,
-  latitude: 53.8645,
-  longitude: 21.305,
-};
-const map = (data: JsonObject = {}): SiteBlock => ({
-  block_type: "core.stay_map",
-  schema_version: 1,
-  data,
 });
 
 describe("the map of where a unit is", () => {

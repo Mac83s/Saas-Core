@@ -7,6 +7,7 @@ import { renderPublishedPage } from "./renderer";
 import {
   articleShowsItsTitle,
   renderArticleHeader,
+  renderBreadcrumbs,
   renderLanguageSwitcher,
   renderMachineNotice,
 } from "./site-chrome";
@@ -58,6 +59,61 @@ describe("language switch", () => {
   it("is not there with one language", () => {
     expect(renderLanguageSwitcher(links.slice(0, 1), "Język")).toBeNull();
     expect(renderLanguageSwitcher(undefined, "Język")).toBeNull();
+  });
+});
+
+describe("breadcrumbs", () => {
+  const trail = [
+    { title: "Domki nad Jeziorem", path: "/de/" },
+    { title: "Ferienhaus am See", path: "/de/stay/domek/" },
+  ];
+
+  it("leads home under the company's name and names the page without linking it again", () => {
+    expect(
+      renderToStaticMarkup(renderBreadcrumbs(trail, "Navigationspfad")),
+    ).toBe(
+      '<nav class="site-block site-breadcrumbs" aria-label="Navigationspfad"><ol>' +
+        '<li><a href="/de/">Domki nad Jeziorem</a></li>' +
+        '<li><span aria-current="page">Ferienhaus am See</span></li></ol></nav>',
+    );
+  });
+
+  it("is not drawn for a trail that leads nowhere", () => {
+    expect(renderBreadcrumbs(trail.slice(1), "Ścieżka")).toBeNull();
+    expect(renderBreadcrumbs(undefined, "Ścieżka")).toBeNull();
+  });
+
+  it("opens the published page's content, named in the page's language", () => {
+    const html = renderToStaticMarkup(
+      renderPublishedPage(
+        {
+          kind: "publication",
+          locale: "pl",
+          publicationId: "pub-1",
+          snapshotHash: "a".repeat(64),
+          designTokens: {
+            schemaVersion: 1,
+            palette: "blue",
+            typography: "sans",
+            radius: "medium",
+            spacing: "comfortable",
+          },
+          blocks: [
+            {
+              block_type: "core.rich_text",
+              schema_version: 1,
+              data: { text: "Body" },
+            },
+          ],
+          breadcrumbs: trail,
+        },
+        createSiteBlockRegistry([coreSiteBlockManifest]),
+      ),
+    );
+
+    expect(html).toContain(
+      '<main><nav class="site-block site-breadcrumbs" aria-label="Ścieżka nawigacji">',
+    );
   });
 });
 

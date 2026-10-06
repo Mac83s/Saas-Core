@@ -153,6 +153,37 @@ test("stosuje wygląd tej strony z publikacji, a bez niego wygląd witryny", () 
   expect(plain.container.querySelector(".site-page--full")).toBeNull();
 });
 
+test("draws the trail only where the server says so: a record's own page", async () => {
+  const own: PublicSitePage = {
+    ...page,
+    navigation: [],
+    breadcrumbs: [
+      { title: "Klinika", path: "/" },
+      { title: "Regulamin rezerwacji", path: "/documents/booking-terms/" },
+    ],
+    show_breadcrumbs: true,
+  };
+  const rendered = render(<PublicSiteRenderer page={own} />);
+
+  const trail = screen.getByRole("navigation", { name: "Ścieżka nawigacji" });
+  expect(
+    [...trail.querySelectorAll("li")].map((step) => step.textContent),
+  ).toEqual(["Klinika", "Regulamin rezerwacji"]);
+  // The company's name leads home; the page itself is named, not linked.
+  expect(trail.querySelector("a")?.getAttribute("href")).toBe("/");
+  expect(trail.querySelector("[aria-current='page']")?.textContent).toBe(
+    "Regulamin rezerwacji",
+  );
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+  cleanup();
+
+  // A page of the menu keeps its trail for machines alone.
+  render(<PublicSiteRenderer page={{ ...own, show_breadcrumbs: false }} />);
+  expect(
+    screen.queryByRole("navigation", { name: "Ścieżka nawigacji" }),
+  ).toBeNull();
+});
+
 test("pomija menu, gdy publikacja go nie zawiera", () => {
   render(<PublicSiteRenderer page={{ ...page, navigation: [] }} />);
 

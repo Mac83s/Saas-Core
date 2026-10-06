@@ -69,6 +69,8 @@ export interface StayTexts {
   };
   /** A picture of a unit, for whoever does not see it: „Domek 1 — zdjęcie 2”. */
   readonly photo: (name: string, number: number) => string;
+  /** Over the company's other units, on a unit's own page. */
+  readonly others: string;
   /** The map of where a unit is: OpenStreetMap's, asked for by the visitor. */
   readonly map: {
     /** The section's heading, where the block names none. */
@@ -111,6 +113,8 @@ function counted(
 export interface SiteUiTexts {
   readonly menu: string;
   readonly languages: string;
+  /** The name of a page's trail, for whoever does not see it. */
+  readonly breadcrumbs: string;
   readonly pagination: {
     readonly label: string;
     readonly previous: string;
@@ -139,6 +143,7 @@ const TEXTS = {
   pl: {
     menu: "Menu witryny",
     languages: "Język strony",
+    breadcrumbs: "Ścieżka nawigacji",
     pagination: {
       label: "Strony",
       previous: "Poprzednia",
@@ -229,6 +234,7 @@ const TEXTS = {
         map: "Na opublikowanej stronie pojawi się tu mapa: miejscowość jednostki albo jej dokładne położenie, jeśli włączysz „Pokaż dokładne położenie” w ustawieniach jednostki. Mapa wczytuje się dopiero, gdy gość kliknie „Pokaż mapę”.",
       },
       photo: (name, number) => `${name} — zdjęcie ${number}`,
+      others: "Zobacz też",
       map: {
         title: "Położenie",
         show: "Pokaż mapę",
@@ -250,6 +256,7 @@ const TEXTS = {
   en: {
     menu: "Menu",
     languages: "Language",
+    breadcrumbs: "Breadcrumb",
     pagination: {
       label: "Pages",
       previous: "Previous",
@@ -336,6 +343,7 @@ const TEXTS = {
         map: "The published page shows a map here: the unit's town, or its exact location if you switch “Show exact location” on in the unit's settings. The map loads only when a visitor selects “Show map”.",
       },
       photo: (name, number) => `${name} — photo ${number}`,
+      others: "See also",
       map: {
         title: "Location",
         show: "Show map",
@@ -357,6 +365,7 @@ const TEXTS = {
   de: {
     menu: "Menü",
     languages: "Sprache",
+    breadcrumbs: "Navigationspfad",
     pagination: {
       label: "Seiten",
       previous: "Zurück",
@@ -444,6 +453,7 @@ const TEXTS = {
         map: "Auf der veröffentlichten Seite erscheint hier eine Karte: der Ort der Einheit oder ihre genaue Lage, wenn Sie in den Einstellungen der Einheit „Genaue Lage anzeigen“ einschalten. Die Karte wird erst geladen, wenn ein Gast „Karte anzeigen“ wählt.",
       },
       photo: (name, number) => `${name} — Foto ${number}`,
+      others: "Siehe auch",
       map: {
         title: "Lage",
         show: "Karte anzeigen",
@@ -465,6 +475,7 @@ const TEXTS = {
   es: {
     menu: "Menú",
     languages: "Idioma",
+    breadcrumbs: "Ruta de navegación",
     pagination: {
       label: "Páginas",
       previous: "Anterior",
@@ -551,6 +562,7 @@ const TEXTS = {
         map: "En la página publicada aparecerá aquí un mapa: la localidad de la unidad o su ubicación exacta, si activas «Mostrar ubicación exacta» en los ajustes de la unidad. El mapa se carga solo cuando el visitante elige «Mostrar mapa».",
       },
       photo: (name, number) => `${name} — foto ${number}`,
+      others: "Ver también",
       map: {
         title: "Ubicación",
         show: "Mostrar mapa",
@@ -572,6 +584,7 @@ const TEXTS = {
   ru: {
     menu: "Меню",
     languages: "Язык",
+    breadcrumbs: "Навигационная цепочка",
     pagination: {
       label: "Страницы",
       previous: "Назад",
@@ -667,6 +680,7 @@ const TEXTS = {
         map: "На опубликованной странице здесь появится карта: населённый пункт объекта или его точное расположение, если вы включите «Показывать точное расположение» в настройках объекта. Карта загружается только после того, как гость нажмёт «Показать карту».",
       },
       photo: (name, number) => `${name} — фото ${number}`,
+      others: "Смотрите также",
       map: {
         title: "Расположение",
         show: "Показать карту",

@@ -89,6 +89,16 @@
   ) {
   padding-block: var(--site-style-rhythm);
 }
+/* The trail of a record's own page is no section: it stays close to the block
+   it leads into, whatever the style's rhythm (as in site-appearance.css). */
+.site-theme[class*="site-style--"] .site-block.site-breadcrumbs {
+  padding-block: 0.5rem 0;
+}
+.site-theme[class*="site-style--"]
+  .site-breadcrumbs
+  + .site-block:not(.site-separator) {
+  padding-top: clamp(0.75rem, 2cqw, 1.5rem);
+}
 /* The pause control of a moving ornament keeps its reserved space. */
 @media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
   .site-theme[class*="site-style--"]

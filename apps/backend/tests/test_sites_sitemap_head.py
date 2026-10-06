@@ -16,7 +16,11 @@ from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.sites.models import Site
-from saas_core.modules.shared.sites.publication_routing import _home_image, _social_image
+from saas_core.modules.shared.sites.publication_routing import (
+    _home,
+    _home_image,
+    _social_image,
+)
 from test_site_language_publication import _get, _publish, _site, _translate_all
 from test_site_language_versions_api import _draft, _hero
 from test_sites_blog_languages import Blog, _translate_entry
@@ -202,10 +206,10 @@ def test_a_page_without_a_picture_shares_the_home_pages() -> None:
     origin = "https://studio.example.test"
     pages = [entry("standard", elsewhere, [elsewhere]), entry("homepage", front, [front])]
 
-    assert _home_image({"pages": pages}, origin) == {
+    assert _home_image(_home({"pages": pages}), origin) == {
         "url": f"{origin}/media/{front}",
         "alt": "Salon od ulicy",
     }
     # A home page without a published picture, a site nobody published.
-    assert _home_image({"pages": [entry("homepage", front, [])]}, origin) is None
-    assert _home_image({}, origin) is None
+    assert _home_image(_home({"pages": [entry("homepage", front, [])]}), origin) is None
+    assert _home_image(_home({}), origin) is None

@@ -68,6 +68,8 @@ SITE_BLOCK_TYPES = frozenset({UNITS, SEARCH, CALENDAR, UNIT, MAP})
 PAGE_SEGMENT = "stay"
 #: How much of a unit's description a search result shows under its name.
 DESCRIPTION_LENGTH = 160
+#: How many of the company's other units a unit's own page leads to.
+OTHER_UNITS = 3
 
 
 def form_company(address: str) -> UUID | None:
@@ -201,6 +203,44 @@ def _shown(stays: Iterable[Mapping[str, Any]], public_slug: str) -> list[tuple[A
     ]
 
 
+def _paged(stays: Iterable[Mapping[str, Any]]) -> dict[str, tuple[str, Mapping[str, Any]]]:
+    """What has a page of its own, by its address and in the form's order:
+    each unit the form shows the content of, with the choice that books it."""
+    paged: dict[str, tuple[str, Mapping[str, Any]]] = {}
+    for stay in stays:
+        for kind, items in (("group", stay["groups"]), ("unit", stay["units"])):
+            for item in items:
+                if item.get("public_slug"):
+                    paged.setdefault(str(item["public_slug"]), (kind, item))
+    return paged
+
+
+def _others(form: _Form, public_slug: str, locale: str, page_base: str) -> list[dict[str, Any]]:
+    """Where a unit's own page leads on: a few of the company's other units
+    that have a page (`OTHER_UNITS`), each as a guest knows it at a glance —
+    its name, cover, town, how many it takes and „od X zł/noc”. The ones that
+    follow it in the form's order, round to the first: each page then names
+    different ones and no unit is left with no page leading to it."""
+    paged = _paged(form.stays)
+    if not page_base or public_slug not in paged:
+        return []
+    addresses = list(paged)
+    at = addresses.index(public_slug)
+    others: list[dict[str, Any]] = []
+    for address in (addresses[at + 1 :] + addresses[:at])[:OTHER_UNITS]:
+        kind, item = paged[address]
+        choice = _choice(kind, item, content=True, locale=locale, page_base=page_base)
+        others.append({
+            **{
+                name: choice[name]
+                for name in ("kind", "id", "name", "capacity", "town", "from_price", "page_path")
+            },
+            # The cover alone.
+            "photos": choice["photos"][:1],
+        })
+    return others
+
+
 def _card(form: _Form, public_slug: str, locale: str) -> dict[str, Any] | None:
     """One unit's card: its content, and each offer it is booked through with
     the one choice that books it. None — the form does not show such a unit."""
@@ -312,6 +352,21 @@ def site_blocks(
                         for stay in offers
                     ],
                 }
+        # A unit's own page (`main`) leads on to the company's other units,
+        # after all it says of this one: they go with the last block that
+        # speaks of the unit — its map, else the card.
+        for key, (block_type, data) in blocks.items():
+            unit = str(data.get("unit") or "")
+            if block_type != UNIT or not data.get("main") or key not in answers:
+                continue
+            others = _others(form, addresses.get(unit, ""), locale, page_base)
+            if others:
+                last = [
+                    asked
+                    for asked, (kind, named) in blocks.items()
+                    if asked in answers and kind in (UNIT, MAP) and named.get("unit") == unit
+                ][-1]
+                answers[last] = {**answers[last], "others": others}
     return answers
 
 
@@ -417,6 +472,7 @@ def site_page(
         return SourcePage(
             key=str(unit.id),
             title=f"{item['name']} — {town}" if town else str(item["name"]),
+            name=str(item["name"]),
             description=" ".join(str(item["description"]).split())[:DESCRIPTION_LENGTH],
             blocks=blocks,
             locales=_own_locales(form.organization, kind, item["id"]),
@@ -432,12 +488,7 @@ def site_pages(organization_id: UUID) -> list[SourcePageAddress]:
     with _form(organization_id, "") as form:
         if form is None:
             return []
-        seen: dict[str, tuple[str, Any]] = {}
-        for stay in form.stays:
-            for kind, items in (("group", stay["groups"]), ("unit", stay["units"])):
-                for item in items:
-                    if item.get("public_slug"):
-                        seen.setdefault(str(item["public_slug"]), (kind, item["id"]))
+        seen = _paged(form.stays)
         changed = dict(
             Resource.all_objects.filter(
                 organization_id=organization_id, public_slug__in=list(seen)
@@ -446,8 +497,8 @@ def site_pages(organization_id: UUID) -> list[SourcePageAddress]:
         return [
             SourcePageAddress(
                 slug=slug,
-                locales=_own_locales(form.organization, kind, item_id),
+                locales=_own_locales(form.organization, kind, item["id"]),
                 changed_at=changed.get(slug),
             )
-            for slug, (kind, item_id) in sorted(seen.items())
+            for slug, (kind, item) in sorted(seen.items())
         ]

@@ -9,6 +9,7 @@ import {
   renderPublishedPage,
   parseSiteAppearance,
   siteUiTexts,
+  type Breadcrumb,
   type DesignTokensV1,
   type IndexPagination,
   type JsonObject,
@@ -253,6 +254,11 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       pagination: page.pagination as IndexPagination | null,
       paginationLabels: texts.pagination,
       languageLinks: page.language_links,
+      // Drawn only where the server says so: a unit's or a document's own
+      // page, which no menu leads to. Elsewhere the trail is for machines.
+      breadcrumbs: page.show_breadcrumbs
+        ? (page.breadcrumbs as unknown as Breadcrumb[])
+        : undefined,
       // What the blocks of live records show now (ADR-072, slice 5d).
       // Absent in an older payload: such a block draws nothing.
       live: page.live as Record<string, JsonObject> | undefined,

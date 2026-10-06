@@ -21,7 +21,7 @@ from saas_core.modules.core.organizations.models import Membership, Organization
 from saas_core.modules.shared.billing.models import EntitlementSnapshot
 from saas_core.modules.shared.booking.item_translations import save_item_translation
 from saas_core.modules.shared.booking.models import PublicBookingRoute, Service
-from saas_core.modules.shared.booking.setup import save_service
+from saas_core.modules.shared.booking.setup import save_resource, save_service
 from saas_core.modules.shared.booking.site_blocks import SITE_BLOCK_TYPES, site_blocks
 from saas_core.modules.shared.media.models import AiOrigin, MediaAsset
 from saas_core.modules.shared.profiles.api import cities
@@ -68,8 +68,17 @@ def block(kind: str, **data: Any) -> dict[str, Any]:
     return {"block_type": f"core.{kind}", "schema_version": 1, "data": {"title": "T", **data}}
 
 
-def published(owner: Membership, blocks: list[dict[str, Any]], *, locale: str = "pl") -> str:
-    """The company's site with one page of `blocks`, published; its host."""
+def published(
+    owner: Membership,
+    blocks: list[dict[str, Any]],
+    *,
+    locale: str = "pl",
+    presentation: dict[str, Any] | None = None,
+    company: str = "",
+) -> str:
+    """The company's site with one page of `blocks`, published; its host.
+    `presentation` is the home page's own look, `company` the name on the
+    business card the publication froze."""
     organization = owner.organization
     snapshot = EntitlementSnapshot.all_objects.get(organization=organization)
     snapshot.features = {**snapshot.features, "sites.enabled": True}
@@ -137,8 +146,10 @@ def published(owner: Membership, blocks: list[dict[str, Any]], *, locale: str = 
                     ],
                     "hreflang": {locale: "/"},
                     "x_default": "/",
+                    **({"page_presentation": presentation} if presentation else {}),
                 }
             ],
+            **({"organization": {"name": company}} if company else {}),
         },
         snapshot_hash="",
         created_by=owner.user,
@@ -711,6 +722,108 @@ def test_a_shown_unit_has_a_card_and_a_page_of_its_own(settings: Any) -> None:
     assert asked(host, "/stay/domek-1/").status_code == 404
     (again,) = page(host)["live"]["0"]["offers"][0]["choices"]
     assert "page_path" not in again and sorted(page(host)["live"]) == ["0"]
+
+
+def test_a_units_own_page_says_whose_it_is_and_leads_on_to_other_units() -> None:
+    """The audit of 06.10: a unit's page never named the company and led to
+    no other unit, and it did not look like the site it is on. Its trail now
+    starts at the company's name, the page wears the home page's look, and
+    after all it says of the unit come a few of the company's other units."""
+    configured = form("strona-inne", priced=False)
+    owner: Membership = configured["owner"]
+    (cottage,) = configured["units"]
+    group = configured["group"]
+    with tenant(owner):
+        alone = [
+            save_resource(
+                resource_id=None,
+                data={"name": name, "location_id": configured["place"].id, "capacity": 4},
+                idempotency_key=key(),
+            ).value
+            for name in ("Apartament", "Chata", "Stodola", "Poddasze")
+        ]
+        offer = Service.all_objects.get(pk=configured["service"].id)
+        save_service(
+            service_id=offer.id,
+            data={"resource_ids": [unit.id for unit in alone]},
+            expected_version=offer.version,
+            idempotency_key=key(),
+        )
+    cover = picture(owner)
+    MediaAsset.all_objects.filter(pk=cover.id).update(
+        ai_origin=AiOrigin.GENERATED, width=1600, height=1200
+    )
+    # The cottage has a town, so its page has a map; the others have none.
+    change(owner, cottage, public=True, city_slug="mragowo")
+    for unit in alone:
+        change(owner, unit, public=True, photo_ids=[cover.id])
+    look = {"schemaVersion": 2, "style": "organic", "width": "full"}
+    host = published(
+        owner,
+        [block("stay_units"), card(cottage)],
+        presentation=look,
+        company="Domki nad Jeziorem",
+    )
+
+    home = page(host)
+    paths = [choice["page_path"] for choice in home["live"]["0"]["offers"][0]["choices"]]
+    assert paths[0] == "/stay/domek-1/" and len(paths) == 5
+    # A page of the site keeps its trail for machines, and a card somebody
+    # put on it leads nowhere else.
+    assert home["show_breadcrumbs"] is False
+    assert "others" not in home["live"]["1"]
+
+    own = page(host, paths[0])
+    assert own["blocks"] == [card(cottage, main=True), map_block(cottage)]
+    # Whose the cottage is, leading home, then the cottage by its own name —
+    # the title also says the town. Drawn on the page and said to machines.
+    assert own["title"] == f"{group.name} — Mrągowo"
+    assert own["breadcrumbs"] == [
+        {"title": "Domki nad Jeziorem", "path": "/"},
+        {"title": group.name, "path": paths[0]},
+    ]
+    assert own["show_breadcrumbs"] is True
+    origin = own["canonical_url"].removesuffix(paths[0])
+    (trail,) = [
+        node for node in own["structured_data"]["@graph"] if node["@type"] == "BreadcrumbList"
+    ]
+    assert [(step["name"], step["item"]) for step in trail["itemListElement"]] == [
+        ("Domki nad Jeziorem", f"{origin}/"),
+        (group.name, own["canonical_url"]),
+    ]
+    # The home page's look, which the unit's page has none of its own.
+    assert own["page_presentation"] == home["page_presentation"] == look
+
+    # The next three in the form's order, after the last thing the page says
+    # of the cottage — its map — each as a guest knows it at a glance.
+    assert "others" not in own["live"]["0"]
+    others = own["live"]["1"]["others"]
+    assert [other["page_path"] for other in others] == paths[1:4]
+    assert others[0] == {
+        "kind": "unit",
+        "id": str(alone[0].id),
+        "name": "Apartament",
+        "capacity": 4,
+        "town": None,
+        "from_price": None,
+        "page_path": paths[1],
+        "photos": [str(cover.id)],
+    }
+    # Their covers are the page's pictures too: sized, and marked as AI.
+    assert own["ai_media_ids"] == [str(cover.id)]
+    assert own["image_sizes"] == {str(cover.id): {"width": 1600, "height": 1200}}
+
+    # A unit without a map carries them with its card; the order goes round,
+    # so the first unit is led to as well.
+    second, last = page(host, paths[1]), page(host, paths[4])
+    assert second["blocks"] == [card(alone[0], main=True)]
+    assert [other["page_path"] for other in second["live"]["0"]["others"]] == paths[2:5]
+    assert [other["page_path"] for other in last["live"]["0"]["others"]] == paths[:3]
+
+    # The only unit with a page leads nowhere.
+    for unit in alone:
+        change(owner, unit, public=False)
+    assert "others" not in str(page(host, paths[0])["live"])
 
 
 def test_a_units_page_has_another_address_only_in_a_language_it_has_words_in(

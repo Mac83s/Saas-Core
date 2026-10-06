@@ -10,6 +10,7 @@ import {
 } from "./appearance";
 import {
   renderArticleHeader,
+  renderBreadcrumbs,
   renderLanguageSwitcher,
   renderMachineNotice,
   renderSiteHeader,
@@ -216,6 +217,7 @@ function renderDocument(
     /** What the page adds to the pictures of the block at that index. */
     imageRendererAt?: (index: number) => BlockImageRenderer | undefined;
   },
+  breadcrumbs?: ReactElement | null,
 ): ReactElement {
   const menu = renderNavigation(navigation, navigationLabel);
   // The server knows a block by its position in the publication, whatever
@@ -238,6 +240,8 @@ function renderDocument(
     createElement(
       contentElement,
       null,
+      // First in the content: where the page is, before what it says.
+      breadcrumbs ?? null,
       articleHeader ?? null,
       // Under an article's title and byline; first on any other page.
       machineNotice ?? null,
@@ -397,5 +401,9 @@ export function renderPublishedPage(
       liveRenderer,
       imageRendererAt: (index) => imageRenderer(index === leading),
     },
+    renderBreadcrumbs(
+      document.breadcrumbs,
+      siteUiTexts(document.locale).breadcrumbs,
+    ),
   );
 }

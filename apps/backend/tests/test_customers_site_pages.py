@@ -20,7 +20,9 @@ from saas_core.modules.shared.customers.site_pages import (
     DESCRIPTION_LENGTH,
     KIND_NAMES,
     SLUGS,
+    TITLE_LENGTH,
     _description,
+    _title,
 )
 from saas_core.modules.shared.sites.block_contracts import (
     ServerBuiltSiteBlock,
@@ -28,9 +30,11 @@ from saas_core.modules.shared.sites.block_contracts import (
     validate_site_block,
 )
 from saas_core.modules.shared.sites.localization import first_segment_reserved
-from saas_core.modules.shared.sites.publication_routing import localized_links
+from saas_core.modules.shared.sites.publication_routing import _source_trail, localized_links
 from test_booking import tenant
+from test_booking_public_stays import form
 from test_booking_site_blocks import asked, block, page, published
+from test_booking_unit_content import change, picture
 from test_customers_documents import TEXT, approved, company, stepped_up, with_second_factor
 from test_sites_api import create_page, create_site, csrf_value, sites_client
 
@@ -96,8 +100,9 @@ def test_a_document_in_force_has_a_page_on_the_companys_site(settings: Any) -> N
     }
     # What the renderer is handed is the block's contract.
     assert valid(shown["data"])
-    assert found["title"] == "Polityka prywatności"
-    # A search result says whose document it is and how it begins.
+    # The title and a search result say whose document it is; the result
+    # goes on with how it begins.
+    assert found["title"] == f"Polityka prywatności — {owner.organization.name}"
     assert found["description"] == (
         f"Polityka prywatności — {owner.organization.name}. "
         "Administratorem danych jest Studio. Dane przetwarzamy, żeby umówić wizytę."
@@ -153,7 +158,8 @@ def test_a_language_without_the_text_says_where_the_document_can_be_read(
     english = page(host, "/en/documents/booking-terms/")
     (shown,) = english["blocks"]
     assert "text" not in shown["data"]
-    assert shown["data"]["title"] == english["title"] == "Booking terms"
+    assert shown["data"]["title"] == "Booking terms"
+    assert english["title"] == f"Booking terms — {owner.organization.name}"
     assert shown["data"]["elsewhere"] == [
         {"locale": "pl", "name": "Polski", "href": "/documents/booking-terms/"}
     ]
@@ -196,7 +202,7 @@ def test_a_language_without_the_text_says_where_the_document_can_be_read(
         {"locale": "en", "name": "English", "href": "/en/documents/booking-terms/"},
         {"locale": "pl", "name": "Polski", "href": "/documents/booking-terms/"},
     ]
-    assert german["title"] == "Buchungsbedingungen"
+    assert german["title"] == f"Buchungsbedingungen — {owner.organization.name}"
     assert "/de/documents/" not in listed
 
     # A language the site is not read in has no page at all.
@@ -227,6 +233,96 @@ def test_the_sites_own_language_is_no_exception(settings: Any) -> None:
     listed = sitemap(host)
     assert f"<loc>{origin}/pl/documents/privacy-policy/</loc>" in listed
     assert f"<loc>{origin}/documents/privacy-policy/</loc>" not in listed
+
+
+def test_a_documents_page_says_whose_it_is_and_wears_the_home_pages_look() -> None:
+    """The audit of 06.10: a document's page named the company nowhere a
+    visitor reads, its title was the document's name alone and it did not
+    look like the site it is on."""
+    owner = with_second_factor(company("strona-dokument-slad", ("pl",)))
+    look = {"schemaVersion": 2, "style": "organic", "width": "full"}
+    host = published(owner, [block("hero")], presentation=look, company="Domki nad Jeziorem")
+    approved(owner)
+
+    found = page(host, "/documents/privacy-policy/")
+    # The trail: the company's name leading home, then the document under
+    # its own name — drawn for the visitor, and the same to machines.
+    assert found["breadcrumbs"] == [
+        {"title": "Domki nad Jeziorem", "path": "/"},
+        {"title": "Polityka prywatności", "path": "/documents/privacy-policy/"},
+    ]
+    assert found["show_breadcrumbs"] is True
+    (trail,) = [
+        node for node in found["structured_data"]["@graph"] if node["@type"] == "BreadcrumbList"
+    ]
+    assert [step["name"] for step in trail["itemListElement"]] == [
+        "Domki nad Jeziorem",
+        "Polityka prywatności",
+    ]
+    assert found["page_presentation"] == look
+    # A page of the site keeps its trail for machines and its own look.
+    home = page(host)
+    assert home["show_breadcrumbs"] is False and home["page_presentation"] == look
+
+    # A site without a business card is known by its own name; a home page
+    # without a look of its own gives none.
+    plain = page(site(owner), "/documents/privacy-policy/")
+    assert plain["breadcrumbs"][0] == {"title": "Domki", "path": "/"}
+    assert plain["page_presentation"] is None
+
+
+def test_a_trail_starts_at_the_home_page_in_the_pages_language() -> None:
+    from types import SimpleNamespace
+
+    def trail(locale: str, home: dict[str, Any] | None, name: str = "") -> list[dict[str, Any]]:
+        asked_page = SimpleNamespace(
+            locale=locale,
+            canonical_path="/en/documents/booking-terms/",
+            page={"selected_locale": {"title": "Booking terms — Domki"}},
+        )
+        found = SimpleNamespace(name=name)
+        return _source_trail(asked_page, found, home, {}, "Domki")  # type: ignore[arg-type]
+
+    home = {"hreflang": {"pl": "/", "en": "/en/"}}
+    assert trail("en", home, "Booking terms") == [
+        {"title": "Domki", "path": "/en/"},
+        {"title": "Booking terms", "path": "/en/documents/booking-terms/"},
+    ]
+    # A language the home page is not read in, a site without a home page:
+    # the site's own home. A record without a name of its own: the title.
+    assert trail("de", home)[0]["path"] == "/"
+    assert trail("en", None) == [
+        {"title": "Domki", "path": "/"},
+        {"title": "Booking terms — Domki", "path": "/en/documents/booking-terms/"},
+    ]
+
+
+def test_a_title_carries_the_company_only_where_both_fit() -> None:
+    assert _title("Privacy policy", "Domki nad Jeziorem") == "Privacy policy — Domki nad Jeziorem"
+    long = "Gospodarstwo Agroturystyczne Pod Starą Lipą w Mikołajkach"
+    assert len(f"Regulamin rezerwacji — {long}") > TITLE_LENGTH
+    assert _title("Regulamin rezerwacji", long) == "Regulamin rezerwacji"
+
+
+def test_a_documents_page_shares_the_sites_picture() -> None:
+    """A document shows no picture, so a link to it shared elsewhere carries
+    the site's: what a link to the home page shows — here the first photo its
+    stay block shows now, which is in no snapshot (the audit of 06.10)."""
+    configured = form("strona-dokument-obraz", priced=False)
+    owner: Membership = with_second_factor(configured["owner"])
+    (unit,) = configured["units"]
+    cover = picture(owner)
+    change(owner, unit, public=True, photo_ids=[cover.id])
+    host = published(owner, [block("hero"), block("stay_units")])
+    approved(owner)
+
+    home = page(host)["social"]["image"]
+    shared = page(host, "/documents/privacy-policy/")["social"]["image"]
+    assert shared == {"url": home["url"], "alt": "Domki"}
+    assert shared["url"].endswith(f"/media/{cover.id}/preview")
+
+    # A site whose home page shows no picture has none to share.
+    assert page(site(owner), "/documents/privacy-policy/")["social"]["image"] is None
 
 
 def test_a_long_documents_description_is_cut_at_a_word() -> None:

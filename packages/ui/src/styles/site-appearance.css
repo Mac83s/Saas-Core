@@ -323,6 +323,49 @@
   text-decoration: none;
 }
 
+/* The trail of a record's own page — a unit's, a document's: the company's
+   name leading home, then the page. A section like any other, so it starts
+   where the content does; quiet, and close to what it leads into. */
+.site-theme .site-block.site-breadcrumbs {
+  padding-block: 0.5rem 0;
+}
+.site-theme .site-breadcrumbs + .site-block {
+  padding-top: clamp(0.75rem, 2cqw, 1.5rem);
+}
+.site-breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.site-theme .site-block.site-breadcrumbs li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.site-breadcrumbs li + li::before {
+  content: "/";
+}
+/* A link a thumb can hit: the row is as tall as a tap target. */
+.site-breadcrumbs :is(a, span) {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+}
+.site-breadcrumbs a {
+  color: inherit;
+  text-underline-offset: 0.2em;
+}
+.site-breadcrumbs [aria-current="page"] {
+  color: var(--foreground);
+}
+
 /* An article's opening: its title and who wrote it when. A section like any
    other, so the theme's type and gutter apply; closer to the text it opens. */
 .site-theme .site-block.site-article-header {

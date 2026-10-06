@@ -359,14 +359,22 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         for locale, path in (versions if page.locale in versions else {}).items()
     }
     canonical_url = f"{canonical_origin}{page.canonical_path}"
+    # A record's own page — a unit's, a document's — is no page of the site:
+    # it wears the home page's look, and its trail starts at the company.
+    own = page.publication.page if isinstance(page.publication, SourcePublication) else None
+    home = _home(site_snapshot)
     # Derived from the menu, never stored: a stored trail is wrong the moment
     # somebody reorders the tree, and the whole point of the hierarchy is that
     # reordering is cheap.
-    breadcrumbs = _breadcrumbs(
-        navigation,
-        page_id=str(page.page.get("page_id", "")),
-        title=selected_locale["title"],
-        path=page.canonical_path,
+    breadcrumbs = (
+        _breadcrumbs(
+            navigation,
+            page_id=str(page.page.get("page_id", "")),
+            title=selected_locale["title"],
+            path=page.canonical_path,
+        )
+        if own is None
+        else _source_trail(page, own, home, site_snapshot, site_name)
     )
     article = _localized_article(page, site_snapshot, default_locale)
     # What the blocks that show live records show now, by position — a unit's
@@ -391,7 +399,7 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
             "alt": str(selected_locale["title"]),
         }
     if image is None:
-        image = _home_image(site_snapshot, canonical_origin)
+        image = _site_image(page, home, default_locale, site_name, canonical_origin)
     machine = machine_text(selected_locale.get("origin"))
     # The work a machine's version translates: an article's own source, a
     # page's version in the site's language.
@@ -418,13 +426,22 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         "appearance": appearance,
         "appearance_lang": appearance_lang,
         # Only site pages carry one; entries, indexes and archives inherit.
-        "page_presentation": page.page.get("page_presentation"),
+        # A record's own page wears the home page's.
+        "page_presentation": (
+            page.page.get("page_presentation")
+            if own is None
+            else (home or {}).get("page_presentation")
+        ),
         # The language's own body (ADR-070); the source language uses the
         # page's blocks.
         "blocks": blocks,
         "live": live,
         "navigation": navigation,
         "breadcrumbs": breadcrumbs,
+        # A record's own page shows its trail: no menu leads to it, and the
+        # trail is where it says whose it is. A page of the menu keeps its
+        # trail for machines alone.
+        "show_breadcrumbs": own is not None,
         # Present only where they mean something: an index has pages, an
         # article has an author and dates, a plain page has neither.
         "pagination": _absolute_pagination(page.page.get("pagination"), canonical_origin),
@@ -586,12 +603,10 @@ def _social_image(
     )
 
 
-def _home_image(site_snapshot: dict[str, Any], origin: str) -> dict[str, str] | None:
-    """The home page's first published picture, for a page that shows none: a
-    link to the contact page or to a document, shared elsewhere, carries the
-    company's picture rather than nothing. None where the home page has no
-    published picture either."""
-    home = next(
+def _home(site_snapshot: dict[str, Any]) -> dict[str, Any] | None:
+    """The page the publication marks as the site's home; None — a site
+    nobody published, or one without such a page."""
+    return next(
         (
             entry
             for entry in site_snapshot.get("pages", [])
@@ -599,6 +614,35 @@ def _home_image(site_snapshot: dict[str, Any], origin: str) -> dict[str, str] | 
         ),
         None,
     )
+
+
+def _source_trail(
+    page: PublicPage,
+    found: SourcePage,
+    home: dict[str, Any] | None,
+    site_snapshot: dict[str, Any],
+    site_name: str,
+) -> list[dict[str, Any]]:
+    """The trail of a record's own page: the company, then the record. No
+    menu holds such a page, so the trail starts at the home page — in the
+    page's language where the site is read in it, else in the site's own —
+    under the company's name as its structured data states it, and the page
+    itself follows under the record's own name."""
+    facts = site_snapshot.get("organization") or {}
+    return [
+        {
+            "title": str(facts.get("name") or site_name),
+            "path": str(((home or {}).get("hreflang") or {}).get(page.locale) or "/"),
+        },
+        {
+            "title": found.name or str(page.page["selected_locale"]["title"]),
+            "path": page.canonical_path,
+        },
+    ]
+
+
+def _home_image(home: dict[str, Any] | None, origin: str) -> dict[str, str] | None:
+    """The home page's first published picture; None where it has none."""
     if home is None:
         return None
     return _first_picture(
@@ -606,6 +650,37 @@ def _home_image(site_snapshot: dict[str, Any], origin: str) -> dict[str, str] | 
         {str(asset_id) for asset_id in home.get("media_asset_ids") or []},
         origin,
     )
+
+
+def _site_image(
+    page: PublicPage,
+    home: dict[str, Any] | None,
+    default_locale: str,
+    site_name: str,
+    origin: str,
+) -> dict[str, str] | None:
+    """The site's one share picture, for a page that shows none — a document,
+    the contact page: what a link to the home page shows. Its first published
+    picture, else the first one its live blocks show now (a lodging site's
+    photos are its units', in no snapshot), in the copy the site serves. None
+    where the home page shows no picture either."""
+    found = _home_image(home, origin)
+    # The home page asked itself already, a moment ago.
+    if found is not None or home is None or home.get("page_id") == page.page.get("page_id"):
+        return found
+    mentioned = _mentioned(
+        live_site_blocks(
+            page.organization_id,
+            page.locale,
+            home.get("blocks") or [],
+            lambda segment: source_page_base(default_locale, page.locale, segment),
+        )
+    )
+    facts = _image_facts(page.organization_id, mentioned) if mentioned else {}
+    first = next((asset_id for asset_id in mentioned if asset_id in facts), None)
+    if first is None:
+        return None
+    return {"url": f"{origin}/media/{first}/preview", "alt": site_name}
 
 
 def _first_picture(blocks: Any, published: set[str], origin: str) -> dict[str, str] | None:
@@ -746,6 +821,24 @@ def _identifiers(value: Any) -> Iterator[str]:
             return
 
 
+def _mentioned(live: dict[str, Any]) -> list[str]:
+    """The identifiers the live blocks' answers carry, in the page's order. A
+    live answer names its pictures among other identifiers; media tells which
+    of them are the company's pictures (`_image_facts`)."""
+    return list(
+        dict.fromkeys(
+            found for position in sorted(live, key=int) for found in _identifiers(live[position])
+        )
+    )
+
+
+def _image_facts(organization_id: Any, asset_ids: list[str]) -> dict[str, Any]:
+    # media_mediaasset forces RLS: the tenant the host named goes first.
+    with transaction.atomic():
+        set_local_organization_id(organization_id)
+        return shown_image_facts(organization_id=organization_id, asset_ids=asset_ids)
+
+
 def _shown_images(
     page: PublicPage, live: dict[str, Any]
 ) -> tuple[list[str], dict[str, dict[str, int]], str | None]:
@@ -765,23 +858,11 @@ def _shown_images(
         or page.page.get("media_asset_ids")
         or []
     ]
-    # A live answer names its pictures among other identifiers; media tells
-    # which of them are the company's pictures.
-    mentioned = list(
-        dict.fromkeys(
-            found for position in sorted(live, key=int) for found in _identifiers(live[position])
-        )
-    )
+    mentioned = _mentioned(live)
     if not published and not mentioned:
         return [], {}, None
     marked = badge_visible()
-    # media_mediaasset forces RLS: the tenant the host named goes first.
-    with transaction.atomic():
-        set_local_organization_id(page.publication.organization_id)
-        facts = shown_image_facts(
-            organization_id=page.publication.organization_id,
-            asset_ids=[*published, *mentioned],
-        )
+    facts = _image_facts(page.publication.organization_id, [*published, *mentioned])
     return (
         sorted(asset_id for asset_id, fact in facts.items() if fact.ai) if marked else [],
         {

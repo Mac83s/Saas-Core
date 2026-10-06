@@ -3,6 +3,7 @@ import type { SiteAppearance } from "./appearance";
 import { richTextHeadings } from "./rich-text";
 import type {
   AppearanceLang,
+  Breadcrumb,
   LanguageLink,
   NavigationLink,
   PublishedArticle,
@@ -37,6 +38,34 @@ export function renderLanguageSwitcher(
             },
             link.name,
           ),
+        ),
+      ),
+    ),
+  );
+}
+
+/** Where the page is on its site, above its content: the company's name
+ *  leading home, then the page itself — named, not linked again. Drawn as a
+ *  section like any other, so it starts where the content does. A trail of
+ *  one step leads nowhere and is not drawn. */
+export function renderBreadcrumbs(
+  trail: readonly Breadcrumb[] | undefined,
+  label: string,
+) {
+  if (!trail || trail.length < 2) return null;
+  return h(
+    "nav",
+    { className: "site-block site-breadcrumbs", "aria-label": label },
+    h(
+      "ol",
+      null,
+      ...trail.map((crumb, index) =>
+        h(
+          "li",
+          { key: crumb.path },
+          index < trail.length - 1
+            ? h("a", { href: crumb.path }, crumb.title)
+            : h("span", { "aria-current": "page" }, crumb.title),
         ),
       ),
     ),
