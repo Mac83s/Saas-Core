@@ -229,6 +229,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * @description Signs in with e-mail and password: 200 with the account, or 202
+         *     `mfa_required` — then the code goes to `login/mfa/`. A staff account
+         *     without MFA gets no session: 403 `mfa_setup_required`, its first factor is
+         *     set on the server (`enroll_operator_mfa`). Only on a stack with
+         *     `OPERATOR_MFA_SETUP_AT_LOGIN` on the answer is 403 `mfa_setup_at_login`
+         *     instead, and it opens a challenge in which `mfa/totp/setup/` and
+         *     `mfa/totp/confirm/` set that first factor before any session exists.
+         */
         post: operations["api_v1_auth_login_create"];
         delete?: never;
         options?: never;
@@ -293,6 +302,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * @description Confirms the setup with a code from the app, switches MFA on and
+         *     answers with the recovery codes, shown once. In the challenge a sign-in
+         *     opened with 403 `mfa_setup_at_login` the confirmed code also starts the
+         *     operator's session, marked as verified with the second factor.
+         */
         post: operations["api_v1_auth_mfa_totp_confirm_create"];
         delete?: never;
         options?: never;
@@ -312,8 +327,10 @@ export interface paths {
         /**
          * @description Starts TOTP setup for the signed-in person. There is no setup before
          *     sign-in: a staff account's first factor is set on the server
-         *     (`enroll_operator_mfa`), and here it gets 403 operator_mfa_by_command —
-         *     except in the sign-in challenge of a local stack (`first_mfa_at_login`).
+         *     (`enroll_operator_mfa`), and here it gets 403 operator_mfa_by_command.
+         *     The one exception is the challenge a sign-in opened with 403
+         *     `mfa_setup_at_login` (a stack with `OPERATOR_MFA_SETUP_AT_LOGIN` on): the
+         *     operator of that challenge starts the setup without a session.
          */
         post: operations["api_v1_auth_mfa_totp_setup_create"];
         delete?: never;

@@ -471,6 +471,14 @@ export async function registerAccount(
   return data.detail;
 }
 
+/**
+ * Throws `ApiProblemError` for a refused sign-in. Two codes concern a staff
+ * account without MFA: `mfa_setup_required` (the first factor is set on the
+ * server, nothing to do here) and — only on a stack that switches
+ * `OPERATOR_MFA_SETUP_AT_LOGIN` on — `mfa_setup_at_login`: the sign-in opened
+ * a challenge in which `beginTotpSetup` and `confirmTotpSetup` work without a
+ * session, and the confirmed code signs the operator in.
+ */
 export async function loginAccount(input: LoginInput): Promise<LoginResult> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.POST("/api/v1/auth/login/", {

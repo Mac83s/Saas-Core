@@ -18,6 +18,12 @@ x-backend-environment: &backend-environment
   # decision at a deployment, through `memex ops`. A changed value needs the
   # containers made again (`docker compose up -d`), not a `restart`.
   MODEL_PORT_PROCESSOR_LISTED: ${MODEL_PORT_PROCESSOR_LISTED:-false}
+  # An operator's first MFA at sign-in, QR code in the login form (ADR-023,
+  # uzupełnienie 2026-10-06): whoever knows a staff account's password then
+  # binds its first authenticator, so it is off unless the stack's `.env` says
+  # true — a test stack only, and `identity.W001` warns at every start. A
+  # changed value needs the containers made again (`docker compose up -d`).
+  OPERATOR_MFA_SETUP_AT_LOGIN: ${OPERATOR_MFA_SETUP_AT_LOGIN:-false}
   ORGANIZATION_INVITATION_TTL_SECONDS: ${ORGANIZATION_INVITATION_TTL_SECONDS:-604800}
   OBJECT_STORAGE_ACCESS_KEY_ID_FILE: /run/secrets/object_storage_access_key_id
   OBJECT_STORAGE_SECRET_ACCESS_KEY_FILE: /run/secrets/object_storage_secret_access_key

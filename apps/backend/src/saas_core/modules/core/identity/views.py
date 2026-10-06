@@ -80,7 +80,7 @@ class ProtectedIdentityView(APIView):
 
 class SignedInOrEnrollingAtLogin(IsAuthenticated):
     """The signed-in person, or an operator in the sign-in challenge that sets
-    the first factor on a local stack (`sessions.first_mfa_at_login`)."""
+    the first factor where the stack allows it (`sessions.first_mfa_at_login`)."""
 
     def has_permission(self, request: Request, view: APIView) -> bool:
         return super().has_permission(request, view) or enrolling_at_login(
@@ -122,6 +122,14 @@ class RegistrationView(PublicIdentityView):
 
 @method_decorator(csrf_protect, name="dispatch")
 class LoginView(PublicIdentityView):
+    """Signs in with e-mail and password: 200 with the account, or 202
+    `mfa_required` — then the code goes to `login/mfa/`. A staff account
+    without MFA gets no session: 403 `mfa_setup_required`, its first factor is
+    set on the server (`enroll_operator_mfa`). Only on a stack with
+    `OPERATOR_MFA_SETUP_AT_LOGIN` on the answer is 403 `mfa_setup_at_login`
+    instead, and it opens a challenge in which `mfa/totp/setup/` and
+    `mfa/totp/confirm/` set that first factor before any session exists."""
+
     throttle_scope = "identity_login"
 
     @extend_schema(
@@ -177,8 +185,10 @@ class MfaLoginView(PublicIdentityView):
 class TotpSetupView(ProtectedIdentityView):
     """Starts TOTP setup for the signed-in person. There is no setup before
     sign-in: a staff account's first factor is set on the server
-    (`enroll_operator_mfa`), and here it gets 403 operator_mfa_by_command —
-    except in the sign-in challenge of a local stack (`first_mfa_at_login`)."""
+    (`enroll_operator_mfa`), and here it gets 403 operator_mfa_by_command.
+    The one exception is the challenge a sign-in opened with 403
+    `mfa_setup_at_login` (a stack with `OPERATOR_MFA_SETUP_AT_LOGIN` on): the
+    operator of that challenge starts the setup without a session."""
 
     permission_classes = [SignedInOrEnrollingAtLogin]
     throttle_classes = [ScopedRateThrottle]
@@ -197,7 +207,7 @@ class TotpSetupView(ProtectedIdentityView):
     def post(self, request: Request) -> Response:
         user, at_login = mfa_enrollment_user(request=cast(HttpRequest, request))
         # `on_server` is the door for an operator's first factor; the sign-in
-        # challenge of a local stack opens the same one.
+        # challenge of `mfa_setup_at_login` opens the same one.
         enrollment = begin_totp_enrollment(user=user, on_server=at_login)
         return Response({
             "secret": enrollment.secret,
@@ -207,6 +217,11 @@ class TotpSetupView(ProtectedIdentityView):
 
 @method_decorator(csrf_protect, name="dispatch")
 class TotpConfirmView(ProtectedIdentityView):
+    """Confirms the setup with a code from the app, switches MFA on and
+    answers with the recovery codes, shown once. In the challenge a sign-in
+    opened with 403 `mfa_setup_at_login` the confirmed code also starts the
+    operator's session, marked as verified with the second factor."""
+
     permission_classes = [SignedInOrEnrollingAtLogin]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "identity_mfa_enrollment"

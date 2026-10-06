@@ -342,6 +342,15 @@ STEP_UP_MAX_AGE = 300
 #: throttle alone let guesses be spread over addresses. A protective limit.
 MFA_FAILURE_LIMIT = 5
 MFA_LOCK_SECONDS = 15 * 60
+#: An operator's first MFA set at sign-in, with the QR code in the login form
+#: (ADR-023, uzupełnienie 2026-10-06): whoever knows a staff account's password
+#: binds its first authenticator, so it is on only where the stack's environment
+#: says so by name, and `identity.W001` warns for as long as it is. Never derived
+#: from APP_ENV — the dev VPS runs as `local` on public addresses. Off, the
+#: first factor is set on the server (`enroll_operator_mfa`, platform settings 0c).
+OPERATOR_MFA_SETUP_AT_LOGIN = os.environ.get(
+    "OPERATOR_MFA_SETUP_AT_LOGIN", "false"
+).strip().lower() in {"1", "true", "yes"}
 
 
 def secret_setting(name: str, default: str = "") -> str:

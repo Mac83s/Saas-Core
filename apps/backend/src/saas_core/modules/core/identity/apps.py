@@ -11,6 +11,7 @@ class IdentityConfig(AppConfig):
     def ready(self) -> None:
         # Every logout, the admin's included, ends its tracked session row
         # (platform settings plan 0c).
+        from . import checks  # noqa: F401, PLC0415 — registers the system check
         from .sessions import revoke_logged_out_session  # noqa: PLC0415
 
         user_logged_out.connect(

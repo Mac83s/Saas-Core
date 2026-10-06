@@ -7,6 +7,7 @@ import pytest
 from django.conf import settings
 from django.core import mail
 from django.core.cache import cache
+from django.core.checks import run_checks
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.utils import timezone
@@ -250,10 +251,11 @@ def test_an_operator_without_mfa_gets_it_on_the_server_not_with_the_password() -
     assert UserSession.objects.filter(user=user, revoked_at__isnull=True).count() == 1
 
 
-def test_on_a_local_stack_an_operator_sets_the_first_factor_at_sign_in(settings) -> None:
-    """Owner's call 2026-10-05: the test instances run as APP_ENV=local, and
-    there the login form sets the first factor up (QR code), as before 0c."""
-    settings.APP_ENV = "local"
+def test_with_the_switch_on_an_operator_sets_the_first_factor_at_sign_in(settings) -> None:
+    """Owner's call 2026-10-05: on the test instances the login form sets the
+    first factor up (QR code), as before 0c. The stack says so by name with
+    `OPERATOR_MFA_SETUP_AT_LOGIN` (ADR-023, uzupełnienie 2026-10-06)."""
+    settings.OPERATOR_MFA_SETUP_AT_LOGIN = True
     user = active_user("operator@example.com", staff=True)
     client = APIClient(enforce_csrf_checks=True)
 
@@ -278,6 +280,59 @@ def test_on_a_local_stack_an_operator_sets_the_first_factor_at_sign_in(settings)
     # Without that sign-in challenge nobody starts a setup.
     stranger = APIClient(enforce_csrf_checks=True)
     assert stranger.post(MFA_SETUP_URL, HTTP_X_CSRFTOKEN=csrf_token(stranger)).status_code == 403
+
+
+@pytest.mark.parametrize("environment", ["local", "staging", "production"])
+def test_the_environments_name_never_opens_the_first_factor_at_sign_in(
+    settings, environment: str
+) -> None:
+    """The public test stacks run as APP_ENV=local too, so the name decides
+    nothing: without the switch a staff account keeps the rule of 0c."""
+    assert settings.OPERATOR_MFA_SETUP_AT_LOGIN is False  # the default
+    settings.APP_ENV = environment
+    user = active_user("operator@example.com", staff=True)
+    client = APIClient(enforce_csrf_checks=True)
+
+    first_factor = login(client, user)
+    setup = client.post(MFA_SETUP_URL, HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value)
+
+    assert first_factor.status_code == 403
+    assert first_factor.data["code"] == "mfa_setup_required"
+    assert setup.status_code == 403
+    assert not UserMfaMethod.objects.exists()
+    assert not UserSession.objects.exists()
+
+
+def test_a_challenge_opened_at_sign_in_dies_with_the_switch(settings) -> None:
+    """Switching it off closes the door at once, also for a browser that got
+    its challenge a moment earlier."""
+    settings.OPERATOR_MFA_SETUP_AT_LOGIN = True
+    user = active_user("operator@example.com", staff=True)
+    client = APIClient(enforce_csrf_checks=True)
+    assert login(client, user).data["code"] == "mfa_setup_at_login"
+
+    settings.OPERATOR_MFA_SETUP_AT_LOGIN = False
+    setup = client.post(MFA_SETUP_URL, HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value)
+    confirm = client.post(
+        MFA_CONFIRM_URL,
+        {"code": "000000"},
+        format="json",
+        HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
+    )
+
+    assert setup.status_code == 403
+    assert confirm.status_code == 403
+    assert not UserMfaMethod.objects.exists()
+    assert not UserSession.objects.exists()
+
+
+def test_the_start_warns_for_as_long_as_the_switch_is_on(settings) -> None:
+    def warnings() -> list[str]:
+        return [found.id for found in run_checks() if found.id == "identity.W001"]
+
+    assert warnings() == []
+    settings.OPERATOR_MFA_SETUP_AT_LOGIN = True
+    assert warnings() == ["identity.W001"]
 
 
 def test_a_session_never_sets_an_operators_first_factor() -> None:

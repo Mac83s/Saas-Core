@@ -70,10 +70,12 @@ class MfaSetupAtLogin(MfaSetupRequired):
 
 
 def first_mfa_at_login() -> bool:
-    """A local stack (`APP_ENV=local`, which the test instances run as) lets an
-    operator set the first factor at sign-in, with the QR code in the login
-    form (owner's call, 2026-10-05). Staging keeps the rule of plan 0c."""
-    return bool(settings.APP_ENV == "local")
+    """Whether an operator sets the first factor at sign-in, with the QR code
+    in the login form (owner's call, 2026-10-05). Only the explicit switch
+    `OPERATOR_MFA_SETUP_AT_LOGIN` says so — never the environment's name, which
+    the public test stacks share with a developer's machine. Off, the rule of
+    plan 0c holds: the first factor is set on the server."""
+    return bool(settings.OPERATOR_MFA_SETUP_AT_LOGIN)
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,8 +122,9 @@ def login_user(*, request: HttpRequest, email: str, password: str) -> LoginResul
     if user.is_staff:
         # No session and no challenge: an operator's first factor is set on
         # the server (`enroll_operator_mfa`), never by whoever has the password
-        # (platform settings plan 0c) — except on a local stack, where the
-        # sign-in opens the enrolment challenge (`first_mfa_at_login`).
+        # (platform settings plan 0c) — except where the stack switches
+        # `OPERATOR_MFA_SETUP_AT_LOGIN` on: there the sign-in opens the
+        # enrolment challenge (`first_mfa_at_login`).
         _record_login_attempt(
             request=request,
             user=user,
@@ -167,7 +170,7 @@ def enrolling_at_login(request: HttpRequest) -> bool:
 
 
 def mfa_enrollment_user(*, request: HttpRequest) -> tuple[User, bool]:
-    """Who sets TOTP up, and whether from the sign-in challenge of a local stack."""
+    """Who sets TOTP up, and whether from the sign-in challenge (`first_mfa_at_login`)."""
     if request.user.is_authenticated:
         return request.user, False
     return _challenge_user(request=request, purpose=MFA_CHALLENGE_ENROLL), True
