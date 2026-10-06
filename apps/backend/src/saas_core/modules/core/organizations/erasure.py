@@ -229,7 +229,11 @@ def _orphans(model: type[Model], column: str) -> QuerySet[Model]:
     # Evaluated here: the registry may live on another connection than the rows,
     # and Django refuses a subquery across databases.
     live = list(Organization.objects.using(PRE_TENANT_DB).values_list("id", flat=True))
-    return model._base_manager.exclude(**{f"{column}__in": live})
+    # A NULL column names no organization at all (the port's platform-level
+    # usage rows): that is not an orphan.
+    return model._base_manager.filter(**{f"{column}__isnull": False}).exclude(**{
+        f"{column}__in": live
+    })
 
 
 def erase_organization(

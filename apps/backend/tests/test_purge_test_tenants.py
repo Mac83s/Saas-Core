@@ -190,3 +190,15 @@ def test_orphaned_routes_are_reported_then_removed_and_live_ones_stay() -> None:
     call_command("purge_test_tenants", "--orphans", "--apply")
     assert not PublicBookingRoute.objects.filter(public_slug="purge-gone-form").exists()
     assert PublicBookingRoute.objects.filter(public_slug="purge-live-form").exists()
+
+
+def test_rows_that_name_no_organization_are_not_orphans() -> None:
+    from saas_core.modules.shared.model_port.models import EntryState, UsageEntry
+
+    entry = UsageEntry.objects.create(
+        state=EntryState.DONE, task="translation.text", pool="translation", organization_id=None
+    )
+
+    call_command("purge_test_tenants", "--orphans", "--apply")
+
+    assert UsageEntry.objects.filter(pk=entry.pk).exists()
