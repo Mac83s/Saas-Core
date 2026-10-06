@@ -226,7 +226,9 @@ def delete_orphaned_registered_rows() -> dict[str, int]:
 
 def _orphans(model: type[Model], column: str) -> QuerySet[Model]:
     # ADR-041: "does this organization exist" is asked across tenants on purpose.
-    live = Organization.objects.using(PRE_TENANT_DB).values_list("id", flat=True)
+    # Evaluated here: the registry may live on another connection than the rows,
+    # and Django refuses a subquery across databases.
+    live = list(Organization.objects.using(PRE_TENANT_DB).values_list("id", flat=True))
     return model._base_manager.exclude(**{f"{column}__in": live})
 
 
