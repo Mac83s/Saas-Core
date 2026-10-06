@@ -108,7 +108,8 @@ obserwowalność rozdziela etykieta `deployment` w metrykach i logach — patrz
 
 ## 5. Czego jeszcze nie ma
 
-- backup jest opisany dla jednego stacku ([backup i restore](backup-restore.md));
-  drugi deployment potrzebuje własnego harmonogramu i własnego restore drilla;
+- kopia bazy ma harmonogram i próbę odtworzenia dla każdego stacku na hoście
+  ([backup i restore](backup-restore.md)), ale zostaje na tym samym dysku;
+  kopii poza hostem i kopii plików z object storage nie ma;
 - `deploy staging` obsługuje jeden produkt na host; drugi wymaga osobnego
   katalogu wdrożenia i osobnego GitHub Environment.

@@ -44,6 +44,7 @@
     "runtime:smoke:observability": "node scripts/observability-smoke.mjs",
     "runtime:smoke:storage": "node scripts/object-storage-smoke.mjs",
     "runtime:backup": "sh infra/postgres/backup.sh",
+    "runtime:backup:check": "sh infra/postgres/backup.sh check",
     "runtime:restore-drill": "sh infra/postgres/restore-drill.sh",
     "runtime:status": "docker compose ps",
     "api:schema": "uv run --project apps/backend python apps/backend/manage.py spectacular --file packages/contracts/openapi/v1.yaml --validate --settings=saas_core.config.settings.typecheck",

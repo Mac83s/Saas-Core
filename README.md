@@ -30,6 +30,7 @@ Testy operacyjne i bezpieczna lokalna próba odtworzenia:
 pnpm runtime:smoke:failures
 pnpm runtime:smoke:observability
 pnpm runtime:backup
+pnpm runtime:backup:check
 pnpm runtime:restore-drill
 ```
 

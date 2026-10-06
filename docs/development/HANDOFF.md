@@ -53,6 +53,10 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   potwierdzenia nie wychodzą.
 - Skrypty wydań (build z `git archive`, rollback tagami, kopia bazy przed
   migracją): `.runtime/releases/<data>-<nazwa>/`.
+- Kopia bazy z harmonogramu: `infra/postgres/backup.sh` z crona hosta dla trzech
+  stacków, kontrola `backup.sh check <stack>`, odtwarzanie w
+  `docs/operations/backup-restore.md`. Na VPS-ie działa po wykonaniu wpisu
+  kolejki; kopii poza hostem i kopii plików (object storage) nie ma.
 
 ## Otwarte — rdzeń
 
