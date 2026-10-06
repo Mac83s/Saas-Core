@@ -169,7 +169,7 @@ def enrolling_at_login(request: HttpRequest) -> bool:
 def mfa_enrollment_user(*, request: HttpRequest) -> tuple[User, bool]:
     """Who sets TOTP up, and whether from the sign-in challenge of a local stack."""
     if request.user.is_authenticated:
-        return cast(User, request.user), False
+        return request.user, False
     return _challenge_user(request=request, purpose=MFA_CHALLENGE_ENROLL), True
 
 

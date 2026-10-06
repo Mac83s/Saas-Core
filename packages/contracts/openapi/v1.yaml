@@ -872,7 +872,8 @@ paths:
       description: |-
         Starts TOTP setup for the signed-in person. There is no setup before
         sign-in: a staff account's first factor is set on the server
-        (`enroll_operator_mfa`), and here it gets 403 operator_mfa_by_command.
+        (`enroll_operator_mfa`), and here it gets 403 operator_mfa_by_command —
+        except in the sign-in challenge of a local stack (`first_mfa_at_login`).
       tags:
       - api
       security:
