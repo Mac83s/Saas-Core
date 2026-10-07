@@ -3,6 +3,7 @@ import type { MetadataRoute } from "next";
 import { marketingLocales, routing } from "#i18n/routing";
 import { localizedUrl } from "../marketing/seo";
 import { productCopy, productHasCatalog } from "../marketing/content";
+import { marketingSiteEnabled } from "../marketing/enabled";
 import { cardLanguages } from "../modules/shared/profiles/catalog-seo";
 import {
   readCatalogLocalesOnServer,
@@ -41,6 +42,8 @@ function inLanguages(
  * the sitemap still lists the product's pages and the catalogue listing.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // A product with its public site on its own domain has no pages here.
+  if (!marketingSiteEnabled) return [];
   const paths = [
     ...PATHS,
     ...(productCopy("pl").pages ?? []).map((page) => `/${page.slug}`),

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { isMarketingLocale } from "#i18n/routing";
 import { deployment } from "../../generated/deployment";
 import { product } from "../../product";
+import { marketingSiteEnabled } from "../enabled";
 import { business } from "./business";
 import type { MarketingLocale, ProductCopy } from "./types";
 
@@ -16,10 +17,12 @@ export function productCopy(locale: string): ProductCopy {
 
 export const productName = deployment.product.name;
 
-/** The company catalogue (ADR-053) is part of every product that composes profiles. */
-export const productHasCatalog = (
-  deployment.modules as readonly string[]
-).includes("shared.profiles");
+/** The company catalogue (ADR-053) is part of every product that composes
+ *  profiles — unless the deployment shows no marketing on its platform host
+ *  at all (`features.marketingSite`, ADR-077). */
+export const productHasCatalog =
+  marketingSiteEnabled &&
+  (deployment.modules as readonly string[]).includes("shared.profiles");
 
 /**
  * A marketing page exists only in a language the product has copy in

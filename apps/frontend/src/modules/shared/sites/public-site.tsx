@@ -29,8 +29,10 @@ const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
 export type PublicSiteResult =
   | { kind: "page"; page: PublicSitePage }
   | { kind: "redirect"; location: string; temporary?: boolean }
-  /** On a known site, the language the address was asked in and its home. */
-  | { kind: "not-found"; locale?: string; homePath?: string };
+  /** On a known site, the language the address was asked in and its home.
+   *  `gone`: an address removed for good (410, ADR-077) — the proxy answers
+   *  it before the page is asked; here it is a missing page with other words. */
+  | { kind: "not-found"; locale?: string; homePath?: string; gone?: true };
 
 type BackendResponse = {
   status: number;
@@ -116,6 +118,9 @@ export const getPublicSite = cache(
           };
     }
     if (response.status === 404) return notFoundOf(response.body);
+    if (response.status === 410) {
+      return { ...notFoundOf(response.body), gone: true };
+    }
     if (response.status < 200 || response.status >= 300) {
       throw new Error(`Public Sites API zwróciło status ${response.status}`);
     }
@@ -123,7 +128,9 @@ export const getPublicSite = cache(
   },
 );
 
-function notFoundOf(body: string): PublicSiteResult {
+function notFoundOf(
+  body: string,
+): Extract<PublicSiteResult, { kind: "not-found" }> {
   try {
     const problem = JSON.parse(body) as {
       locale?: unknown;

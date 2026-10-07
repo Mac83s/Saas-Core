@@ -25,6 +25,7 @@ export default async function PublicSiteNotFound() {
   );
   let locale: string | undefined;
   let homePath: string | undefined;
+  let gone = false;
   try {
     // The page's own call, shared through `cache()`, so no second request.
     const result = await getPublicSite(
@@ -35,11 +36,15 @@ export default async function PublicSiteNotFound() {
     if (result.kind === "not-found") {
       locale = result.locale;
       homePath = result.homePath;
+      gone = result.gone === true;
     }
   } catch {
     // The missing page still says so.
   }
-  const texts = siteUiTexts(locale ?? "en").notFound;
+  const all = siteUiTexts(locale ?? "en");
+  // An address gone for good is answered 410 by the proxy (ADR-077); when
+  // the proxy had no verdict in time, this page says the same words.
+  const texts = { ...all.notFound, ...(gone ? all.gone : {}) };
   return (
     <main className="mx-auto max-w-xl space-y-4 px-6 py-24 text-center">
       <h1 className="text-2xl font-semibold">{texts.title}</h1>
