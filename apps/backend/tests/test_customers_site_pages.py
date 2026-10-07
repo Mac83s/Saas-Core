@@ -343,7 +343,8 @@ def test_every_kind_has_an_address_and_a_name() -> None:
 
 def test_nobody_writes_the_document_block() -> None:
     contracts = site_block_contracts()
-    assert contracts.server_built == {"core.document"}
+    # Among whatever else a composition's modules build on the server.
+    assert "core.document" in contracts.server_built
     with pytest.raises(ServerBuiltSiteBlock):
         validate_site_block(
             block_type="core.document",
