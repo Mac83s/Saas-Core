@@ -23,13 +23,19 @@ from .public_feeds import (
 )
 from .public_media import serve_public_media
 from .publication_routing import (
+    PublicSiteGone,
     PublicSiteMoved,
     PublicSiteNotFound,
+    gone_verdict,
     not_found_hint,
     public_page_payload,
     resolve_public_page,
 )
-from .serializers import PublicSiteNotFoundSerializer, PublicSitePageSerializer
+from .serializers import (
+    PublicSiteGoneVerdictSerializer,
+    PublicSiteNotFoundSerializer,
+    PublicSitePageSerializer,
+)
 from .tls import authorize_tls_hostname
 
 
@@ -57,7 +63,8 @@ class PublicSitePageView(APIView):
         "for good (another spelling, a deleted or renamed page, a language version without "
         "its own body); 307 while a language version is withheld because its source "
         "changed a fact (ADR-070 pkt 10). The Location is a path on the same host, a full "
-        "address on another one.",
+        "address on another one. 410 for an address of the site this one replaced that is "
+        "gone for good (ADR-077), said like a 404: in the address's language, with its home.",
         tags=["public-sites"],
         parameters=[
             OpenApiParameter(
@@ -74,6 +81,7 @@ class PublicSitePageView(APIView):
             308: None,
             400: ProblemDetailsSerializer,
             404: PublicSiteNotFoundSerializer,
+            410: PublicSiteNotFoundSerializer,
         },
     )
     def get(self, request: Request) -> Response:
@@ -83,12 +91,16 @@ class PublicSitePageView(APIView):
             page = resolve_public_page(host=host, path=path)
         except PublicSiteNotFound as missing:
             # A known site says it in the language of the address, with a way
-            # home (TL14); an unknown host learns nothing about any site.
+            # home (TL14); an unknown host learns nothing about any site. An
+            # old address is matched whatever its case, so its language is too.
+            gone = isinstance(missing, PublicSiteGone)
             response = problem_details_exception_handler(
                 missing, {"request": request, "view": self}
             )
             assert response is not None
-            response.data.update(not_found_hint(host=host, path=path) or {})
+            response.data.update(
+                not_found_hint(host=host, path=path.lower() if gone else path) or {}
+            )
             return response
         except PublicSiteMoved as moved:
             # The address changed deliberately and the old one still answers,
@@ -104,6 +116,39 @@ class PublicSitePageView(APIView):
         if request.META.get(COUNT_VIEW_HEADER) == "1":
             record_page_view(page)
         return Response(public_page_payload(page))
+
+
+class PublicSiteGoneView(APIView):
+    authentication_classes: list[type] = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        operation_id="public_site_gone_retrieve",
+        summary="Whether an address of the site the host names is gone for good",
+        description="Asked by the renderer's proxy before it hands a visit to the page, "
+        "because only the proxy can answer 410 (ADR-077). `rules`: the site has an address "
+        "gone for good at all; a host without one need not be asked again for a while. "
+        "`gone`: this address is one today — a live address wins over a rule — with the "
+        "language to say it in and that language's home.",
+        tags=["public-sites"],
+        parameters=[
+            OpenApiParameter(
+                name="path",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="The visitor's path as typed.",
+            )
+        ],
+        responses={200: PublicSiteGoneVerdictSerializer, 400: ProblemDetailsSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        return Response(
+            gone_verdict(
+                host=str(request.META.get("HTTP_HOST", "")),
+                path=request.query_params.get("path", ""),
+            )
+        )
 
 
 class PublicSiteFeedView(View):

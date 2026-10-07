@@ -38,9 +38,11 @@ from .models import (
     ContentTag,
     Domain,
     DomainStatus,
+    OldAddressOutcome,
     Publication,
     Site,
 )
+from .old_addresses import old_address, site_answers_gone
 from .seo_graph import page_graph
 
 
@@ -90,6 +92,16 @@ DEFAULT_PUBLIC_DESIGN_TOKENS = {
 class PublicSiteNotFound(NotFound):
     default_detail = "Opublikowana strona nie istnieje dla tego hosta i ścieżki."
     default_code = "public_site_not_found"
+
+
+class PublicSiteGone(PublicSiteNotFound):
+    """An address of the site this one replaced, gone for good (ADR-077). A
+    kind of „not there” for everyone who only asks whether a page exists; the
+    page view answers it 410."""
+
+    status_code = 410
+    default_detail = "Ten adres został usunięty na stałe."
+    default_code = "public_site_gone"
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,7 +180,9 @@ def site_host_company(host: str) -> Any | None:
     return domain.organization_id
 
 
-def resolve_public_page(*, host: str, path: str) -> PublicPage:
+def resolve_public_page(*, host: str, path: str, old_addresses: bool = True) -> PublicPage:
+    """`old_addresses=False` asks only what the site itself answers — how a
+    rule of the old-address map finds where its target is today."""
     try:
         hostname = normalize_hostname(host, allow_port=True)
     except InvalidHostname as error:
@@ -276,6 +290,15 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                         available=available,
                     )
                     found = (renamed, False) if renamed is not None else None
+                if found is None and old_addresses:
+                    # An address of the site this one replaced (ADR-077),
+                    # asked last: whatever the site answers wins over a rule.
+                    _answer_old_address(
+                        host=host,
+                        organization_id=domain.organization_id,
+                        site_id=domain.site_id,
+                        requested_path=normalized_path,
+                    )
                 if found is None:
                     raise
                 target, temporary = found
@@ -294,6 +317,59 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
         publication=publication,
         available=available,
     )
+
+
+def _answer_old_address(
+    *, host: str, organization_id: Any, site_id: Any, requested_path: str
+) -> None:
+    """Answers an address from the old-address map, or returns: no rule, or a
+    rule whose target answers nowhere today (a redirect is only where
+    something answers — ADR-071, „Uzupełnienie 2026-10-07” pkt 6).
+
+    One 308, never a chain: the rule's target is asked of the resolver now, so
+    a page renamed since, a section under a new name or a language switched
+    off lead straight to today's address. The map itself is not asked again."""
+    rule = old_address(organization_id=organization_id, site_id=site_id, path=requested_path)
+    if rule is None:
+        return
+    if rule.outcome == OldAddressOutcome.GONE:
+        raise PublicSiteGone from None
+    try:
+        # A target that itself moved raises `PublicSiteMoved` with the final
+        # address, and that is the answer to the old one too.
+        target = resolve_public_page(host=host, path=rule.to_path, old_addresses=False)
+    except (PublicSiteNotFound, ValidationError):
+        return
+    raise PublicSiteMoved(target.redirect_url or target.canonical_path) from None
+
+
+def gone_verdict(*, host: str, path: str) -> dict[str, Any]:
+    """What the renderer's proxy asks before it hands a visit to the page: a
+    page cannot answer 410, so the proxy does (ADR-077). `rules` says whether
+    the site has any address gone for good at all — the proxy stops asking a
+    host without one for a while; `gone` whether this is one today, with the
+    language to say it in. A live address wins here as everywhere."""
+    nothing = {"rules": False, "gone": False}
+    try:
+        hostname = normalize_hostname(host, allow_port=True)
+    except InvalidHostname:
+        return nothing
+    served = _served_domain(hostname)
+    if served is None:
+        return nothing
+    domain = served[0]
+    scope = {"organization_id": domain.organization_id, "site_id": domain.site_id}
+    # A path the page view refuses (400) is refused here the same way.
+    rule = old_address(**scope, path=_normalize_path(path))
+    if rule is None or rule.outcome != OldAddressOutcome.GONE:
+        return {"rules": site_answers_gone(**scope), "gone": False}
+    try:
+        resolve_public_page(host=host, path=path)
+    except PublicSiteGone:
+        return {"rules": True, "gone": True, **(not_found_hint(host=host, path=path.lower()) or {})}
+    except (PublicSiteNotFound, PublicSiteMoved):
+        pass
+    return {"rules": True, "gone": False}
 
 
 def _resolved(
@@ -339,6 +415,16 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
             default_locale,
         )
         links = _link_targets(site_snapshot, page.locale)
+        # A link to a section — `/blog/` — leads to that section under its
+        # name in the reader's language, as a link to a page does. A page's
+        # address wins where both claim one (it cannot: `section_path_taken`).
+        for source, target in section_link_targets(
+            organization_id=page.organization_id,
+            site_id=page.site_id,
+            default_locale=default_locale,
+            locale=page.locale,
+        ).items():
+            links.setdefault(source, target)
         prefix = f"/{page.locale}"
         appearance = localized_links(appearance, links, prefix)
         # A record's own page is built by its source in the reader's language
@@ -1227,6 +1313,29 @@ def collection_links(
             organization_id=organization_id, site_id=site_id
         )
         if listed is None or str(collection.id) in listed
+    }
+
+
+def section_link_targets(
+    *, organization_id: Any, site_id: Any, default_locale: str, locale: str
+) -> dict[str, str]:
+    """Where a link to a section's index in the site's own language leads in
+    `locale`, keyed by that address without its trailing slash: the section's
+    index there (ADR-071 pkt 14), for the sections that have one — an article
+    listed in that language. The rest stay as written, like a link to a page
+    without that language."""
+    listed = collections_with_entries(
+        organization_id=organization_id, site_id=site_id, locale=locale
+    )
+    if not listed:
+        return {}
+    return {
+        _comparable_path(
+            collection_index_path(collection, default_locale=default_locale, locale=default_locale)
+        ): collection_index_path(collection, default_locale=default_locale, locale=locale)
+        for collection in ContentCollection.all_objects.filter(
+            organization_id=organization_id, site_id=site_id, pk__in=listed
+        )
     }
 
 

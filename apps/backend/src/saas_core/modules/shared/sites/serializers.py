@@ -195,6 +195,17 @@ class PublicSiteNotFoundSerializer(ProblemDetailsSerializer):
     )
 
 
+class PublicSiteGoneVerdictSerializer(serializers.Serializer[dict[str, Any]]):
+    rules = serializers.BooleanField(
+        help_text="The site has an address gone for good at all (ADR-077)."
+    )
+    gone = serializers.BooleanField(help_text="This address is one, and nothing answers it.")
+    locale = serializers.CharField(required=False, help_text="The language to say it in.")
+    home_path = serializers.CharField(
+        required=False, help_text="That language's home page on the site."
+    )
+
+
 class PublicImageSizeSerializer(serializers.Serializer[dict[str, Any]]):
     width = serializers.IntegerField(min_value=1)
     height = serializers.IntegerField(min_value=1)

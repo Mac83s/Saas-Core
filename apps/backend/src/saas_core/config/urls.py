@@ -106,6 +106,7 @@ def _sites_routes() -> list[Route]:
         CaddyDomainAuthorizationView,
         PublicSiteAtomView,
         PublicSiteFeedView,
+        PublicSiteGoneView,
         PublicSiteLlmsView,
         PublicSiteMediaView,
         PublicSitePageView,
@@ -128,6 +129,7 @@ def _sites_routes() -> list[Route]:
             name="public-site-inquiry",
         ),
         path("api/v1/public/site/", PublicSitePageView.as_view(), name="public-site-page"),
+        path("api/v1/public/site/gone/", PublicSiteGoneView.as_view(), name="public-site-gone"),
         path(
             "api/v1/public/site/feed.xml",
             PublicSiteFeedView.as_view(),
