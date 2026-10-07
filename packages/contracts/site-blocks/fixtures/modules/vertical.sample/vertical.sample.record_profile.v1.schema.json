@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/modules/vertical.sample/vertical.sample.record_profile.v1.schema.json",
+  "title": "Sample module: a record's profile v1",
+  "description": "What the module hands the renderer for a record's own page (`serverBuilt`): its words in the page's language, facts, ratings and its text sections. Nobody writes it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "facts": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "value"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "value": { "type": "string", "minLength": 1, "maxLength": 200 }
+        }
+      }
+    },
+    "ratings": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "value"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "value": { "type": "integer", "minimum": 1, "maximum": 5 }
+        }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["heading", "text"],
+        "properties": {
+          "heading": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "text": { "type": "string", "minLength": 1, "maxLength": 20000 }
+        }
+      }
+    },
+    "related": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "href"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "href": {
+            "type": "string",
+            "maxLength": 500,
+            "pattern": "^/(?!/)"
+          }
+        }
+      }
+    }
+  }
+}

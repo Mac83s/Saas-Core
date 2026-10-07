@@ -8,7 +8,9 @@ the language version has none of its own.
 What is text comes from the block schemas: a string with no `enum`, `pattern`,
 `const` or `format` is prose, everything else is structure. A short table names
 the prose that is the same in every language — an address, a person's name —
-and the strings that are data. An inline run of `core.rich_text` is one unit,
+and the strings that are data; a module says the same of the blocks it brings
+in its own manifest (`translation`, docs/architecture/site-block-types.md), so
+this table stays the core's. An inline run of `core.rich_text` is one unit,
 its marks numbered tokens (`saas_core.content_protocol.tokens`), so a sentence
 is translated whole and its links keep their targets.
 
@@ -46,7 +48,12 @@ from saas_core.content_protocol.units import UNIT_INLINE as UNIT_INLINE
 from saas_core.content_protocol.units import UNIT_NAME as UNIT_NAME
 from saas_core.content_protocol.units import UNIT_TEXT as UNIT_TEXT
 
-from .block_contracts import InvalidSiteBlockData, site_block_contracts, validate_site_block
+from .block_contracts import (
+    BlockTranslation,
+    InvalidSiteBlockData,
+    site_block_contracts,
+    validate_site_block,
+)
 from .models import canonical_json_hash
 
 UNIT_TOO_LONG = "too_long"
@@ -73,6 +80,42 @@ PERSONAL_FIELDS = frozenset({("core.rich_text", "author/role")})
 
 _CONSTRAINED = ("enum", "pattern", "const", "format")
 _MARKS = ("bold", "italic", "href", "rel")
+_NOTHING_DECLARED = BlockTranslation()
+
+
+def _declared(block_type: str) -> BlockTranslation:
+    """What the module that brought the block says about its strings."""
+    return site_block_contracts().translation.get(block_type, _NOTHING_DECLARED)
+
+
+def is_data_field(block_type: str, pattern: str) -> bool:
+    """A string the schema leaves free that is data, not prose: no unit."""
+    return (block_type, pattern) in DATA_FIELDS or pattern in _declared(block_type).data
+
+
+def free_strings(block_type: str, schema_version: int) -> frozenset[str]:
+    """Every string the schema leaves free, by path pattern, whatever anybody
+    says about it: the places an exception may name."""
+    root = site_block_contracts().validators[block_type][schema_version].schema
+    found: dict[str, Field] = {}
+    if isinstance(root, Mapping):
+        # No type, no exceptions: the schema's own answer.
+        _collect(root, root, (), required=False, block_type="", into=found)
+    return frozenset(path for path, place in found.items() if place.kind != UNIT_INLINE)
+
+
+def unknown_module_translation_paths() -> list[tuple[str, str]]:
+    """The places a module's manifest names under `translation` that are no
+    free string in any version of its block — a typo there would silently
+    send a person's name to a model."""
+    contracts = site_block_contracts()
+    unknown: list[tuple[str, str]] = []
+    for block_type, declared in contracts.translation.items():
+        known: set[str] = set()
+        for version in contracts.validators[block_type]:
+            known |= free_strings(block_type, version)
+        unknown.extend((block_type, path) for path in sorted(declared.paths() - known))
+    return unknown
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,9 +227,11 @@ def _collect(
             into=into,
         )
     elif kind == "string" and not any(key in schema for key in _CONSTRAINED):
-        if (block_type, pattern) in DATA_FIELDS:
+        if is_data_field(block_type, pattern):
             return
-        unit_kind = COPIED_FIELDS.get((block_type, pattern), UNIT_TEXT)
+        unit_kind = COPIED_FIELDS.get((block_type, pattern)) or _declared(block_type).copied.get(
+            pattern, UNIT_TEXT
+        )
         _add(
             into,
             pattern,
@@ -212,7 +257,13 @@ def _add(into: dict[str, Field], pattern: str, field: Field) -> None:
 
 
 def _data_class(block_type: str, pattern: str) -> str:
-    if block_type in PERSONAL_BLOCKS or (block_type, pattern) in PERSONAL_FIELDS:
+    declared = _declared(block_type)
+    if (
+        block_type in PERSONAL_BLOCKS
+        or (block_type, pattern) in PERSONAL_FIELDS
+        or declared.personal
+        or pattern in declared.personal_fields
+    ):
         return DATA_PUBLIC_PERSONAL
     return DATA_PUBLIC
 

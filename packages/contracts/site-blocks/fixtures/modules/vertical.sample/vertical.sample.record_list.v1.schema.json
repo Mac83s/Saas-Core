@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/modules/vertical.sample/vertical.sample.record_list.v1.schema.json",
+  "title": "Sample module: list of records v1",
+  "description": "A block a person places on a page. It carries a choice only — the records are the module's live data, answered at each read by its public source.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["heading"],
+  "properties": {
+    "heading": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "order": {
+      "enum": ["name", "newest"]
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/modules/vertical.sample/vertical.sample.record_list.v2.schema.json",
+  "title": "Sample module: list of records v2",
+  "description": "v1 and what was added to it: an introduction, who looks after the list and a link. An added version only adds — v1 data stays valid as v2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["heading"],
+  "properties": {
+    "heading": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "order": {
+      "enum": ["name", "newest"]
+    },
+    "intro": {
+      "type": "string",
+      "maxLength": 600
+    },
+    "curator": {
+      "description": "A person's name: the same in every language (`translation.copied`).",
+      "type": "string",
+      "maxLength": 120
+    },
+    "curator_role": {
+      "description": "A real person's role: personal text (`translation.personal`).",
+      "type": "string",
+      "maxLength": 120
+    },
+    "reviewed_on": {
+      "description": "A date as the module prints it: data, not prose (`translation.data`).",
+      "type": "string",
+      "maxLength": 40
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "href"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "href": {
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^(?:/(?!/)|https://|mailto:|tel:)"
+        }
+      }
+    }
+  }
+}

@@ -21,6 +21,7 @@ from saas_core.modules.shared.sites.localized_bodies import (
     UnitProblem,
     assemble,
     extract_units,
+    is_data_field,
     structure_signature,
     text_fields,
 )
@@ -67,7 +68,7 @@ def _all_schemas():
 def test_every_string_of_every_schema_version_is_text_or_structure(block_type, version, schema):
     fields = text_fields(block_type, version)
     for path, constrained in _string_paths(schema).items():
-        if constrained or (block_type, path) in DATA_FIELDS:
+        if constrained or is_data_field(block_type, path):
             assert path not in fields, path
         else:
             assert path in fields, path

@@ -5,6 +5,7 @@ from .block_contracts import (
     InvalidSiteBlockData,
     UnknownSiteBlockType,
     UnknownSiteBlockVersion,
+    validate_built_site_block,
     validate_site_block,
 )
 from .content_checks import register_company_contact
@@ -89,5 +90,6 @@ __all__ = [
     "read_site_audit_target",
     "save_draft",
     "save_page_translation",
+    "validate_built_site_block",
     "validate_site_block",
 ]
