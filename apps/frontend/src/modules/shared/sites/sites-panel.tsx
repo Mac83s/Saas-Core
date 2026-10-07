@@ -875,6 +875,7 @@ export function SitesPanel({
       {section === "blog" && selectedSiteId ? (
         <BlogPanel
           address={domains.length ? publicSiteUrl(domains) : null}
+          defaultLocale={selectedSite?.default_locale}
           key={selectedSiteId}
           siteId={selectedSiteId}
         />

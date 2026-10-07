@@ -4498,6 +4498,9 @@ export async function createContentCollection(
     name: string;
     kind: "blog" | "news" | "guide";
     base_path: string;
+    /** The section's name in other languages' addresses; a language left
+     *  out follows `base_path`. */
+    locale_paths?: Record<string, string>;
   },
   idempotencyKey: string,
 ): Promise<ContentCollection> {
@@ -4530,6 +4533,57 @@ export async function setCollectionAutomationPolicy(
     {
       params: { path: { collection_id: collectionId } },
       body: { automation_policy: policy },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export type CollectionPathsInput = {
+  /** The section's name in the addresses of the site's own language. */
+  base_path: string;
+  /** Its name in other languages; an empty one follows `base_path`. */
+  locale_paths: Record<string, string>;
+  /** Required when the change moves an address visitors can open today. */
+  reason?: string;
+};
+export type CollectionPathsResult =
+  components["schemas"]["CollectionPathsResult"];
+
+/** The section's addresses as the names would make them and the addresses
+ *  that would move; saves nothing. */
+export async function previewCollectionPaths(
+  collectionId: string,
+  input: CollectionPathsInput,
+): Promise<CollectionPathsResult> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/collections/{collection_id}/paths/preview/",
+    {
+      params: { path: { collection_id: collectionId } },
+      body: { ...input, reason: input.reason ?? "" },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Renames a section in the site's addresses; every address under a former
+ *  name answers one redirect to today's. */
+export async function setCollectionPaths(
+  collectionId: string,
+  input: CollectionPathsInput,
+): Promise<CollectionPathsResult> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/collections/{collection_id}/paths/",
+    {
+      params: { path: { collection_id: collectionId } },
+      body: { ...input, reason: input.reason ?? "" },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },

@@ -107,6 +107,8 @@ const collection = {
   name: "Blog",
   kind: "blog",
   base_path: "blog",
+  locale_paths: {},
+  paths: { pl: "/blog/", en: "/en/blog/" },
   automation_policy: "manual",
   show_in_navigation: false,
 };
@@ -312,6 +314,45 @@ test("offers to create a blog when the site has none, and stays accessible", asy
     name: "Blog firmowy",
     kind: "blog",
     base_path: "blog-firmowy",
+  });
+});
+
+test("names the new blog its own way in another language", async () => {
+  listContentCollections.mockResolvedValueOnce([]);
+  createContentCollection.mockResolvedValue(collection);
+  const rendered = render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <BlogPanel
+        address="https://studio.example.test"
+        defaultLocale="pl"
+        siteId={siteId}
+      />
+    </NextIntlClientProvider>,
+  );
+
+  // The company's other language, never the site's own.
+  const english = (await screen.findByLabelText(
+    "Adres bloga — English",
+  )) as HTMLInputElement;
+  expect(screen.queryByLabelText("Adres bloga — Polski")).toBeNull();
+  // Empty, it reads as the address it follows.
+  expect(english.placeholder).toBe("blog");
+  expect(screen.getByText("studio.example.test/en/")).not.toBeNull();
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+
+  fireEvent.change(screen.getByLabelText("Nazwa"), {
+    target: { value: "Poradnik" },
+  });
+  fireEvent.change(english, { target: { value: "journal" } });
+  fireEvent.click(screen.getByRole("button", { name: "Załóż blog" }));
+
+  await waitFor(() => expect(createContentCollection).toHaveBeenCalledOnce());
+  expect(createContentCollection.mock.calls[0]?.[1]).toEqual({
+    key: "poradnik",
+    name: "Poradnik",
+    kind: "blog",
+    base_path: "poradnik",
+    locale_paths: { en: "journal" },
   });
 });
 

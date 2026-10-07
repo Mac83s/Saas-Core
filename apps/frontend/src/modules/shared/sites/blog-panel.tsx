@@ -70,6 +70,13 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { nativeName, useCompanyLocales } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { AutomationPolicyField } from "./automation-policy";
+import {
+  CollectionPaths,
+  SECTION_PATH,
+  namedPaths,
+  sectionPathErrors,
+  siteHost,
+} from "./collection-paths";
 import { EntryEditor } from "./entry-editor";
 import { EntryMetadata } from "./entry-metadata";
 import { EntrySchedule } from "./entry-schedule";
@@ -79,16 +86,25 @@ import { mutationKey, type MutationReceipt } from "./idempotency";
 import { sitesErrorMessage } from "./problem";
 import { slugFromTitle } from "./slug";
 
-type CollectionValues = { name: string; base_path: string };
+type CollectionValues = {
+  name: string;
+  base_path: string;
+  /** The blog's name in other languages' addresses; empty follows the
+   *  site's own (ADR-071 pkt 14). */
+  locale_paths: Record<string, string>;
+};
 type EntryValues = { title: string; slug: string; locale: string };
 
 export function BlogPanel({
   siteId,
   address,
+  defaultLocale,
 }: {
   siteId: string;
   /** The site's public address, before the blog's own part of it. */
   address?: string | null;
+  /** The site's own language: its addresses carry no language prefix. */
+  defaultLocale?: string;
 }) {
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
@@ -117,9 +133,18 @@ export function BlogPanel({
         base_path: z
           .string()
           .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, t("invalidSlug")),
+        locale_paths: z.record(
+          z.string(),
+          z
+            .string()
+            .refine(
+              (value) => !value.trim() || SECTION_PATH.test(value.trim()),
+              t("invalidSlug"),
+            ),
+        ),
       }),
     ),
-    defaultValues: { name: "", base_path: "blog" },
+    defaultValues: { name: "", base_path: "blog", locale_paths: {} },
   });
   const entryForm = useForm<EntryValues>({
     resolver: zodResolver(
@@ -142,6 +167,15 @@ export function BlogPanel({
       entryForm.setValue("locale", first);
     }
   }, [entryForm, entryLocales]);
+
+  // The company's other languages: each may name the blog its own way.
+  const otherLocales = defaultLocale
+    ? entryLocales.filter((item) => item.code !== defaultLocale)
+    : [];
+  const newBasePath = useWatch({
+    control: collectionForm.control,
+    name: "base_path",
+  });
 
   const [pathEdited, setPathEdited] = useState(false);
   const [slugEdited, setSlugEdited] = useState(false);
@@ -231,18 +265,35 @@ export function BlogPanel({
 
   const submitCollection: SubmitHandler<CollectionValues> = (values) =>
     void run(async () => {
+      const named = namedPaths(values.locale_paths);
       const input = {
         key: values.base_path,
         name: values.name,
         kind: "blog" as const,
         base_path: values.base_path,
+        // Only when a language got a name of its own.
+        ...(Object.keys(named).length > 0 ? { locale_paths: named } : {}),
       };
-      const created = await createContentCollection(
-        siteId,
-        input,
-        mutationKey(collectionReceipt, `collection-${siteId}`, input),
-      );
-      collectionForm.reset({ name: "", base_path: "" });
+      let created: ContentCollection;
+      try {
+        created = await createContentCollection(
+          siteId,
+          input,
+          mutationKey(collectionReceipt, `collection-${siteId}`, input),
+        );
+      } catch (error) {
+        // A name the server refuses is said at its field, not above the form.
+        const refused = Object.entries(sectionPathErrors(error, t));
+        if (refused.length === 0) throw error;
+        for (const [field, message] of refused) {
+          collectionForm.setError(
+            field as "base_path" | `locale_paths.${string}`,
+            { message },
+          );
+        }
+        return;
+      }
+      collectionForm.reset({ name: "", base_path: "", locale_paths: {} });
       setCollections((current) => [...current, created]);
       setCollectionId(created.id);
       await loadEntries(created.id);
@@ -454,6 +505,56 @@ export function BlogPanel({
                     {collectionForm.formState.errors.base_path?.message}
                   </FieldError>
                 </Field>
+                {/* The blog's own name in another language of the company:
+                    „/en/journal/” beside „/blog/”. Empty follows the site's. */}
+                {otherLocales.length > 0 && (
+                  <fieldset className="space-y-3">
+                    <legend className="text-sm font-medium">
+                      {t("blogPathsOtherLegend")}
+                    </legend>
+                    <p className="text-sm text-muted-foreground">
+                      {t("blogPathsFollow")}
+                    </p>
+                    {otherLocales.map((item) => (
+                      <Field
+                        data-invalid={Boolean(
+                          collectionForm.formState.errors.locale_paths?.[
+                            item.code
+                          ],
+                        )}
+                        key={item.code}
+                      >
+                        <FieldLabel htmlFor={`collection-path-${item.code}`}>
+                          {t("blogPathsLocaleLabel", { language: item.name })}
+                        </FieldLabel>
+                        <InputGroup>
+                          <InputGroupAddon>
+                            <InputGroupText className="max-w-48 truncate">
+                              {`${siteHost(address)}/${item.code}/`}
+                            </InputGroupText>
+                          </InputGroupAddon>
+                          <InputGroupInput
+                            id={`collection-path-${item.code}`}
+                            placeholder={newBasePath}
+                            {...collectionForm.register(
+                              `locale_paths.${item.code}`,
+                            )}
+                          />
+                          <InputGroupAddon align="inline-end">
+                            <InputGroupText>/</InputGroupText>
+                          </InputGroupAddon>
+                        </InputGroup>
+                        <FieldError>
+                          {
+                            collectionForm.formState.errors.locale_paths?.[
+                              item.code
+                            ]?.message
+                          }
+                        </FieldError>
+                      </Field>
+                    ))}
+                  </fieldset>
+                )}
               </FieldGroup>
               <Button disabled={busy} type="submit">
                 <PlusIcon aria-hidden="true" />
@@ -470,7 +571,13 @@ export function BlogPanel({
             <CardHeader>
               <CardTitle>{collection.name}</CardTitle>
               <CardDescription>
-                {t("blogEntriesDescription", { path: collection.base_path })}
+                {t("blogEntriesDescription", {
+                  // The site's own language: the first the server lists.
+                  path: (
+                    Object.values(collection.paths ?? {})[0] ??
+                    `/${collection.base_path}/`
+                  ).replace(/^\/|\/$/g, ""),
+                })}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -499,6 +606,19 @@ export function BlogPanel({
                   </NativeSelect>
                 </Field>
               )}
+
+              <CollectionPaths
+                address={address}
+                collection={collection}
+                key={collection.id}
+                onSaved={(updated) =>
+                  setCollections((current) =>
+                    current.map((item) =>
+                      item.id === updated.id ? updated : item,
+                    ),
+                  )
+                }
+              />
 
               {/* The menu a visitor sees comes from the last publication, so
                   the change lands when the site is published — the same rule

@@ -66,13 +66,14 @@ map) is its one `classic` section and its seed carries no `layout`.
 A source's record may also have **a page nobody publishes** (slice 5e, a
 unit's `/stay/<slug>/`): `resolve_public_page` asks the source last, after
 pages, entries, indexes and archives (`_find_source_page`,
-`PublicSource.site_page`). Its first segment is the source's, the same in
-every language and reserved for new pages (`first_segment_reserved`); another
-language's address exists only where the record has words of its own in it,
-else one 308 to the site's own language. The sitemap lists such pages
+`PublicSource.site_page`). Its segment and slug are the source's, per
+language where it says so (ADR-074), the segment reserved
+(`first_segment_reserved`); another language has it only where the record
+has words there, else one 308. The sitemap lists such pages
 (`site_pages`); their views are not counted. The source names the page's
 share picture and structured-data node (`SourcePage.image`, `.thing`); the
 site lends it the home page's look and a drawn trail (`show_breadcrumbs`).
+A section's address: only `collection_index_path`/`entry_path` (ADR-071).
 
 A company's document (`/documents/<name>/`, `customers.site_pages`) is
 `per_language`: the page has the text only where the version in force has
