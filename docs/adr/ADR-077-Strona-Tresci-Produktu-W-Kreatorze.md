@@ -251,11 +251,18 @@ prowadzić.
 
 **Co oferuje.** Z modułów `shared.*` — wyłącznie listę `PUBLISHER_MODULES`
 (`apps/frontend/src/lib/panel-navigation.ts`): `shared.sites`, `shared.media`,
-`shared.translation`, `shared.model-port`, `shared.image-generation`. Moduły `core.*`
-i `vertical.*` zostają. Każdy inny moduł wspólny wymaga planu, którego ten workspace nie
-kupi, więc API i tak by odmówiło; nowy moduł wspólny nie jest wydawcy oferowany, dopóki
-ktoś go do listy nie dopisze. Ponieważ zawężenie siedzi w `panelAccess()`, idą za nim
-wszystkie bramki panelu, które pytają o moduł — menu, zakładki, strony.
+`shared.translation`, `shared.model-port`. Moduły `core.*` i `vertical.*` zostają. Każdy
+inny moduł wspólny — rezerwacje, asystent, obrazy AI — wymaga cechy planu, której ten
+workspace nie ma i nie kupi, więc API i tak by odmówiło; nowy moduł wspólny nie jest
+wydawcy oferowany, dopóki ktoś go do listy nie dopisze. Ponieważ zawężenie siedzi
+w `panelAccess()`, idą za nim wszystkie bramki panelu, które pytają o moduł — menu,
+zakładki, strony.
+
+**Pytania w tle.** Ekran, który sam pyta API innego modułu — edytor strony i wpisu
+o ofertę obrazów AI i o oferty pobytów — w workspace platformy nie pyta o moduł spoza
+listy (`useAsksModule` w `components/panel/panel-access.tsx`; dostęp podaje układ
+panelu przez `PanelAccessProvider`). W firmie pyta jak dotąd: tam odpowiada plan,
+a ekran mówi, co odpowiedział.
 
 **Menu** (`PUBLISHER` zamiast `WORK` i `COMPANY`):
 

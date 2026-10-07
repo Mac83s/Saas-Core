@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { getBookingSetup } from "@saas-core/api-client";
 
+import { useAsksModule } from "#components/panel/panel-access";
 import { deployment } from "../../../generated/deployment";
 
 /** Everything the editor offers of stays — the blocks in „Dodaj pustą
@@ -16,13 +17,15 @@ export const isStayBlock = (type: string) => type.startsWith("core.stay_");
  * one they would draw nothing on the published page, so the editor does not
  * offer them. Read once from the company's booking setup; `false` until it
  * answers, where the product has no public booking form, and for a person
- * who does not see the company's bookings. A section already on the page is
+ * who does not see the company's bookings. A platform workspace has no
+ * bookings to ask about (`useAsksModule`). A section already on the page is
  * edited and drawn whatever this says.
  */
 export function useStayOffers(): boolean {
   const [stays, setStays] = useState(false);
+  const asks = useAsksModule("shared.booking");
   useEffect(() => {
-    if (!deployment.features.publicBooking) return;
+    if (!deployment.features.publicBooking || !asks) return;
     let current = true;
     getBookingSetup()
       .then((setup) =>
@@ -37,7 +40,7 @@ export function useStayOffers(): boolean {
     return () => {
       current = false;
     };
-  }, []);
+  }, [asks]);
   return stays;
 }
 

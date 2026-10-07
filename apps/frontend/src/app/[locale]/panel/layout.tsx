@@ -6,6 +6,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { AppSidebar } from "#components/panel/app-sidebar";
 import { PanelDocumentTitle } from "#components/panel/document-title";
 import { MobileTabBar } from "#components/panel/mobile-tab-bar";
+import { PanelAccessProvider } from "#components/panel/panel-access";
 import { PanelHeader } from "#components/panel/panel-header";
 import { PanelMain, PanelWidthProvider } from "#components/panel/panel-width";
 import { SectionTabs } from "#components/panel/section-tabs";
@@ -93,35 +94,39 @@ export default async function PanelLayout({
   const attention = await ownerBillingAttention(access);
 
   const panel = (
-    <SidebarProvider>
-      <AppSidebar
-        access={access}
-        attention={attention}
-        organizations={organizations}
-        roleLabel={roleLabel}
-      />
-      <SidebarInset className="flex min-h-svh flex-col">
-        <PanelWidthProvider
-          initialWide={jar.get(PANEL_WIDTH_COOKIE)?.value === "full"}
-        >
-          <PanelHeader access={access} user={user} />
-          <PanelDocumentTitle company={organization?.name ?? ""} />
-          <PanelMain>
-            {/* On a phone the menu is a drawer away; the section's pages
+    <PanelAccessProvider access={access}>
+      <SidebarProvider>
+        <AppSidebar
+          access={access}
+          attention={attention}
+          organizations={organizations}
+          roleLabel={roleLabel}
+        />
+        <SidebarInset className="flex min-h-svh flex-col">
+          <PanelWidthProvider
+            initialWide={jar.get(PANEL_WIDTH_COOKIE)?.value === "full"}
+          >
+            <PanelHeader access={access} user={user} />
+            <PanelDocumentTitle company={organization?.name ?? ""} />
+            <PanelMain>
+              {/* On a phone the menu is a drawer away; the section's pages
                 stay one tap apart above the content. */}
-            <SectionTabs access={access} />
-            {mfaRequired ? (
-              <OrganizationMfaRequired
-                company={organizations.find((item) => item.active)?.name ?? ""}
-              />
-            ) : (
-              children
-            )}
-          </PanelMain>
-        </PanelWidthProvider>
-        <MobileTabBar access={access} />
-      </SidebarInset>
-    </SidebarProvider>
+              <SectionTabs access={access} />
+              {mfaRequired ? (
+                <OrganizationMfaRequired
+                  company={
+                    organizations.find((item) => item.active)?.name ?? ""
+                  }
+                />
+              ) : (
+                children
+              )}
+            </PanelMain>
+          </PanelWidthProvider>
+          <MobileTabBar access={access} />
+        </SidebarInset>
+      </SidebarProvider>
+    </PanelAccessProvider>
   );
   // The kind of organization's own words (UX-080), for the client components
   // under it; only a type that has some pays for a second set of messages.

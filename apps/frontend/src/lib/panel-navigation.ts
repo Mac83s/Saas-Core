@@ -363,16 +363,16 @@ export type PanelAccess = {
  * publishes the deployment's own site and is never sold a plan, invited into
  * or billed, so its panel shows the site, its files and its translations —
  * and whatever the product's own modules (`vertical.*`) bring. Every other
- * shared module takes a plan this workspace cannot buy: the API refuses it,
- * and the panel does not lead there. A new shared module is left out until
- * it is named here.
+ * shared module takes a plan this workspace cannot buy — bookings, the
+ * assistant, generated images: the API refuses it, and the panel neither
+ * leads there nor asks in the background (`useAsksModule`). A new shared
+ * module is left out until it is named here.
  */
 export const PUBLISHER_MODULES: readonly string[] = [
   "shared.sites",
   "shared.media",
   "shared.translation",
   "shared.model-port",
-  "shared.image-generation",
 ];
 
 function publisherUses(module: string): boolean {

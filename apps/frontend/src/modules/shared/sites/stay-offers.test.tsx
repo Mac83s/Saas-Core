@@ -1,5 +1,9 @@
 import { renderHook, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, expect, test, vi } from "vitest";
+
+import { PanelAccessProvider } from "#components/panel/panel-access";
+import type { PanelAccess } from "#lib/panel-navigation";
 
 import { coreSiteBlockManifest } from "@saas-core/site-blocks";
 import {
@@ -62,6 +66,37 @@ test("a product without a public booking form asks nobody", () => {
   const { result } = renderHook(() => useStayOffers());
   expect(result.current).toBe(false);
   expect(api.getBookingSetup).not.toHaveBeenCalled();
+});
+
+test("a platform workspace has no bookings to ask about; a company in the same panel is asked", async () => {
+  const access: PanelAccess = {
+    modules: ["core.organizations", "shared.sites"],
+    permissions: ["site.content.edit"],
+    isOwner: true,
+    limited: false,
+  };
+  const within = (value: PanelAccess) =>
+    function Within({ children }: { children: ReactNode }) {
+      return (
+        <PanelAccessProvider access={value}>{children}</PanelAccessProvider>
+      );
+    };
+  api.getBookingSetup.mockResolvedValue({ services: [service("range")] });
+
+  const publisher = renderHook(() => useStayOffers(), {
+    wrapper: within({ ...access, publisher: true }),
+  });
+  expect(publisher.result.current).toBe(false);
+  expect(api.getBookingSetup).not.toHaveBeenCalled();
+  publisher.unmount();
+
+  // A company whose type lacks the module is asked as before: the gate is
+  // the publisher's alone.
+  const company = renderHook(() => useStayOffers(), {
+    wrapper: within(access),
+  });
+  await waitFor(() => expect(company.result.current).toBe(true));
+  expect(api.getBookingSetup).toHaveBeenCalledTimes(1);
 });
 
 test("with stays the editor asks for the booking's sections and the „Noclegi” template", () => {

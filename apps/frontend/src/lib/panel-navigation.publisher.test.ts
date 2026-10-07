@@ -174,7 +174,8 @@ describe("workspace platformy: panel wydawcy (ADR-077 pkt 9)", () => {
     // What the API refuses is the API's to say: the membership's rights are
     // passed on as they are.
     expect(publisher.permissions).toEqual(OWNER);
-    expect(PUBLISHER_MODULES).toContain("shared.image-generation");
+    // Generated images are a plan feature the workspace is not granted.
+    expect(PUBLISHER_MODULES).not.toContain("shared.image-generation");
   });
 
   it("menu: strona pod „Pracą” z wpisami produktu, „Wiadomości” i „Ustawienia” pod „Firmą”", () => {

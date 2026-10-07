@@ -137,6 +137,7 @@ import {
   type BlockFormValues,
   type BlockOption,
 } from "./block-form";
+import { useAsksModule } from "#components/panel/panel-access";
 import { useCompanyLocales } from "#lib/company-locales";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { privateMediaRenderer } from "./private-media-preview";
@@ -550,10 +551,12 @@ export function PageEditor({
   ];
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   // Read once per editor: a 403 or an unavailable offer hides the AI button.
+  // A platform workspace is not offered image generation, so it is not asked.
   const [imageGeneration, setImageGeneration] =
     useState<ImageGenerationOffer | null>(null);
+  const asksForImages = useAsksModule("shared.image-generation");
   useEffect(() => {
-    if (!generatesImages()) return;
+    if (!generatesImages() || !asksForImages) return;
     let mounted = true;
     getImageGenerationOffer()
       .then((offer) => {
@@ -563,7 +566,7 @@ export function PageEditor({
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [asksForImages]);
   const [selectedBlock, setSelectedBlock] = useState<BlockOption | null>(null);
   const [assetOption, setAssetOption] = useState<MediaAsset | null>(null);
   const [preview, setPreview] = useState<PageDraft>();

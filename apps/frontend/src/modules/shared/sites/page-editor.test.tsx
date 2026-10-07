@@ -27,6 +27,7 @@ import {
 
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
+import { PanelAccessProvider } from "#components/panel/panel-access";
 import { BlockFields, emptyBlock, registry } from "./block-form";
 import { PageEditor } from "./page-editor";
 import { PageEditorContext } from "./page-editor-context";
@@ -313,6 +314,35 @@ test("bez modułu generowania obrazów edytor nie pyta o jego ofertę (UX-041)",
   renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
   expect(await screen.findByLabelText("Treść")).not.toBeNull();
   expect(getImageGenerationOffer).not.toHaveBeenCalled();
+});
+
+test("w workspace platformy edytor nie pyta ani o ofertę obrazów AI, ani o rezerwacje — API by odmówiło (ADR-077 pkt 9)", async () => {
+  render(
+    <PanelAccessProvider
+      access={{
+        modules: ["core.organizations", "shared.sites", "shared.media"],
+        permissions: ["site.content.edit"],
+        isOwner: true,
+        limited: false,
+        publisher: true,
+      }}
+    >
+      <NextIntlClientProvider
+        locale="pl"
+        messages={polishMessages}
+        timeZone="Europe/Warsaw"
+      >
+        <PageEditor
+          onChanged={vi.fn().mockResolvedValue(undefined)}
+          page={page}
+        />
+      </NextIntlClientProvider>
+    </PanelAccessProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Formularze" }));
+  expect(await screen.findByLabelText("Treść")).not.toBeNull();
+  expect(getImageGenerationOffer).not.toHaveBeenCalled();
+  expect(getBookingSetup).not.toHaveBeenCalled();
 });
 
 test("odrzuca tekst hero dłuższy niż kanoniczny limit bloku, bez wysyłki", async () => {
