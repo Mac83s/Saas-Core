@@ -273,6 +273,20 @@ przykładowe pozostają rdzenia.
   nigdy (ADR-074 pkt 7, „Korzeń działu jest podstroną”).
 - Zapisu bloków moduł nie obsługuje: `validate_site_block` rdzenia przyjmuje
   jego typy tak samo jak własne.
+- **Rekord z treścią z bloków stawianych** (opis rasy jako lista bloków
+  rdzenia) tłumaczy się tak jak wersja językowa podstrony — tymi samymi
+  funkcjami z `saas_core.modules.shared.sites.api`, czystymi (bez bazy i bez
+  tenanta): `extract_units(blocks)` daje fragmenty (`TextUnit`: klucz
+  `<pozycja>/<ścieżka>`, rodzaj, klasa danych, limit), `assemble(blocks,
+  texts)` składa bloki w innym języku (`AssembledBody`; błędy naraz w
+  `LocaleUnitsInvalid.problems` jako `UnitProblem`), a `texts_against(source,
+  blocks)` zamienia całe bloki z zewnątrz z powrotem na teksty fragmentów
+  (`StructureDiffers`, gdy to nie jest to samo ciało z innym tekstem). Blok
+  `serverBuilt` tą drogą nie przechodzi: `assemble` sprawdza bloki jak zapis.
+- **Adres strony rekordu poza żądaniem strony** (odnośnik w panelu): z
+  `source_page_base(język_strony_firmy, język, source.segment(język))` z tego
+  samego `api`, plus slug rekordu. Funkcja tylko składa adres — nie wie, w
+  których językach strona firmy jest czytana ani czy rekord ma tam stronę.
 
 ## 8. Gdzie typ istnieje
 

@@ -33,6 +33,7 @@ from saas_core.modules.core.organizations.public_sources import (
     SourcePage,
     SourcePageAddress,
 )
+from saas_core.modules.shared.sites import api as sites_api
 from saas_core.modules.shared.sites.api import validate_built_site_block
 from saas_core.modules.shared.sites.apps import check_content_contracts
 from saas_core.modules.shared.sites.block_contracts import (
@@ -455,6 +456,31 @@ def test_a_record_page_is_one_block_the_module_built(
         HTTP_IDEMPOTENCY_KEY="samples-pl",
     )
     assert (saved.status_code, saved.json()["code"]) == (400, "slug_reserved"), saved.content
+
+
+def test_a_module_reads_a_body_as_units_and_its_pages_address_through_the_api() -> None:
+    """What a module needs to translate a record made of placed blocks and to
+    link its pages outside a page request, from the module's public door."""
+    body = [_hero("Start", "Opis"), _hero("Dalej", "Więcej")]
+    units = [unit.key for unit in sites_api.extract_units(body)]
+    assert {"0/title", "0/text", "1/title", "1/text"} <= set(units)
+
+    texts = {"0/title": "Home", "0/text": "About", "1/title": "Next", "1/text": "More"}
+    english = sites_api.assemble(body, texts)
+    assert (english.missing, english.blocks[1]["data"]["title"]) == ((), "Next")
+    # Whole blocks from outside become the same units again.
+    assert sites_api.texts_against(body, english.blocks) == texts
+    with pytest.raises(sites_api.StructureDiffers):
+        sites_api.texts_against(body, english.blocks[:1])
+    with pytest.raises(sites_api.LocaleUnitsInvalid) as refused:
+        sites_api.assemble(body, {"9/title": "Nowhere"})
+    assert [(problem.key, problem.code) for problem in refused.value.problems] == [
+        ("9/title", "unknown_unit")
+    ]
+
+    # The site puts a record's address together, never the module.
+    assert sites_api.source_page_base("pl", "pl", "samples") == "/samples/"
+    assert sites_api.source_page_base("pl", "en", "samples") == "/en/samples/"
 
 
 # --- A manifest that breaks its contract stops the deploy ---------------------

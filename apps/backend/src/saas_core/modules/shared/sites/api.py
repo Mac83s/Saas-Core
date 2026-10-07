@@ -10,7 +10,18 @@ from .block_contracts import (
 )
 from .content_checks import register_company_contact
 from .html_blocks import HtmlConversion, HtmlLoss, convert_html
+from .localized_bodies import (
+    AssembledBody,
+    LocaleUnitsInvalid,
+    StructureDiffers,
+    TextUnit,
+    UnitProblem,
+    assemble,
+    extract_units,
+    texts_against,
+)
 from .page_templates import PageTemplate, PageTemplateNotFound, page_template_catalog
+from .publication_routing import source_page_base
 from .services import (
     DraftVersionConflict,
     MutationResult,
@@ -50,6 +61,20 @@ __all__ = [
     "HtmlConversion",
     "HtmlLoss",
     "convert_html",
+    # A body of blocks as text units and back — how a module translates a
+    # record made of placed blocks the way a page's language version is
+    # (docs/architecture/site-block-types.md §7).
+    "AssembledBody",
+    "LocaleUnitsInvalid",
+    "StructureDiffers",
+    "TextUnit",
+    "UnitProblem",
+    "assemble",
+    "extract_units",
+    "texts_against",
+    # Where a source's records have their pages in a language, for a link
+    # outside a page request (the panel): the site builds the address.
+    "source_page_base",
     "register_company_contact",
     "badge_visible",
     "DraftVersionConflict",
