@@ -404,7 +404,10 @@ Rozstrzygnięcia techniczne (agent, plan memex
    wszystkich językach (`slug_reserved`). Reguła pyta tylko o nazwy, które się
    zmieniają: dział, jak podstrona, zachowuje adres starszy niż reguła. Slug wersji
    językowej podstrony liczony kodem (ADR-070 pkt 18) omija nazwy działów ze
-   wszystkich języków.
+   wszystkich języków. Segmenty stron rekordów wiążą też slug podstrony w każdym
+   języku, nie tylko w języku strony firmy; jedyny wyjątek — podstrona w korzeniu
+   działu źródła, które na to pozwala — opisuje ADR-074, „Korzeń działu jest
+   podstroną” (PB3d).
 8. **Inwentarz dla automatyzacji treści** dostaje obok `base_path` pole
    `collections[].paths` (`{język: ścieżka indeksu}`). To pole odpowiedzi, addytywne;
    kontrakt `packages/contracts/content-operations` się nie zmienia i nadal nie ma

@@ -23,8 +23,10 @@ deployment składa jego moduł** (§8).
 Blok stawiany, który pokazuje rekordy modułu, niesie tylko wybór (nagłówek,
 kolejność); rekordy dopowiada przy każdym odczycie publiczne źródło modułu
 (`PublicSource.site_block_types` i `site_blocks`). Stronę rekordu — adres,
-tytuł i bloki — też daje źródło (`site_page`, `site_pages`). Protokół źródeł
-opisuje notatka na górze
+tytuł i bloki — też daje źródło (`site_page`, `site_pages`). Pod adresem samego
+działu (`/rasy-psow/`) źródło nie odpowiada: listę rekordów stawia się blokiem
+na zwykłej podstronie, a podstrona może stanąć pod tym adresem tylko wtedy, gdy
+źródło ma `root_page=True` (§7). Protokół źródeł opisuje notatka na górze
 `apps/backend/src/saas_core/modules/core/organizations/public_sources.py`;
 ten dokument go nie powtarza.
 
@@ -262,6 +264,13 @@ przykładowe pozostają rdzenia.
   sprawdza kształt u siebie: `validate_built_site_block(block_type=…,
   schema_version=…, data=…)` z `saas_core.modules.shared.sites.api` — w
   teście modułu, a tam, gdzie dane są cudze, także przy budowaniu.
+- **Lista rekordów pod adresem działu**: źródło deklaruje `root_page=True`, a
+  listą jest blok stawiany na podstronie, której slug w języku strony firmy to
+  segment źródła w tym języku (`rasy-psow`). Wersja językowa tej podstrony
+  dostaje nazwę działu w swoim języku sama (`/en/dog-breeds/`), a okruszki
+  stron rekordów prowadzą przez nią. Bez flagi segment jest dla podstron
+  zamknięty w każdym języku (`slug_reserved`); dział (blog) nie dostaje go
+  nigdy (ADR-074 pkt 7, „Korzeń działu jest podstroną”).
 - Zapisu bloków moduł nie obsługuje: `validate_site_block` rdzenia przyjmuje
   jego typy tak samo jak własne.
 
