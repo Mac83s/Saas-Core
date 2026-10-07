@@ -21,6 +21,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
     "@saas-core/api-client": "workspace:*",
+    "@saas-core/contracts": "workspace:*",
     "@saas-core/site-blocks": "workspace:*",
     "@saas-core/ui": "workspace:*",
     "@tiptap/core": "^3.31.3",

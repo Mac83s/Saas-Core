@@ -7,7 +7,6 @@ import type { SiteTemplate } from "@saas-core/api-client";
 import {
   composeTemplateSwap,
   hiddenFields,
-  offeredSectionTemplates,
   pageTemplateBlocks,
   planTemplateSwap,
   type PageTemplate,
@@ -31,6 +30,7 @@ import {
   toSiteBlock,
   type BlockFormValues,
 } from "./block-form";
+import { sectionTemplates } from "./site-block-registry";
 
 type Locale = "pl" | "en";
 
@@ -45,7 +45,7 @@ export function templateSections(
 }
 
 const layoutNames = new Map<string, Record<Locale, string>>();
-for (const template of offeredSectionTemplates()) {
+for (const template of sectionTemplates) {
   const key = `${template.blockType}|${template.layout}`;
   if (!layoutNames.has(key))
     layoutNames.set(key, {

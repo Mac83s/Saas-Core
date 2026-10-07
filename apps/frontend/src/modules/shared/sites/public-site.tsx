@@ -4,8 +4,6 @@ import { request as httpRequest } from "node:http";
 
 import type { PublicSitePage } from "@saas-core/api-client";
 import {
-  coreSiteBlockManifest,
-  createSiteBlockRegistry,
   renderPublishedPage,
   parseSiteAppearance,
   siteUiTexts,
@@ -23,8 +21,7 @@ import {
 import { SiteStayBlock } from "../booking/site-stay-blocks";
 import { SiteStayMap } from "../booking/site-stay-map";
 import { PublicContactForm } from "./public-contact-form";
-
-const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
+import { registry } from "./site-block-registry";
 
 export type PublicSiteResult =
   | { kind: "page"; page: PublicSitePage }

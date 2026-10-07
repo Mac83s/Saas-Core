@@ -1,7 +1,8 @@
 export const SITE_BLOCK_SCHEMA_VERSION = 1 as const;
 
 export * from "./errors";
-export { withAiBadge } from "./ai-badge";
+export { renderImage, withAiBadge } from "./ai-badge";
+export { plainBlockText } from "./block-text";
 export {
   SITE_UI_LOCALES,
   siteUiTexts,
@@ -39,6 +40,15 @@ export {
 export { linkRel } from "./link-rel";
 export { FULL_WIDTH, HALF_WIDTH, publicImage } from "./public-image";
 export { createSiteBlockRegistry, defineSiteBlockManifest } from "./registry";
+export {
+  composedModuleBlocks,
+  defineModuleSiteBlocks,
+  moduleBlockPrefix,
+  type ModuleBlockContract,
+  type ModuleBlockImplementation,
+  type ModuleSection,
+  type ModuleSiteBlocks,
+} from "./module-blocks";
 export {
   designTokenClassName,
   renderDraftPreview,

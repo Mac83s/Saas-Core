@@ -128,7 +128,9 @@ export function applySampleMedia(
   return { ...block, data };
 }
 
-/** Industry is a preference, never an entitlement. Universal choices remain. */
+/** Industry is a preference, never an entitlement. Universal choices remain.
+ *  `templates` is what the library holds: the core's own, or those with the
+ *  sections of the modules the deployment composes after them. */
 export function availableSectionTemplates(
   registry: BlockRegistry,
   context: {
@@ -137,8 +139,9 @@ export function availableSectionTemplates(
     industry?: string;
     blockType?: string;
   },
+  templates: readonly SectionTemplate[] = offered,
 ): readonly SectionTemplate[] {
-  return offered.filter((template) => {
+  return templates.filter((template) => {
     if (context.blockType && template.blockType !== context.blockType)
       return false;
     if (

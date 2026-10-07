@@ -38,6 +38,9 @@ importers:
       '@saas-core/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@saas-core/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@saas-core/site-blocks':
         specifier: workspace:*
         version: link:../../packages/site-blocks
