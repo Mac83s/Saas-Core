@@ -84,6 +84,15 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   nie dociera do renderera (matcher proxy), więc reguła dla niego nie zadziała; mapa
   nie ma ekranu ani polecenia asystenta; `develop-sites` jest przy limicie 16 kB
   i nie opisuje mapy — opis jest w ADR-077 i w `shared/sites/old_addresses.py`.
+- **Panel workspace'u platformy jest panelem wydawcy (PB3c, 07.10, lokalnie,
+  niewdrożone; ADR-077 pkt 9, bez migracji i bez zmian w backendzie):** powłoka
+  poznaje rodzaj workspace'u (`workspace_kind`), oferuje z modułów wspólnych tylko
+  `PUBLISHER_MODULES`, ma własne menu (strona pod „Pracą”, „Wiadomości”
+  i „Ustawienia” pod „Firmą”, bez zespołu, abonamentu, kalendarza i magazynu),
+  a „Dziś” pokazuje stan strony (`components/panel/site-state.tsx`). Ekrany firmy
+  wpisane ręcznie odpowiadają tam „Nie ma takiej strony”. Otwarte: słowa „Firma”
+  i „Dane firmy” zostają także u wydawcy; listy modułów wydawcy produkt nie
+  rozszerza.
 - **Własne typy bloków modułu w kreatorze (PB3a, 07.10, lokalnie, niewdrożone;
   ADR-077 pkt 8, bez migracji):** moduł `shared`/`vertical` wnosi typy bloków
   stron z własnych plików — manifest i schematy w

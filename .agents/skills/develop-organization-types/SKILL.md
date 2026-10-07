@@ -56,6 +56,12 @@ are `Plan/Wdrozenie/15-Typy-Organizacji-i-Rejestr-Gospodarstw.md`.
   Gate panel pages and menu with `modulesFor(organization.organization_type)`.
   A page that checks only the deployment shows a farm a screen whose API
   answers 404.
+- **The platform workspace is not a type.** It carries the default type and is
+  told apart by `workspace_kind === "platform"`: `panelAccess()` then marks it
+  `publisher` and offers only `PUBLISHER_MODULES` of the shared modules, with
+  a menu of its own (ADR-077 pkt 9, `apps/frontend/src/lib/panel-navigation.ts`).
+  A company-only page no module gate closes calls `companyOnly()`; a product's
+  entry reaches the publisher only behind a `vertical.*` module.
 - **The menu is not the boundary.** Anything a type may not use must be
   refused by the API — the module gate does it by URL prefix of the module's
   routes, so a new module's routes are covered only if they are registered

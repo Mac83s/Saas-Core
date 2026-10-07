@@ -2,7 +2,7 @@
 
 **Status:** Accepted — decyzja właściciela z 2026-10-07 (memex, projekt `puppily`:
 `puppily-s-first-stage-runs-on-the-site-builder-w`); rozstrzygnięcia techniczne
-agenta w pakietach PB3b i PB3a (pkt 8) planu memex
+agenta w pakietach PB3b, PB3a (pkt 8) i PB3c (pkt 9) planu memex
 `saas-core-wielojezycznosc-i-tlumaczenia-ai`.
 **Data:** 2026-10-07
 
@@ -12,7 +12,8 @@ bloków stron przestają należeć wyłącznie do rdzenia (pkt 8).
 **Rozszerza:** ADR-035 §1–2 (workspace platformy znów jest wydawcą — tam, gdzie
 profil tak stanowi), ADR-028 (publiczny routing: odpowiedź 410), ADR-071
 „Uzupełnienie 2026-10-07” pkt 6 (jedno 308 obejmuje też mapę starych adresów) i jego
-„Świadome granice” (odnośnik do działu w treści).
+„Świadome granice” (odnośnik do działu w treści), ADR-057 pkt 5 (menu panelu ma drugi
+skład — wydawcy, pkt 9).
 
 ## Kontekst
 
@@ -235,8 +236,82 @@ fragmenty, opublikowane, narysowane w studiu i na stronie, nieobecne w składzie
 modułu (`apps/backend/tests/test_sites_module_blocks.py`,
 `apps/frontend/src/modules/shared/sites/module-blocks*.test.tsx`).
 
+### 9. Panel workspace'u platformy jest panelem wydawcy
+
+Workspace platformy dostawał panel zwykłej firmy: baner „Nie wybrano planu”, listę „Na
+start” z krokami nie do wykonania, kalendarz, magazyn i abonament w menu oraz ekrany,
+które w tle pytały o rezerwacje i dostawały 403. Od PB3c powłoka panelu zna rodzaj
+workspace'u.
+
+**Po czym poznaje.** Po `workspace_kind === "platform"` z `OrganizationSummary` (pole
+już jest w API), nie po typie organizacji: workspace platformy nosi domyślny typ
+deploymentu jak każda firma. `panelAccess()` zwraca wtedy `publisher: true`. Backend się
+nie zmienia — odmowy z pkt 2 zostają, jakie były; panel tylko przestaje do nich
+prowadzić.
+
+**Co oferuje.** Z modułów `shared.*` — wyłącznie listę `PUBLISHER_MODULES`
+(`apps/frontend/src/lib/panel-navigation.ts`): `shared.sites`, `shared.media`,
+`shared.translation`, `shared.model-port`, `shared.image-generation`. Moduły `core.*`
+i `vertical.*` zostają. Każdy inny moduł wspólny wymaga planu, którego ten workspace nie
+kupi, więc API i tak by odmówiło; nowy moduł wspólny nie jest wydawcy oferowany, dopóki
+ktoś go do listy nie dopisze. Ponieważ zawężenie siedzi w `panelAccess()`, idą za nim
+wszystkie bramki panelu, które pytają o moduł — menu, zakładki, strony.
+
+**Menu** (`PUBLISHER` zamiast `WORK` i `COMPANY`):
+
+| Grupa | Wpisy |
+| --- | --- |
+| Praca | Dziś · Strona internetowa (Podstrony, Menu, Blog, Tłumaczenia, Publikacja, Adres i domeny, Integracje) · wpisy produktu |
+| Firma | Wiadomości (same „Zapytania ze strony”) · wpisy produktu · Ustawienia (Dane firmy, obszary rejestru, Języki, Historia zmian, Twoje konto, zakładki produktu) |
+| Platforma | Ustawienia platformy — operatorowi, jak dotąd |
+
+Strona stoi pod „Pracą”, bo jest codzienną pracą wydawcy — dzięki temu trafia też na
+dolny pasek telefonu, który bierze pierwsze trzy wpisy „Pracy”. Nie ma Zespołu ani
+„Mojej karty” (nikt nie jest tu zapraszany; redaktor to operator dopisany komendą, pkt
+2), Abonamentu i Kredytów (tłumaczenia tego workspace'u idą z budżetu platformy),
+Kalendarza, Magazynu, Zamówień, Asystenta, Wizytówki, „Widoczności w Google”, powiadomień
+automatycznych, „API i webhooków”, banera planu ani listy „Na start”.
+
+**Pierwszy ekran.** „Dziś” pokazuje stan strony (`components/panel/site-state.tsx`):
+nazwę, adres, stan słowami „Podstron” („Jeszcze nieopublikowana”, „Zmiany
+nieopublikowane”, „Opublikowana”), ostatnią publikację, liczbę podstron i ile z nich
+czeka, blog, języki oraz własną domenę, która nie przeszła jeszcze weryfikacji. Pod nim
+skróty do części strony pod nazwami z menu. Czyta te same adresy API co „Podstrony” —
+żadnego, którego wydawcy się odmawia. Pulpit produktu (slot `product/dashboard.tsx`) ma
+pierwszeństwo tak jak w firmie.
+
+**Ustawienia.** Rejestr ustawień (ADR-078) wymienia też grupy modułów spoza listy;
+`panelSettings()` zostawia wydawcy grupy jego modułów i obszary, w których coś zostało
+— w menu „Ustawień”, na stronie obszaru i w „Szukaj w ustawieniach”.
+
+**Adres wpisany ręcznie.** Ekran firmy, którego nie zamyka bramka modułu — Zespół,
+Kalendarz, Plan i płatności, Kredyty — odpowiada w workspace platformy „Nie ma takiej
+strony” (`lib/company-only.ts`), zamiast pokazać ekran, którego każde zapytanie
+kończy się odmową.
+
+**Produkt.** Wpisy menu, zakładki ustawień i pulpit produktu działają u wydawcy jak
+w firmie: moduł, uprawnienie, typ organizacji. Wydawcy pokaże się wpis stojący za
+modułem `vertical.*` (albo modułem z listy); wpis produktu za innym modułem wspólnym
+zostaje przy firmach.
+
+**Firmy.** Nic się nie zmienia: `panelAccess()` organizacji o rodzaju innym niż
+`platform` jest tym samym obiektem co dotąd. Pilnują tego
+`lib/panel-navigation.companies.test.ts` (bez atrap — typy i menu bierze z profilu
+i slotu produktu, więc po `core:update` sprawdza to samo w składzie produktu),
+`lib/panel-navigation.publisher.test.ts` (menu firmy w składzie o dwóch typach
+z modułem produktu, zgodne z kodem sprzed zmiany) i
+`app/[locale]/panel/page.test.tsx` (ekran „Dziś” firmy).
+
 ## Granice i dług
 
+- **Słowa firmy w panelu wydawcy.** Grupa menu nazywa się „Firma”, a strona danych
+  „Dane firmy”, także w workspace platformy; nakładka słów zależna od rodzaju
+  workspace'u (jak `organization-messages.ts` dla typu) nie istnieje.
+- **Lista modułów wydawcy jest listą rdzenia.** Produkt jej nie rozszerza; gdyby
+  wydawca jakiegoś produktu potrzebował modułu wspólnego spoza listy, trzeba go
+  dopisać w rdzeniu i nadać workspace'owi właściwy entitlement.
+- **„Twoje konto” nadal pozwala założyć firmę.** To operacja konta, nie workspace'u:
+  operator może mieć własną firmę obok workspace'u platformy.
 - **Adres z kropką nie dociera do strony.** Proxy przepuszcza pliki statyczne bez
   rozstrzygania (`matcher`), więc stary adres typu `/strona.html` nie dostanie ani
   308, ani 410. Wczytanie go wypisuje; zmiana matchera to osobna decyzja.
@@ -260,6 +335,17 @@ modułu (`apps/backend/tests/test_sites_module_blocks.py`,
 
 ## Odrzucone
 
+- **Wydawca jako osobny typ organizacji.** Typ wybiera profil produktu i idą za nim
+  plany, role i rejestracja; workspace platformy jest bytem operatora, a rodzaj
+  workspace'u już go nazywa — w modelu, w odmowach i w API.
+- **Menu wydawcy liczone z migawki entitlementów.** Firmie brak cechy planu panel
+  pokazuje jako zaproszenie do zmiany planu (`PlanGate`); wydawcy nie ma czego kupić,
+  więc i tak trzeba by znać rodzaj workspace'u, a każdy ekran płaciłby dodatkowym
+  zapytaniem.
+- **Wycinanie grup ustawień w API schematu.** Byłaby to zmiana zachowania backendu
+  dla jednego ekranu; reguła „co panel oferuje” zostaje w panelu, obok menu.
+- **Przekierowanie `/panel` → `/panel/sites`.** Pierwszy ekran ma powiedzieć, gdzie
+  jest strona i w jakim jest stanie; „Podstrony” mówią o podstronach.
 - **Mapa w `SiteRedirect`.** Tamte wiersze wchodzą do migawki publikacji i każda
   publikacja niosłaby kilka tysięcy reguł w JSON-ie czytanym przy każdej wizycie;
   nie mają też wyniku „usunięty”.
@@ -292,4 +378,5 @@ w tenancie nazwanym przez host), ADR-049 (profil produktu, punkty rozszerzenia),
 ADR-070 pkt 15 i ADR-071 pkt 9, 12, 14 z uzupełnieniem 2026-10-07 (adresy i odnośniki
 per język), ADR-074 uzupełnienie 2026-10-07 (kto składa adres strony rekordu; źródła
 publiczne wypełniają bloki modułów), ADR-031 (kategorie sekcji i formularz studia),
-ADR-070 (fragmenty tłumaczeń z danych bloków).
+ADR-070 (fragmenty tłumaczeń z danych bloków), ADR-057 (szablon strony i menu panelu),
+ADR-050 (typ organizacji a rodzaj workspace'u), ADR-078 (rejestr ustawień).

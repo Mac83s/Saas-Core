@@ -50,7 +50,12 @@ type Messages = Record<string, Record<string, unknown>>;
  * `src/app`, so they need no entry here.
  */
 export type ProductExtension = {
-  /** Panel entries, appended to their group after core's own. */
+  /**
+   * Panel entries, appended to their group after core's own. The deployment's
+   * platform workspace has a publisher's menu instead of a company's (ADR-077
+   * pkt 9): an entry behind a `vertical.*` module is appended there the same
+   * way, one behind a shared module the publisher is not offered is left out.
+   */
   navigation?: ProductNavigationItem[];
   primaryAction?: ProductPrimaryAction;
   /**
