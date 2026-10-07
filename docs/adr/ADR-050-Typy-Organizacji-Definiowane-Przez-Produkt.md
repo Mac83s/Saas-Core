@@ -52,6 +52,13 @@ deklaracją produktu, a nie kodem w rdzeniu.
      na ekran „kim jesteś” z typami `selfSignup` i zakłada organizację, zanim
      zobaczy panel. Sam formularz rejestracji się nie zmienia: nie ujawnia, czy
      konto istnieje, więc nie może zakładać organizacji.
+     Uzupełnienie 2026-10-07: deployment, w którym żaden typ nie ma
+     `selfSignup`, nie ma własnej rejestracji — ekran logowania jej nie
+     proponuje, a `/register` odpowiada jak strona, której nie ma, bo konto
+     kończyłoby na tym ekranie bez typu do wyboru. Wyjątkiem jest osoba
+     z zaproszeniem: przychodzi z adresu zaproszenia i potrzebuje konta, żeby
+     je przyjąć (`apps/frontend/src/lib/sign-up.ts`). API rejestracji się nie
+     zmienia.
 4. **Uprawnienia ról systemowych pochodzą z katalogu, a nie z migracji.** Typ
    może zadeklarować `roles` (klucz, nazwa, uprawnienia, `limited`). Wymagane
    są `owner` (z wszystkimi uprawnieniami `core.organizations`) i `admin`,

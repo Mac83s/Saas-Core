@@ -39,6 +39,7 @@ import {
 } from "@saas-core/ui/components/select";
 
 import { Link, useRouter } from "#i18n/navigation";
+import { registrationHref } from "#lib/sign-up";
 import { TwoFactorCard } from "./account-security";
 import { identityErrorMessage, identityFieldError } from "./problem";
 import { AuthShell } from "./auth-shell";
@@ -98,6 +99,7 @@ export function LoginForm({
   const router = useRouter();
   const [stage, setStage] = useState<"password" | "mfa" | "setup">("password");
   const [problem, setProblem] = useState<string>();
+  const register = registrationHref(returnTo);
   const loginSchema = useMemo(
     () =>
       z.object({
@@ -224,9 +226,12 @@ export function LoginForm({
         <Link className="text-primary hover:underline" href="/password-reset">
           {t("forgotPassword")}
         </Link>
-        <Link className="text-primary hover:underline" href="/register">
-          {t("createAccount")}
-        </Link>
+        {/* Not where nobody may sign up by themselves (`registrationHref`). */}
+        {register ? (
+          <Link className="text-primary hover:underline" href={register}>
+            {t("createAccount")}
+          </Link>
+        ) : null}
       </div>
     </form>
   );

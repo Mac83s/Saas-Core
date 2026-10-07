@@ -119,3 +119,12 @@ test("pokazuje równoważny komunikat rejestracji zwrócony przez API", async ()
     ),
   ).toBeInTheDocument();
 });
+
+test("gdzie można założyć konto samemu, ekran logowania prowadzi do rejestracji jak dotąd", () => {
+  renderWithMessages(<LoginForm returnTo="/invitations/accept?token=abc" />);
+
+  expect(screen.getByRole("link", { name: "Utwórz konto" })).toHaveAttribute(
+    "href",
+    "/register",
+  );
+});
