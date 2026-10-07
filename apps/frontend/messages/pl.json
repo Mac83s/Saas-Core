@@ -263,6 +263,7 @@
       "sites_entry_published": "Opublikowano wpis",
       "sites_domain_created": "Dodano domenę",
       "sites_redirect_deleted": "Usunięto przekierowanie",
+      "sites_old_addresses_loaded": "Wczytano mapę starych adresów strony",
       "sites_inquiry_received": "Wpłynęło zapytanie ze strony",
       "sites_inquiry_read": "Przeczytano zapytanie ze strony",
       "sites_proposal_accepted": "Przyjęto propozycję zmiany treści",
