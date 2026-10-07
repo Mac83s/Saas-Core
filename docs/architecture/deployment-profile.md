@@ -51,6 +51,12 @@ Plik `deployments/business/deployment.json`:
 }
 ```
 
+`features.marketingSite` (domyślnie włączone; ADR-077 pkt 4): `false` wyłącza na
+hoście platformy strony marketingowe rdzenia i katalog firm — `/` prowadzi do
+logowania, ich adresy odpowiadają 404, a `sitemap.xml` nie wymienia żadnego. To
+ustawienie produktu, którego publiczna strona powstaje w kreatorze i odpowiada na
+własnej domenie; panel, logowanie i strony gości firm działają bez zmian.
+
 Profil `deployments/core-only/deployment.json` zawiera wyłącznie moduły Core i
 służy do udowodnienia, że Core działa bez żadnego modułu Shared. Produkty
 branżowe (HoofCare, MedPlano) mają profile we własnych repozytoriach

@@ -73,6 +73,18 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   `docs/operations/billing.md`) nie obejmuje subskrypcji w Stripe: wymaga
   wywołania, które zmienia cenę trwającej subskrypcji bez proporcjonalnego
   rozliczenia — do zrobienia razem z W9.5.2S.
+- **Strona treści produktu w kreatorze (PB3b, 07.10, lokalnie, niewdrożone;
+  ADR-077, migracja `sites.0053`):** workspace platformy jest wydawcą —
+  `provision_platform_workspace` nadaje `custom_domain.enabled`, `sites.max = 1` i
+  `storage.bytes` (`--storage-gib`, domyślnie 20), więc strona, pliki i własna
+  domena działają bez planu; mapa starych adresów strony (`load_old_addresses`,
+  jedno 308 do adresu, który odpowiada dziś, albo 410 z proxy); przełącznik profilu
+  `features.marketingSite: false` (host platformy = panel, `/` → logowanie);
+  odnośnik do działu w treści idzie za językiem czytelnika. Otwarte: adres z kropką
+  nie dociera do renderera (matcher proxy), więc reguła dla niego nie zadziała; mapa
+  nie ma ekranu ani polecenia asystenta; własne bloki produktu to pakiet PB3a
+  (ADR-077 pkt 8); `develop-sites` jest przy limicie 16 kB i nie opisuje mapy —
+  opis jest w ADR-077 i w `shared/sites/old_addresses.py`.
 - **Operacje treści per język (TL13, 04.10, lokalnie, niewdrożone; ops
   mac-20261004-24, SCR mac-20261004-25):** `content-change-set.v1` przyjmuje
   język jako wzorzec, a podstrona w języku innym niż źródłowy ma własną bazę i
