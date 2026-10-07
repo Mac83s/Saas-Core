@@ -18506,6 +18506,10 @@ paths:
   /api/v1/sites/{site_id}/collections/:
     get:
       operationId: sites_collections_list
+      description: The blog, news and guide sections of one site, each with its name
+        in the addresses per language (`base_path`, `locale_paths`) and where its
+        index answers (`paths`). An integration sees the sections its grants name.
+      summary: List a site's sections of entries
       parameters:
       - in: path
         name: site_id
@@ -18540,6 +18544,13 @@ paths:
           description: ''
     post:
       operationId: sites_collections_create
+      description: Opens a blog, news or guide section on a site. `base_path` is its
+        name in the addresses of the site's own language (`/blog/`); `locale_paths`
+        may name it differently in other languages (`/de/ratgeber/`), and a language
+        left out follows `base_path`. A name is refused when another section or a
+        page has it in that language (`section_path_taken`) or when it is reserved
+        (`slug_reserved`).
+      summary: Create a section of entries
       parameters:
       - in: header
         name: Idempotency-Key
@@ -20232,6 +20243,10 @@ paths:
   /api/v1/sites/collections/{collection_id}/navigation/:
     put:
       operationId: sites_collection_navigation_set
+      description: 'Whether the published menu links to the section''s index. Visible
+        after the site''s next publication, like every menu change. A person''s choice:
+        an integration is refused.'
+      summary: Show or hide a section in the site's menu
       parameters:
       - in: path
         name: collection_id
@@ -20280,12 +20295,145 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+      x-quality-exempt:
+        idempotency-key: 'The whole value is sent each time: a repeat sets the same
+          value and changes nothing.'
+  /api/v1/sites/collections/{collection_id}/paths/:
+    put:
+      operationId: sites_collection_paths_set
+      description: '`base_path` names the section in the addresses of the site''s
+        own language, `locale_paths` in others; the whole set is sent each time and
+        a language left out follows `base_path`. Every address under a name that stops
+        being the section''s — the index, articles, subjects'' archives and their
+        later pages — answers one 308 to today''s; nothing is republished and articles
+        keep their slugs. Refused per field: `section_path_taken` (another section
+        or a page has the name in that language), `slug_reserved`, `section_path_invalid`,
+        `section_path_source_locale`, `locale_not_enabled`. A person''s decision:
+        an integration and the assistant are refused (`person_required`). When the
+        change moves an address visitors can open today (`moved` of the preview is
+        not empty) a `reason` is required (`redirect_reason_required`).'
+      summary: Rename a section in the site's addresses
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionPaths'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CollectionPaths'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CollectionPaths'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionPathsResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'The whole set of names is sent each time: a repeat sets
+          the same names and changes nothing.'
+  /api/v1/sites/collections/{collection_id}/paths/preview/:
+    post:
+      operationId: sites_collection_paths_preview
+      description: 'Validates the names and answers with the section''s addresses
+        as they would be and the addresses that would move, without saving. `base_path`
+        names the section in the addresses of the site''s own language, `locale_paths`
+        in others; the whole set is sent each time and a language left out follows
+        `base_path`. Every address under a name that stops being the section''s —
+        the index, articles, subjects'' archives and their later pages — answers one
+        308 to today''s; nothing is republished and articles keep their slugs. Refused
+        per field: `section_path_taken` (another section or a page has the name in
+        that language), `slug_reserved`, `section_path_invalid`, `section_path_source_locale`,
+        `locale_not_enabled`. A person''s decision: an integration and the assistant
+        are refused (`person_required`).'
+      summary: Preview renaming a section in the site's addresses
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionPaths'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CollectionPaths'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CollectionPaths'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionPathsResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/sites/collections/{collection_id}/policy/:
     put:
       operationId: sites_collection_policy_set
-      description: |-
-        Changing who may write a collection is a person's decision, so this is
-        session-only — a credential must not be able to widen its own reach.
+      description: 'People only, proposals to accept, or the content automation (ADR-035).
+        A person''s choice: an integration is refused.'
+      summary: Choose who writes a section's entries
       parameters:
       - in: path
         name: collection_id
@@ -20334,6 +20482,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+      x-quality-exempt:
+        idempotency-key: 'The whole policy is sent each time: a repeat sets the same
+          value and changes nothing.'
   /api/v1/sites/connections/:
     get:
       operationId: sites_automation_connections_list
@@ -29427,6 +29578,26 @@ components:
           pattern: ^[-a-zA-Z0-9_]+$
       required:
       - plan
+    CollectionMovedPath:
+      type: object
+      properties:
+        locale:
+          type: string
+          description: The language whose address moves.
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        from_path:
+          type: string
+          description: The index address that stops being the section's; it and everything
+            under it answers one 308.
+        to_path:
+          type: string
+          description: Where it leads from then on.
+      required:
+      - from_path
+      - locale
+      - to_path
     CollectionNavigation:
       type: object
       properties:
@@ -29434,6 +29605,64 @@ components:
           type: boolean
       required:
       - show_in_navigation
+    CollectionPaths:
+      type: object
+      description: The whole set of a section's names, sent each time.
+      properties:
+        base_path:
+          type: string
+          description: The section's name in the addresses of the site's own language.
+            Lowercase Latin letters, digits and single hyphens, at most 80 characters;
+            not a two-letter word (a language's prefix), a platform path or a record
+            source's section.
+          maxLength: 80
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        locale_paths:
+          type: object
+          additionalProperties:
+            oneOf:
+            - type: string
+              maxLength: 80
+              pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+            - type: string
+              maxLength: 0
+          description: 'The section''s name in the addresses of other languages, by
+            two-letter language code: `{"de": "ratgeber"}` gives `/de/ratgeber/`.
+            A language left out, or given an empty name, follows `base_path`. The
+            site''s own language is never a key. Lowercase Latin letters, digits and
+            single hyphens, at most 80 characters; not a two-letter word (a language''s
+            prefix), a platform path or a record source''s section.'
+        reason:
+          type: string
+          default: ''
+          description: Why the address moves. Required when the change moves an address
+            visitors can open today (`moved` of the preview is not empty); kept in
+            the history.
+          maxLength: 500
+      required:
+      - base_path
+    CollectionPathsResult:
+      type: object
+      properties:
+        collection:
+          allOf:
+          - $ref: '#/components/schemas/ContentCollection'
+          description: The section with the names as saved — or, in a preview, as
+            they would be.
+        moved:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionMovedPath'
+          description: 'The index addresses visitors can open today that the change
+            moves. Empty: nothing public moves and no reason is needed.'
+        changed:
+          type: boolean
+          description: False when the names sent are the ones the section already
+            has.
+      required:
+      - changed
+      - collection
+      - moved
     CommandConsent:
       type: object
       description: What the person is asked to agree to, exactly as the server previewed
@@ -29980,6 +30209,21 @@ components:
           type: string
         base_path:
           type: string
+          description: 'The section''s name in the addresses of the site''s own language:
+            `blog` gives `/blog/` and `/blog/<entry>/`.'
+        locale_paths:
+          type: object
+          additionalProperties:
+            type: string
+          description: The section's name in other languages' addresses, by language
+            code; a language not named here follows `base_path`.
+        paths:
+          type: object
+          additionalProperties:
+            type: string
+          description: 'Where the section''s index answers in each of the site''s
+            languages, as a path on the site: `{"pl": "/poradnik/", "de": "/de/ratgeber/"}`.
+            An article answers at that path followed by its slug.'
         automation_policy:
           type: string
         show_in_navigation:
@@ -29990,7 +30234,9 @@ components:
       - id
       - key
       - kind
+      - locale_paths
       - name
+      - paths
       - show_in_navigation
       - site_id
     ContentCollectionCreate:
@@ -30009,8 +30255,27 @@ components:
           default: blog
         base_path:
           type: string
+          description: The section's name in the addresses of the site's own language.
+            Lowercase Latin letters, digits and single hyphens, at most 80 characters;
+            not a two-letter word (a language's prefix), a platform path or a record
+            source's section.
           maxLength: 80
           pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        locale_paths:
+          type: object
+          additionalProperties:
+            oneOf:
+            - type: string
+              maxLength: 80
+              pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+            - type: string
+              maxLength: 0
+          description: 'The section''s name in the addresses of other languages, by
+            two-letter language code: `{"de": "ratgeber"}` gives `/de/ratgeber/`.
+            A language left out, or given an empty name, follows `base_path`. The
+            site''s own language is never a key. Lowercase Latin letters, digits and
+            single hyphens, at most 80 characters; not a two-letter word (a language''s
+            prefix), a platform path or a record source''s section.'
       required:
       - base_path
       - key

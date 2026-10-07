@@ -5,6 +5,8 @@ from .blueprint_views import BlueprintCatalogView, BlueprintDraftView
 from .collection_views import (
     ContentCollectionListCreateView,
     ContentCollectionNavigationView,
+    ContentCollectionPathsPreviewView,
+    ContentCollectionPathsView,
     ContentCollectionPolicyView,
     ContentEntryDraftView,
     ContentEntryListCreateView,
@@ -238,6 +240,16 @@ urlpatterns = [
         "collections/<uuid:collection_id>/policy/",
         ContentCollectionPolicyView.as_view(),
         name="collection-policy",
+    ),
+    path(
+        "collections/<uuid:collection_id>/paths/",
+        ContentCollectionPathsView.as_view(),
+        name="collection-paths",
+    ),
+    path(
+        "collections/<uuid:collection_id>/paths/preview/",
+        ContentCollectionPathsPreviewView.as_view(),
+        name="collection-paths-preview",
     ),
     path(
         "pages/<uuid:page_id>/policy/",

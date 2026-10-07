@@ -1182,9 +1182,9 @@ def _entry_rows(site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
             locale,
             OVERVIEW_PUBLISHED,
             path=entry_path(
+                entry.collection,
                 default_locale=site.default_locale,
                 locale=locale,
-                base_path=entry.collection.base_path,
                 slug=entry.slug,
             ),
         )

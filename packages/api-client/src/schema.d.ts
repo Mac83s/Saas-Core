@@ -6300,8 +6300,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * List a site's sections of entries
+         * @description The blog, news and guide sections of one site, each with its name in the addresses per language (`base_path`, `locale_paths`) and where its index answers (`paths`). An integration sees the sections its grants name.
+         */
         get: operations["sites_collections_list"];
         put?: never;
+        /**
+         * Create a section of entries
+         * @description Opens a blog, news or guide section on a site. `base_path` is its name in the addresses of the site's own language (`/blog/`); `locale_paths` may name it differently in other languages (`/de/ratgeber/`), and a language left out follows `base_path`. A name is refused when another section or a page has it in that language (`section_path_taken`) or when it is reserved (`slug_reserved`).
+         */
         post: operations["sites_collections_create"];
         delete?: never;
         options?: never;
@@ -6749,8 +6757,52 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        /**
+         * Show or hide a section in the site's menu
+         * @description Whether the published menu links to the section's index. Visible after the site's next publication, like every menu change. A person's choice: an integration is refused.
+         */
         put: operations["sites_collection_navigation_set"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/paths/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rename a section in the site's addresses
+         * @description `base_path` names the section in the addresses of the site's own language, `locale_paths` in others; the whole set is sent each time and a language left out follows `base_path`. Every address under a name that stops being the section's — the index, articles, subjects' archives and their later pages — answers one 308 to today's; nothing is republished and articles keep their slugs. Refused per field: `section_path_taken` (another section or a page has the name in that language), `slug_reserved`, `section_path_invalid`, `section_path_source_locale`, `locale_not_enabled`. A person's decision: an integration and the assistant are refused (`person_required`). When the change moves an address visitors can open today (`moved` of the preview is not empty) a `reason` is required (`redirect_reason_required`).
+         */
+        put: operations["sites_collection_paths_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/paths/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview renaming a section in the site's addresses
+         * @description Validates the names and answers with the section's addresses as they would be and the addresses that would move, without saving. `base_path` names the section in the addresses of the site's own language, `locale_paths` in others; the whole set is sent each time and a language left out follows `base_path`. Every address under a name that stops being the section's — the index, articles, subjects' archives and their later pages — answers one 308 to today's; nothing is republished and articles keep their slugs. Refused per field: `section_path_taken` (another section or a page has the name in that language), `slug_reserved`, `section_path_invalid`, `section_path_source_locale`, `locale_not_enabled`. A person's decision: an integration and the assistant are refused (`person_required`).
+         */
+        post: operations["sites_collection_paths_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6766,8 +6818,8 @@ export interface paths {
         };
         get?: never;
         /**
-         * @description Changing who may write a collection is a person's decision, so this is
-         *     session-only — a credential must not be able to widen its own reach.
+         * Choose who writes a section's entries
+         * @description People only, proposals to accept, or the content automation (ADR-035). A person's choice: an integration is refused.
          */
         put: operations["sites_collection_policy_set"];
         post?: never;
@@ -10138,8 +10190,38 @@ export interface components {
         CheckoutCreate: {
             plan: string;
         };
+        CollectionMovedPath: {
+            /** @description The language whose address moves. */
+            locale: string;
+            /** @description The index address that stops being the section's; it and everything under it answers one 308. */
+            from_path: string;
+            /** @description Where it leads from then on. */
+            to_path: string;
+        };
         CollectionNavigation: {
             show_in_navigation: boolean;
+        };
+        /** @description The whole set of a section's names, sent each time. */
+        CollectionPaths: {
+            /** @description The section's name in the addresses of the site's own language. Lowercase Latin letters, digits and single hyphens, at most 80 characters; not a two-letter word (a language's prefix), a platform path or a record source's section. */
+            base_path: string;
+            /** @description The section's name in the addresses of other languages, by two-letter language code: `{"de": "ratgeber"}` gives `/de/ratgeber/`. A language left out, or given an empty name, follows `base_path`. The site's own language is never a key. Lowercase Latin letters, digits and single hyphens, at most 80 characters; not a two-letter word (a language's prefix), a platform path or a record source's section. */
+            locale_paths?: {
+                [key: string]: string;
+            };
+            /**
+             * @description Why the address moves. Required when the change moves an address visitors can open today (`moved` of the preview is not empty); kept in the history.
+             * @default
+             */
+            reason: string;
+        };
+        CollectionPathsResult: {
+            /** @description The section with the names as saved — or, in a preview, as they would be. */
+            collection: components["schemas"]["ContentCollection"];
+            /** @description The index addresses visitors can open today that the change moves. Empty: nothing public moves and no reason is needed. */
+            moved: components["schemas"]["CollectionMovedPath"][];
+            /** @description False when the names sent are the ones the section already has. */
+            changed: boolean;
         };
         /** @description What the person is asked to agree to, exactly as the server previewed it. */
         CommandConsent: {
@@ -10376,7 +10458,16 @@ export interface components {
             key: string;
             name: string;
             kind: string;
+            /** @description The section's name in the addresses of the site's own language: `blog` gives `/blog/` and `/blog/<entry>/`. */
             base_path: string;
+            /** @description The section's name in other languages' addresses, by language code; a language not named here follows `base_path`. */
+            locale_paths: {
+                [key: string]: string;
+            };
+            /** @description Where the section's index answers in each of the site's languages, as a path on the site: `{"pl": "/poradnik/", "de": "/de/ratgeber/"}`. An article answers at that path followed by its slug. */
+            paths: {
+                [key: string]: string;
+            };
             automation_policy: string;
             show_in_navigation: boolean;
         };
@@ -10385,7 +10476,12 @@ export interface components {
             name: string;
             /** @default blog */
             kind: components["schemas"]["ContentCollectionCreateKindEnum"];
+            /** @description The section's name in the addresses of the site's own language. Lowercase Latin letters, digits and single hyphens, at most 80 characters; not a two-letter word (a language's prefix), a platform path or a record source's section. */
             base_path: string;
+            /** @description The section's name in the addresses of other languages, by two-letter language code: `{"de": "ratgeber"}` gives `/de/ratgeber/`. A language left out, or given an empty name, follows `base_path`. The site's own language is never a key. Lowercase Latin letters, digits and single hyphens, at most 80 characters; not a two-letter word (a language's prefix), a platform path or a record source's section. */
+            locale_paths?: {
+                [key: string]: string;
+            };
         };
         /**
          * @description * `blog` - blog
@@ -39384,6 +39480,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContentCollection"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_collection_paths_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CollectionPaths"];
+                "application/x-www-form-urlencoded": components["schemas"]["CollectionPaths"];
+                "multipart/form-data": components["schemas"]["CollectionPaths"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionPathsResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_collection_paths_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CollectionPaths"];
+                "application/x-www-form-urlencoded": components["schemas"]["CollectionPaths"];
+                "multipart/form-data": components["schemas"]["CollectionPaths"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionPathsResult"];
                 };
             };
             400: {

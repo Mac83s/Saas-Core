@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -20,15 +20,16 @@ from saas_core.modules.core.organizations.models import (
     Organization,
 )
 from saas_core.modules.core.organizations.public_sources import (
+    PublicSource,
     SourcePage,
     live_site_blocks,
-    page_sources,
+    page_source,
 )
 from saas_core.modules.shared.media.api import shown_image_facts
 
 from .ai_badge import badge_visible
 from .domains import InvalidHostname, normalize_hostname
-from .localization import collection_index_path
+from .localization import collection_index_path, entry_path, section_segment
 from .machine_text import machine_text
 from .models import (
     ContentCollection,
@@ -266,6 +267,16 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                     available=available,
                 )
                 if found is None:
+                    # A section somebody renamed: every address under its old
+                    # name leads to today's in one step.
+                    renamed = moved_section(
+                        organization_id=domain.organization_id,
+                        site=domain.site,
+                        requested_path=normalized_path,
+                        available=available,
+                    )
+                    found = (renamed, False) if renamed is not None else None
+                if found is None:
                     raise
                 target, temporary = found
                 raise PublicSiteMoved(
@@ -338,15 +349,17 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         site_snapshot,
         page.locale,
         collections=(
-            collections_with_entries(
-                organization_id=page.organization_id, site_id=page.site_id, locale=page.locale
+            collection_links(
+                organization_id=page.organization_id,
+                site_id=page.site_id,
+                default_locale=default_locale,
+                locale=page.locale,
             )
-            if page.locale != default_locale
-            and any(
+            if any(
                 isinstance(item, dict) and item.get("collection_id") is not None
                 for item in site_snapshot.get("navigation", [])
             )
-            else frozenset()
+            else {}
         ),
     )
     canonical_origin = f"{settings.PUBLIC_SITE_SCHEME}://{page.canonical_hostname}"
@@ -799,9 +812,13 @@ def _localized_href(href: str, targets: dict[str, str], prefix: str = "") -> str
         return target + href[cut:]
     # A record's own page: its source answers under the reader's language too
     # — with the record's words there, with one move to the site's own
-    # language (a unit), or with where the text can be read (a document).
-    if prefix and href[:cut].strip("/").split("/", 1)[0] in page_sources():
-        return prefix + href
+    # language (a unit), or with where the text can be read (a document) —
+    # and under the section's name in that language. A record with a slug of
+    # its own there answers the written one with one move to it.
+    first = href[:cut].strip("/").split("/", 1)[0]
+    source = page_source(first) if prefix else None
+    if source is not None:
+        return f"{prefix}/{source.segment(prefix.strip('/'))}{href[1 + len(first) :]}"
     return href
 
 
@@ -887,7 +904,7 @@ def _absolute_pagination(pagination: dict[str, Any] | None, origin: str) -> dict
 
 
 def navigation_links(
-    snapshot: dict[str, Any], locale: str, *, collections: frozenset[str] = frozenset()
+    snapshot: dict[str, Any], locale: str, *, collections: Mapping[str, str] | None = None
 ) -> list[dict[str, Any]]:
     """The menu in one language, for a reader outside this module's pages
     (llms.txt, TL19): the same entries a visitor sees."""
@@ -895,7 +912,7 @@ def navigation_links(
 
 
 def _navigation_links(
-    snapshot: dict[str, Any], locale: str, *, collections: frozenset[str] = frozenset()
+    snapshot: dict[str, Any], locale: str, *, collections: Mapping[str, str] | None = None
 ) -> list[dict[str, Any]]:
     """Menu entries resolved for one locale, in publication order.
 
@@ -903,8 +920,11 @@ def _navigation_links(
     from the page. An entry whose page has no translation in this locale is skipped:
     linking to it would send the visitor to an address that does not exist in
     the language they are reading. A collection is listed in another language
-    only among `collections` — those with articles in it, whose index answers
-    there — under its name in that language, or its own name marked as such."""
+    only among `collections` (`collection_links`) — those with articles in it,
+    whose index answers there — under its name in that language, or its own
+    name marked as such; its link is where its index answers today, which a
+    renamed section moved since the publication."""
+    indexes = collections or {}
     default_locale = str(snapshot.get("default_locale") or "")
     texts: dict[str, str] = (
         (snapshot.get("site_texts") or {}).get(locale) or {} if locale != default_locale else {}
@@ -920,16 +940,15 @@ def _navigation_links(
             continue
         if entry.get("collection_id") is not None:
             collection_id = str(entry["collection_id"])
+            if locale != default_locale and collection_id not in indexes:
+                continue
             link = {
                 "page_id": collection_id,
                 "parent_page_id": None,
                 "title": str(entry.get("title", "")),
-                "path": str(entry.get("path", "")),
+                "path": indexes.get(collection_id) or str(entry.get("path", "")),
             }
             if locale != default_locale:
-                if collection_id not in collections:
-                    continue
-                link["path"] = f"/{locale}{link['path']}"
                 translated = texts.get(f"collection/{collection_id}")
                 if translated:
                     link["title"] = translated
@@ -974,7 +993,7 @@ def _find_entry(
     differently from a page.
     """
     wanted = _comparable_path(requested_path)
-    entries = ContentEntry.all_objects.select_related("current_publication").filter(
+    entries = ContentEntry.all_objects.select_related("current_publication", "collection").filter(
         organization_id=organization_id,
         site_id=site_id,
         state=ContentEntryState.PUBLISHED,
@@ -985,15 +1004,16 @@ def _find_entry(
         if publication is None:
             continue
         snapshot = publication.snapshot
-        if _comparable_path(str(snapshot.get("path", ""))) != wanted:
+        path = published_entry_path(entry, snapshot, default_locale)
+        if _comparable_path(path) != wanted:
             continue
         locale_document = {
             "locale": snapshot["locale"],
             "translation_id": None,
             "version": snapshot.get("version", 1),
             "slug": snapshot["slug"],
-            "path": snapshot["path"],
-            "canonical_path": snapshot["path"],
+            "path": path,
+            "canonical_path": path,
             "title": snapshot["title"],
             "description": snapshot.get("excerpt", ""),
             "social_title": snapshot["title"],
@@ -1006,7 +1026,7 @@ def _find_entry(
         siblings = {
             locale: path
             for locale, path in _published_translations(
-                organization_id=organization_id, entry=entry
+                organization_id=organization_id, entry=entry, default_locale=default_locale
             ).items()
             if available is None or locale in available
         }
@@ -1074,6 +1094,19 @@ def _find_entry(
     raise PublicSiteNotFound
 
 
+def published_entry_path(entry: ContentEntry, snapshot: dict[str, Any], default_locale: str) -> str:
+    """Where a published article answers now: under its section's name in its
+    language as it is today, with the slug it was published under. The
+    snapshot's own `path` is where it answered when it was published — the
+    same address until somebody renames the section (ADR-071 pkt 14)."""
+    return entry_path(
+        entry.collection,
+        default_locale=default_locale,
+        locale=str(snapshot["locale"]),
+        slug=str(snapshot["slug"]),
+    )
+
+
 def _company_timezone(organization_id: Any) -> str:
     # The organization's row is read as the tenant the host named.
     with transaction.atomic():
@@ -1095,7 +1128,9 @@ def published_entries(
     ways (ADR-035 section 7), so they read it from one place rather than each
     growing its own idea of what is published.
     """
-    rows = ContentEntry.all_objects.select_related("current_publication").filter(
+    rows = ContentEntry.all_objects.select_related(
+        "current_publication", "collection", "site"
+    ).filter(
         organization_id=organization_id,
         site_id=site_id,
         state=ContentEntryState.PUBLISHED,
@@ -1115,7 +1150,7 @@ def published_entries(
             "collection_id": str(entry.collection_id),
             "translation_group": str(entry.translation_group),
             "title": str(snapshot["title"]),
-            "path": str(snapshot["path"]),
+            "path": published_entry_path(entry, snapshot, str(entry.site.default_locale)),
             "locale": str(snapshot["locale"]),
             "excerpt": str(snapshot.get("excerpt", "")),
             "author_name": str(snapshot.get("author_name", "")),
@@ -1159,6 +1194,31 @@ def collections_with_entries(*, organization_id: Any, site_id: Any, locale: str)
         .values_list("collection_id", flat=True)
         .distinct()
     )
+
+
+def collection_links(
+    *, organization_id: Any, site_id: Any, default_locale: str, locale: str
+) -> dict[str, str]:
+    """Where each section's index answers in `locale`, by collection id: every
+    section in the site's own language — an empty blog is still the address
+    the menu links to — and in another one only those with an article listed
+    in it (`collections_with_entries`)."""
+    listed = (
+        None
+        if locale == default_locale
+        else collections_with_entries(
+            organization_id=organization_id, site_id=site_id, locale=locale
+        )
+    )
+    return {
+        str(collection.id): collection_index_path(
+            collection, default_locale=default_locale, locale=locale
+        )
+        for collection in ContentCollection.all_objects.filter(
+            organization_id=organization_id, site_id=site_id
+        )
+        if listed is None or str(collection.id) in listed
+    }
 
 
 def parse_moment(value: Any) -> datetime | None:
@@ -1265,11 +1325,7 @@ def _find_index(
         for locale in locales:
             if (
                 _comparable_path(
-                    collection_index_path(
-                        default_locale=default_locale,
-                        locale=locale,
-                        base_path=candidate.base_path,
-                    )
+                    collection_index_path(candidate, default_locale=default_locale, locale=locale)
                 )
                 == wanted
             ):
@@ -1334,9 +1390,7 @@ def _find_collection_index(
     if locale not in languages:
         raise PublicSiteNotFound
     entries = grouped.get(locale, [])
-    first_path = collection_index_path(
-        default_locale=default_locale, locale=locale, base_path=collection.base_path
-    )
+    first_path = collection_index_path(collection, default_locale=default_locale, locale=locale)
     page_size = settings.SITES_ENTRY_INDEX_PAGE_SIZE
     total_pages = max(1, -(-len(entries) // page_size))
     # A page past the end is not an empty page, it is a wrong address. Answering
@@ -1354,9 +1408,7 @@ def _find_collection_index(
     # and in English list different articles, so each later page is its own.
     hreflang = (
         {
-            code: collection_index_path(
-                default_locale=default_locale, locale=code, base_path=collection.base_path
-            )
+            code: collection_index_path(collection, default_locale=default_locale, locale=code)
             for code in languages
         }
         if requested_page == 1
@@ -1366,7 +1418,7 @@ def _find_collection_index(
         "locale": locale,
         "translation_id": None,
         "version": 1,
-        "slug": collection.base_path,
+        "slug": section_segment(collection, default_locale=default_locale, locale=locale),
         "path": path,
         "canonical_path": path,
         "title": name,
@@ -1527,7 +1579,7 @@ def _find_tag_archive(
     def archive_of(code: str) -> str:
         return tag_archive_path(
             index_path=collection_index_path(
-                default_locale=default_locale, locale=code, base_path=collection.base_path
+                collection, default_locale=default_locale, locale=code
             ),
             slug=slug,
         )
@@ -1589,28 +1641,38 @@ def _find_tag_archive(
 
 
 def source_page_base(default_locale: str, locale: str, segment: str) -> str:
-    """Where a source's records have their pages in a language: one segment,
-    the same in every language, under the language's prefix (ADR-074 pkt 7)."""
+    """Where a source's records have their pages in a language: the source's
+    segment in that language (`PublicSource.segment`), under the language's
+    prefix (ADR-074 pkt 7)."""
     return f"/{segment}/" if locale == default_locale else f"/{locale}/{segment}/"
 
 
 def source_page_versions(
     default_locale: str,
-    segment: str,
+    source: PublicSource,
     slug: str,
     own_locales: frozenset[str],
     available: frozenset[str] | None,
     *,
     per_language: bool = False,
+    slugs: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     """A record's page by language: always in the site's own, and in another
     one only where the record has words of its own in it and the site is
     read in it — never the same text under two addresses. A record written
     per language (`per_language`, a company's document) has a page only where
-    it has a text: the site's own language is then no exception."""
+    it has a text: the site's own language is then no exception.
+
+    The one place a record's address is put together: under the source's
+    segment in each language and the record's slug there (`slugs`) — where it
+    names none, its slug in the site's own language, then `slug`."""
     codes = set(own_locales) if per_language else {default_locale, *own_locales}
+    named = slugs or {}
     return {
-        code: f"{source_page_base(default_locale, code, segment)}{slug}/"
+        code: (
+            f"{source_page_base(default_locale, code, source.segment(code))}"
+            f"{named.get(code) or named.get(default_locale) or slug}/"
+        )
         for code in sorted(codes)
         if code == default_locale or available is None or code in available
     }
@@ -1658,7 +1720,9 @@ def _find_source_page(
     has no words of its own in answers one 308 to the page in the site's own
     language (ADR-071 pkt 9). A record written per language (a company's
     document) is never moved to another language's text: the source's page
-    says where it can be read, and stays out of search."""
+    says where it can be read, and stays out of search. An address spelled
+    with another language's slug or name of the section answers one 308 to
+    the record's address in the language asked for."""
     # „On every published site”: a site nobody published has no such pages.
     if site.current_publication is None:
         raise PublicSiteNotFound
@@ -1672,33 +1736,43 @@ def _find_source_page(
     if len(parts) != 2:
         raise PublicSiteNotFound
     segment, slug = parts
-    source = page_sources().get(segment)
+    # The section under its name in the language asked for, else under
+    # another language's name for it.
+    source = page_source(segment, locale) or page_source(segment)
     if source is None or source.site_page is None:
         raise PublicSiteNotFound
 
-    def address(code: str) -> str:
+    def address(code: str, own: str = "") -> str:
         """Where the site answers for this record's page in a language."""
         if code != default_locale and available is not None and code not in available:
             return ""
-        return f"{source_page_base(default_locale, code, segment)}{slug}/"
+        return f"{source_page_base(default_locale, code, source.segment(code))}{own or slug}/"
 
     found = source.site_page(organization_id, locale, slug, address)
     if found is None:
         raise PublicSiteNotFound
     versions = source_page_versions(
         default_locale,
-        segment,
+        source,
         slug,
         found.locales,
         available,
         per_language=found.per_language,
+        slugs=found.slugs,
     )
     if locale not in versions and not found.per_language:
         raise PublicSiteMoved(versions[default_locale])
     # A per-language record asked for where it has no text: the page that
     # says so, at the address asked for.
     wordless = locale not in versions
-    path = address(locale) if wordless else versions[locale]
+    path = (
+        address(locale, found.slugs.get(locale) or found.slugs.get(default_locale) or "")
+        if wordless
+        else versions[locale]
+    )
+    if _comparable_path(path) != _comparable_path(requested_path):
+        # Another language's slug of the record, or its name of the section.
+        raise PublicSiteMoved(path)
     locale_document: dict[str, Any] = {
         "locale": locale,
         "translation_id": None,
@@ -1797,7 +1871,85 @@ def _redirect_target(
     return None
 
 
-def _published_translations(*, organization_id: Any, entry: ContentEntry) -> dict[str, str]:
+def moved_section(
+    *, organization_id: Any, site: Any, requested_path: str, available: frozenset[str] | None
+) -> str | None:
+    """Where an address under a section's former name answers now: its index,
+    an article, a subject's archive or a later page of either, under the
+    section's name of today (ADR-071 pkt 14, „Uzupełnienie 2026-10-07").
+
+    One step from any former name: the target is built from what the section
+    is called now, not from what it was called next, and it is an address
+    that answers — a former name leads nowhere for an article that is gone.
+    A name the site's own language used to have counts for every language,
+    because a language without a name of its own follows that one."""
+    default_locale = str(site.default_locale)
+    parts = _comparable_path(requested_path).strip("/").split("/")
+    locale = default_locale
+    if len(parts) > 1 and len(parts[0]) == 2 and parts[0] != default_locale:
+        locale, parts = parts[0], parts[1:]
+    former, rest = parts[0], parts[1:]
+    if not former:
+        return None
+    for collection in ContentCollection.all_objects.filter(
+        organization_id=organization_id, site_id=site.id
+    ):
+        if not any(
+            isinstance(item, dict)
+            and item.get("path") == former
+            and item.get("locale") in (locale, default_locale)
+            for item in collection.former_paths or []
+        ):
+            continue
+        target = collection_index_path(
+            collection, default_locale=default_locale, locale=locale
+        ) + "".join(f"{part}/" for part in rest)
+        try:
+            return _section_address(
+                organization_id=organization_id, site=site, path=target, available=available
+            )
+        except PublicSiteMoved as moved:
+            # The language is switched off: straight to where its own
+            # address leads, never through it.
+            return moved.location
+        except PublicSiteNotFound:
+            continue
+    return None
+
+
+def _section_address(
+    *, organization_id: Any, site: Any, path: str, available: frozenset[str] | None
+) -> str:
+    """The canonical address of what a section answers with at `path`."""
+    try:
+        _page, document, _publication = _find_entry(
+            organization_id=organization_id,
+            site_id=site.id,
+            default_locale=str(site.default_locale),
+            requested_path=path,
+            available=available,
+        )
+    except PublicSiteNotFound:
+        try:
+            _page, document, _publication = _find_collection_index(
+                organization_id=organization_id,
+                site=site,
+                requested_path=path,
+                available=available,
+            )
+        except PublicSiteNotFound:
+            _page, document, _publication = _find_tag_archive(
+                organization_id=organization_id,
+                site=site,
+                requested_path=path,
+                available=available,
+            )
+    return str(document["canonical_path"])
+
+
+def _published_translations(
+    *, organization_id: Any, entry: ContentEntry, default_locale: str
+) -> dict[str, str]:
     """Address per language for one article, published versions only.
 
     Each language is its own entry (they are different texts, written and
@@ -1805,7 +1957,9 @@ def _published_translations(*, organization_id: Any, entry: ContentEntry) -> dic
     to a search engine.
     """
     addresses: dict[str, str] = {}
-    for sibling in ContentEntry.all_objects.select_related("current_publication").filter(
+    for sibling in ContentEntry.all_objects.select_related(
+        "current_publication", "collection"
+    ).filter(
         organization_id=organization_id,
         translation_group=entry.translation_group,
         state=ContentEntryState.PUBLISHED,
@@ -1814,7 +1968,9 @@ def _published_translations(*, organization_id: Any, entry: ContentEntry) -> dic
         publication = sibling.current_publication
         if publication is None:
             continue
-        addresses[str(publication.snapshot["locale"])] = str(publication.snapshot["path"])
+        addresses[str(publication.snapshot["locale"])] = published_entry_path(
+            sibling, publication.snapshot, default_locale
+        )
     return addresses
 
 

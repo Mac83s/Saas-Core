@@ -1300,8 +1300,18 @@ class ContentCollection(TenantScopedModel):
         choices=ContentCollectionKind.choices,
         default=ContentCollectionKind.BLOG,
     )
-    # The path the index lives at: "blog" gives /blog/ and /blog/<entry>/.
+    # The section's name in the site's own language: "blog" gives /blog/ and
+    # /blog/<entry>/.
     base_path = models.SlugField(max_length=80)
+    # Its name in another language's addresses, by language code: {"de":
+    # "ratgeber"} gives /de/ratgeber/. A language not named here uses
+    # `base_path` (ADR-071 pkt 14, „Uzupełnienie 2026-10-07"); the site's own
+    # language is never a key.
+    locale_paths = models.JSONField(default=dict, blank=True)
+    # Names the section answered under before somebody changed them:
+    # [{"locale": "pl", "path": "blog"}]. Their addresses answer one 308 to
+    # today's (`moved_section` in publication_routing).
+    former_paths = models.JSONField(default=list, blank=True)
     # Appended to the end of the published menu when set. See the module note
     # on why this is a flag rather than a navigation item.
     show_in_navigation = models.BooleanField(default=False)

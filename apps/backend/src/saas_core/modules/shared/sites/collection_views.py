@@ -14,7 +14,9 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.shared.notifications.api_key_middleware import IsSessionOrApiKey
 
 from .collections import (
+    SectionPaths,
     cancel_entry_publication_schedule,
+    collection_paths,
     create_collection,
     create_entry,
     create_entry_translation,
@@ -28,6 +30,7 @@ from .collections import (
     schedule_entry_publication,
     set_collection_automation_policy,
     set_collection_navigation,
+    set_collection_paths,
     set_entry_tags,
     update_entry_metadata,
     withdraw_entry,
@@ -36,6 +39,8 @@ from .models import ContentCollection, ContentEntry, ContentEntryPublication
 from .serializers import (
     AutomationPolicySerializer,
     CollectionNavigationSerializer,
+    CollectionPathsResultSerializer,
+    CollectionPathsSerializer,
     ContentCollectionCreateSerializer,
     ContentCollectionSerializer,
     ContentEntryCreateSerializer,
@@ -72,6 +77,8 @@ def _collection_payload(collection: ContentCollection) -> dict[str, Any]:
         "name": collection.name,
         "kind": collection.kind,
         "base_path": collection.base_path,
+        "locale_paths": dict(collection.locale_paths or {}),
+        "paths": collection_paths(collection),
         "automation_policy": collection.automation_policy,
         "show_in_navigation": collection.show_in_navigation,
     }
@@ -140,6 +147,10 @@ class ContentCollectionListCreateView(APIView):
 
     @extend_schema(
         operation_id="sites_collections_list",
+        summary="List a site's sections of entries",
+        description="The blog, news and guide sections of one site, each with its name in "
+        "the addresses per language (`base_path`, `locale_paths`) and where its index answers "
+        "(`paths`). An integration sees the sections its grants name.",
         tags=["sites"],
         responses={
             200: ContentCollectionSerializer(many=True),
@@ -154,6 +165,12 @@ class ContentCollectionListCreateView(APIView):
 
     @extend_schema(
         operation_id="sites_collections_create",
+        summary="Create a section of entries",
+        description="Opens a blog, news or guide section on a site. `base_path` is its name "
+        "in the addresses of the site's own language (`/blog/`); `locale_paths` may name it "
+        "differently in other languages (`/de/ratgeber/`), and a language left out follows "
+        "`base_path`. A name is refused when another section or a page has it in that "
+        "language (`section_path_taken`) or when it is reserved (`slug_reserved`).",
         tags=["sites"],
         parameters=[IDEMPOTENCY_PARAMETER],
         request=ContentCollectionCreateSerializer,
@@ -333,8 +350,17 @@ class ContentCollectionPolicyView(APIView):
 
     @extend_schema(
         operation_id="sites_collection_policy_set",
+        summary="Choose who writes a section's entries",
+        description="People only, proposals to accept, or the content automation (ADR-035). "
+        "A person's choice: an integration is refused.",
         tags=["sites"],
         request=AutomationPolicySerializer,
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "The whole policy is sent each time: a repeat sets the same "
+                "value and changes nothing.",
+            }
+        },
         responses={
             200: ContentCollectionSerializer,
             400: ProblemDetailsSerializer,
@@ -407,8 +433,18 @@ class ContentCollectionNavigationView(APIView):
 
     @extend_schema(
         operation_id="sites_collection_navigation_set",
+        summary="Show or hide a section in the site's menu",
+        description="Whether the published menu links to the section's index. Visible after "
+        "the site's next publication, like every menu change. A person's choice: an "
+        "integration is refused.",
         tags=["sites"],
         request=CollectionNavigationSerializer,
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "The whole value is sent each time: a repeat sets the same "
+                "value and changes nothing.",
+            }
+        },
         responses={
             200: ContentCollectionSerializer,
             400: ProblemDetailsSerializer,
@@ -424,6 +460,94 @@ class ContentCollectionNavigationView(APIView):
             show=serializer.validated_data["show_in_navigation"],
         )
         return Response(_collection_payload(collection))
+
+
+def _paths_result(result: SectionPaths) -> dict[str, Any]:
+    return {
+        "collection": {**_collection_payload(result.collection), "paths": result.paths},
+        "moved": list(result.moved),
+        "changed": result.changed,
+    }
+
+
+_PATHS_RULES = (
+    "`base_path` names the section in the addresses of the site's own language, "
+    "`locale_paths` in others; the whole set is sent each time and a language left out "
+    "follows `base_path`. Every address under a name that stops being the section's — the "
+    "index, articles, subjects' archives and their later pages — answers one 308 to today's; "
+    "nothing is republished and articles keep their slugs. Refused per field: "
+    "`section_path_taken` (another section or a page has the name in that language), "
+    "`slug_reserved`, `section_path_invalid`, `section_path_source_locale`, "
+    "`locale_not_enabled`. A person's decision: an integration and the assistant are refused "
+    "(`person_required`)."
+)
+
+
+class ContentCollectionPathsView(APIView):
+    """A section's names in the site's addresses. Session-only: moving an
+    address costs what it earned, which is not an optimiser's trade to make."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_collection_paths_set",
+        summary="Rename a section in the site's addresses",
+        description=_PATHS_RULES
+        + " When the change moves an address visitors can open today (`moved` of the preview "
+        "is not empty) a `reason` is required (`redirect_reason_required`).",
+        tags=["sites"],
+        request=CollectionPathsSerializer,
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "The whole set of names is sent each time: a repeat sets "
+                "the same names and changes nothing.",
+            }
+        },
+        responses={
+            200: CollectionPathsResultSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, collection_id: UUID) -> Response:
+        serializer = CollectionPathsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            _paths_result(
+                set_collection_paths(collection_id=collection_id, **serializer.validated_data)
+            )
+        )
+
+
+class ContentCollectionPathsPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_collection_paths_preview",
+        summary="Preview renaming a section in the site's addresses",
+        description="Validates the names and answers with the section's addresses as they "
+        "would be and the addresses that would move, without saving. " + _PATHS_RULES,
+        tags=["sites"],
+        request=CollectionPathsSerializer,
+        extensions={"x-dry-run": True},
+        responses={
+            200: CollectionPathsResultSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, collection_id: UUID) -> Response:
+        serializer = CollectionPathsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            _paths_result(
+                set_collection_paths(
+                    collection_id=collection_id, **serializer.validated_data, dry_run=True
+                )
+            )
+        )
 
 
 class ContentEntryTranslationView(APIView):

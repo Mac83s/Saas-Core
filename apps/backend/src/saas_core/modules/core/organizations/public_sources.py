@@ -29,23 +29,58 @@ says so with `per_language`: its page exists only in the languages it has a
 text in, the site's own included, and where a visitor asks for it in another
 one the source's page says in which languages it can be read instead of
 showing a text nobody approved in that language.
+
+Where a record's page answers (2026-10-07, ADR-074 pkt 7 „Uzupełnienie")
+----------------------------------------------------------------------
+`/<segment>/<slug>/` in the site's own language, `/<xx>/<segment>/<slug>/` in
+another. Both parts may differ by language, and a source that says nothing
+keeps one of each for all of them:
+
+- the segment: `page_segment` (`stay`), and `page_segments` for the languages
+  that name the section differently (`{"en": "dog-breeds", "de":
+  "hunderassen"}` beside `page_segment="rasy-psow"`). The key is the language
+  the page is read in, whichever of them is the site's own. Every segment of
+  every source is reserved for new pages and sections of a site;
+- the slug: a record with a slug per language names them in `SourcePage.slugs`
+  and `SourcePageAddress.slugs`. `site_page` is asked with the slug of the
+  address and looks the record up by its slug in ANY language; the site
+  compares the answer with the address and, where the slug or the segment is
+  another language's, answers one 308 to the record's address in the language
+  asked for. A language the record names no slug in uses the slug of the
+  site's own language, then the one it was asked under.
+
+The site builds every such address itself (`source_page_versions` in
+`shared.sites.publication_routing`); a source that links its own pages gets
+the address from `PageAddress` (its page's other languages) or from
+`page_base` (its blocks), never by joining segments.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 from uuid import UUID
 
 from django.core.exceptions import ImproperlyConfigured
 
 #: A block of a site as a source reads it: its type and its published data.
 SiteBlock = tuple[str, Mapping[str, Any]]
-#: Where the site answers for one record's own page, by language code: its
-#: path there, or an empty string where the site is not read in that language.
-PageAddress = Callable[[str], str]
+
+
+class PageAddress(Protocol):
+    """Where the site answers for one record's own page in a language: its
+    path there, or an empty string where the site is not read in that
+    language. `slug` is the record's slug in that language where it has one of
+    its own; left out, the slug the page was asked under."""
+
+    def __call__(self, locale: str, slug: str = "") -> str: ...
+
+
+#: A first segment of an address: Latin letters, digits and single hyphens.
+_SEGMENT = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,17 +111,23 @@ class SourcePage:
     #: the source's own word that the record has no text there, kept out of
     #: search and of the language alternates instead of being moved.
     per_language: bool = False
+    #: The record's slug by language, where it has one per language; empty —
+    #: one slug in every language, the one the page was asked under.
+    slugs: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
 class SourcePageAddress:
     """One record that has a page, for whoever lists them (the sitemap)."""
 
+    #: The record's slug in the site's own language.
     slug: str
     locales: frozenset[str] = frozenset()
     changed_at: datetime | None = None
     #: As `SourcePage.per_language`: the page is listed in `locales` only.
     per_language: bool = False
+    #: As `SourcePage.slugs`.
+    slugs: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,12 +153,16 @@ class PublicSource:
         None
     )
     #: The first segment of the address of its records' own pages on a
-    #: company's site, the same in every language (ADR-074 pkt 7); empty — its
-    #: records have no pages.
+    #: company's site (ADR-074 pkt 7), in every language `page_segments` does
+    #: not name; empty — its records have no pages.
     page_segment: str = ""
+    #: The segment in the languages that name the section differently, by
+    #: language code (`{"de": "hunderassen"}`); see the module note.
+    page_segments: Mapping[str, str] = field(default_factory=dict)
     #: `site_page(organization_id, locale, slug, address)` → the page of the
-    #: record at that address, in that language where the record has words in
-    #: it, or None. `address(locale)` is where the site answers for this
+    #: record with that slug — in any language, where it has one per language
+    #: (`SourcePage.slugs`) — in that language where the record has words in
+    #: it, or None. `address(locale, slug)` is where the site answers for this
     #: record's page in a language — empty where the site is not read in it —
     #: for a page that links to its own other languages. The source sets its
     #: own tenant.
@@ -129,6 +174,14 @@ class PublicSource:
     #: when they say nothing about it. Called inside the company's tenant.
     business_type: Callable[[UUID], str] | None = None
 
+    def segment(self, locale: str) -> str:
+        """The first segment of its records' pages in a language."""
+        return self.page_segments.get(locale) or self.page_segment
+
+    def segments(self) -> frozenset[str]:
+        """Every first segment its records' pages take, in any language."""
+        return frozenset({self.page_segment, *self.page_segments.values()} - {""})
+
 
 _sources: dict[str, PublicSource] = {}
 
@@ -137,6 +190,22 @@ def register_public_source(source: PublicSource) -> None:
     existing = _sources.get(source.key)
     if existing is not None and existing != source:
         raise ImproperlyConfigured(f"Publiczne źródło jest już zarejestrowane: {source.key}")
+    if source.page_segments and not source.page_segment:
+        raise ImproperlyConfigured(
+            f"Źródło {source.key} nazywa segment per język bez segmentu podstawowego."
+        )
+    for segment in source.segments():
+        # A two-letter segment is a language's prefix (ADR-071).
+        if not _SEGMENT.fullmatch(segment) or len(segment) == 2:
+            raise ImproperlyConfigured(f"Segment źródła {source.key} jest niepoprawny: {segment}")
+    for other in _sources.values():
+        # One segment, one source — in whichever language: `/de/<segment>/`
+        # of one must never be `/<segment>/` of another on a German site.
+        shared = source.segments() & other.segments() if other.key != source.key else None
+        if shared:
+            raise ImproperlyConfigured(
+                f"Segment {sorted(shared)[0]} należy już do źródła {other.key}."
+            )
     _sources[source.key] = source
 
 
@@ -192,16 +261,34 @@ def live_site_blocks(
             if isinstance(block, Mapping) and block.get("block_type") in source.site_block_types
         }
         if asked:
-            base = page_base(source.page_segment) if page_base and source.page_segment else ""
+            base = (
+                page_base(source.segment(locale)) if page_base and source.page_segment else ""
+            )
             answers.update(source.site_blocks(organization_id, locale, asked, base))
     return answers
 
 
 def page_sources() -> dict[str, PublicSource]:
     """The sources whose records have pages of their own, by the first
-    segment of those pages' addresses."""
+    segment of those pages' addresses in a language that names no other
+    (`page_segment`). An address is matched with `page_source`."""
     return {
         source.page_segment: source
         for source in _sources.values()
         if source.page_segment and source.site_page is not None
     }
+
+
+def page_source(segment: str, locale: str | None = None) -> PublicSource | None:
+    """The source whose records' pages answer under `segment` in `locale`;
+    without a language — under that segment in any of them."""
+    for source in page_sources().values():
+        if segment == source.segment(locale) if locale else segment in source.segments():
+            return source
+    return None
+
+
+def page_source_segments() -> frozenset[str]:
+    """Every first segment a source's pages take, in any language: none of
+    them is free for a page or a section of a site."""
+    return frozenset().union(*(source.segments() for source in page_sources().values()))

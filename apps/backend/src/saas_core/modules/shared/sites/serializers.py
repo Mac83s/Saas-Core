@@ -301,13 +301,46 @@ class SiteNavigationSaveSerializer(serializers.Serializer[dict[str, Any]]):
     items = NavigationItemSerializer(many=True, allow_empty=True)
 
 
+SECTION_PATH_HELP = (
+    "Lowercase Latin letters, digits and single hyphens, at most 80 characters; not a "
+    "two-letter word (a language's prefix), a platform path or a record source's section."
+)
+
+
+def _locale_paths_field(**kwargs: Any) -> serializers.DictField:
+    return serializers.DictField(
+        child=serializers.RegexField(
+            r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=80, allow_blank=True
+        ),
+        help_text="The section's name in the addresses of other languages, by two-letter "
+        'language code: `{"de": "ratgeber"}` gives `/de/ratgeber/`. A language left out, or '
+        "given an empty name, follows `base_path`. The site's own language is never a key. "
+        + SECTION_PATH_HELP,
+        **kwargs,
+    )
+
+
 class ContentCollectionSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     site_id = serializers.UUIDField()
     key = serializers.CharField()
     name = serializers.CharField()
     kind = serializers.CharField()
-    base_path = serializers.CharField()
+    base_path = serializers.CharField(
+        help_text="The section's name in the addresses of the site's own language: `blog` "
+        "gives `/blog/` and `/blog/<entry>/`."
+    )
+    locale_paths = serializers.DictField(
+        child=serializers.CharField(),
+        help_text="The section's name in other languages' addresses, by language code; a "
+        "language not named here follows `base_path`.",
+    )
+    paths = serializers.DictField(
+        child=serializers.CharField(),
+        help_text="Where the section's index answers in each of the site's languages, as a "
+        'path on the site: `{"pl": "/poradnik/", "de": "/de/ratgeber/"}`. An article answers '
+        "at that path followed by its slug.",
+    )
     automation_policy = serializers.CharField()
     show_in_navigation = serializers.BooleanField()
 
@@ -316,7 +349,56 @@ class ContentCollectionCreateSerializer(serializers.Serializer[dict[str, Any]]):
     key = serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=80)
     name = serializers.CharField(max_length=160, trim_whitespace=True)
     kind = serializers.ChoiceField(choices=["blog", "news", "guide"], default="blog")
-    base_path = serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=80)
+    base_path = serializers.RegexField(
+        r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        max_length=80,
+        help_text="The section's name in the addresses of the site's own language. "
+        + SECTION_PATH_HELP,
+    )
+    locale_paths = _locale_paths_field(required=False)
+
+
+class CollectionPathsSerializer(serializers.Serializer[dict[str, Any]]):
+    """The whole set of a section's names, sent each time."""
+
+    base_path = serializers.RegexField(
+        r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        max_length=80,
+        help_text="The section's name in the addresses of the site's own language. "
+        + SECTION_PATH_HELP,
+    )
+    locale_paths = _locale_paths_field(default=dict)
+    reason = serializers.CharField(
+        max_length=500,
+        allow_blank=True,
+        default="",
+        trim_whitespace=True,
+        help_text="Why the address moves. Required when the change moves an address "
+        "visitors can open today (`moved` of the preview is not empty); kept in the history.",
+    )
+
+
+class CollectionMovedPathSerializer(serializers.Serializer[dict[str, Any]]):
+    locale = ContentLocaleField(help_text="The language whose address moves.")
+    from_path = serializers.CharField(
+        help_text="The index address that stops being the section's; it and everything "
+        "under it answers one 308."
+    )
+    to_path = serializers.CharField(help_text="Where it leads from then on.")
+
+
+class CollectionPathsResultSerializer(serializers.Serializer[dict[str, Any]]):
+    collection = ContentCollectionSerializer(
+        help_text="The section with the names as saved — or, in a preview, as they would be."
+    )
+    moved = CollectionMovedPathSerializer(
+        many=True,
+        help_text="The index addresses visitors can open today that the change moves. Empty: "
+        "nothing public moves and no reason is needed.",
+    )
+    changed = serializers.BooleanField(
+        help_text="False when the names sent are the ones the section already has."
+    )
 
 
 class CollectionNavigationSerializer(serializers.Serializer[dict[str, Any]]):

@@ -17,6 +17,7 @@ from .models import ContentCollection, Domain, DomainStatus
 from .publication_routing import (
     TAG_INDEX_THRESHOLD,
     PublicSiteNotFound,
+    collection_links,
     entries_by_locale,
     feed_path,
     index_languages,
@@ -237,9 +238,7 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
         grouped = entries_by_locale(entries, str(collection.id))
         languages = index_languages(site_locale, grouped)
         firsts = {
-            locale: collection_index_path(
-                default_locale=site_locale, locale=locale, base_path=collection.base_path
-            )
+            locale: collection_index_path(collection, default_locale=site_locale, locale=locale)
             for locale in languages
         }
         # Each language's index where it answers (TL14), with every page of
@@ -278,17 +277,18 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
     # booking, `/stay/<unit>/`): on a published site only, each in the site's
     # own language and in those the record has words in.
     if publication is not None:
-        for segment, source in sorted(page_sources().items()):
+        for _segment, source in sorted(page_sources().items()):
             if source.site_pages is None:
                 continue
             for record in source.site_pages(domain.organization_id):
                 versions = source_page_versions(
                     site_locale,
-                    segment,
+                    source,
                     record.slug,
                     record.locales,
                     available,
                     per_language=record.per_language,
+                    slugs=record.slugs,
                 )
                 for path in versions.values():
                     locations.append(_Location(path, record.changed_at, versions))
@@ -467,10 +467,22 @@ def render_site_llms(*, host: str, locale: str | None = None) -> HttpResponse:
         described = _llms_text(description)
         return f"{text}: {described}" if described else text
 
+    # The sections the menu names in this language: those with an article
+    # here, at the address their index answers at today.
+    written = {entry["collection_id"] for entry in entries}
     menu = navigation_links(
         snapshot,
         language,
-        collections=frozenset(entry["collection_id"] for entry in entries),
+        collections={
+            collection_id: path
+            for collection_id, path in collection_links(
+                organization_id=domain.organization_id,
+                site_id=domain.site_id,
+                default_locale=default_locale,
+                locale=language,
+            ).items()
+            if language == default_locale or collection_id in written
+        },
     )
     pages: list[str] = []
     listed: set[str] = set()

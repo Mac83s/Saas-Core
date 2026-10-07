@@ -134,7 +134,9 @@ korzeniem. Strony firm nie mają JSON-LD.
     `localePrefix` profilu (`as-needed` albo `always`) dotyczy wyłącznie tras hosta
     platformy (strony produktu, katalog, rezerwacje), nigdy stron firm.
 14. **Dług adresowy (świadomy):** ścieżki blogów, slugi tagów i kotwice nagłówków są
-    wspólne dla wszystkich języków.
+    wspólne dla wszystkich języków. *Od 2026-10-07 ścieżki działów (blogów) i stron
+    rekordów mają nazwę per język — patrz „Uzupełnienie 2026-10-07”; długiem zostają
+    slugi tagów i kotwice nagłówków.*
 
 ### SEO i GEO
 
@@ -332,3 +334,83 @@ nieprawdziwy podtyp jest gorszy niż jego brak). Decyzja właściciela z
 - **Warunek adresu zostaje.** Na stronie firmy podtyp stoi obok
   `LocalBusiness`, czyli tylko gdy wizytówka ma ulicę; bez niej firma jest
   `Organization`, jak dotąd.
+
+
+## Uzupełnienie 2026-10-07: nazwa działu w adresach per język (pkt 14, PB1)
+
+Decyzja właściciela z 2026-10-07 (memex, projekt `puppily`:
+`puppily-s-first-stage-runs-on-the-site-builder-w`): strona treści Puppily powstaje w
+kreatorze stron, a nazwy działów w adresach per język (`/poradnik/`, `/en/blog/`,
+`/de/ratgeber/`) wchodzą do rdzenia, bo wielojęzyczne strony firm potrzebują ich tak
+samo. Pkt 14 spłaca się w części: **ścieżki działów (kolekcji) i stron rekordów**
+(te drugie — ADR-074, „Uzupełnienie 2026-10-07”). **Długiem zostają** slugi tagów i
+segment `tag`, kotwice nagłówków oraz alfabet: nazwa działu to nadal małe litery
+łacińskie, cyfry i łączniki.
+
+Rozstrzygnięcia techniczne (agent, plan memex
+`saas-core-wielojezycznosc-i-tlumaczenia-ai`, faza PB1):
+
+1. **Nazwa w języku strony zostaje w `base_path`, inne języki w `locale_paths`.**
+   `ContentCollection.locale_paths` to `{język: nazwa}`; język, którego tam nie ma,
+   idzie za `base_path`. Istniejąca strona nie ma żadnego wpisu w `locale_paths`,
+   więc jej adresy nie zmieniają się ani o znak i nie potrzeba migracji danych
+   (test złotych adresów `test_sites_section_addresses.py`, napisany przed zmianą).
+   Język strony nigdy nie jest kluczem `locale_paths`.
+2. **Jedna para funkcji składa adres działu:** `collection_index_path` i
+   `entry_path` w `shared/sites/localization.py`, obie biorą kolekcję, nie tekst
+   ścieżki. Resolver dopasowuje żądanie do ich wyniku, a canonical, hreflang i
+   x-default, przełącznik języka, okruszki i JSON-LD, lista wpisów, sitemapa, RSS i
+   Atom, llms.txt, przegląd tłumaczeń, podgląd SEO i inwentarz wołają te same dwie.
+3. **Adres opublikowanego wpisu liczy się przy odczycie**, z dzisiejszej nazwy działu
+   w języku wpisu i slugu z jego migawki (`published_entry_path`). `path` i
+   `base_path` w migawce wpisu zostają zapisem, gdzie wpis wyszedł, i routing ich
+   nie czyta. Odrzucone: przepisanie migawek (publikacje są niezmienne) i ponowna
+   publikacja wszystkich wpisów przy zmianie nazwy (trzysta publikacji, trzysta
+   zdarzeń i zmiana `updated` kanałów za jedną zmianę słowa w adresie).
+4. **Link działu w menu liczy się przy odczycie** (`collection_links`), a nie z
+   migawki strony: zmiana nazwy działu nie wymaga publikacji strony. `path` we
+   wpisie nawigacji migawki zostaje dla starszych czytelników.
+5. **Zmiana nazwy po założeniu:** `PUT /api/v1/sites/collections/<id>/paths/` —
+   cały zestaw nazw naraz — i `POST …/paths/preview/` (podgląd bez zapisu: adresy po
+   zmianie i lista adresów, które się przeniosą). To decyzja człowieka, jak zmiana
+   adresu podstrony (ADR-035, `change_page_url`): integracja i asystent dostają
+   `person_required`. Powód jest wymagany, gdy zmiana rusza adres, który dziś
+   odpowiada gościom (indeks w języku strony zawsze, w innym języku od pierwszego
+   opublikowanego wpisu); nazwanie działu w języku, w którym nikt go jeszcze nie
+   czyta, powodu nie wymaga. Zmiana trafia do historii z nazwami sprzed i po.
+6. **Jedno 308, nigdy łańcuch.** Poprzednie nazwy zostają w
+   `ContentCollection.former_paths` (`{język, nazwa}`). Adres pod dawną nazwą —
+   indeks, wpis, archiwum tagu i ich dalsze strony — odpowiada jednym 308 do adresu
+   kanonicznego pod nazwą dzisiejszą (`moved_section`): cel liczy się z tego, jak
+   dział nazywa się teraz, nie z kolejnej nazwy w historii, więc po zmianach
+   A → B → C adres pod A prowadzi prosto pod C. Przekierowanie jest tylko tam, gdzie
+   pod nową nazwą coś odpowiada; dawna nazwa z nieistniejącym wpisem to 404. Dawna
+   nazwa z języka strony liczy się we wszystkich językach, bo język bez własnej
+   nazwy szedł za nią. Wyłączony język prowadzi od razu do wersji w języku strony
+   (pkt 9), bez przystanku pod nową nazwą. Nazwa przywrócona przestaje być dawną.
+   Przekierowanie działa od zapisu, bo wpisy publikują się niezależnie od strony
+   (ADR-035 §1) — inaczej niż `SiteRedirect` podstrony, które wchodzi z publikacją.
+7. **Jeden adres, jedna odpowiedź, w każdym języku.** Nazwa działu w języku L nie
+   może być nazwą innego działu w L (także gdy tamten idzie w L za swoim
+   `base_path`), slugiem podstrony w L (`section_path_taken`) ani segmentem
+   zarezerwowanym z pkt 12 — do których dochodzą segmenty stron rekordów we
+   wszystkich językach (`slug_reserved`). Reguła pyta tylko o nazwy, które się
+   zmieniają: dział, jak podstrona, zachowuje adres starszy niż reguła. Slug wersji
+   językowej podstrony liczony kodem (ADR-070 pkt 18) omija nazwy działów ze
+   wszystkich języków.
+8. **Inwentarz dla automatyzacji treści** dostaje obok `base_path` pole
+   `collections[].paths` (`{język: ścieżka indeksu}`). To pole odpowiedzi, addytywne;
+   kontrakt `packages/contracts/content-operations` się nie zmienia i nadal nie ma
+   komendy zmieniającej opublikowany adres.
+
+Świadome granice tej zmiany:
+
+- Link w treści prowadzący do działu (`/blog/`) nie jest w wersji językowej
+  przepisywany na nazwę działu w języku czytelnika — tak było i przedtem
+  (`localized_links` zna podstrony i strony rekordów); po zmianie nazwy taki link
+  odpowiada jednym 308.
+- Dawną nazwę może zająć inny dział albo podstrona: żywy adres wygrywa, a
+  pozostałe adresy pod dawną nazwą nadal przekierowują.
+- `former_paths` nie ma limitu ani ekranu do usuwania wpisów; zmienia je tylko
+  człowiek, z powodem.
+- Silnik tłumaczeń nie proponuje nazwy działu w nowym języku — wpisuje ją człowiek.

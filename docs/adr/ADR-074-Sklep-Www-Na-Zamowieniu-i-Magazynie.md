@@ -378,3 +378,40 @@ Punkt z „Konsekwencji” o dniu firmy zrobiła wcześniej faza R2a planu memex
 `saas-core-ustawienia-firmy` (ADR-078): `consume`, korekta i domyślna data nowego
 dokumentu biorą `organization_today` (`Organization.local_today()`), więc numer
 dokumentu liczy rok firmy. Faza 9 nie musi już tego zmieniać.
+
+## Uzupełnienie 2026-10-07: segment i slug strony rekordu per język (pkt 7, PB1)
+
+Decyzja właściciela z 2026-10-07 (memex, projekt `puppily`:
+`puppily-s-first-stage-runs-on-the-site-builder-w`; ADR-071, „Uzupełnienie
+2026-10-07”): nazwy działów w adresach per język należą do rdzenia. Pkt 7 zakładał
+jeden segment i jeden slug rekordu dla wszystkich języków („ten sam dług”). Protokół
+publicznych źródeł (`core/organizations/public_sources.py` — tam jest jego opis dla
+autorów modułów) pozwala od teraz na oba per język; źródło, które nic nie deklaruje,
+zachowuje dotychczasowe adresy:
+
+- **Segment.** `PublicSource.page_segment` to segment we wszystkich językach,
+  których nie wymienia `page_segments` (`{"en": "dog-breeds", "de":
+  "hunderassen"}`). Kluczem jest język, w którym strona jest czytana, niezależnie od
+  tego, który z nich jest językiem strony firmy. `stay` (rezerwacje) i `documents`
+  (dokumenty firmy) nie deklarują nic i zostają pod swoimi adresami; `shop` zdecyduje
+  w fazie 9.
+- **Rezerwacja segmentów.** Każdy segment każdego źródła, w każdym języku, jest
+  zarezerwowany dla nowych podstron i działów (`slug_reserved`, ADR-071 pkt 12);
+  rejestr odmawia źródła, którego segment należy już do innego, jest dwuliterowy
+  albo nie jest słowem z małych liter łacińskich, cyfr i łączników.
+- **Slug.** Rekord ze slugiem per język podaje je w `SourcePage.slugs` i
+  `SourcePageAddress.slugs`. Strona pyta źródło slugiem z adresu, a źródło znajduje
+  rekord po slugu w dowolnym języku; język, w którym rekord nie ma własnego slugu,
+  używa slugu z języka strony.
+- **Jedno 308.** Adres zapisany slugiem albo segmentem innego języka odpowiada
+  jednym 308 do adresu rekordu w języku, o który pytano; język, w którym rekord nie
+  ma własnych słów, nadal prowadzi jednym 308 do strony w języku strony firmy
+  (ADR-071 pkt 9) — już pod jej segmentem i slugiem.
+- **Kto składa adres.** Tylko strona: `source_page_base` i `source_page_versions`
+  w `shared/sites/publication_routing.py` (resolver, hreflang, sitemapa). Źródło,
+  które linkuje własne strony, dostaje adres od strony: `PageAddress(język, slug)`
+  dla innych języków swojej strony i `page_base` dla bloków — nigdy nie skleja
+  segmentów samo.
+- **Link w treści** do strony rekordu (`/rasy-psow/<slug>/`) w wersji językowej
+  prowadzi pod segment w języku czytelnika; slug zostaje, jak go napisano, i gdy
+  rekord ma w tym języku inny, odpowiada jedno 308.

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -17,7 +18,7 @@ from uuid import UUID, uuid7
 
 from django.db import transaction
 from django.utils import timezone
-from rest_framework.exceptions import APIException, NotFound, ValidationError
+from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
 from saas_core.content_protocol.provenance import ORIGIN_AI, ORIGIN_HUMAN, Provenance, unit_hash
 from saas_core.modules.core.identity.models import User
@@ -31,7 +32,11 @@ from saas_core.modules.core.organizations.context import (
     require_tenant_context,
     set_local_organization_id,
 )
-from saas_core.modules.core.organizations.locales import assert_organization_content_locale
+from saas_core.modules.core.organizations.locales import (
+    assert_organization_content_locale,
+    content_locale_problem,
+    organization_content_locales,
+)
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 from saas_core.observability import correlation_id
@@ -39,7 +44,12 @@ from saas_core.observability import correlation_id
 from .block_contracts import validate_site_block
 from .block_decoration import normalize_block, validate_decoration, validate_presentation
 from .language_publication import _origin as translation_origin
-from .localization import entry_path, first_segment_reserved
+from .localization import (
+    collection_index_path,
+    entry_path,
+    first_segment_reserved,
+    section_segment,
+)
 from .localized_bodies import extract_units, structure_signature
 from .models import (
     ContentCollection,
@@ -51,6 +61,7 @@ from .models import (
     ContentTag,
     EntryScheduleState,
     PageAutomationPolicy,
+    PageTranslation,
     Site,
     SiteOutboxEvent,
     canonical_json_hash,
@@ -95,6 +106,18 @@ ENTRY_TRANSLATION_CREATED = "sites.entry.translation_created"
 ENTRY_METADATA_UPDATED = "sites.entry.metadata_updated"
 COLLECTION_POLICY_SET = "sites.collection.automation_policy_set"
 COLLECTION_NAVIGATION_SET = "sites.collection.navigation_set"
+COLLECTION_PATHS_SET = "sites.collection.paths_set"
+#: What the gate of a section's addresses is called: a person's decision, as
+#: moving a page's address is (`change_page_url`).
+SECTION_PATHS_GATE = "Zmiana adresu działu"
+SECTION_PATH_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+SECTION_PATH_MAX = 80
+#: Field codes of a section's name in the addresses (ADR-076 §5).
+SECTION_PATH_INVALID = "section_path_invalid"
+SECTION_PATH_TAKEN = "section_path_taken"
+SECTION_PATH_RESERVED = "slug_reserved"
+SECTION_PATH_SOURCE_LOCALE = "section_path_source_locale"
+SECTION_REASON_REQUIRED = "redirect_reason_required"
 ENTRY_VERSION_REFERENCE_OWNER = "sites.content_entry_version"
 ENTRY_SNAPSHOT_SCHEMA_VERSION = 1
 
@@ -220,7 +243,11 @@ def create_collection(
     kind: str,
     base_path: str,
     idempotency_key: str,
+    locale_paths: Mapping[str, str] | None = None,
 ) -> tuple[ContentCollection, bool]:
+    """`base_path` is the section's name in the addresses of the site's own
+    language; `locale_paths` names it in other languages (`{"de":
+    "ratgeber"}`), and a language left out follows `base_path`."""
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     # A new section of the site is the site's business: a grant for one
     # collection never opens another beside it. Checked before the replay, so
@@ -233,6 +260,9 @@ def create_collection(
         "name": name,
         "kind": kind,
         "base_path": base_path,
+        # Only when given: a request without names per language hashes as it
+        # did before they existed, so its replay still finds itself.
+        **({"locale_paths": dict(sorted(locale_paths.items()))} if locale_paths else {}),
     })
     existing = ContentCollection.all_objects.filter(
         organization_id=context.organization_id,
@@ -244,13 +274,18 @@ def create_collection(
         if existing.request_hash != request_hash:
             raise SitesIdempotencyConflict
         return existing, False
-    if not Site.all_objects.filter(
-        pk=site_id, organization_id=context.organization_id
-    ).exists():
+    site = (
+        Site.all_objects.select_for_update()
+        .filter(pk=site_id, organization_id=context.organization_id)
+        .first()
+    )
+    if site is None:
         raise SiteNotFound
     # The blog's address is unprefixed in the site's language, like a page's.
     if first_segment_reserved(base_path):
         raise SlugReserved
+    names = _section_names(site, base_path=base_path, locale_paths=locale_paths or {})
+    _assert_section_names_free(site, None, base_path, names)
     collection = ContentCollection.all_objects.create(
         organization_id=context.organization_id,
         site_id=site_id,
@@ -258,6 +293,7 @@ def create_collection(
         name=name,
         kind=kind,
         base_path=base_path,
+        locale_paths=names,
         created_by_id=context.actor_id,
         idempotency_key=normalized_key,
         request_hash=request_hash,
@@ -271,6 +307,266 @@ def create_collection(
         metadata={"key": collection.key, "kind": collection.kind},
     )
     return collection, True
+
+
+@dataclass(frozen=True, slots=True)
+class SectionPaths:
+    """A section's addresses, as they are or as a change would make them."""
+
+    collection: ContentCollection
+    #: Where its index answers in each of the site's languages.
+    paths: dict[str, str]
+    #: The index addresses visitors can open today that the change moves, and
+    #: where each leads from then on (one 308, with everything under it).
+    moved: tuple[dict[str, str], ...] = ()
+    changed: bool = False
+
+
+def _path_error(field: str, locale: str | None, message: str, code: str) -> ValidationError:
+    detail = [ErrorDetail(message, code=code)]
+    return ValidationError({field: {locale: detail} if locale else detail})
+
+
+def _section_names(
+    site: Site, *, base_path: str, locale_paths: Mapping[str, str]
+) -> dict[str, str]:
+    """The names per language as stored: lower case, no empty ones, none for
+    the site's own language, each a language the company offers."""
+    organization = Organization.objects.only("id", "public_locales").get(pk=site.organization_id)
+    if not SECTION_PATH_PATTERN.fullmatch(base_path) or len(base_path) > SECTION_PATH_MAX:
+        raise _path_error(
+            "base_path",
+            None,
+            "Adres działu to małe litery łacińskie, cyfry i pojedyncze łączniki.",
+            SECTION_PATH_INVALID,
+        )
+    names: dict[str, str] = {}
+    for locale, raw in sorted(locale_paths.items()):
+        name = str(raw or "").strip().lower()
+        if not name:
+            # „Follows the site's language": no name of its own.
+            continue
+        if locale == site.default_locale:
+            raise _path_error(
+                "locale_paths",
+                locale,
+                "Adres działu w języku strony ustawia pole base_path.",
+                SECTION_PATH_SOURCE_LOCALE,
+            )
+        problem = content_locale_problem(locale, organization=organization)
+        if problem is not None:
+            raise _path_error(
+                "locale_paths", locale, "Firma nie udostępnia treści w tym języku.", problem
+            )
+        if not SECTION_PATH_PATTERN.fullmatch(name) or len(name) > SECTION_PATH_MAX:
+            raise _path_error(
+                "locale_paths",
+                locale,
+                "Adres działu to małe litery łacińskie, cyfry i pojedyncze łączniki.",
+                SECTION_PATH_INVALID,
+            )
+        names[locale] = name
+    return names
+
+
+def _assert_section_names_free(
+    site: Site, collection: ContentCollection | None, base_path: str, names: Mapping[str, str]
+) -> None:
+    """One address, one answer, in every language (ADR-071 pkt 14): a
+    section's name there is no other section's, no page's and no reserved
+    segment — a platform path, a language's prefix, a record source's section
+    in any language. Asked of the names that change only: a section keeps
+    what it had before a rule, as a page does (`sites_reserved_slugs`)."""
+    others = list(
+        ContentCollection.all_objects.filter(
+            organization_id=site.organization_id, site_id=site.id
+        ).exclude(pk__in=[collection.id] if collection is not None else [])
+    )
+    organization = Organization.objects.only("id", "public_locales").get(pk=site.organization_id)
+    locales = {
+        site.default_locale,
+        *organization_content_locales(organization),
+        *names,
+        *(code for other in others for code in other.locale_paths or {}),
+    }
+    for locale in sorted(locales, key=lambda code: (code != site.default_locale, code)):
+        source = locale == site.default_locale
+        name = base_path if source else names.get(locale) or base_path
+        if collection is not None and name == section_segment(
+            collection, default_locale=site.default_locale, locale=locale
+        ):
+            continue
+        # Named for the language it was typed in; a clash that only a
+        # language following the site's name has is the site's name's.
+        field, key = ("base_path", None) if source or locale not in names else (
+            "locale_paths",
+            locale,
+        )
+        if first_segment_reserved(name):
+            if source:
+                raise SlugReserved
+            raise _path_error(
+                field,
+                key,
+                "Ten adres jest zarezerwowany dla platformy, języków albo stron rekordów.",
+                SECTION_PATH_RESERVED,
+            )
+        if any(
+            section_segment(other, default_locale=site.default_locale, locale=locale) == name
+            for other in others
+        ):
+            raise _path_error(
+                field,
+                key,
+                f"Inny dział ma już adres /{name}/ w języku {locale}.",
+                SECTION_PATH_TAKEN,
+            )
+        if PageTranslation.all_objects.filter(
+            organization_id=site.organization_id,
+            site_id=site.id,
+            locale=locale,
+            slug=name,
+            page__deleted_at__isnull=True,
+        ).exists():
+            raise _path_error(
+                field,
+                key,
+                f"Podstrona ma już adres /{name}/ w języku {locale}.",
+                SECTION_PATH_TAKEN,
+            )
+
+
+def _index_paths(site: Site, collection: ContentCollection) -> dict[str, str]:
+    organization = Organization.objects.only("id", "public_locales").get(pk=site.organization_id)
+    locales = dict.fromkeys((site.default_locale, *organization_content_locales(organization)))
+    return {
+        locale: collection_index_path(
+            collection, default_locale=site.default_locale, locale=locale
+        )
+        for locale in locales
+    }
+
+
+def collection_paths(collection: ContentCollection) -> dict[str, str]:
+    """Where the section's index answers in each of the site's languages —
+    the addresses the panel shows beside the names."""
+    return _index_paths(collection.site, collection)
+
+
+@transaction.atomic
+def set_collection_paths(
+    *,
+    collection_id: UUID,
+    base_path: str,
+    locale_paths: Mapping[str, str],
+    reason: str = "",
+    dry_run: bool = False,
+) -> SectionPaths:
+    """Renames a section in the site's addresses: `base_path` in the site's
+    own language, `locale_paths` in others (a language left out, or given an
+    empty name, follows `base_path`).
+
+    The whole set is sent each time. Every address under a name that stops
+    being the section's — its index, articles, subjects' archives and their
+    later pages — answers one 308 to today's from the moment this is saved;
+    nothing is republished, the articles keep their slugs. Moving an address
+    visitors can open today costs what it earned, so it takes a person and a
+    stated `reason`, like moving a page's (`change_page_url`); naming a
+    language nobody can read the section in yet takes neither.
+
+    `dry_run` validates and answers with the addresses as they would be and
+    what would move, and writes nothing.
+    """
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    assert_person_required(context, SECTION_PATHS_GATE)
+    collection = (
+        ContentCollection.all_objects.select_related("site")
+        .filter(pk=collection_id, organization_id=context.organization_id)
+        .first()
+    )
+    if collection is None:
+        raise CollectionNotFound
+    # One rename at a time on a site: two could each be free of the other's
+    # old name and collide on the new ones.
+    site = Site.all_objects.select_for_update().get(
+        pk=collection.site_id, organization_id=context.organization_id
+    )
+    collection = ContentCollection.all_objects.select_for_update().get(pk=collection.id)
+    collection.site = site
+    new_base = base_path.strip().lower()
+    names = _section_names(site, base_path=new_base, locale_paths=locale_paths)
+    _assert_section_names_free(site, collection, new_base, names)
+
+    before = _index_paths(site, collection)
+    old_names = {
+        locale: section_segment(collection, default_locale=site.default_locale, locale=locale)
+        for locale in {*before, *(collection.locale_paths or {}), *names}
+    }
+    collection.base_path, previous_base = new_base, collection.base_path
+    collection.locale_paths, previous_names = names, dict(collection.locale_paths or {})
+    changed = {
+        locale: old
+        for locale, old in old_names.items()
+        if section_segment(collection, default_locale=site.default_locale, locale=locale) != old
+    }
+    after = _index_paths(site, collection)
+    # What visitors can open today: the index in the site's own language
+    # always, in another one once it lists an article.
+    answering = {site.default_locale} | set(
+        ContentEntry.all_objects.filter(
+            organization_id=context.organization_id,
+            collection_id=collection.id,
+            state=ContentEntryState.PUBLISHED,
+            current_publication__isnull=False,
+        ).values_list("locale", flat=True)
+    )
+    moved = tuple(
+        {"locale": locale, "from_path": before[locale], "to_path": after[locale]}
+        for locale in before
+        if locale in changed and locale in answering
+    )
+    stored = previous_base != new_base or previous_names != names
+    result = SectionPaths(collection=collection, paths=after, moved=moved, changed=stored)
+    if dry_run or not stored:
+        # A preview answers with the section as it would be; nothing is saved.
+        return result
+    normalized_reason = reason.strip()
+    if moved and not normalized_reason:
+        raise ValidationError({
+            "reason": [
+                ErrorDetail("Zmiana adresu wymaga uzasadnienia.", code=SECTION_REASON_REQUIRED)
+            ]
+        })
+    # Old names answer with one move to today's; a name taken back is the
+    # section's again, not a former one.
+    former = [
+        *(collection.former_paths or []),
+        *({"locale": locale, "path": old} for locale, old in sorted(changed.items())),
+    ]
+    collection.former_paths = [
+        item
+        for index, item in enumerate(former)
+        if item not in former[:index]
+        and item.get("path")
+        != section_segment(
+            collection, default_locale=site.default_locale, locale=str(item.get("locale"))
+        )
+    ]
+    collection.save(update_fields=["base_path", "locale_paths", "former_paths", "updated_at"])
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=COLLECTION_PATHS_SET,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="content_collection",
+        target_id=collection.id,
+        metadata={
+            "from": {"base_path": previous_base, "locale_paths": previous_names},
+            "to": {"base_path": new_base, "locale_paths": names},
+            "moved": list(moved),
+            "reason": normalized_reason,
+        },
+    )
+    return result
 
 
 def list_entries(
@@ -698,13 +994,19 @@ def publish_entry(
         "schema_version": ENTRY_SNAPSHOT_SCHEMA_VERSION,
         "entry_id": str(entry.id),
         "collection_key": entry.collection.key,
-        "base_path": entry.collection.base_path,
+        # The section's name in the article's language, and the address, as
+        # they are at this publication. Visitors get the article where the
+        # section is called today (`published_entry_path`): these two are the
+        # record of where it went out.
+        "base_path": section_segment(
+            entry.collection, default_locale=entry.site.default_locale, locale=entry.locale
+        ),
         "locale": entry.locale,
         "slug": entry.slug,
         "path": entry_path(
+            entry.collection,
             default_locale=entry.site.default_locale,
             locale=entry.locale,
-            base_path=entry.collection.base_path,
             slug=entry.slug,
         ),
         "title": entry.title,

@@ -73,6 +73,7 @@ from .domains import InvalidHostname, link_host, normalize_hostname
 from .localization import (
     SiteLocalizationReport,
     build_localization_report,
+    collection_index_path,
     first_segment_reserved,
     localized_path,
 )
@@ -2856,7 +2857,11 @@ def _navigation_snapshot(
             "position": position,
             "collection_id": str(collection.id),
             "title": collection.name,
-            "path": "/" + collection.base_path + "/",
+            # Where the index answered when this was published; the menu a
+            # visitor gets reads where it answers now (`collection_links`).
+            "path": collection_index_path(
+                collection, default_locale=site.default_locale, locale=site.default_locale
+            ),
         })
         position += 1
     return entries

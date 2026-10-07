@@ -22,7 +22,7 @@ from typing import Any
 from uuid import UUID
 
 from saas_core.content_protocol.tokens import PLACEHOLDER_PATTERN
-from saas_core.modules.core.organizations.public_sources import page_sources
+from saas_core.modules.core.organizations.public_sources import PublicSource, page_source
 
 from .block_decoration import stored_block_payload
 from .localized_bodies import extract_units
@@ -62,15 +62,16 @@ def _hrefs(value: Any) -> Iterator[str]:
             yield from _hrefs(item)
 
 
-def _source_page(href: str) -> tuple[str, str] | None:
-    """The segment and the record's address of a link to a record's own page
-    in the site's own language (`/documents/privacy-policy/`), else None."""
+def _source_page(href: str, locale: str) -> tuple[PublicSource, str] | None:
+    """The source and the record's slug of a link to a record's own page in
+    the site's own language (`/documents/privacy-policy/`), else None."""
     if not href.startswith("/") or href.startswith("//"):
         return None
     parts = href.split("?", 1)[0].split("#", 1)[0].strip("/").split("/")
-    if len(parts) != 2 or parts[0] not in page_sources():
+    source = page_source(parts[0], locale) if len(parts) == 2 else None
+    if source is None:
         return None
-    return parts[0], parts[1]
+    return source, parts[1]
 
 
 def page_content(
@@ -82,17 +83,18 @@ def page_content(
     exists: dict[tuple[str, str], bool] = {}
 
     def missing(href: str) -> bool:
-        target = _source_page(href)
+        target = _source_page(href, locale)
         if target is None:
             return False
-        if target not in exists:
-            source = page_sources()[target[0]]
-            exists[target] = (
+        source, slug = target
+        asked = (source.key, slug)
+        if asked not in exists:
+            exists[asked] = (
                 source.site_page is not None
-                and source.site_page(organization_id, locale, target[1], lambda _code: "")
+                and source.site_page(organization_id, locale, slug, lambda _code, _slug="": "")
                 is not None
             )
-        return not exists[target]
+        return not exists[asked]
 
     drafts = {page.current_draft_id: page.id for page in pages if page.current_draft_id}
     by_page: dict[UUID, list[Any]] = {}

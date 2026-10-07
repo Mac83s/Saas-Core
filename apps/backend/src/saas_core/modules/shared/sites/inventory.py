@@ -23,7 +23,7 @@ from saas_core.modules.shared.billing.api import FeatureOperation, authorize_ent
 from .capabilities import CONTENT_CONTRACT_VERSION, MINIMUM_CONTENT_CONTRACT_VERSION
 from .language_publication import home_page
 from .language_versions import _page_rows, _published_bodies, site_locales
-from .localization import localized_path
+from .localization import collection_index_path, localized_path
 from .models import (
     ContentCollection,
     ContentEntry,
@@ -142,6 +142,14 @@ def _site_entry(
                 "collection_id": str(collection.id),
                 "key": collection.key,
                 "base_path": collection.base_path,
+                # Where the section's index answers in each of the site's
+                # languages: its name may differ by language (ADR-071 pkt 14).
+                "paths": {
+                    locale: collection_index_path(
+                        collection, default_locale=site.default_locale, locale=locale
+                    )
+                    for locale in site_locales(site)
+                },
                 "kind": collection.kind,
                 "automation_policy": collection.automation_policy,
                 "published_entries": ContentEntry.all_objects.filter(

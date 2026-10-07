@@ -5,9 +5,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from saas_core.modules.core.organizations.public_sources import page_sources
+from saas_core.modules.core.organizations.public_sources import page_source_segments
 
-from .models import Page, PageTranslation, Site
+from .models import ContentCollection, Page, PageTranslation, Site
 
 if TYPE_CHECKING:
     from .content_checks import PageContent
@@ -71,10 +71,13 @@ RESERVED_FIRST_SEGMENTS = frozenset({
 
 def first_segment_reserved(segment: str) -> bool:
     """Also the segment under which a source's records have their own pages
-    (`stay` for a booking's units, ADR-072 slice 5e; ADR-074 pkt 7): a new
-    page must not take the addresses those pages answer at."""
+    (`stay` for a booking's units, ADR-072 slice 5e; ADR-074 pkt 7), in any
+    language the source names one in: a new page must not take the addresses
+    those pages answer at."""
     two_letters = len(segment) == 2 and segment.isascii() and segment.isalpha()
-    return two_letters or segment in RESERVED_FIRST_SEGMENTS or segment in page_sources()
+    return (
+        two_letters or segment in RESERVED_FIRST_SEGMENTS or segment in page_source_segments()
+    )
 
 
 def localized_path(*, default_locale: str, locale: str, slug: str) -> str:
@@ -83,23 +86,39 @@ def localized_path(*, default_locale: str, locale: str, slug: str) -> str:
     return f"/{locale}/{slug}/"
 
 
-def entry_path(*, default_locale: str, locale: str, base_path: str, slug: str) -> str:
+def section_segment(collection: ContentCollection, *, default_locale: str, locale: str) -> str:
+    """A section's name in a language's addresses (ADR-071 pkt 14,
+    „Uzupełnienie 2026-10-07"): `base_path` in the site's own language, the
+    language's own name where the section has one, else `base_path` again —
+    so a site that names nothing per language keeps the addresses it had."""
+    if locale == default_locale:
+        return collection.base_path
+    return str((collection.locale_paths or {}).get(locale) or collection.base_path)
+
+
+def collection_index_path(
+    collection: ContentCollection, *, default_locale: str, locale: str
+) -> str:
+    """Where a section's index answers in a language. With `entry_path` the
+    only two places a section's address is put together: the resolver matches
+    against them and every surface that prints an address calls them."""
+    segment = section_segment(collection, default_locale=default_locale, locale=locale)
+    if locale == default_locale:
+        return f"/{segment}/"
+    return f"/{locale}/{segment}/"
+
+
+def entry_path(
+    collection: ContentCollection, *, default_locale: str, locale: str, slug: str
+) -> str:
     """Where one article answers.
 
     The language prefix is not decoration: without it a Polish article and its
     English translation both claim `/blog/<slug>/`, and which one a visitor gets
     depends on row order. Pages already resolve this the same way.
     """
-    inner = f"{base_path}/{slug}"
-    if locale == default_locale:
-        return f"/{inner}/"
-    return f"/{locale}/{inner}/"
-
-
-def collection_index_path(*, default_locale: str, locale: str, base_path: str) -> str:
-    if locale == default_locale:
-        return f"/{base_path}/"
-    return f"/{locale}/{base_path}/"
+    index = collection_index_path(collection, default_locale=default_locale, locale=locale)
+    return f"{index}{slug}/"
 
 
 def build_localization_report(
