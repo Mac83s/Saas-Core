@@ -9,8 +9,7 @@ Read `docs/adr/ADR-027-Sites-Tresc-Media-i-Publikacja.md` (content and
 publication), `docs/adr/ADR-028-Domeny-DNS-TLS-i-Publiczny-Routing.md`
 (addresses), `docs/adr/ADR-031-Panel-Klienta-i-Wizualny-Site-Studio.md` (the
 editor) and `docs/adr/ADR-035-Publikacja-Systemowa-i-SeoContentRank.md`
-(automation). `memex_pack` first — this module has more recorded traps than any
-other.
+(automation). `memex_pack` first: this module has the most recorded traps.
 
 ## The shapes that decide everything else
 
@@ -63,6 +62,11 @@ company that has an offer booked from–to (`stay-offers.ts`), nobody else. A
 library section of a block without layouts (the widget, the calendar, the
 map) is its one `classic` section and its seed carries no `layout`.
 
+**A module brings its own block types** from its own files (ADR-077,
+`docs/architecture/site-block-types.md`): `vertical.<module>.<name>`, known
+only where the profile composes the module. A product's block never goes into
+the core manifest.
+
 A source's record may also have **a page nobody publishes** (slice 5e, a
 unit's `/stay/<slug>/`): `resolve_public_page` asks the source last, after
 pages, entries, indexes and archives (`_find_source_page`,
@@ -94,7 +98,7 @@ publishing a whole site. `PERSON_ONLY_PAGE_TYPES` and
 
 The check runs **before** the surface policy on purpose: `person_required`
 tells a connector "this will never be yours", while `page_automation_forbidden`
-says "this surface is not yours today". Connectors treat those differently.
+says "this surface is not yours today".
 
 If you add an endpoint in this area, ask which of the two it is, and add it to
 the helper rather than writing a second check. Any new site operation also meets
@@ -107,7 +111,7 @@ do not add more of it.
 
 Four modes: `suggest_only`, `draft_write`, `publish_with_approval`,
 `autonomous`. The historical `auto_publish_limited` is **not** an alias and must
-fail closed. `autonomous` means no per-change approval — it is still bounded by
+fail closed. `autonomous` means no per-change approval, still bounded by
 resource scope, limits, windows, command and link allowlists, the kill switch
 and the content policy, which can only narrow a grant.
 
@@ -142,16 +146,16 @@ link list v2, footer v2). `default_automation_rel` gives an automation's new
 outbound link `nofollow` and puts back a `rel` a person set; it runs in the
 change-set plan and in both draft saves, next to the host check.
 
-The contract has **no command that changes a published address**, and it will
-not get one. `translation.update` carries `title`, `description`,
+The contract has **no command that changes a published address** and will not
+get one. `translation.update` carries `title`, `description`,
 `social_title`, `social_description` — no `slug`. Moving a URL costs the
 position that URL earned; it goes through
 `PUT /api/v1/sites/pages/<id>/url/`, a human session with a mandatory reason.
 
 A page has **one change-set base per language** (ADR-070 pkt 17, ADR-044
 "Uzupełnienie 2026-10-04"). `target.locale` is a shape in the contract; the
-server answers `locale_not_enabled` for a language the site does not have. In
-the site's source language nothing changed. In any other language the base is
+server answers `locale_not_enabled` for a language the site does not have.
+In any language but the site's own the base is
 `PageTranslation.body_version` and the blocks the language version assembles
 into; `translation.update` and a text-only `block.replace` are accepted and
 written as text units through `locale_change_sets.py`, never as blocks and
@@ -167,15 +171,15 @@ add a second write path for a language body: the person's door is
 Capabilities answer with the **narrowest** active grant mode, each grant's
 scope with its `allowed_link_hosts`, the command list read from
 `packages/contracts/content-operations/`, and the contract versions.
-A capabilities response that disagrees with the contract it describes is worse
-than none, because the client believes it.
+A capabilities response that disagrees with the contract is worse than none:
+the client believes it.
 
 ## Section and page templates are built to convert
 
 Owner decision, 2026-09-23: every new section template and page recipe is
 designed for conversion — a visitor should know within one screen what they
-get and what to do next. The templates that existed before are **not** a
-quality reference; do not extend or imitate them. Their versions stay loadable
+get and what to do next. Earlier templates are **not** a quality
+reference: do not extend or imitate them. Their versions stay loadable
 for pages already built on them, and new recipes replace them in the library.
 The acceptance checklist is in `docs/architecture/site-section-catalog.md`
 ("Szablony nastawione na konwersję"); in short:
@@ -214,8 +218,8 @@ most three options: `feature_list` v5 keeps column values under fixed keys
 ## Traps
 
 - **Reading media before setting the tenant.** `media_mediaasset` forces RLS, so
-  `serve_public_media` sets the tenant the host named before the read. That bug
-  once made every image on every published page answer 404.
+  `serve_public_media` sets the tenant the host named before the read. It once
+  made every published image answer 404.
 - **A block's picture goes through `renderImage`** (`ai-badge.ts`): there the
   published page adds its stored size, the AI badge and eager loading
   (`published-images.ts`). A bare `<img>` gets none: the stay blocks'
@@ -226,8 +230,8 @@ most three options: `feature_list` v5 keeps column values under fixed keys
   `scheduled_credential_id` (a key's membership id is synthetic and would never
   be found), which also means a person suspended or a key revoked in the
   meantime does not get one more publication out of the queue. A schedule whose
-  author can no longer be acted for is closed as `failed` with a reason, not
-  left pending for the scan to hand out every minute.
+  author can no longer be acted for is closed as `failed` with a reason,
+  never left pending.
 - **A page view is the renderer's verdict** (ADR-060). `countsAsPageView`
   decides in the renderer and only `x-saas-core-count-view: 1` reaches the
   backend — never the user agent. Layout, metadata and page build the same
@@ -235,7 +239,7 @@ most three options: `feature_list` v5 keeps column values under fixed keys
   differently, `cache()` splits the call and a visit counts twice. The metrics
   route takes only the `content:metrics` scope and a whole-site grant.
 - **Template media goes through the ordinary media lifecycle** — upload
-  completion, malware scan, normalization, variants, quota, audit. There is no
+  completion, malware scan, normalization, variants, quota, audit; no
   trusted-file shortcut. Object storage does not roll back with PostgreSQL, so
   a failed import compensates by deleting only what that attempt created.
 - **The rich text editor's schema is the contract** (ADR-056). A new node,
@@ -259,5 +263,5 @@ pnpm --filter @saas-core/frontend test
 ```
 
 plus, for anything the public renderer touches, a page, a feed and an image
-fetched from the running stack by hostname — the suite cannot tell you the
-renderer works, because it does not go through Caddy.
+fetched from the running stack by hostname — the suite does not go through
+Caddy.
