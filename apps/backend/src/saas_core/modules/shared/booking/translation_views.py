@@ -37,6 +37,7 @@ KINDS = [
     "team",
     "participant_category",
     "extra",
+    "field",
 ]
 KIND = OpenApiParameter(
     "kind",
@@ -44,7 +45,8 @@ KIND = OpenApiParameter(
     OpenApiParameter.PATH,
     enum=KINDS,
     description="service, location, resource (a unit), group (of units), team, "
-    "participant_category or extra.",
+    "participant_category, extra or field (of an offer's booking form: its `name`, and "
+    "the `options` of a choice — one per line, as many as the field's own).",
 )
 IDEMPOTENCY = OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER, required=True)
 _PROBLEMS = {

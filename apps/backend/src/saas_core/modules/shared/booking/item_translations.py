@@ -51,6 +51,8 @@ from saas_core.modules.shared.billing.decisions import FeatureOperation
 from .models import (
     Extra,
     ExtraTranslation,
+    FormField,
+    FormFieldTranslation,
     ItemTranslation,
     Location,
     LocationTranslation,
@@ -69,7 +71,7 @@ from .setup import Saved, _manage, check_version, setup_write
 
 #: The source hash of a text written before provenance was kept.
 LEGACY_SOURCE = "legacy"
-LIMITS = {"name": 160, "description": 2000}
+LIMITS = {"name": 160, "description": 2000, "options": 1700}
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +84,9 @@ class Translatable:
     fields: tuple[str, ...]
     #: Its name is a proper name (a team): a `name` unit, never sent unasked.
     proper_name: bool = False
+    #: Fields that are lists, one item per line (a choice's options): a
+    #: translation has as many lines as the item's own, in the same order.
+    aligned: tuple[str, ...] = ()
 
 
 _KINDS: dict[str, Translatable] = {}
@@ -119,6 +124,16 @@ for _builtin in (
         ("name",),
     ),
     Translatable("extra", Extra, ExtraTranslation, "extra", ("name",)),
+    # What an offer's booking form asks (ADR-072 5j): the question, and a
+    # choice's options.
+    Translatable(
+        "field",
+        FormField,
+        FormFieldTranslation,
+        "field",
+        ("name", "options"),
+        aligned=("options",),
+    ),
 ):
     register_translatable(_builtin)
 
@@ -325,6 +340,21 @@ def _write(
             f"texts.{field}": [ErrorDetail("Tekst jest za długi.", "max_length")]
             for field in too_long
         })
+    uneven = [
+        field
+        for field in entry.aligned
+        if texts.get(field) and _lines(texts[field]) != _lines(str(getattr(item, field, "")))
+    ]
+    if uneven:
+        raise ValidationError({
+            f"texts.{field}": [
+                ErrorDetail(
+                    "Podaj tyle samo pozycji, po jednej w wierszu, w tej samej kolejności.",
+                    "lines_mismatch",
+                )
+            ]
+            for field in uneven
+        })
     current = translation_row(entry, item, locale)
     check_version(current.version if current is not None else 0, expected_version)
     units = {unit.key: unit for unit in item_units(entry, item)}
@@ -341,6 +371,10 @@ def _write(
     }
     row, _replaced = apply_item_translation(entry, item, locale, written, actor_id=context.actor_id)
     return Saved(row, row.id, row.version, current is None)
+
+
+def _lines(text: str) -> int:
+    return sum(1 for line in text.split("\n") if line.strip())
 
 
 def _replayed(

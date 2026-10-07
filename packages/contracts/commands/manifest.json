@@ -278,6 +278,204 @@
       "version_field": "expected_version"
     },
     {
+      "command": "booking.form_field.save@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "description": "False switches the field off.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "field_id": {
+            "description": "The field to change; null adds a new one.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "What the field takes.",
+            "enum": [
+              "text",
+              "number",
+              "choice",
+              "date",
+              "consent",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mandatory": {
+            "description": "Whether a customer must answer to book.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "The question as customers read it, up to 160 characters.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "options": {
+            "description": "A choice's options in order, 2–20; ignored for other kinds.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "position": {
+            "description": "The order on the form, smallest first.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "service_id": {
+            "description": "The service whose form a new field joins.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "field_id",
+          "service_id",
+          "name",
+          "kind",
+          "options",
+          "mandatory",
+          "position",
+          "active"
+        ],
+        "type": "object"
+      },
+      "model_description": "Adds a field to one service's booking form (field_id null, with service_id) or changes one (its field_id from booking.form_fields.read). `name` is the question as the customer reads it, in the company's first language; `kind` text, number, date, choice (give `options`, at least two) or consent — a box to tick whose `name` is the statement, kept word for word in the consent journal when ticked. `mandatory` true means a customer cannot book without answering (for a consent: without ticking). `position` orders the form, smallest first; a new field goes last. A field is never deleted — bookings keep the question they were asked — only switched off with active false. What customers answer is their personal data, removed with the customer: never add a field that asks about health, beliefs or other special-category data — say that this needs the company's own legal basis and is not offered here. Pass null for every field that stays as it is; a new field needs service_id and name.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": null,
+      "no_version_reason": null,
+      "output_schema": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "field_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "mandatory": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": true,
+      "risk": "draft",
+      "summary": {
+        "en": "What a service's booking form asks: a licence number, a pet's name, an hour.",
+        "pl": "O co formularz usługi pyta klienta: numer prawa jazdy, imię pupila, godzina."
+      },
+      "title": {
+        "en": "Save a booking form field",
+        "pl": "Zapisz pole formularza rezerwacji"
+      },
+      "tool_name": "booking_form_field_save_v1",
+      "undo": "command:booking.form_field.save@1",
+      "version_field": "expected_version"
+    },
+    {
+      "command": "booking.form_fields.read@1",
+      "entitlement": "booking.enabled",
+      "exposure": [
+        "assistant"
+      ],
+      "extra_features": [],
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "model_description": "Returns the fields the company added to its services' booking forms, in the form's order, switched-off ones included, each with its id and version: `name` is the question as the customer reads it (for kind `consent`, the statement they tick), `kind` one of text, number, date, choice or consent, `options` a choice's options, `mandatory` whether a customer must answer. `names` gives the name of every service a field belongs to, by id; `switched_off` the ids of the services nobody can book yet; `limits` what a field may be. Use it before changing a field, to know the ids. These are the questions, never anybody's answers: what a customer answered is their personal data and no command returns it.",
+      "modifiers": [],
+      "module": "shared.booking",
+      "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
+      "no_version_reason": "A read checks no version.",
+      "output_schema": {
+        "properties": {
+          "fields": {
+            "type": "array"
+          },
+          "limits": {
+            "type": "object"
+          },
+          "names": {
+            "type": "object"
+          },
+          "switched_off": {
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-data-class": "public"
+      },
+      "permission": "booking.appointment.manage",
+      "person_gates": [],
+      "personal_purpose": null,
+      "preview": false,
+      "risk": "read",
+      "summary": {
+        "en": "What each service's booking form asks beyond a name and a contact.",
+        "pl": "O co formularz każdej usługi pyta klienta ponad imię i kontakt."
+      },
+      "title": {
+        "en": "Read the booking form's fields",
+        "pl": "Odczytaj pola formularza rezerwacji"
+      },
+      "tool_name": "booking_form_fields_read_v1",
+      "undo": "none:a read changes nothing",
+      "version_field": null
+    },
+    {
       "command": "booking.location.save@1",
       "entitlement": "booking.enabled",
       "exposure": [
@@ -999,7 +1197,7 @@
         ],
         "type": "object"
       },
-      "model_description": "Creates one service from a booking preset: the preset decides how it is booked, you give its name and, for a preset with time model `slot`, how long a visit takes. Take the preset id from booking.preset.list; only a preset with readiness `ready` applies — `preset_not_ready` and `preset_unknown` come back on the field preset_id, and then say so instead of trying another preset. It creates the service only, always switched off: no place, person, unit, price or working hours are made — a stay's or a rental's units come from booking.offer.units.set and a price from booking.price.save, once the service exists. Pass staff_ids and location_ids only for people and places that exist (ids from booking.setup.read); null leaves the service without them, none is picked for you. Pass null for version to take the latest. Tell the person to switch the service on in the panel when it is complete.",
+      "model_description": "Creates one service from a booking preset: the preset decides how it is booked, you give its name and, for a preset with time model `slot`, how long a visit takes. Take the preset id from booking.preset.list; only a preset with readiness `ready` applies — `preset_not_ready` and `preset_unknown` come back on the field preset_id, and then say so instead of trying another preset. It creates the service only, always switched off: no place, person, unit, price or working hours are made — a stay's or a rental's units come from booking.offer.units.set and a price from booking.price.save, once the service exists. What the preset's booking form asks its customers (an arrival hour, a licence number) comes with the service as its form fields: read them with booking.form_fields.read. Pass staff_ids and location_ids only for people and places that exist (ids from booking.setup.read); null leaves the service without them, none is picked for you. Pass null for version to take the latest. Tell the person to switch the service on in the panel when it is complete.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": null,

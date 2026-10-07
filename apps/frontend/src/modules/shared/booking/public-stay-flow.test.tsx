@@ -721,3 +721,196 @@ test("the way to another language keeps where the guest came from", async () => 
     "/en/book/dokumenty-demo?origin=a%3Ab%20c",
   );
 });
+
+const LICENCE = "88888888-8888-4888-8888-888888888881";
+const HEIGHT = "88888888-8888-4888-8888-888888888882";
+const FRAME = "88888888-8888-4888-8888-888888888883";
+const RULES = "88888888-8888-4888-8888-888888888884";
+const PHOTOS = "88888888-8888-4888-8888-888888888885";
+
+/** The form of an offer that asks its own things (ADR-072, slice 5j). */
+const asking = {
+  ...catalog,
+  form_fields: [
+    { id: LICENCE, name: "Numer prawa jazdy", kind: "text", mandatory: true },
+    { id: HEIGHT, name: "Wzrost w cm", kind: "number", mandatory: false },
+    {
+      id: FRAME,
+      name: "Rama",
+      kind: "choice",
+      mandatory: false,
+      options: [
+        { value: "Damska", label: "Damska" },
+        { value: "Męska", label: "Męska" },
+      ],
+    },
+    {
+      id: RULES,
+      name: "Znam regulamin obiektu",
+      kind: "consent",
+      mandatory: true,
+    },
+    {
+      id: PHOTOS,
+      name: "Zgadzam się na zdjęcia z pobytu",
+      kind: "consent",
+      mandatory: false,
+    },
+    // Another offer's question is not this form's.
+    {
+      id: "99999999-9999-4999-8999-999999999999",
+      service_id: "00000000-0000-4000-8000-000000000000",
+      name: "Pytanie innej usługi",
+      kind: "text",
+      mandatory: true,
+    },
+  ].map((field) => ({ service_id: STAY, options: [], ...field })),
+} as unknown as BookingPublicCatalog;
+
+test("the offer's own fields are asked, a mandatory one stops the booking and the answers go with it", async () => {
+  api.getPublicBookingCatalog.mockResolvedValue(asking);
+  const { container } = show();
+  await fillAndAccept();
+
+  // In the form's order, the optional ones said as such.
+  expect(screen.getByLabelText("Numer prawa jazdy")).toBeInTheDocument();
+  expect(
+    screen.getByLabelText("Wzrost w cm (nieobowiązkowo)"),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Pytanie innej usługi/)).toBeNull();
+  const results = await axe.run(container);
+  expect(results.violations).toEqual([]);
+
+  // Left empty, a mandatory field and a mandatory consent stop the booking
+  // and say so where they are.
+  fireEvent.click(screen.getByRole("button", { name: "Zarezerwuj" }));
+  expect(await screen.findByText("To pole jest wymagane.")).toBeInTheDocument();
+  expect(
+    screen.getByText("Zaznacz to pole, żeby zarezerwować."),
+  ).toBeInTheDocument();
+  expect(api.createPublicStay).not.toHaveBeenCalled();
+
+  fireEvent.change(screen.getByLabelText("Numer prawa jazdy"), {
+    target: { value: " ABC 123 " },
+  });
+  fireEvent.change(screen.getByLabelText("Wzrost w cm (nieobowiązkowo)"), {
+    target: { value: "wysoki" },
+  });
+  fireEvent.change(screen.getByLabelText("Rama (nieobowiązkowo)"), {
+    target: { value: "Męska" },
+  });
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Znam regulamin obiektu" }),
+  );
+
+  // What the server refuses of an answer is said at its field.
+  api.createPublicStay.mockRejectedValueOnce(
+    problem(400, "validation_error", {
+      errors: [
+        {
+          field: `answers.${HEIGHT}`,
+          code: "field_invalid",
+          message: "Wpisz liczbę.",
+        },
+      ],
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Zarezerwuj" }));
+  expect(await screen.findByText("Wpisz liczbę.")).toBeInTheDocument();
+  expect(
+    screen.getByText("Popraw zaznaczone pola i spróbuj ponownie."),
+  ).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Wzrost w cm (nieobowiązkowo)"), {
+    target: { value: "182" },
+  });
+  expect(screen.queryByText("Wpisz liczbę.")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Zarezerwuj" }));
+  await waitFor(() => expect(api.createPublicStay).toHaveBeenCalledTimes(2));
+  // Always text; a consent left alone is not sent at all.
+  expect(api.createPublicStay.mock.calls[1][1].answers).toEqual([
+    { field_id: LICENCE, value: "ABC 123" },
+    { field_id: HEIGHT, value: "182" },
+    { field_id: FRAME, value: "Męska" },
+    { field_id: RULES, value: "true" },
+  ]);
+});
+
+test("a form whose fields changed meanwhile asks for the page again", async () => {
+  api.getPublicBookingCatalog.mockResolvedValue({
+    ...asking,
+    form_fields: (asking.form_fields ?? []).slice(1, 2),
+  });
+  show();
+  await fillAndAccept();
+  api.createPublicStay.mockRejectedValueOnce(
+    problem(400, "validation_error", {
+      errors: [{ field: "answers", code: "field_unknown", message: "…" }],
+    }),
+  );
+  fireEvent.change(screen.getByLabelText("Wzrost w cm (nieobowiązkowo)"), {
+    target: { value: "170" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Zarezerwuj" }));
+  expect(
+    await screen.findByText(/Firma zmieniła formularz w międzyczasie/),
+  ).toBeInTheDocument();
+});
+
+test("a picture a model made wears the AI mark on the form, as on the company's site", async () => {
+  const photo = (id: string, made: boolean) => ({
+    id,
+    thumbnail_url: `/api/v1/booking/public/dokumenty-demo/photos/${id}/thumbnail/`,
+    preview_url: `/api/v1/booking/public/dokumenty-demo/photos/${id}/preview/`,
+    width: 1600,
+    height: 1200,
+    ai_generated: made,
+  });
+  const [stay] = catalog.stays ?? [];
+  api.getPublicBookingCatalog.mockResolvedValue({
+    ...catalog,
+    stays: [
+      {
+        ...stay,
+        groups: [
+          {
+            ...stay?.groups[0],
+            photos: [photo("a", true), photo("b", false)],
+          },
+        ],
+      },
+    ],
+  });
+  const { container } = show();
+
+  const cottage = await screen.findByRole("radio", {
+    name: /Domek nad jeziorem/,
+  });
+  // The cover: the words in its `alt`, the mark beside it for the eye only.
+  const cover = (cottage.closest("label") as HTMLElement).querySelector(
+    "img",
+  ) as HTMLElement;
+  expect(cover).toHaveAttribute(
+    "alt",
+    "Domek nad jeziorem — obraz wygenerowany przez AI",
+  );
+  expect(cover.parentElement?.querySelector("[aria-hidden]")).toHaveTextContent(
+    "AI",
+  );
+  fireEvent.click(cottage);
+  const gallery = await screen.findByRole("list", {
+    name: "Zdjęcia: Domek nad jeziorem",
+  });
+  expect(
+    screen.getByAltText(
+      "Domek nad jeziorem — zdjęcie 1 — obraz wygenerowany przez AI",
+    ),
+  ).toBeInTheDocument();
+  // A photograph is not marked.
+  expect(gallery.querySelectorAll("[aria-hidden]")).toHaveLength(1);
+  expect(
+    screen.getByAltText("Domek nad jeziorem — zdjęcie 2"),
+  ).toBeInTheDocument();
+  const results = await axe.run(container);
+  expect(results.violations).toEqual([]);
+});

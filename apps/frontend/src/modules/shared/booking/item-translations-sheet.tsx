@@ -138,9 +138,16 @@ export function ItemTranslationsSheet({
       disabled={busy}
       idPrefix={`item-${entry.locale}`}
       labelFor={(key) =>
-        t(key === "description" ? "fieldDescription" : "fieldName")
+        t(
+          key === "description"
+            ? "fieldDescription"
+            : key === "options"
+              ? "fieldOptions"
+              : "fieldName",
+        )
       }
-      multiline={(key) => key === "description"}
+      // A choice's options: one per line, as many as the field's own.
+      multiline={(key) => key === "description" || key === "options"}
       onChange={(key, text) =>
         setValues((all) => ({
           ...all,

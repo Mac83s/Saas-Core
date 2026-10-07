@@ -1803,6 +1803,18 @@ function AppointmentDetails({
             </dd>
           </>
         ) : null}
+        {/* What the customer answered to the offer's own fields (ADR-072,
+            slice 5j): theirs, like the phone — the same people get it. */}
+        {(appointment.form_answers ?? []).map((answer) => (
+          <Fragment key={answer.field_id}>
+            <dt className="self-start text-muted-foreground wrap-anywhere">
+              {answer.name}
+            </dt>
+            <dd className="wrap-anywhere">
+              {answer.kind === "consent" ? t("answerTicked") : answer.value}
+            </dd>
+          </Fragment>
+        ))}
       </dl>
       {/* What the booking costs, as it was frozen when it was made (§7). */}
       {appointment.quote && isPriced(appointment.quote) ? (

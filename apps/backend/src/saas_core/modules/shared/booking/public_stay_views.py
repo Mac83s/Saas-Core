@@ -35,6 +35,7 @@ from .serializers import (
     PublicAppointmentSerializer,
     PublicConsentsInputSerializer,
     PublicQuoteSerializer,
+    _answers,
     _extras,
     _origin,
     _participants,
@@ -131,6 +132,7 @@ class PublicStayCreateSerializer(_StayTargetSerializer):
     customer = CustomerInputSerializer()
     #: „Uwagi”: for the company's eyes only, never in an e-mail.
     customer_notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    answers = _answers()
     quote_digest = _shown_digest()
     origin = _origin()
     consents = PublicConsentsInputSerializer(

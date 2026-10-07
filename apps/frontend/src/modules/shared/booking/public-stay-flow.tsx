@@ -39,6 +39,7 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { addDays, wallClock } from "./calendar-time";
 import {
+  answersMissing,
   BookedCard,
   ContactFields,
   type ContactValues,
@@ -46,10 +47,14 @@ import {
   contactShape,
   DocumentBoxes,
   ExtrasPicker,
+  givenAnswers,
   type MarketingBox,
   otherLanguages,
+  ownFields,
+  OwnFields,
   pickedExtras,
   refusalOf,
+  refusedAnswers,
   ticked,
   UnitCover,
   UnitFacts,
@@ -243,6 +248,11 @@ export function PublicStayFlow({
   const [tried, setTried] = useState(false);
   const [problem, setProblem] = useState<string>();
   const [booked, setBooked] = useState<BookingPublicAppointment>();
+  // What the company asks with this offer beyond a name and a contact
+  // (slice 5j), what the guest answered, and what the server refused of it.
+  const asks = useMemo(() => ownFields(catalog, offerId), [catalog, offerId]);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [refused, setRefused] = useState<Record<string, string>>({});
   const schema = useMemo(
     () => z.object(contactShape(t)).superRefine(contactIssues(contact, t)),
     [contact, t],
@@ -295,12 +305,15 @@ export function PublicStayFlow({
   const book = form.handleSubmit(async ({ notes, ...customer }) => {
     if (!asked || !plan) return;
     if (documents.some((document) => !accepted[document.text_id])) return;
+    if (answersMissing(asks, answers)) return;
+    const given = givenAnswers(asks, answers);
     try {
       const created = await createPublicStay(
         publicSlug,
         {
           ...asked,
           ...(notes.trim() ? { customer_notes: notes.trim() } : {}),
+          ...(given.length ? { answers: given } : {}),
           // The price shown: another one by now is asked about, not charged.
           ...(plan.quote ? { quote_digest: plan.quote.digest } : {}),
           ...(origin ? { origin } : {}),
@@ -342,6 +355,13 @@ export function PublicStayFlow({
         // Somebody took it a moment earlier: the days are asked for again.
         restart({});
         setProblem(t("stayTaken"));
+        return;
+      }
+      const unanswered = refusedAnswers(error);
+      if (unanswered) {
+        // Said at each field; a form whose fields changed is read again.
+        setRefused(unanswered);
+        setProblem(t("" in unanswered ? "fieldsChanged" : "answersRefused"));
         return;
       }
       setProblem(t("stayCreateError"));
@@ -579,6 +599,16 @@ export function PublicStayFlow({
             errors={form.formState.errors}
             notesHint={t("stayNotesHint")}
             register={(name) => form.register(name)}
+          />
+          <OwnFields
+            fields={asks}
+            onChange={(next) => {
+              setAnswers(next);
+              setRefused({});
+            }}
+            refused={refused}
+            tried={tried}
+            values={answers}
           />
           <DocumentBoxes
             accepted={accepted}

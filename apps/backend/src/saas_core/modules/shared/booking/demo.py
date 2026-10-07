@@ -78,6 +78,7 @@ from saas_core.modules.core.organizations.tasks import tenant_task_context
 from saas_core.modules.shared.notifications.security import decrypt_secret
 
 from . import consents as booking_consents
+from .form_fields import save_field
 from .item_translations import list_item_translations, save_item_translation
 from .models import (
     Appointment,
@@ -86,6 +87,7 @@ from .models import (
     BookingMutation,
     BookingRule,
     Extra,
+    FormField,
     Location,
     ParticipantCategory,
     PaymentPolicy,
@@ -292,6 +294,36 @@ def _catalogue(run: DemoRun, key: str, data: dict[str, Any]) -> Catalogue:
                         idempotency_key=_key(),
                     ).value
                 _words("extra", item, extra.get("words"))
+            for asked in wanted.get("fields", ()):
+                # What the offer's booking form asks (ADR-072 5j): one made
+                # with the offer by its preset is found by its name.
+                own = FormField.all_objects.filter(
+                    organization=organization, service=service, name=asked["name"]
+                ).first()
+                if own is None and asked.get("active") is False:
+                    # Nothing to switch off: the offer is from before the
+                    # preset asked this.
+                    continue
+                if own is None:
+                    own = save_field(
+                        field_id=None,
+                        data={
+                            **{name: value for name, value in asked.items() if name != "words"},
+                            "service_id": service.id,
+                        },
+                        idempotency_key=_key(),
+                    ).value
+                    run.log(f"+ pole formularza {own.name}")
+                elif asked.get("active") is False and own.active:
+                    # One the preset brought and this company does not ask.
+                    own = save_field(
+                        field_id=own.id,
+                        data={"active": False},
+                        expected_version=own.version,
+                        idempotency_key=_key(),
+                    ).value
+                    run.log(f"- pole formularza {own.name} wyłączone")
+                _words("field", own, asked.get("words"))
             for season in wanted.get("seasons", ()):
                 _season(run, organization, service, season, today)
         for wanted in data.get("groups", ()):
@@ -733,13 +765,15 @@ class Plan:
         agreed: bool = False,
         marketing: bool = False,
         notes: str = "",
+        answers: Mapping[str, str] | None = None,
     ) -> Story:
         """A visit at `clock` of `day`, booked at `booked` — by the person
         `by` in the panel, or by the customer on the public form when nobody
         is named (the server then picks who takes it unless `staff` asks for
         one). `agreed`: the team showed the company's documents; a customer
         booking for themselves always accepts them. `marketing`: they ticked
-        the offers' consent."""
+        the offers' consent. `answers`: what they answered to the offer's own
+        form fields, by the field's name."""
         return self._plan(
             key,
             booked,
@@ -753,6 +787,7 @@ class Plan:
             agreed=agreed,
             marketing=marketing,
             notes=notes,
+            answers=dict(answers or {}),
         )
 
     def stay(
@@ -772,10 +807,12 @@ class Plan:
         agreed: bool = False,
         marketing: bool = False,
         notes: str = "",
+        answers: Mapping[str, str] | None = None,
     ) -> Story:
         """A stay or a rental from `first` to `last` on the unit named, or on
         any free unit of the group. `people`: how many of each category come,
-        `""` being a standard person."""
+        `""` being a standard person. `answers`: what the guest answered to
+        the offer's own form fields, by the field's name."""
         return self._plan(
             key,
             booked,
@@ -792,6 +829,7 @@ class Plan:
             agreed=agreed,
             marketing=marketing,
             notes=notes,
+            answers=dict(answers or {}),
         )
 
     def _plan(self, key: str, booked: datetime, do: str, **data: Any) -> Story:
@@ -912,6 +950,17 @@ def _book(
     remember(story, appointment)
 
 
+def _answers(service: Service, told: Mapping[str, str]) -> list[dict[str, Any]] | None:
+    """What a story's customer answered to the offer's own form fields, as a
+    booking takes it: the fields named, by their ids."""
+    if not told:
+        return None
+    return [
+        {"field_id": asked.id, "value": told[asked.name]}
+        for asked in FormField.all_objects.filter(service=service, name__in=list(told))
+    ]
+
+
 def _visit(run: DemoRun, key: str, story: DemoStory, step: DemoStep) -> None:
     plan: Plan = story.memo["plan"]
     catalogue, data = plan.catalogue, step.data
@@ -945,6 +994,7 @@ def _visit(run: DemoRun, key: str, story: DemoStory, step: DemoStep) -> None:
             quote_digest=digest,
             consents=agreed,
             customer_notes=data["notes"],
+            answers=_answers(service, data["answers"]),
             **(
                 {"requested_staff_id": staff_ids[0]}
                 if public and staff_ids
@@ -1003,6 +1053,7 @@ def _stay(run: DemoRun, key: str, story: DemoStory, step: DemoStep) -> None:
             quote_digest=digest,
             consents=agreed,
             customer_notes=data["notes"],
+            answers=_answers(service, data["answers"]),
         )
         assert not isinstance(booked, StayPlan)
         return booked.appointment

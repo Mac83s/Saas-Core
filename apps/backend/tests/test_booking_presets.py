@@ -81,7 +81,7 @@ def test_a_company_reads_the_presets_in_the_contracts_order() -> None:
     # that the site comes later (owner decision 67a).
     assert visit.online_booking == "ready"
     lodging = next(item for item in listed if item.id == "core.lodging")
-    assert (lodging.version, lodging.readiness, lodging.online_booking) == (5, "ready", "ready")
+    assert (lodging.version, lodging.readiness, lodging.online_booking) == (6, "ready", "ready")
     assert "wkrótce" not in lodging.labels["pl"]["description"]
     # Its terms of paying and of giving a stay up are a start, and say so.
     assert "Warunki na start, do zmiany w „Cenniku”" in lodging.labels["pl"]["description"]
@@ -98,9 +98,9 @@ def test_a_company_reads_the_presets_in_the_contracts_order() -> None:
     assert {item.id: item.version for item in listed if item.readiness == "ready"} == {
         "core.specialist_visit": 1,
         "core.service_at_customer": 2,
-        "core.lodging": 5,
-        "core.rental": 3,
-        "core.care_stay": 3,
+        "core.lodging": 6,
+        "core.rental": 4,
+        "core.care_stay": 4,
     }
     # Hours are not booked yet: the preset is announced, and so not online either.
     hourly = next(item for item in listed if item.id == "core.hourly_space")
@@ -169,7 +169,7 @@ def test_a_named_preset_is_found_or_refused_with_a_code_on_its_field() -> None:
     assert _refused("core.specialist_visit", 7) == (["preset_id"], ["preset_unknown"])
     assert _refused("core.hourly_space", None) == (["preset_id"], ["preset_not_ready"])
     # A version that was only announced stays so, whatever came after it.
-    assert find_preset("core.lodging", None).version == 5
+    assert find_preset("core.lodging", None).version == 6
     assert _refused("core.lodging", 1) == (["preset_id"], ["preset_not_ready"])
 
 
@@ -234,9 +234,9 @@ def test_the_words_come_in_the_companys_first_language() -> None:
     ("preset_id", "unit", "start", "end", "policy", "version"),
     [
         # A stay's prepayment is the company's to switch on: until then nothing is said.
-        ("core.lodging", "night", time(16), time(11), "none", 5),
-        ("core.rental", "day", time(9), time(18), "on_site", 3),
-        ("core.care_stay", "day", time(9), time(18), "on_site", 3),
+        ("core.lodging", "night", time(16), time(11), "none", 6),
+        ("core.rental", "day", time(9), time(18), "on_site", 4),
+        ("core.care_stay", "day", time(9), time(18), "on_site", 4),
     ],
 )
 def test_a_stay_preset_makes_an_offer_the_team_books_in_the_panel(

@@ -128,6 +128,18 @@ class ExtraKind(models.TextChoices):
     SECURITY_DEPOSIT = "security_deposit", "Kaucja"
 
 
+class FieldKind(models.TextChoices):
+    """What a field of a booking form takes (ADR-072 §8; the preset
+    contract's `fields[].type`)."""
+
+    TEXT = "text", "Tekst"
+    NUMBER = "number", "Liczba"
+    CHOICE = "choice", "Wybór z listy"
+    DATE = "date", "Data"
+    #: A box the customer ticks: its wording goes to the consent journal.
+    CONSENT = "consent", "Zgoda"
+
+
 class VatCode(models.TextChoices):
     """A tax rate as a code, because an exemption is not 0% (ADR-072 §6).
     The warehouse keeps the same codes for products (`inventory.VatRate`)."""
@@ -1003,6 +1015,49 @@ class Extra(TenantScopedModel):
         ]
 
 
+class FormField(TenantScopedModel):
+    """What an offer's booking form asks beyond the name and the contact — „Numer
+    prawa jazdy”, „Imię pupila”, „Przybliżona godzina przyjazdu” (ADR-072 §8,
+    slice 5j; `form_fields.py`).
+
+    `name` is the question as the customer reads it, in the company's first
+    language; for a `consent` it is the statement the customer ticks, kept
+    word for word in the consent journal. `options` are a choice's, one per
+    line. What a customer answered is theirs, not the field's: it is frozen on
+    the booking (`Appointment.form_answers`). A field is never deleted — a
+    booking names it — only switched off.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    service = models.ForeignKey(Service, on_delete=models.PROTECT, related_name="form_fields")
+    name = models.CharField(max_length=160)
+    kind = models.CharField(max_length=16, choices=FieldKind, default=FieldKind.TEXT)
+    options = models.TextField(blank=True)
+    mandatory = models.BooleanField(default=False)
+    #: The order on the form, smallest first.
+    position = models.PositiveSmallIntegerField(default=0)
+    active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "service_id", "position", "name", "id")
+        constraints = [
+            # Options are a choice's, and a choice has some.
+            models.CheckConstraint(
+                condition=(models.Q(kind=FieldKind.CHOICE) & ~models.Q(options=""))
+                | (~models.Q(kind=FieldKind.CHOICE) & models.Q(options="")),
+                name="booking_formfield_options_ck",
+            ),
+        ]
+
+    @property
+    def option_list(self) -> list[str]:
+        return [line for line in self.options.split("\n") if line]
+
+
 class Appointment(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     #: The company's customer, a record of `shared.customers` (ADR-073 §2).
@@ -1095,6 +1150,12 @@ class Appointment(TenantScopedModel):
     #: a street and number. Empty: a module may still say (places.py).
     place_town = models.CharField(max_length=120, blank=True)
     place_address = models.CharField(max_length=240, blank=True)
+    #: What the customer answered to the offer's own fields (`form_fields`,
+    #: ADR-072 5j), frozen: `[{field_id, name, kind, value}]` with the question
+    #: in the company's language. Customer data like `customer_notes`: shown
+    #: with the visit to whoever sees the customer's phone, never in an e-mail,
+    #: a log or the history of changes; anonymization clears it.
+    form_answers = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     all_objects = models.Manager()
@@ -1476,6 +1537,24 @@ class ExtraTranslation(ItemTranslation):
             ),
             models.CheckConstraint(
                 condition=models.Q(locale__regex=r"^[a-z]{2}$"), name="booking_extra_tr_locale_ck"
+            ),
+        ]
+
+
+class FormFieldTranslation(ItemTranslation):
+    """`texts`: `name`, and `options` — as many lines as the field's own, in
+    the same order."""
+
+    field = models.ForeignKey(FormField, on_delete=models.CASCADE, related_name="translations")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "field", "locale"], name="booking_formfield_tr_uq"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locale__regex=r"^[a-z]{2}$"),
+                name="booking_formfield_tr_locale_ck",
             ),
         ]
 

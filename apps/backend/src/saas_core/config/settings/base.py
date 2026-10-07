@@ -1000,6 +1000,9 @@ SPECTACULAR_SETTINGS = {
         # An extra's basis and kind must not rename a price's basis and other kinds.
         "ExtraBasisEnum": "saas_core.modules.shared.booking.models.ExtraBasis",
         "ExtraKindEnum": "saas_core.modules.shared.booking.models.ExtraKind",
+        # What a booking form's own field takes (ADR-072 5j): one enum wherever
+        # a field or an answer names its kind.
+        "FormFieldKindEnum": "saas_core.modules.shared.booking.models.FieldKind",
         # An assistant turn's state must not get a hashed name. As values, not
         # an import path: a product that leaves the module out never loads it.
         "AssistantTurnStateEnum": [

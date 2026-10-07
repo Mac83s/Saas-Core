@@ -45,6 +45,7 @@ from .dispatch import assign_crew, candidates, overview, queue
 from .dispatch import requests as waiting_requests
 from .facts import staff_facts, staff_history, team_performance
 from .flags import appointment_flags
+from .form_fields import offered_fields
 from .item_translations import localized_texts, source_locale, translatable
 from .models import (
     Appointment,
@@ -427,6 +428,9 @@ def _appointment_payload(
         ),
         "requested_staff_id": value.requested_staff_id,
         "customer_notes": value.customer_notes,
+        # What the customer answered to the offer's own fields: theirs, like
+        # the phone — the same people see it (ADR-072 5j).
+        "form_answers": value.form_answers if seen else [],
         "quote": value.quote,
     }
 
@@ -1389,6 +1393,8 @@ class PublicBookingCatalogView(APIView):
                     public_participant_categories(organization, locale) if stays else []
                 ),
                 "extras": offered_extras(organization, priced, locale),
+                # What the form asks with each offer, beyond name and contact.
+                "form_fields": offered_fields(organization, priced, locale),
                 "timezone": _zone().key,
                 "currency": organization.currency,
                 "online": {

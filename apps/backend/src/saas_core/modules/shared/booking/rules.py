@@ -31,6 +31,7 @@ from .models import (
     BookingClosure,
     BookingRule,
     Extra,
+    FormField,
     Location,
     ParticipantCategory,
     PriceRule,
@@ -45,6 +46,7 @@ CLOSURE_CHANGED = "booking.closure.changed"
 PRICE_CHANGED = "booking.price.changed"
 CATEGORY_CHANGED = "booking.participant_category.changed"
 EXTRA_CHANGED = "booking.extra.changed"
+FIELD_CHANGED = "booking.field.changed"
 #: What the history names as the changed item, by the action that changed it.
 _TARGETS = {
     RULE_CHANGED: "booking_rule",
@@ -52,6 +54,7 @@ _TARGETS = {
     PRICE_CHANGED: "booking_price",
     CATEGORY_CHANGED: "booking_participant_category",
     EXTRA_CHANGED: "booking_extra",
+    FIELD_CHANGED: "booking_field",
 }
 
 _RULE_FIELDS = (
@@ -289,7 +292,7 @@ def _check_dates(starts_on: date, ends_on: date) -> None:
         )
 
 
-def _write[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory, Extra)](
+def _write[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory, Extra, FormField)](
     context: TenantContext,
     organization: Organization,
     model: type[T],
@@ -332,7 +335,7 @@ def _write[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory, Extr
     return Saved(item, item.id, item.version, not before, changes)
 
 
-def _replay[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory, Extra)](
+def _replay[T: (BookingRule, BookingClosure, PriceRule, ParticipantCategory, Extra, FormField)](
     model: type[T], organization: Organization, item_id: UUID, created: bool
 ) -> Saved[T]:
     item = model.all_objects.filter(organization=organization, pk=item_id).first()

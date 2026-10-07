@@ -66,6 +66,11 @@
     }
   },
   "PublicBooking": {
+    "fieldOptional": "{name} (optional)",
+    "fieldTooLong": "Diese Antwort ist zu lang — höchstens 200 Zeichen.",
+    "fieldInvalid": "{kind, select, number {Bitte eine Zahl eingeben.} date {Bitte ein Datum angeben.} choice {Bitte eine der Möglichkeiten wählen.} other {Bitte dieses Feld korrigieren.}}",
+    "answersRefused": "Bitte die markierten Felder korrigieren und erneut versuchen.",
+    "fieldsChanged": "Das Unternehmen hat das Formular inzwischen geändert. Bitte die Seite neu laden und es erneut ausfüllen.",
     "email": "E-Mail",
     "emailOptional": "E-Mail (optional)",
     "phone": "Telefon",

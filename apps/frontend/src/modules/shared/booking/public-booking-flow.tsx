@@ -42,6 +42,7 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { addDays, dateFormat, formatDay, wallClock } from "./calendar-time";
 import {
+  answersMissing,
   BookedCard,
   ContactFields,
   type ContactValues,
@@ -49,9 +50,13 @@ import {
   contactShape,
   DocumentBoxes,
   ExtrasPicker,
+  givenAnswers,
   LanguageUnavailable,
   otherLanguages,
+  ownFields,
+  OwnFields,
   pickedExtras,
+  refusedAnswers,
   ticked,
 } from "./public-booking-parts";
 import { PublicStayFlow, type StayPreset } from "./public-stay-flow";
@@ -165,6 +170,15 @@ export function PublicBookingFlow({
   );
   const [picked, setPicked] = useState<Record<string, number>>({});
   const extras = useMemo(() => pickedExtras(picked), [picked]);
+  // What the company asks with this service beyond a name and a contact
+  // (ADR-072, slice 5j), what the customer answered, and what the server
+  // refused of it. Answers are kept by field, so another service asks its own.
+  const asks = useMemo(
+    () => ownFields(catalog, serviceId),
+    [catalog, serviceId],
+  );
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [refused, setRefused] = useState<Record<string, string>>({});
   // The price of what is chosen now; an answer for an earlier choice is not
   // shown. No price shown never stops a booking: the server prices it anyway.
   const startsAt = useWatch({ control: form.control, name: "starts_at" });
@@ -294,6 +308,8 @@ export function PublicBookingFlow({
   const book = form.handleSubmit(
     async ({ display_name, email, phone, notes, ...booking }) => {
       if (documents.some((document) => !accepted[document.text_id])) return;
+      if (answersMissing(asks, answers)) return;
+      const given = givenAnswers(asks, answers);
       try {
         // Who takes the visit, and the room it needs, is the server's pick
         // (ADR-058 §4) — within the team or the person the customer chose.
@@ -304,6 +320,7 @@ export function PublicBookingFlow({
             ...(query?.team_id ? { team_id: query.team_id } : {}),
             ...(query?.person_id ? { person_id: query.person_id } : {}),
             ...(notes.trim() ? { customer_notes: notes.trim() } : {}),
+            ...(given.length ? { answers: given } : {}),
             ...(extras.length ? { extras } : {}),
             // The price shown: another one by now is asked about, not charged.
             ...(quote ? { quote_digest: quote.digest } : {}),
@@ -347,6 +364,13 @@ export function PublicBookingFlow({
         const languages = otherLanguages(error);
         if (languages) {
           setElsewhere(languages);
+          return;
+        }
+        const unanswered = refusedAnswers(error);
+        if (unanswered) {
+          // Said at each field; a form whose fields changed is read again.
+          setRefused(unanswered);
+          setProblem(t("" in unanswered ? "fieldsChanged" : "answersRefused"));
           return;
         }
         setProblem(t("createError"));
@@ -598,6 +622,16 @@ export function PublicBookingFlow({
             contact={contact}
             errors={errors}
             register={(name) => form.register(name)}
+          />
+          <OwnFields
+            fields={asks}
+            onChange={(next) => {
+              setAnswers(next);
+              setRefused({});
+            }}
+            refused={refused}
+            tried={unaccepted}
+            values={answers}
           />
           <DocumentBoxes
             accepted={accepted}

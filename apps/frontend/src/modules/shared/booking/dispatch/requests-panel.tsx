@@ -134,6 +134,13 @@ export function RequestsPanel({
           {item.customer_notes ? (
             <p className="text-sm">„{item.customer_notes}”</p>
           ) : null}
+          {/* What the form asked of this offer, and what they answered. */}
+          {(item.form_answers ?? []).map((answer) => (
+            <p className="text-sm wrap-anywhere" key={answer.field_id}>
+              <span className="text-muted-foreground">{answer.name}: </span>
+              {answer.kind === "consent" ? t("answerTicked") : answer.value}
+            </p>
+          ))}
         </>
       ),
     },

@@ -84,6 +84,8 @@ const ENGINE = {
   // Paying before the stay came with orders (ADR-073, phase 4): a transfer
   // with a date, a prepayment and its balance, refund thresholds.
   paymentPolicy: ["none", "on_site", "transfer", "deposit", "full"],
+  // What a booking form asks beyond the name and the contact (slice 5j).
+  fieldType: ["text", "number", "choice", "date", "consent"],
 };
 // What the public booking form takes today, by time model and place: a visit
 // by the clock at the company's place, and — since phase 5b — a stay or a
@@ -343,14 +345,17 @@ test("a ready preset uses only what this core's booking engine runs", async () =
       assert.equal(preset.booked.subject, "staff", where(item));
     }
     // The price list, extras and the security deposit are here (phase 3),
-    // prepayments and refund thresholds since orders (phase 4); custom
-    // fields come with the public form (phase 5), portal calendars with
-    // phase 6.
+    // prepayments and refund thresholds since orders (phase 4), the form's
+    // own fields since slice 5j; portal calendars come with phase 6.
     assert.ok(
       ENGINE.paymentPolicy.includes(preset.payment?.policy ?? "none"),
       `${where(item)}: payment policy`,
     );
-    assert.deepEqual(preset.fields, [], where(item));
+    for (const field of preset.fields)
+      assert.ok(
+        ENGINE.fieldType.includes(field.type),
+        `${where(item)}: field ${field.key}`,
+      );
     assert.equal(preset.calendarSync, false, where(item));
     // Nothing asks the company for inputs no command can save yet.
     assert.equal(preset.requiredInputs, undefined, where(item));
@@ -398,16 +403,18 @@ test("what the engine runs today is ready, the rest is announced", async () => {
   // as a start the company changes (ADR-073, „Uzupełnienie po 4h”).
   // Version 3 of the three kinds booked from–to came with that form (phase
   // 5b): customers book them through the site. Version 5 of the stay
-  // suggests the page template „Noclegi” (slice 5g).
+  // suggests the page template „Noclegi” (slice 5g). The next version of
+  // each of the three carries what its booking form asks (slice 5j): an
+  // arrival hour, a driving licence number, who or what is left in care.
   assert.deepEqual(readiness, {
     "core.specialist_visit": "ready v1",
     "core.online_visit": "soon v1",
     "core.service_at_customer": "ready v2",
     "core.hourly_space": "soon v1",
     "core.table_or_group": "soon v1",
-    "core.lodging": "ready v5",
-    "core.rental": "ready v3",
-    "core.care_stay": "ready v3",
+    "core.lodging": "ready v6",
+    "core.rental": "ready v4",
+    "core.care_stay": "ready v4",
     "core.exclusive_date": "soon v1",
     "core.group_class": "soon v1",
     "core.ticketed_event": "soon v1",

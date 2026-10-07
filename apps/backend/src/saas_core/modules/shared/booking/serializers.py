@@ -17,6 +17,7 @@ from .models import (
     BookingChannel,
     Confirmation,
     ExtraBasis,
+    FieldKind,
     PaymentPolicy,
     RangeUnit,
     RefundBasis,
@@ -137,6 +138,17 @@ class ExtraPickSerializer(serializers.Serializer[dict[str, Any]]):
     quantity = serializers.IntegerField(min_value=1, max_value=100, required=False)
 
 
+class FormAnswerSerializer(serializers.Serializer[dict[str, Any]]):
+    """One answer a booking keeps (ADR-072 5j)."""
+
+    field_id = serializers.UUIDField(help_text="The field it answered; it may be off by now.")
+    name = serializers.CharField(help_text="The question as the company wrote it then.")
+    kind = serializers.ChoiceField(choices=FieldKind.choices)
+    value = serializers.CharField(
+        allow_blank=True, help_text="As text; empty for a consent — it was ticked."
+    )
+
+
 def _extras() -> serializers.ListField:
     return serializers.ListField(
         child=ExtraPickSerializer(),
@@ -144,6 +156,32 @@ def _extras() -> serializers.ListField:
         max_length=20,
         help_text="The optional extras picked, each with how many (1 when omitted). The "
         "offer's mandatory extras are always charged.",
+    )
+
+
+class FormAnswerInputSerializer(serializers.Serializer[dict[str, Any]]):
+    field_id = serializers.UUIDField(help_text="A field of the offer, from `form_fields`.")
+    value = serializers.CharField(
+        allow_blank=True,
+        max_length=500,
+        trim_whitespace=True,
+        help_text="Always text: what the customer typed; a number with a dot or a comma; a "
+        "date as `YYYY-MM-DD`; a choice's `value`; `true` for a ticked consent. Empty — "
+        "not answered.",
+    )
+
+
+def _answers() -> serializers.ListField:
+    return serializers.ListField(
+        child=FormAnswerInputSerializer(),
+        required=False,
+        max_length=40,
+        help_text="What the customer answered to the offer's own fields (`form_fields` of "
+        "the catalogue). A mandatory one left out or empty is 400 with the field "
+        "`answers.<field_id>` and the code `field_required`; an answer that is no number, "
+        "date or option `field_invalid`; too long `field_too_long`; a field the offer does "
+        "not have now `field_unknown` on `answers`. Answers are the customer's personal "
+        "data: kept on the booking for the company, never sent back here or in an e-mail.",
     )
 
 
@@ -433,6 +471,7 @@ class PublicAppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     person_id = serializers.UUIDField(required=False, allow_null=True)
     #: „Uwagi”: for the company's eyes only, never in an e-mail (answer 1A).
     customer_notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    answers = _answers()
     extras = _extras()
     quote_digest = _shown_digest()
     origin = _origin()
@@ -659,6 +698,14 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     requested_staff_id = serializers.UUIDField(allow_null=True)
     #: „Uwagi” from the customer. Panel only; never in an e-mail.
     customer_notes = serializers.CharField()
+    form_answers = FormAnswerSerializer(
+        many=True,
+        required=False,
+        help_text="What the customer answered to the offer's own form fields, as asked "
+        "then; a ticked consent has an empty `value` (its wording is in the consent "
+        "journal). Empty for whoever does not see the customer's phone, and after the "
+        "customer was anonymized.",
+    )
     quote = BookingQuoteSerializer(
         required=False,
         allow_null=True,
@@ -1969,12 +2016,46 @@ class PublicExtraSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class PublicFieldOptionSerializer(serializers.Serializer[dict[str, Any]]):
+    value = serializers.CharField(help_text="What an answer sends back, word for word.")
+    label = serializers.CharField(  # type: ignore[assignment]
+        help_text="How the form says it, in the language asked for where translated."
+    )
+
+
+class PublicFormFieldSerializer(serializers.Serializer[dict[str, Any]]):
+    """What an offer's booking form asks beyond the name and the contact."""
+
+    id = serializers.UUIDField(help_text="Send it as `answers[].field_id`.")
+    service_id = serializers.UUIDField(
+        help_text="The offer — a service or a stay — it is asked with."
+    )
+    name = serializers.CharField(
+        help_text="The question — for a consent, the statement to tick — in the language "
+        "asked for, where translated."
+    )
+    kind = serializers.ChoiceField(
+        choices=FieldKind.choices,
+        help_text="`text`, `number`, `date` (a day), `choice` (one of `options`) or "
+        "`consent` (a box to tick).",
+    )
+    mandatory = serializers.BooleanField(
+        help_text="The booking is refused without an answer (for a consent: unticked)."
+    )
+    options = PublicFieldOptionSerializer(many=True, help_text="A choice's; empty otherwise.")
+
+
 class PublicUnitPhotoSerializer(serializers.Serializer[dict[str, Any]]):
     """A picture of a unit the company shows, as our WebP copies."""
 
     id = serializers.UUIDField()
     thumbnail_url = serializers.CharField(help_text="The small copy (up to 320 px), same origin.")
     preview_url = serializers.CharField(help_text="The large copy (up to 1280 px), same origin.")
+    width = serializers.IntegerField(help_text="The stored picture's width in pixels; 0 — unknown.")
+    height = serializers.IntegerField(help_text="Its height in pixels; 0 — unknown.")
+    ai_generated = serializers.BooleanField(
+        help_text="A model made it: whoever shows it marks it (ADR-059 pkt 7)."
+    )
 
 
 class PublicUnitAmenitySerializer(serializers.Serializer[dict[str, Any]]):
@@ -2114,6 +2195,12 @@ class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
     )
     extras = PublicExtraSerializer(
         many=True, required=False, help_text="What the services add to their price."
+    )
+    form_fields = PublicFormFieldSerializer(
+        many=True,
+        required=False,
+        help_text="What the form asks with each offer beyond the customer's name and "
+        "contact, in the form's order; the answers go back as `answers`.",
     )
     currency = serializers.CharField(
         required=False, help_text="The currency of the company's prices, ISO 4217."

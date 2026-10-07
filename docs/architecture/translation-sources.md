@@ -226,7 +226,7 @@ to błąd.
 | `sites.entry` | `shared.sites` | wersjonowane, osobna publikacja języka (rodzeństwo) | `published`, `working` | `draft`, `pending`, `live` | nie | TL11 |
 | `sites.site_texts` | `shared.sites` | wersjonowane (`SiteTextTranslation`) | `published` | `pending`, `live` | nie | TL11 |
 | `profiles.public_profile` | `shared.profiles` | rekord na żywo | `published` | `live` | nie | TL12 |
-| `booking.catalog` — jeden obiekt na firmę (jej katalog rezerwacji); jednostki `<rodzaj>/<id>/<pole>` usług, miejsc, jednostek, grup, zespołów (nazwa zespołu jako `name`) i kategorii uczestników | `shared.booking` | rekord na żywo | `published` | `live` | nie | TL12c |
+| `booking.catalog` — jeden obiekt na firmę (jej katalog rezerwacji); jednostki `<rodzaj>/<id>/<pole>` usług, miejsc, jednostek, grup, zespołów (nazwa zespołu jako `name`), kategorii uczestników, dopłat i pól formularza (`field`: pytanie `name` i możliwości wyboru `options`, po jednej w wierszu — ADR-072 „Rozstrzygnięcia plastra 5j”) | `shared.booking` | rekord na żywo | `published` | `live` | nie | TL12c |
 | `customers.document` — dokument firmy dla klientów z zatwierdzoną wersją; źródłem jest wersja, która wchodzi w życie ostatnia (obowiązująca albo zatwierdzona na późniejszy dzień), jeden fragment `text` z całym tekstem; zakres to dokument (jego rodzaj) | `shared.customers` | rekord na żywo, akceptacja tylko przez osobę w panelu z kodem z aplikacji (`accepted_in_panel_only`, §6.6) | `published` | `live` | każdy obiekt | faza 4d-2 rezerwacji (ADR-073 §9) |
 | `puppily.*` (rasa, wpis, kategoria, dokument) | `vertical.puppily` | wersjonowane | `published` (`working` od PU10) | `pending`, `live` | dokument prawny | PU5 |
 

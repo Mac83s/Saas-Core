@@ -29,6 +29,8 @@ import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
+import { siteUiTexts } from "@saas-core/site-blocks";
+
 import { nativeName } from "#lib/company-locales";
 import { dateFormat, formatWhen, wallClock } from "./calendar-time";
 import { QuoteSummary } from "./quote-summary";
@@ -417,6 +419,179 @@ export function pickedExtras(picked: Record<string, number>) {
     .map(([extra_id, quantity]) => ({ extra_id, quantity }));
 }
 
+export type OwnField = NonNullable<BookingPublicCatalog["form_fields"]>[number];
+
+/** What a ticked consent sends as its answer. */
+const TICKED = "true";
+
+/** The fields the company added to the form of this offer (ADR-072, slice
+ *  5j), in the form's order. */
+export function ownFields(
+  catalog: BookingPublicCatalog | undefined,
+  offerId: string,
+): OwnField[] {
+  return (catalog?.form_fields ?? []).filter(
+    (field) => String(field.service_id) === offerId,
+  );
+}
+
+/** The answers given, as a booking takes them: always text. */
+export function givenAnswers(
+  fields: OwnField[],
+  values: Record<string, string>,
+) {
+  return fields
+    .map((field) => ({
+      field_id: String(field.id),
+      value: (values[String(field.id)] ?? "").trim(),
+    }))
+    .filter((answer) => answer.value);
+}
+
+/** Whether a mandatory field was left empty: said at the field, and the
+ *  booking is not sent. */
+export function answersMissing(
+  fields: OwnField[],
+  values: Record<string, string>,
+): boolean {
+  return fields.some(
+    (field) => field.mandatory && !(values[String(field.id)] ?? "").trim(),
+  );
+}
+
+/** The server's refusals of answers, by field: `field_required`,
+ *  `field_invalid`, `field_too_long`; under `""` — the form's fields are no
+ *  longer these (`field_unknown`). Undefined when the refusal is not about
+ *  answers. */
+export function refusedAnswers(
+  error: unknown,
+): Record<string, string> | undefined {
+  if (!(error instanceof ApiProblemError)) return undefined;
+  const found = (error.problem.errors ?? []).filter(
+    (item) => item.field === "answers" || item.field?.startsWith("answers."),
+  );
+  if (!found.length) return undefined;
+  return Object.fromEntries(
+    found.map((item) => [
+      (item.field ?? "").slice("answers.".length),
+      item.code ?? "field_invalid",
+    ]),
+  );
+}
+
+/**
+ * What the company asks with this offer beyond a name and a contact — a
+ * licence number, a pet's name, an arrival hour — and its own boxes to tick.
+ * The answers are the customer's: sent with the booking, shown to the
+ * company only.
+ */
+export function OwnFields({
+  fields,
+  onChange,
+  refused,
+  tried,
+  values,
+}: {
+  fields: OwnField[];
+  onChange: (next: Record<string, string>) => void;
+  /** What the server refused, by field (`refusedAnswers`). */
+  refused: Record<string, string>;
+  /** A booking was tried: an empty mandatory field says so. */
+  tried: boolean;
+  values: Record<string, string>;
+}) {
+  const t = useTranslations("PublicBooking");
+  if (!fields.length) return null;
+  return (
+    <>
+      {fields.map((field) => {
+        const key = String(field.id);
+        const id = `booking-field-${key}`;
+        const value = values[key] ?? "";
+        const set = (next: string) => onChange({ ...values, [key]: next });
+        const code =
+          tried && field.mandatory && !value.trim()
+            ? "field_required"
+            : refused[key];
+        const message = code
+          ? code === "field_required"
+            ? t(field.kind === "consent" ? "documentRequired" : "required")
+            : code === "field_too_long"
+              ? t("fieldTooLong")
+              : t("fieldInvalid", { kind: field.kind })
+          : undefined;
+        const problem = message ? (
+          <FieldProblem errors={[{ message }]} id={`${id}-problem`} />
+        ) : null;
+        const described = message ? `${id}-problem` : undefined;
+        if (field.kind === "consent")
+          return (
+            <Field data-invalid={Boolean(message)} key={key}>
+              <label
+                className="flex min-h-11 items-center gap-2 text-sm"
+                htmlFor={id}
+              >
+                <input
+                  aria-describedby={described}
+                  aria-invalid={Boolean(message)}
+                  checked={value === TICKED}
+                  className="size-4 shrink-0"
+                  id={id}
+                  onChange={(event) => set(event.target.checked ? TICKED : "")}
+                  type="checkbox"
+                />
+                <span className="min-w-0 wrap-anywhere">
+                  {field.mandatory
+                    ? field.name
+                    : t("fieldOptional", { name: field.name })}
+                </span>
+              </label>
+              {problem}
+            </Field>
+          );
+        return (
+          <Field data-invalid={Boolean(message)} key={key}>
+            <FieldLabel htmlFor={id}>
+              {field.mandatory
+                ? field.name
+                : t("fieldOptional", { name: field.name })}
+            </FieldLabel>
+            {field.kind === "choice" ? (
+              <NativeSelect
+                aria-describedby={described}
+                aria-invalid={Boolean(message)}
+                id={id}
+                onChange={(event) => set(event.target.value)}
+                value={value}
+              >
+                <option value="">{t("choose")}</option>
+                {field.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            ) : (
+              <Input
+                aria-describedby={described}
+                aria-invalid={Boolean(message)}
+                autoComplete="off"
+                id={id}
+                inputMode={field.kind === "number" ? "decimal" : undefined}
+                maxLength={field.kind === "text" ? 200 : undefined}
+                onChange={(event) => set(event.target.value)}
+                type={field.kind === "date" ? "date" : "text"}
+                value={value}
+              />
+            )}
+            {problem}
+          </Field>
+        );
+      })}
+    </>
+  );
+}
+
 type StayOffer = NonNullable<BookingPublicCatalog["stays"]>[number];
 
 /** What a guest sees of a unit the company shows (ADR-072, slice 5c): its
@@ -430,6 +605,47 @@ export type UnitContent = Pick<
 /** How many of a unit's amenities a choice names before „+N”. */
 const AMENITIES_SHOWN = 6;
 
+/**
+ * A unit's small picture on the form: the server's own WebP copy at the
+ * form's address — nothing for the image optimizer to fetch from elsewhere
+ * — and, for one a model made, the visible „AI” mark with the same words in
+ * its `alt`, as the company's site marks it (ADR-059 pkt 7). The mark is
+ * hidden from a screen reader, so nothing is read twice.
+ */
+function UnitPicture({
+  alt,
+  className,
+  photo,
+}: {
+  alt: string;
+  className: string;
+  photo: UnitContent["photos"][number];
+}) {
+  const locale = useLocale();
+  const image = (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      alt={photo.ai_generated ? `${alt}${siteUiTexts(locale).aiImage}` : alt}
+      className={className}
+      decoding="async"
+      loading="lazy"
+      src={photo.thumbnail_url}
+    />
+  );
+  if (!photo.ai_generated) return image;
+  return (
+    <span className="relative block shrink-0">
+      {image}
+      <span
+        aria-hidden="true"
+        className="absolute top-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[0.625rem] leading-none font-semibold text-white"
+      >
+        AI
+      </span>
+    </span>
+  );
+}
+
 /** The unit's cover beside its name; nothing for a unit without pictures. */
 export function UnitCover({
   name,
@@ -441,15 +657,10 @@ export function UnitCover({
   const cover = photos[0];
   if (!cover) return null;
   return (
-    // The server's own WebP copy at the form's address: nothing for the
-    // image optimizer to fetch from elsewhere.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <UnitPicture
       alt={name}
       className="size-16 shrink-0 rounded-md object-cover sm:size-20"
-      decoding="async"
-      loading="lazy"
-      src={cover.thumbnail_url}
+      photo={cover}
     />
   );
 }
@@ -505,14 +716,16 @@ export function UnitGallery({
     >
       {photos.map((photo, index) => (
         <li className="shrink-0" key={photo.id}>
-          <a href={photo.preview_url} rel="noopener" target="_blank">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+          <a
+            className="block"
+            href={photo.preview_url}
+            rel="noopener"
+            target="_blank"
+          >
+            <UnitPicture
               alt={t("stayPhoto", { name, number: index + 1 })}
               className="size-20 rounded-md object-cover"
-              decoding="async"
-              loading="lazy"
-              src={photo.thumbnail_url}
+              photo={photo}
             />
           </a>
         </li>

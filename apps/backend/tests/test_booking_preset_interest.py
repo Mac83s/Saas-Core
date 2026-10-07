@@ -78,7 +78,7 @@ def test_the_panel_starts_an_offer_from_a_ready_preset() -> None:
         "range",
         False,
     )
-    assert (offer["preset_id"], offer["preset_version"]) == ("core.lodging", 5)
+    assert (offer["preset_id"], offer["preset_version"]) == ("core.lodging", 6)
     # The same key again answers the same offer; another key makes a second.
     again = client.post(APPLY, stay, format="json", **once)
     assert (again.status_code, again.json()["id"]) == (201, offer["id"])

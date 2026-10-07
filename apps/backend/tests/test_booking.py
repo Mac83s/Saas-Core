@@ -545,6 +545,9 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
         "locale",
         # What the services add to their price, by name and gross amount.
         "extras",
+        # What the form asks with each offer beyond a name and a contact —
+        # the company's questions, nobody's answers (ADR-072 5j).
+        "form_fields",
         "currency",
     }
     # Nobody is shown to customers here, so no team and no person is listed.

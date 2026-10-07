@@ -1777,6 +1777,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/setup/fields/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the offers' own form fields
+         * @description What each offer's booking form asks beyond the customer's name and contact, in the form's order, switched-off ones included; and what a field may be (`limits`).
+         */
+        get: operations["booking_form_fields_list"];
+        put?: never;
+        /**
+         * Add a field to an offer's booking form
+         * @description A question the offer's booking form asks every customer — a driving licence number, a pet's name, an arrival hour — or a consent to tick. Refused with a code on its field: `name_taken`, `options_required`, `options_too_many`, `option_too_long`, `options_repeated`, `fields_too_many`. What a customer answers is their personal data, kept on the booking and removed with the customer; do not ask here for health or other special-category data. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        post: operations["booking_form_field_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/fields/{field_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a form field
+         * @description Changes a field's question, kind, options, order or whether it is mandatory, or switches it off. A field is never deleted: bookings keep the question they were asked and their answer, whatever the field becomes. What a customer answers is their personal data, kept on the booking and removed with the customer; do not ask here for health or other special-category data. Only the fields sent change. `expected_version` is the version the change was made on; another one is 409 `booking_version_conflict`. A repeated Idempotency-Key answers the first result again; the key reused on another request is 409 `booking_idempotency_conflict`.
+         */
+        patch: operations["booking_form_field_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/setup/fields/{field_id}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change to a form field without saving it
+         * @description Validates a change as `booking_form_field_update` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_form_field_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/fields/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a form field without adding it
+         * @description Validates a field as `booking_form_field_create` would. Nothing is saved: the answer is the item as the write would leave it, with `changes`, or the same 400, 404 and 409 the write would answer.
+         */
+        post: operations["booking_form_field_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/setup/groups/": {
         parameters: {
             query?: never;
@@ -8493,6 +8577,8 @@ export interface components {
             /** Format: uuid */
             requested_staff_id: string | null;
             customer_notes: string;
+            /** @description What the customer answered to the offer's own form fields, as asked then; a ticked consent has an empty `value` (its wording is in the consent journal). Empty for whoever does not see the customer's phone, and after the customer was anonymized. */
+            form_answers?: components["schemas"]["FormAnswer"][];
             /** @description The price frozen when the booking was made or last moved; null for a booking from before quotes. */
             quote?: components["schemas"]["BookingQuote"] | null;
         };
@@ -11532,6 +11618,160 @@ export interface components {
             farm_id: string;
             farm_name: string;
         };
+        /** @description One answer a booking keeps (ADR-072 5j). */
+        FormAnswer: {
+            /**
+             * Format: uuid
+             * @description The field it answered; it may be off by now.
+             */
+            field_id: string;
+            /** @description The question as the company wrote it then. */
+            name: string;
+            kind: components["schemas"]["FormFieldKindEnum"];
+            /** @description As text; empty for a consent — it was ticked. */
+            value: string;
+        };
+        FormAnswerInput: {
+            /**
+             * Format: uuid
+             * @description A field of the offer, from `form_fields`.
+             */
+            field_id: string;
+            /** @description Always text: what the customer typed; a number with a dot or a comma; a date as `YYYY-MM-DD`; a choice's `value`; `true` for a ticked consent. Empty — not answered. */
+            value: string;
+        };
+        FormField: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            service_id: string;
+            name: string;
+            /**
+             * @description `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+             *
+             *     * `text` - Tekst
+             *     * `number` - Liczba
+             *     * `choice` - Wybór z listy
+             *     * `date` - Data
+             *     * `consent` - Zgoda
+             */
+            kind: components["schemas"]["FormFieldKindEnum"];
+            /** @description A choice's options in order, at least two; a booking's answer names one of them word for word. Ignored for every other kind. */
+            options: string[];
+            mandatory: boolean;
+            position: number;
+            active: boolean;
+            version: number;
+        };
+        /** @description One thing an offer's booking form asks. */
+        FormFieldInput: {
+            /**
+             * Format: uuid
+             * @description The offer whose form asks it.
+             */
+            service_id: string;
+            /** @description The question as the customer reads it, in the company's first language; for a `consent`, the statement they tick. */
+            name: string;
+            /**
+             * @description `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+             *
+             *     * `text` - Tekst
+             *     * `number` - Liczba
+             *     * `choice` - Wybór z listy
+             *     * `date` - Data
+             *     * `consent` - Zgoda
+             */
+            kind?: components["schemas"]["FormFieldKindEnum"];
+            /** @description A choice's options in order, at least two; a booking's answer names one of them word for word. Ignored for every other kind. */
+            options?: string[];
+            /** @description A customer booking for themselves must answer it (tick it, for a consent); the team's own bookings are asked for nothing. */
+            mandatory?: boolean;
+            /** @description The order on the form, smallest first; omitted — a new field goes last. */
+            position?: number;
+            active?: boolean;
+        };
+        FormFieldKind: {
+            value: components["schemas"]["FormFieldKindEnum"];
+            /** @description By language: pl, en. */
+            label: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * @description * `text` - Tekst
+         *     * `number` - Liczba
+         *     * `choice` - Wybór z listy
+         *     * `date` - Data
+         *     * `consent` - Zgoda
+         * @enum {string}
+         */
+        FormFieldKindEnum: "text" | "number" | "choice" | "date" | "consent";
+        /** @description What an offer's fields may be (ADR-078: read, never hard-coded). */
+        FormFieldLimits: {
+            /** @description Switched-on fields of one offer. */
+            max_fields: number;
+            min_options: number;
+            max_options: number;
+            max_option_length: number;
+            max_name_length: number;
+            /** @description The longest text a customer types into one field. */
+            max_answer_length: number;
+            kinds: components["schemas"]["FormFieldKind"][];
+        };
+        FormFieldList: {
+            items: components["schemas"]["FormField"][];
+            limits: components["schemas"]["FormFieldLimits"];
+        };
+        FormFieldPreview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            service_id: string;
+            name: string;
+            /**
+             * @description `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+             *
+             *     * `text` - Tekst
+             *     * `number` - Liczba
+             *     * `choice` - Wybór z listy
+             *     * `date` - Data
+             *     * `consent` - Zgoda
+             */
+            kind: components["schemas"]["FormFieldKindEnum"];
+            /** @description A choice's options in order, at least two; a booking's answer names one of them word for word. Ignored for every other kind. */
+            options: string[];
+            mandatory: boolean;
+            position: number;
+            active: boolean;
+            version: number;
+            /** @description What the write changes, per field: `{from, to}`, or `{changed: true}` for a private value and a list of links. Empty for a new item and for no change. */
+            changes: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description One thing an offer's booking form asks. */
+        FormFieldUpdate: {
+            name?: string;
+            /**
+             * @description `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+             *
+             *     * `text` - Tekst
+             *     * `number` - Liczba
+             *     * `choice` - Wybór z listy
+             *     * `date` - Data
+             *     * `consent` - Zgoda
+             */
+            kind?: components["schemas"]["FormFieldKindEnum"];
+            /** @description A choice's options in order, at least two; a booking's answer names one of them word for word. Ignored for every other kind. */
+            options?: string[];
+            /** @description A customer booking for themselves must answer it (tick it, for a consent); the team's own bookings are asked for nothing. */
+            mandatory?: boolean;
+            /** @description The order on the form, smallest first; omitted — a new field goes last. */
+            position?: number;
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version: number;
+        };
         GenericMessage: {
             detail: string;
         };
@@ -14344,6 +14584,29 @@ export interface components {
             notes?: string;
             active?: boolean;
         };
+        /** @description One thing an offer's booking form asks. */
+        PatchedFormFieldUpdate: {
+            name?: string;
+            /**
+             * @description `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+             *
+             *     * `text` - Tekst
+             *     * `number` - Liczba
+             *     * `choice` - Wybór z listy
+             *     * `date` - Data
+             *     * `consent` - Zgoda
+             */
+            kind?: components["schemas"]["FormFieldKindEnum"];
+            /** @description A choice's options in order, at least two; a booking's answer names one of them word for word. Ignored for every other kind. */
+            options?: string[];
+            /** @description A customer booking for themselves must answer it (tick it, for a consent); the team's own bookings are asked for nothing. */
+            mandatory?: boolean;
+            /** @description The order on the form, smallest first; omitted — a new field goes last. */
+            position?: number;
+            active?: boolean;
+            /** @description The version the change was made on, as the last read gave it; another one answers 409 `booking_version_conflict`. */
+            expected_version?: number;
+        };
         PatchedGlossaryTermUpdate: {
             term?: string | null;
             rule?: components["schemas"]["RuleEnum"] | components["schemas"]["NullEnum"];
@@ -15909,6 +16172,8 @@ export interface components {
             /** Format: uuid */
             person_id?: string | null;
             customer_notes?: string;
+            /** @description What the customer answered to the offer's own fields (`form_fields` of the catalogue). A mandatory one left out or empty is 400 with the field `answers.<field_id>` and the code `field_required`; an answer that is no number, date or option `field_invalid`; too long `field_too_long`; a field the offer does not have now `field_unknown` on `answers`. Answers are the customer's personal data: kept on the booking for the company, never sent back here or in an e-mail. */
+            answers?: components["schemas"]["FormAnswerInput"][];
             /** @description The optional extras picked, each with how many (1 when omitted). The offer's mandatory extras are always charged. */
             extras?: components["schemas"]["ExtraPick"][];
             /** @description The `digest` of the quote the customer was shown. Required as soon as the booking has a price: without it, or when the price is another one by now, the answer is 409 `quote_changed` with the quote to show in `detail.quote`, and nothing is saved. */
@@ -15965,6 +16230,8 @@ export interface components {
             participant_categories?: components["schemas"]["PublicParticipantCategory"][];
             /** @description What the services add to their price. */
             extras?: components["schemas"]["PublicExtra"][];
+            /** @description What the form asks with each offer beyond the customer's name and contact, in the form's order; the answers go back as `answers`. */
+            form_fields?: components["schemas"]["PublicFormField"][];
             /** @description The currency of the company's prices, ISO 4217. */
             currency?: string;
             timezone: string;
@@ -16079,6 +16346,41 @@ export interface components {
              * @description Atom of the articles in the page's language.
              */
             atom: string;
+        };
+        PublicFieldOption: {
+            /** @description What an answer sends back, word for word. */
+            value: string;
+            /** @description How the form says it, in the language asked for where translated. */
+            label: string;
+        };
+        /** @description What an offer's booking form asks beyond the name and the contact. */
+        PublicFormField: {
+            /**
+             * Format: uuid
+             * @description Send it as `answers[].field_id`.
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @description The offer — a service or a stay — it is asked with.
+             */
+            service_id: string;
+            /** @description The question — for a consent, the statement to tick — in the language asked for, where translated. */
+            name: string;
+            /**
+             * @description `text`, `number`, `date` (a day), `choice` (one of `options`) or `consent` (a box to tick).
+             *
+             *     * `text` - Tekst
+             *     * `number` - Liczba
+             *     * `choice` - Wybór z listy
+             *     * `date` - Data
+             *     * `consent` - Zgoda
+             */
+            kind: components["schemas"]["FormFieldKindEnum"];
+            /** @description The booking is refused without an answer (for a consent: unticked). */
+            mandatory: boolean;
+            /** @description A choice's; empty otherwise. */
+            options: components["schemas"]["PublicFieldOption"][];
         };
         /**
          * @description „od X zł/noc”: an announcement, not a quote — `POST …/stays/quote/`
@@ -16456,6 +16758,8 @@ export interface components {
             extras?: components["schemas"]["ExtraPick"][];
             customer: components["schemas"]["CustomerInput"];
             customer_notes?: string;
+            /** @description What the customer answered to the offer's own fields (`form_fields` of the catalogue). A mandatory one left out or empty is 400 with the field `answers.<field_id>` and the code `field_required`; an answer that is no number, date or option `field_invalid`; too long `field_too_long`; a field the offer does not have now `field_unknown` on `answers`. Answers are the customer's personal data: kept on the booking for the company, never sent back here or in an e-mail. */
+            answers?: components["schemas"]["FormAnswerInput"][];
             /** @description The `digest` of the quote the customer was shown. Required as soon as the booking has a price: without it, or when the price is another one by now, the answer is 409 `quote_changed` with the quote to show in `detail.quote`, and nothing is saved. */
             quote_digest?: string;
             /** @description The `origin` the form's address carried, as it was — the catalogue's signed token. One that holds (ours, for this company, not too old) makes the booking the catalogue's (`channel` `catalog`); anything else is ignored, never refused. */
@@ -16635,6 +16939,12 @@ export interface components {
             thumbnail_url: string;
             /** @description The large copy (up to 1280 px), same origin. */
             preview_url: string;
+            /** @description The stored picture's width in pixels; 0 — unknown. */
+            width: number;
+            /** @description Its height in pixels; 0 — unknown. */
+            height: number;
+            /** @description A model made it: whoever shows it marks it (ADR-059 pkt 7). */
+            ai_generated: boolean;
         };
         PublicUnitTown: {
             /** @description The town's slug in the catalogue's dictionary. */
@@ -16752,6 +17062,8 @@ export interface components {
             /** Format: uuid */
             requested_staff_id: string | null;
             customer_notes: string;
+            /** @description What the customer answered to the offer's own form fields, as asked then; a ticked consent has an empty `value` (its wording is in the consent journal). Empty for whoever does not see the customer's phone, and after the customer was anonymized. */
+            form_answers?: components["schemas"]["FormAnswer"][];
             /** @description The price frozen when the booking was made or last moved; null for a booking from before quotes. */
             quote?: components["schemas"]["BookingQuote"] | null;
         };
@@ -24023,6 +24335,269 @@ export interface operations {
             };
         };
     };
+    booking_form_fields_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormFieldList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_form_field_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormFieldInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["FormFieldInput"];
+                "multipart/form-data": components["schemas"]["FormFieldInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormField"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_form_field_update: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedFormFieldUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedFormFieldUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedFormFieldUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormField"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_form_field_update_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormFieldUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["FormFieldUpdate"];
+                "multipart/form-data": components["schemas"]["FormFieldUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormFieldPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_form_field_create_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormFieldInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["FormFieldInput"];
+                "multipart/form-data": components["schemas"]["FormFieldInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormFieldPreview"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     booking_setup_group_create: {
         parameters: {
             query?: never;
@@ -26391,8 +26966,8 @@ export interface operations {
             header?: never;
             path: {
                 item_id: string;
-                /** @description service, location, resource (a unit), group (of units), team, participant_category or extra. */
-                kind: "extra" | "group" | "location" | "participant_category" | "resource" | "service" | "team";
+                /** @description service, location, resource (a unit), group (of units), team, participant_category, extra or field (of an offer's booking form: its `name`, and the `options` of a choice — one per line, as many as the field's own). */
+                kind: "extra" | "field" | "group" | "location" | "participant_category" | "resource" | "service" | "team";
             };
             cookie?: never;
         };
@@ -26432,8 +27007,8 @@ export interface operations {
             };
             path: {
                 item_id: string;
-                /** @description service, location, resource (a unit), group (of units), team, participant_category or extra. */
-                kind: "extra" | "group" | "location" | "participant_category" | "resource" | "service" | "team";
+                /** @description service, location, resource (a unit), group (of units), team, participant_category, extra or field (of an offer's booking form: its `name`, and the `options` of a choice — one per line, as many as the field's own). */
+                kind: "extra" | "field" | "group" | "location" | "participant_category" | "resource" | "service" | "team";
                 locale: string;
             };
             cookie?: never;
@@ -26494,8 +27069,8 @@ export interface operations {
             header?: never;
             path: {
                 item_id: string;
-                /** @description service, location, resource (a unit), group (of units), team, participant_category or extra. */
-                kind: "extra" | "group" | "location" | "participant_category" | "resource" | "service" | "team";
+                /** @description service, location, resource (a unit), group (of units), team, participant_category, extra or field (of an offer's booking form: its `name`, and the `options` of a choice — one per line, as many as the field's own). */
+                kind: "extra" | "field" | "group" | "location" | "participant_category" | "resource" | "service" | "team";
                 locale: string;
             };
             cookie?: never;

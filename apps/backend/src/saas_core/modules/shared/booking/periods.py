@@ -46,8 +46,10 @@ from saas_core.modules.shared.notifications.services import queue_email
 from . import orders
 from .availability import _valid_instants, _zone, closed_days
 from .company_settings import BeyondHorizon, refuse_missing_contact, refuse_when_paused
-from .consents import BookingConsents
+from .consents import BookingConsents, booking_locale
 from .crew import lost_slot_race
+from .form_answers import checked as checked_answers
+from .form_answers import hashed as hashed_answers
 from .models import (
     Appointment,
     AppointmentResourceAllocation,
@@ -324,6 +326,7 @@ def book_stay(
     preview: bool = False,
     consents: BookingConsents | None = None,
     origin: str = "",
+    answers: Sequence[Mapping[str, Any]] | None = None,
 ) -> CreatedAppointment | StayPlan:
     """Books a stay — the team in the panel, or a customer on the company's
     public form; with `preview`, says which unit it would take and refuses
@@ -392,6 +395,7 @@ def book_stay(
             if extras
             else {}
         ),
+        **hashed_answers(answers),
     })
     with connection.cursor() as cursor:
         cursor.execute(
@@ -430,6 +434,10 @@ def book_stay(
         people=people,
     )
     organization = Organization.objects.get(pk=context.organization_id)
+    # Before anything is written: an answer refused leaves no customer behind.
+    asked = checked_answers(
+        plan.service, answers, locale=booking_locale(customer_data.get("locale"))
+    )
     customer, email = match_or_create(organization, customer_data)
     token, digest = issue_self_service_token()
     expires = _self_service_expiry(plan.stay.ends_at)
@@ -453,6 +461,7 @@ def book_stay(
         staff_required=0,
         crew_version=1,
         customer_notes=customer_notes.strip()[:500],
+        form_answers=asked.kept,
         **booking_origin(origin),
     )
     unit = _hold(appointment, plan)
@@ -477,6 +486,7 @@ def book_stay(
         },
         consents=consents,
         asked_locale=customer_data.get("locale"),
+        answers=asked,
     )
     return CreatedAppointment(appointment, token, True)
 

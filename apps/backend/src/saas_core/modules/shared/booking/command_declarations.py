@@ -884,6 +884,20 @@ def _preview_apply(arguments: Mapping[str, Any], call: Any) -> Preview:
         en += " The team books it in the panel; booking through the site is coming soon."
     terms = _starting_terms(service)
     pl, en = pl + terms[0], en + terms[1]
+    # What its booking form will ask every customer comes with the offer
+    # (ADR-072 5j): said before the person agrees, like every other term.
+    asks = find_preset(service.preset_id, service.preset_version).raw.get("fields", [])
+    if asks:
+        pl += (
+            " Formularz rezerwacji zapyta klienta o: "
+            + ", ".join(f"„{asked['labels']['pl']}”" for asked in asks)
+            + " — zmienisz to w ustawieniach usługi."
+        )
+        en += (
+            " Its booking form will ask the customer: "
+            + ", ".join(f"“{asked['labels']['en']}”" for asked in asks)
+            + " — yours to change in the service's settings."
+        )
     # No id before the save, as for booking.offer.create@1.
     return Preview(
         effects=(
@@ -973,7 +987,10 @@ PRESET_APPLY = CommandSpec(
         "preset_id, and then say so instead of trying another preset. It creates the "
         "service only, always switched off: no place, person, unit, price or working hours "
         "are made — a stay's or a rental's units come from booking.offer.units.set and a "
-        "price from booking.price.save, once the service exists. Pass staff_ids and "
+        "price from booking.price.save, once the service exists. What the preset's booking "
+        "form asks its customers (an arrival hour, a licence number) comes with the "
+        "service as its form fields: read them with booking.form_fields.read. Pass "
+        "staff_ids and "
         "location_ids only for people and places that exist "
         "(ids from booking.setup.read); null leaves the service without them, none is "
         "picked for you. Pass null for version to take the latest. Tell the person to "
@@ -1019,6 +1036,7 @@ PRESET_APPLY = CommandSpec(
 def register_booking_commands() -> None:
     # Imported here: the price-list and season commands use this module's helpers.
     from .appointment_commands import APPOINTMENTS_READ  # noqa: PLC0415
+    from .field_commands import FIELD_COMMANDS  # noqa: PLC0415
     from .pricing_commands import PRICING_COMMANDS  # noqa: PLC0415
     from .request_commands import REQUEST_COMMANDS  # noqa: PLC0415
     from .season_commands import SEASON_COMMANDS  # noqa: PLC0415
@@ -1033,6 +1051,7 @@ def register_booking_commands() -> None:
         PRESET_LIST,
         PRESET_APPLY,
         *PRICING_COMMANDS,
+        *FIELD_COMMANDS,
         *SEASON_COMMANDS,
         *REQUEST_COMMANDS,
         APPOINTMENTS_READ,

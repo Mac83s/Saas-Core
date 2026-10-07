@@ -39,6 +39,7 @@ from rest_framework.exceptions import ErrorDetail, NotFound, ValidationError
 
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
+from .form_fields import copy_preset_fields
 from .item_translations import source_locale
 from .models import PaymentPolicy, PresetInterest, Service
 from .services import BOOKING_ENABLED, BOOKING_MANAGE
@@ -206,7 +207,8 @@ def apply_preset(
     and every price are the company's own to add. The preset's words become
     the offer's own, in the company's first language; with them come what the
     preset says of time — a period's unit and its check-in and check-out, the
-    travel time kept before a visit — and of paying on the spot.
+    travel time kept before a visit — of paying on the spot, and the fields
+    its booking form asks (`form_fields.copy_preset_fields`).
     `setup.discard_draft` takes it back while it is a draft.
     """
     context, organization = _manage()
@@ -247,6 +249,13 @@ def apply_preset(
         "staff_ids": staff_ids or [],
         "location_ids": location_ids or [],
     }
+
+    def write() -> Saved[ServiceSetup]:
+        saved = _write_service(context, organization, None, dict(values), None)
+        # What the form asks comes with the offer (slice 5j).
+        copy_preset_fields(context, organization, saved.item_id, preset.raw.get("fields", []))
+        return saved
+
     return setup_write(
         context=context,
         action="service.create",
@@ -254,7 +263,7 @@ def apply_preset(
         request={"data": values},
         idempotency_key=idempotency_key,
         preview=preview,
-        write=lambda: _write_service(context, organization, None, dict(values), None),
+        write=write,
         replay=lambda item_id: _saved_service(
             organization,
             Service.all_objects.get(organization=organization, pk=item_id),

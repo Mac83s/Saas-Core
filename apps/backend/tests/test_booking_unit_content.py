@@ -312,10 +312,15 @@ def test_a_guest_sees_the_content_of_the_units_the_company_shows(storage: Memory
     (unit,) = stay["units"]
     base = f"/api/v1/booking/public/tresc-katalog/photos/{cover.id}"
     # The group speaks with its first unit the company shows.
+    # With what a page states of a picture: its stored size, and that no
+    # model made it (ADR-059 pkt 7).
     assert group["photos"][0] == {
         "id": str(cover.id),
         "thumbnail_url": f"{base}/thumbnail/",
         "preview_url": f"{base}/preview/",
+        "width": cover.width,
+        "height": cover.height,
+        "ai_generated": False,
     }
     assert [photo["id"] for photo in group["photos"]] == [str(cover.id), str(inside.id)]
     assert group["amenities"] == [

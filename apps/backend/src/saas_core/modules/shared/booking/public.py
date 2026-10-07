@@ -15,6 +15,7 @@ from uuid import UUID
 from rest_framework.exceptions import ParseError
 
 from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.shared.media.api import shown_image_facts
 from saas_core.modules.shared.profiles.api import person_names
 
 from .crew import crew_of
@@ -230,6 +231,22 @@ def public_stays(
         [today + timedelta(days=offset) for offset in range(FROM_PRICE_DAYS)],
     )
     language = locale or source_locale(organization)
+    # What a page states of each picture it shows — its stored size, and
+    # whether a model made it, which the form marks like the site does
+    # (ADR-059 pkt 7). One read for every unit shown.
+    pictures = shown_image_facts(
+        organization_id=organization.id,
+        asset_ids=[str(photo) for unit in units if unit.public for photo in unit.photos],
+    )
+
+    def picture(asset_id: UUID) -> dict[str, Any]:
+        fact = pictures.get(str(asset_id))
+        return {
+            **photo_urls(public_slug, asset_id),
+            "width": fact.width if fact else 0,
+            "height": fact.height if fact else 0,
+            "ai_generated": bool(fact and fact.ai),
+        }
 
     def content(shown: Resource | None) -> dict[str, Any]:
         """What a guest sees of a unit the company shows — with the unit's
@@ -238,7 +255,7 @@ def public_stays(
             return {"public_slug": "", "photos": [], "amenities": [], "town": None}
         return {
             "public_slug": shown.public_slug,
-            "photos": [photo_urls(public_slug, photo) for photo in shown.photos],
+            "photos": [picture(photo) for photo in shown.photos],
             "amenities": amenities_in(shown.amenities, language),
             "town": town_of(shown),
         }

@@ -407,6 +407,14 @@ export type ParticipantCategoryUpdate =
 export type BookingExtra = components["schemas"]["Extra"];
 export type BookingExtraInput = components["schemas"]["ExtraInput"];
 export type BookingExtraUpdate = components["schemas"]["PatchedExtraUpdate"];
+/** What an offer's booking form asks beyond a name and a contact. */
+export type BookingFormField = components["schemas"]["FormField"];
+export type BookingFormFieldInput = components["schemas"]["FormFieldInput"];
+export type BookingFormFieldUpdate =
+  components["schemas"]["PatchedFormFieldUpdate"];
+export type BookingFormFieldList = components["schemas"]["FormFieldList"];
+/** One answer a booking keeps to such a field. */
+export type BookingFormAnswer = components["schemas"]["FormAnswer"];
 /** A booking's price as the company reads it: lines with net, tax and gross. */
 export type BookingQuote = components["schemas"]["BookingQuote"];
 export type BookingQuoteLine = components["schemas"]["BookingQuoteLine"];
@@ -3264,6 +3272,57 @@ export async function updateBookingExtra(
     {
       params: {
         path: { extra_id: extraId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The offers' own form fields, switched-off ones included, and what a
+ *  field may be (`limits`). */
+export async function listBookingFormFields(): Promise<BookingFormFieldList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/setup/fields/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createBookingFormField(
+  input: BookingFormFieldInput,
+  idempotencyKey: string,
+): Promise<BookingFormField> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/fields/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateBookingFormField(
+  fieldId: string,
+  input: BookingFormFieldUpdate,
+  idempotencyKey: string,
+): Promise<BookingFormField> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/booking/setup/fields/{field_id}/",
+    {
+      params: {
+        path: { field_id: fieldId },
         header: { "Idempotency-Key": idempotencyKey },
       },
       body: input,
@@ -6208,7 +6267,7 @@ export type ProfileTranslation =
 export type ProfileTranslationInput =
   components["schemas"]["ProfileTranslation"];
 export type BookingItemKind =
-  "service" | "location" | "resource" | "group" | "team";
+  "service" | "location" | "resource" | "group" | "team" | "field";
 export type BookingItemTranslationList =
   components["schemas"]["ItemTranslationList"];
 export type BookingItemTranslation = components["schemas"]["ItemTranslation"];

@@ -48,6 +48,11 @@
     "refundOfPaid": "El reembolso se calcula sobre todos los pagos."
   },
   "PublicBooking": {
+    "fieldOptional": "{name} (opcional)",
+    "fieldTooLong": "Esta respuesta es demasiado larga: 200 caracteres como máximo.",
+    "fieldInvalid": "{kind, select, number {Introduce un número.} date {Indica una fecha.} choice {Elige una de las opciones.} other {Corrige este campo.}}",
+    "answersRefused": "Corrige los campos marcados e inténtalo de nuevo.",
+    "fieldsChanged": "La empresa ha cambiado el formulario entretanto. Recarga la página y rellénalo de nuevo.",
     "pending": "Su reserva está a la espera del pago",
     "pendingDescription": "Gracias, {name}. Le hemos reservado la fecha. Hemos enviado los datos para la transferencia a {email}; la confirmación llegará cuando recibamos el pago.",
     "requested": "Su solicitud de reserva ha sido enviada",

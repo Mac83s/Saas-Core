@@ -346,6 +346,8 @@ STUDIO: dict[str, Any] = {
 STAY = "Pobyt nad jeziorem"
 PINE, BIRCH = "Domek Sosnowy", "Domek Brzozowy"
 FLAT, CABIN = "Apartament na piętrze", "Chata przy pomoście"
+#: What the stay's booking form asks beyond a name and a contact.
+ARRIVAL, COT = "Przybliżona godzina przyjazdu", "Łóżeczko dla dziecka"
 
 
 def lodging_stories(plan: Plan) -> None:
@@ -449,6 +451,15 @@ def _cabin(plan: Plan, monday: date, week: int, key: str) -> None:
         people={"": 2, "Dziecko": 1} if turn == 3 else {"": 2},
         marketing=turn == 0,
         notes="Przyjedziemy wieczorem, po 19:00." if turn == 1 else "",
+        # What the form asked: the guest answers for themselves, and reception
+        # writes down what it heard on the phone.
+        answers=(
+            {ARRIVAL: "ok. 18:00", COT: "Nie potrzebuję"}
+            if turn in (0, 2)
+            else {ARRIVAL: "po 19:00", COT: "Poproszę"}
+            if turn == 3
+            else {}
+        ),
     ).then(
         "commerce.pay",
         plan.at(first - (lead - 1) * _DAY, "10:00"),
@@ -496,6 +507,7 @@ def _awaited(plan: Plan, monday: date, week: int, key: str) -> None:
             customer=_guest(week + 4) if online else _caller(week + 8, 3),
             people={"": 2},
             marketing=online,
+            answers={ARRIVAL: "około 16:30"} if online else {},
         )
         .then(
             "commerce.pay", plan.at(booked + 4 * _DAY, "08:00"), method="transfer", amount="awaited"
@@ -777,6 +789,27 @@ LODGING: dict[str, Any] = {
                     "words": {"en": {"name": "Security deposit"}, "de": {"name": "Kaution"}},
                 },
             ],
+            # What the form asks a guest beyond a name and a contact (ADR-072
+            # 5j): the first comes with the preset, the second is the
+            # company's own. Neither is mandatory.
+            "fields": [
+                {
+                    "name": ARRIVAL,
+                    "words": {
+                        "en": {"name": "Approximate arrival time"},
+                        "de": {"name": "Ungefähre Ankunftszeit"},
+                    },
+                },
+                {
+                    "name": COT,
+                    "kind": "choice",
+                    "options": ["Nie potrzebuję", "Poproszę"],
+                    "words": {
+                        "en": {"name": "Baby cot", "options": "Not needed\nYes, please"},
+                        "de": {"name": "Kinderbett", "options": "Nicht nötig\nJa, bitte"},
+                    },
+                },
+            ],
             "seasons": [
                 {"name": "Cały rok — co najmniej dwie noce", "min_length": 2},
                 {
@@ -795,6 +828,8 @@ LODGING: dict[str, Any] = {
 # --- Kajaki Krutynia: rentals by the day ----------------------------------------------
 
 RENTAL = "Wypożyczenie kajaka"
+#: What the rental's booking form asks (its own fields).
+NON_SWIMMERS, SAFETY = "Ile osób nie umie pływać?", "Znam zasady bezpieczeństwa na wodzie"
 KAYAKS, CANOE = "Kajak 2-os.", "Canoe rodzinne"
 
 
@@ -859,6 +894,8 @@ def rental_stories(plan: Plan) -> None:
                 booked=plan.at(day - 5 * _DAY, "20:30"),
                 customer=_guest(n // 7 + 2),
                 marketing=(n // 7) % 2 == 0,
+                # The form's own questions: the consent it requires, ticked.
+                answers={NON_SWIMMERS: str(n % 3), SAFETY: "true"},
             ).then("commerce.pay", plan.at(day, "09:30"), method="cash").then(
                 "booking.complete", plan.at(day + _DAY, "18:00")
             )
@@ -927,6 +964,23 @@ RENTALS: dict[str, Any] = {
                     "amount_minor": 4000,
                     "vat_code": "23",
                     "words": {"en": {"name": "Kayak delivery to the start"}},
+                },
+            ],
+            # The preset's own question suits a car rental, not kayaks: the
+            # company switched it off and asks what it needs on the water —
+            # how many cannot swim, and that the safety rules were read.
+            "fields": [
+                {"name": "Numer prawa jazdy", "active": False},
+                {
+                    "name": NON_SWIMMERS,
+                    "kind": "number",
+                    "words": {"en": {"name": "How many people cannot swim?"}},
+                },
+                {
+                    "name": SAFETY,
+                    "kind": "consent",
+                    "mandatory": True,
+                    "words": {"en": {"name": "I know the safety rules on the water"}},
                 },
             ],
         }

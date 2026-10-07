@@ -51,9 +51,13 @@ from .company_settings import (
     self_service_allows,
     self_service_terms,
 )
-from .consents import BookingConsents
+from .consents import BookingConsents, booking_locale
 from .consents import record as record_consents
 from .crew import PersonUnavailable, allocate, crew_of, least_loaded, lost_slot_race, set_crew
+from .form_answers import Answers
+from .form_answers import checked as checked_answers
+from .form_answers import hashed as hashed_answers
+from .form_answers import journal as journal_answers
 from .models import (
     PENDING_STATUSES,
     Appointment,
@@ -431,6 +435,7 @@ def create_appointment(
     quote_digest: str = "",
     consents: BookingConsents | None = None,
     origin: str = "",
+    answers: Sequence[Mapping[str, Any]] | None = None,
 ) -> CreatedAppointment:
     """Books a free slot, or — with `walk_in_minutes` — records work already under way.
 
@@ -470,6 +475,10 @@ def create_appointment(
     (`origin.booking_origin`): one that holds makes the booking the
     catalogue's; it never refuses a booking and is no part of the request a
     retry is compared by.
+
+    `answers` — what the customer answered to the offer's own fields
+    (`[{"field_id", "value"}]`, `form_answers.checked`): a customer booking
+    for themselves must answer the mandatory ones.
     """
     place_town, place_address = place_town.strip(), place_address.strip()
     context = require_tenant_context()
@@ -510,6 +519,7 @@ def create_appointment(
             if extras
             else {}
         ),
+        **hashed_answers(answers),
     })
     with connection.cursor() as cursor:
         # One key at a time: a retry sent while the first request still runs
@@ -636,6 +646,8 @@ def create_appointment(
             chose = len(free) > need
     elif walk_in_minutes <= 0:
         raise ValidationError({"walk_in_minutes": "Podaj, na jak długo zająć okno."})
+    # Before anything is written: an answer refused leaves no customer behind.
+    asked = checked_answers(service, answers, locale=booking_locale(customer_data.get("locale")))
     customer, email = match_or_create(organization, customer_data)
     if materials is not None:
         # Hand-picked products: whoever types them must be allowed to take stock.
@@ -699,6 +711,7 @@ def create_appointment(
                 requested_team=team,
                 requested_staff_id=requested_staff_id,
                 customer_notes=customer_notes.strip()[:500],
+                form_answers=asked.kept,
                 place_town=place_town[:120],
                 place_address=place_address[:240],
                 quote=quote.snapshot(),
@@ -776,6 +789,7 @@ def create_appointment(
         metadata={"starts_at": starts_at.isoformat(), "staff": [str(person) for person in taken]},
         consents=consents,
         asked_locale=customer_data.get("locale"),
+        answers=asked,
     )
     # The materials and the people's notices come with a confirmed booking
     # (ADR-072 §9); one that waits for its payment gets them when it is paid.
@@ -1048,9 +1062,7 @@ def cancel_appointment(
         _call_off(appointment, reason=reason)
         stock.release(context.organization_id, appointment.id)
         # One that still waited was never confirmed: everything goes back.
-        orders.canceled(
-            appointment, by_terms=(public or late) and old not in PENDING_STATUSES
-        )
+        orders.canceled(appointment, by_terms=(public or late) and old not in PENDING_STATUSES)
         customer = appointment.customer
         if customer.email:
             queue_email(
@@ -1330,9 +1342,7 @@ def _decline_reason(value: str) -> str:
     if len(reason) > DECLINE_REASON_MAX_LENGTH:
         raise ValidationError({
             "reason": [
-                ErrorDetail(
-                    f"Najwyżej {DECLINE_REASON_MAX_LENGTH} znaków.", code="max_length"
-                )
+                ErrorDetail(f"Najwyżej {DECLINE_REASON_MAX_LENGTH} znaków.", code="max_length")
             ]
         })
     if has_link(reason):
@@ -1817,6 +1827,10 @@ def strip_customer_visits(customer: Customer) -> None:
     # What the customer wrote about the visit goes too (answer 1A, 28.09):
     # in a clinic it can be about their health.
     visits.exclude(customer_notes="").update(customer_notes="")
+    # And what they answered to the offer's own fields (ADR-072 5j): a licence
+    # number, a pet's name. The consents they ticked stay in the journal,
+    # which names nobody.
+    visits.exclude(form_answers=[]).update(form_answers=[])
     # So does the street of a visit at the customer's (ADR-066); the town stays,
     # it names nobody.
     visits.exclude(place_address="").update(place_address="")
@@ -1889,16 +1903,19 @@ def record_new_booking(
     metadata: dict[str, Any],
     consents: BookingConsents | None = None,
     asked_locale: str | None = None,
+    answers: Answers | None = None,
 ) -> None:
     """What every new booking leaves behind, a visit or a stay: what the
     customer agreed to (ADR-073 §9), its history, its key's receipt, the
     self-service route, the reminder, the confirmation, the audit and the
     observers. `asked_locale` is the language the customer booked in, as they
-    sent it."""
+    sent it; `answers` — the checked answers to the offer's own fields, whose
+    ticked consents are journalled here."""
     context = require_tenant_context()
     # First: a customer who has not accepted the documents in force books
     # nothing, and nothing below is written for them.
     record_consents(consents, customer=customer, reference=appointment.id, asked=asked_locale)
+    journal_answers(answers, customer=customer, reference=appointment.id)
     # A booking with a price is an order, where the company has orders
     # (ADR-073 §3). An offer that asks for money first makes it wait: the
     # booking holds its time until the date commerce names (ADR-072 §9).

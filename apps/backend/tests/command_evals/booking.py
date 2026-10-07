@@ -25,6 +25,7 @@ from saas_core.modules.shared.booking.models import (
     BookingMutation,
     BookingRule,
     Extra,
+    FormField,
     Location,
     ParticipantCategory,
     PriceBasis,
@@ -238,6 +239,42 @@ def _price_state(context: TenantContext) -> dict[str, Any]:
             )
         ),
     }
+
+
+def _field_company(context: TenantContext) -> None:
+    """The company with the draft stay, whose booking form asks one thing."""
+    _stay_company(context)
+    FormField.all_objects.create(
+        organization_id=context.organization_id,
+        service=_stay(context),
+        name="Numer prawa jazdy",
+        position=1,
+    )
+
+
+def _field_state(context: TenantContext) -> dict[str, Any]:
+    return {
+        **_price_state(context),
+        "fields": sorted(
+            FormField.all_objects.filter(organization_id=context.organization_id).values_list(
+                "name", "kind", "options", "mandatory", "active", "version"
+            )
+        ),
+    }
+
+
+def _field_fields(**given: Any) -> dict[str, Any]:
+    fields: dict[str, Any] = dict.fromkeys((
+        "field_id",
+        "service_id",
+        "name",
+        "kind",
+        "options",
+        "mandatory",
+        "position",
+        "active",
+    ))
+    return {**fields, **given}
 
 
 def _bump(model: type[Any]) -> Any:
@@ -601,6 +638,28 @@ EVALS = {
         stale=_bump(Extra),
         state=_price_state,
         prepare=_stay_company,
+        preview_rolls_back=ROLLED_BACK,
+    ),
+    "booking.form_fields.read@1": CommandEval(
+        arguments=lambda _context: {},
+        wrong_arguments={"fields": True},
+        wrong_field="fields",
+        stale="nie dotyczy: odczyt nie sprawdza wersji",
+        state=_field_state,
+        prepare=_field_company,
+    ),
+    "booking.form_field.save@1": CommandEval(
+        arguments=lambda context: _field_fields(
+            field_id=str(_first(FormField, context).id), mandatory=True
+        ),
+        # Refused by the service: the offer's form asks this already.
+        wrong_arguments=lambda context: _field_fields(
+            service_id=str(_stay(context).id), name="numer prawa jazdy"
+        ),
+        wrong_field="name",
+        stale=_bump(FormField),
+        state=_field_state,
+        prepare=_field_company,
         preview_rolls_back=ROLLED_BACK,
     ),
     "booking.quote.read@1": CommandEval(

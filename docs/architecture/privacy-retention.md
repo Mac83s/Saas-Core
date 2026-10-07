@@ -203,6 +203,8 @@ czyszczenie i dopisuje swoje wiersze do tej tabeli.
 |---|---|---|---|
 | `Customer.display_name`, `email`, `phone`, `contact_hash` | dane kontaktowe | **usuwane** („Zanonimizowany klient”, puste pola, nowy skrót, `anonymized_at`) | to jest usuwana dana |
 | `Appointment.customer_notes` | uwagi klienta do wizyty (w gabinecie: zdrowie) | **usuwane** | — |
+| `Appointment.form_answers` | odpowiedzi klienta na własne pola formularza oferty (numer prawa jazdy, imię pupila, godzina przyjazdu; ADR-072 „Rozstrzygnięcia plastra 5j”) i wzmianki o zaznaczonych zgodach | **usuwane** | dane klienta, nie konfiguracja; widzi je tylko ten, kto widzi telefon klienta |
+| `ConsentRecord` rodzaju `field` (zaznaczona zgoda z pola formularza) | treść zgody słowo w słowo, język, czas; klient jako odwołanie | zostaje | dziennik zgód nie niesie danych osoby (ADR-073 §9), a jest dowodem tego, co zaznaczono |
 | `Appointment.place_address` | ulica wizyty u klienta | **usuwane** | — |
 | `Appointment.place_town` | miejscowość wizyty | zostaje | nie wskazuje osoby (ADR-066), potrzebna w statystykach dojazdów |
 | `NotificationMessage.recipient_email`, `recipient_hash`, `context` wiadomości do klienta (potwierdzenie, przypomnienie, zmiana, odwołanie) | adres, jego skrót, termin i link do zarządzania wizytą | **usuwane od razu** (`scrub_messages`), niezależnie od wieku | moduł powiadomień czyści je sam po 30 dniach; przy anonimizacji nie czekamy |

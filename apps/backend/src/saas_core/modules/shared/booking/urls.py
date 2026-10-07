@@ -1,5 +1,11 @@
 from django.urls import path
 
+from .field_views import (
+    FormFieldCreatePreviewView,
+    FormFieldDetailView,
+    FormFieldListView,
+    FormFieldUpdatePreviewView,
+)
 from .price_views import (
     ExtraCreatePreviewView,
     ExtraDetailView,
@@ -313,6 +319,14 @@ urlpatterns = [
         "setup/extras/<uuid:extra_id>/preview/",
         ExtraUpdatePreviewView.as_view(),
         name="extra-preview",
+    ),
+    path("setup/fields/", FormFieldListView.as_view(), name="form-fields"),
+    path("setup/fields/preview/", FormFieldCreatePreviewView.as_view(), name="form-fields-preview"),
+    path("setup/fields/<uuid:field_id>/", FormFieldDetailView.as_view(), name="form-field"),
+    path(
+        "setup/fields/<uuid:field_id>/preview/",
+        FormFieldUpdatePreviewView.as_view(),
+        name="form-field-preview",
     ),
     path(
         "setup/participant-categories/",

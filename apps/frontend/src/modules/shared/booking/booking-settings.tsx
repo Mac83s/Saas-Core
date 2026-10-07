@@ -56,6 +56,7 @@ import {
 } from "./item-translations-sheet";
 import { SeasonsSection } from "./seasons-section";
 import { problemText } from "./people/person-dialogs";
+import { OfferFieldsDialog } from "./form-fields/offer-fields-dialog";
 import { OfferPricesDialog } from "./prices/offer-prices-dialog";
 import { usePriceBook, usePriceWords } from "./prices/price-book";
 import {
@@ -120,6 +121,9 @@ export function BookingSettings({
   });
   /** The offer whose „Cennik” is open. */
   const [pricing, setPricing] = useState<string>();
+  /** The offer whose „Pola formularza” are open (ADR-072, slice 5j). */
+  const [asking, setAsking] = useState<string>();
+  const formFields = useTranslations("FormFields");
 
   const load = useCallback(async () => {
     try {
@@ -249,6 +253,7 @@ export function BookingSettings({
 
   const services = setup?.services ?? [];
   const priced = services.find((service) => service.id === pricing);
+  const asked = services.find((service) => service.id === asking);
   const usedBy = (field: "location_ids" | "resource_ids", id: string) =>
     services.filter((service) => service.active && service[field].includes(id))
       .length;
@@ -403,6 +408,13 @@ export function BookingSettings({
               onSelect: (trigger) => {
                 setReturnTo(trigger ?? null);
                 setPricing(service.id);
+              },
+            },
+            {
+              label: formFields("action"),
+              onSelect: (trigger) => {
+                setReturnTo(trigger ?? null);
+                setAsking(service.id);
               },
             },
             {
@@ -849,6 +861,13 @@ export function BookingSettings({
           service={priced}
           setup={setup}
           zone={timezone}
+        />
+      ) : null}
+      {asked ? (
+        <OfferFieldsDialog
+          finalFocus={returnTo}
+          onOpenChange={(value) => (value ? undefined : setAsking(undefined))}
+          service={asked}
         />
       ) : null}
       {setup && editing?.kind === "service" ? (

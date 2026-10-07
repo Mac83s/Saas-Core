@@ -1441,3 +1441,122 @@ indeks). Razem z plastrem wchodzi rozstrzygnięcie podtypu `LodgingBusiness`
   odznaka AI przy zdjęciach w samym formularzu rezerwacji (5d); ustawienie
   kategorii jednym kliknięciem z ekranu wzorców; raport „rezerwacje według
   kanału” (dziś filtr listy zamówień i wiersz w szczegółach rezerwacji).
+
+### Rozstrzygnięcia plastra 5j (pola własne formularza)
+
+Plaster 5j daje firmie własne pytania w formularzu rezerwacji: numer prawa
+jazdy w wypożyczalni, imię pupila w hotelu dla zwierząt, godzina przyjazdu przy
+noclegu. Jedna migracja: booking 0038 (dwie tabele tenantowe z wymuszonym RLS i
+strażnikiem relacji, kolumna na rezerwacji), odwracalna. §8 mówi, czym pole
+jest („pole typu `consent` zapisuje akceptację w dzienniku zgód; pozostałe pola
+własne to dane klienta”); tu jest, jak to działa.
+
+- **Pole należy do oferty.** `FormField` (`booking_formfield`): pytanie tak, jak
+  czyta je klient (`name`, w pierwszym języku firmy; dla zgody — zdanie, które
+  klient zaznacza), rodzaj (`text`, `number`, `choice`, `date`, `consent` — te
+  same co `fields[].type` kontraktu presetów), możliwości wyboru, „obowiązkowe”,
+  kolejność i wyłącznik. Pola „dla wszystkich ofert firmy” nie ma: wspólne
+  pytanie firma dodaje do każdej oferty. — Oferty jednej firmy pytają o różne
+  rzeczy (domek o godzinę przyjazdu, kajak o to, kto nie umie pływać), a pole
+  wspólne wymagałoby reguły pierwszeństwa, której nikt nie potrzebował.
+- **Pole to pozycja konfiguracji jak dopłata (§11).** Zapis z kluczem i
+  pokwitowaniem, wersją i podglądem: `GET/POST /booking/setup/fields/`,
+  `…/preview/`, `PATCH …/<id>/`, `…/<id>/preview/`; audyt
+  `booking.field.changed`. Pola się nie usuwa, tylko wyłącza — rezerwacje
+  pamiętają, o co pytały; znika razem ze szkicem oferty (`discard_draft`). Co
+  pole może, mówi jedna stała `form_fields.FIELD_LIMITS` (najwyżej 20
+  włączonych pól oferty, 2–20 możliwości po 80 znaków, pytanie do 160 znaków,
+  odpowiedź tekstowa do 200), oddawana razem z listą (`limits`) — do rejestru
+  ustawień (ADR-078) trafi bez zmiany API. Asystent ma te same operacje:
+  `booking.form_fields.read@1` i `booking.form_field.save@1` (na włączonej
+  ofercie podgląd podnosi ryzyko do `apply`, jak przy dopłacie).
+- **Formularz dostaje pola z katalogiem.** `GET /booking/public/<slug>/` oddaje
+  `form_fields` — włączone pola ofert z formularza, w kolejności, w języku
+  strony tam, gdzie firma je przetłumaczyła. Nazwa klucza nie jest `fields`, bo
+  tak nazywa się własność serializera DRF. Formularz wizyty i formularz pobytu
+  rysują je jednym komponentem pod danymi kontaktowymi.
+- **Odpowiedź to zawsze tekst.** `answers: [{field_id, value}]` w obu
+  publicznych zapisach: tekst, liczba (kropka albo przecinek), data
+  `RRRR-MM-DD`, przy wyborze `value` możliwości, przy zgodzie `true`. Wybór
+  odsyła słowo firmy, nie tłumaczenie i nie numer: tłumaczenie jest tylko
+  etykietą, a serwer sprawdza odpowiedź z listą obowiązującą w chwili zapisu —
+  lista zmieniona między wczytaniem formularza a wysłaniem daje odmowę, nigdy
+  cichą inną odpowiedź.
+- **Jedno miejsce sprawdza odpowiedzi.** `form_answers.checked` wołają
+  `create_appointment` i `book_stay`, zanim cokolwiek zapiszą, a zgody dopisuje
+  `record_new_booking` — ta sama ścieżka dla formularza, panelu i produktu
+  przez `booking.api` (nowy argument `answers` z wartością domyślną). Odmowy to
+  400 z polem `answers.<id pola>` i kodem `field_required`, `field_invalid`
+  albo `field_too_long`, a na samym `answers` — `field_unknown` (oferta nie ma
+  już takiego pola) i `field_repeated`. Odpowiedzi wchodzą do skrótu żądania:
+  ten sam klucz z innymi odpowiedziami to 409, jak przy każdej innej zmianie
+  żądania.
+- **Obowiązkowe wiąże klienta, nie zespół.** Pole obowiązkowe zatrzymuje
+  rezerwację z formularza publicznego. Zespół i produkt mogą przekazać
+  odpowiedzi, ale o nic nie są pytani — jak przy dokumentach firmy (ADR-073
+  §9): biuro przyjmujące rezerwację przez telefon nie zna jeszcze numeru prawa
+  jazdy.
+- **Odpowiedź jest daną klienta, zamrożoną na rezerwacji.**
+  `Appointment.form_answers` trzyma migawkę: identyfikator pola, pytanie w
+  języku firmy, rodzaj i wartość. Późniejsza zmiana albo wyłączenie pola
+  niczego nie przepisuje; przeniesienie rezerwacji zostawia odpowiedzi. Czyta
+  je w panelu ten, kto widzi telefon klienta (`visible_contacts`: planujący i
+  osoby na wizycie) — w szczegółach rezerwacji i na liście „Do odpowiedzi”.
+  Odpowiedzi nie ma w e-mailach ani w kontekście powiadomień, w logach, w
+  metadanych audytu i historii zmian, w publicznej odpowiedzi rezerwacji, w
+  linku klienta ani w wynikach poleceń asystenta (polecenia niosą pytania,
+  nigdy odpowiedzi; wariant C z ADR-076). Znika z klientem:
+  `strip_customer_visits` czyści kolumnę przy ręcznej anonimizacji i w
+  automatycznym usuwaniu po okresie przechowywania — obie ścieżki idą przez
+  to jedno miejsce (`docs/architecture/privacy-retention.md`).
+- **Zgoda to wiersz dziennika, nie wartość.** Zaznaczone pole `consent` dopisuje
+  wiersz dziennika zgód (`ConsentKind.FIELD`, źródło `booking.appointment`) w
+  brzmieniu i języku, które klient widział — z tłumaczenia firmy tam, gdzie je
+  ma. Rezerwacja zatrzymuje tylko wzmiankę, że pole zaznaczono (pusta
+  wartość), żeby panel pokazał ją bez czytania dziennika; wzmianka znika z
+  anonimizacją, wiersz dziennika zostaje, bo nie niesie danych osoby.
+  Niezaznaczona zgoda nieobowiązkowa nie zostawia nic. Zgoda może być
+  obowiązkowa („Znam regulamin obiektu”): to oświadczenie firmy wobec jej
+  klienta, a treść pisze firma.
+- **Tłumaczenia przez katalog rezerwacji.** Pole jest rodzajem `field` źródła
+  `booking.catalog` (TL12c): jednostki `field/<id>/name` i `field/<id>/options`,
+  te same drzwi co nazwa dopłaty (`…/translations/field/<id>/`), bez nowego
+  źródła. Możliwości wyboru to jedna jednostka, po jednej w wierszu;
+  tłumaczenie musi mieć tyle samo wierszy w tej samej kolejności (zapis osoby:
+  400 `lines_mismatch`; zapis silnika z inną liczbą wierszy formularz pomija i
+  pokazuje słowa firmy). — Osobny wiersz tłumaczenia na możliwość wymagałby
+  kluczy możliwości i drugiej tabeli dla trzech słów.
+- **Preset niesie pola, a `requiredInputs` nie są polami.** `fields` presetu
+  kopiuje `apply_preset` razem z ofertą: pytanie w pierwszym języku firmy
+  (inaczej en, potem pl), a w pozostałych językach firmy, które preset zna —
+  jako tłumaczenie z pochodzeniem `template`, które osoba albo silnik może
+  zastąpić (§10). `requiredInputs` zostają tym, czym były: danymi, których
+  preset potrzebuje od firmy (daty sezonów, zdjęcia), i gotowe presety dalej
+  ich nie niosą. Nowe wersje: „Nocleg” 6 („Przybliżona godzina przyjazdu”,
+  nieobowiązkowe), „Wypożyczalnia” 4 („Numer prawa jazdy”, nieobowiązkowe),
+  „Pobyt z opieką” 4 („Kogo lub co przyjmujemy…”, obowiązkowe — opis presetu
+  nie odsyła już do uwag). Oferta z wcześniejszej wersji nie dostaje pól sama;
+  firma dodaje je w „Pola formularza”. Podgląd polecenia `booking.preset.apply`
+  mówi, o co formularz zapyta, zanim osoba się zgodzi.
+- **Żadne pole presetu nie pyta o dane szczególnych kategorii** (zdrowie,
+  przekonania — art. 9 RODO). Takie pole w presecie to pytanie do właściciela i
+  prawnika, nie decyzja techniczna. Firma pisze własne pytania sama; panel i
+  opis polecenia asystenta mówią wprost, żeby nie zbierała tu danych o zdrowiu
+  ani innych wrażliwych. Platforma treści pytań nie ocenia.
+- **Formularz oznacza zdjęcia wygenerowane przez AI** (ADR-059 pkt 7; z raportu
+  5h). Zdjęcia jednostek w katalogu formularza niosą `ai_generated`, `width` i
+  `height` (jeden odczyt na wszystkie pokazane jednostki), a miniatura i
+  galeria w formularzu mają znaczek „AI” i dopisek w `alt` — jak strona firmy
+  i katalog.
+- **Dane pokazowe.** `seed_demo`: „Domki nad Jeziorem” pytają o godzinę
+  przyjazdu i łóżeczko dla dziecka (wybór), „Kajaki Krutynia” wyłączyły pytanie
+  presetu o prawo jazdy i pytają, ile osób nie umie pływać, oraz wymagają
+  zaznaczenia „Znam zasady bezpieczeństwa na wodzie”. Historie rezerwacji z
+  formularza niosą odpowiedzi — dla nowych dni; rezerwacji już zasianych seed
+  nie zmienia.
+- **Poza 5j:** wpisywanie odpowiedzi przez zespół w oknach „Nowa wizyta” i
+  „Nowy pobyt” (API je przyjmuje); pole wspólne dla wszystkich ofert;
+  przeciąganie kolejności (dziś liczba w oknie pola); odpowiedzi w linku
+  klienta i w eksporcie; rodzaje „plik” i „godzina”; pola zależne od innej
+  odpowiedzi; zgoda dłuższa niż 160 znaków; tłumaczenie odmów formularza na
+  wszystkie języki firmy (5i).

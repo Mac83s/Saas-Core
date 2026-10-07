@@ -51,6 +51,7 @@ from .models import (
     BookingRule,
     BookingSetupMutation,
     Extra,
+    FormField,
     Location,
     PaymentPolicy,
     PriceChange,
@@ -462,8 +463,8 @@ def discard_draft(
     *, service_id: UUID, idempotency_key: str = "", preview: bool = False
 ) -> Saved[UUID]:
     """Removes an offer that was never switched on and has no bookings, with
-    its links, its own seasons, prices, extras and translations — the undo of
-    a draft.
+    its links, its own seasons, prices, extras, form fields and translations —
+    the undo of a draft.
 
     An offer that was ever bookable is not removed: customers, the site and
     the history may name it, so it is switched off instead (`not_a_draft`).
@@ -498,7 +499,8 @@ def _discard_draft(
     # The record of prices keeps what the draft's prices were.
     for price in PriceRule.all_objects.filter(organization=organization, service=service):
         record_price(context, price, PriceChange.DELETED, previous_amount=price.amount_minor)
-    # Everything that is the draft's own: its links, seasons, prices and extras.
+    # Everything that is the draft's own: its links, seasons, prices, extras
+    # and form fields (with their translations).
     for model in (
         ServiceStaff,
         ServiceLocation,
@@ -507,6 +509,7 @@ def _discard_draft(
         BookingRule,
         PriceRule,
         Extra,
+        FormField,
     ):
         model.all_objects.filter(organization=organization, service=service).delete()
     # The keys that made or changed it answer with an item that is gone: the

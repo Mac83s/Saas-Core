@@ -216,12 +216,19 @@ def test_a_stay_from_a_preset_says_what_is_left_to_the_person_and_reads_back() -
     assert "wkrótce" not in effect.summary["pl"]
     assert "coming soon" not in effect.summary["en"]
     # What the preset writes about money: a start, the company's to change.
-    assert effect.summary["pl"].endswith(
+    assert (
         " Warunki na start, do zmiany w „Cenniku”: przedpłata 30% przelewem (włączasz ją tam); "
         "reszta 14 dni przed początkiem; zwrot przedpłaty przy rezygnacji: 100% do 30 dni "
         "przed, 50% do 14 dni przed, później 0%."
-    )
+    ) in effect.summary["pl"]
     assert "yours to change in the price list" in effect.summary["en"]
+    # And what its booking form will ask every guest (slice 5j): the offer's
+    # own field, said before the click like every other term.
+    assert effect.summary["pl"].endswith(
+        " Formularz rezerwacji zapyta klienta o: „Przybliżona godzina przyjazdu” — zmienisz "
+        "to w ustawieniach usługi."
+    )
+    assert "“Approximate arrival time”" in effect.summary["en"]
     # A preset that says nothing about paying ahead adds no such words.
     rental = [
         invocation(
@@ -238,7 +245,7 @@ def test_a_stay_from_a_preset_says_what_is_left_to_the_person_and_reads_back() -
         (read,) = execute_plan([invocation("booking.setup.read@1", {})])
 
     assert result.status == "done", result
-    assert (result.output["preset_id"], result.output["preset_version"]) == ("core.lodging", 5)
+    assert (result.output["preset_id"], result.output["preset_version"]) == ("core.lodging", 6)
     stay = next(item for item in read.output["services"] if item["name"] == "Domek nad wodą")
     # A stay's check-in and check-out are read as the week's hours are written.
     assert (stay["time_model"], stay["range_unit"]) == ("range", "night")
