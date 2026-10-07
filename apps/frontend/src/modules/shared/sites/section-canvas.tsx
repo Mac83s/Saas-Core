@@ -417,7 +417,13 @@ export function SectionCanvas({
       <div className="studio-stage">
         <div className="studio-stage-scroll">
           <div
-            key={revision}
+            // Drawn afresh for a whole page from the server (`revision`) and
+            // when the first section arrives on an empty page or the last one
+            // leaves: Chromium left the canvas — a size container — without
+            // layout after the commit that swaps the empty state for a
+            // section, so the section sat in the DOM unseen until the page
+            // was saved and opened again (07.10, the same fault as 28.09).
+            key={`${revision}:${blocks.length === 0}`}
             ref={canvasRef}
             tabIndex={-1}
             role="region"

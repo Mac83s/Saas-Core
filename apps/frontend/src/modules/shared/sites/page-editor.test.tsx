@@ -443,6 +443,41 @@ test("przestawia pozycje listy strzałkami i zapisuje nową kolejność", async 
   ).toEqual(["Drugie?", "Pierwsze?"]);
 });
 
+test("the first section of an empty page draws the canvas afresh", async () => {
+  getPageDraft.mockResolvedValue({ ...draft, blocks: [] });
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  await screen.findByRole("img", {
+    name: `Miniatura szablonu ${firstTemplate.labels.pl.name}`,
+  });
+  const emptyCanvas = screen.getByTestId("live-canvas");
+  fireEvent.click(screen.getByRole("button", { name: "Biblioteka sekcji" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Dodaj: Klasyczna lista" }),
+  );
+
+  // A browser kept the old canvas without layout once the empty state gave
+  // way to a section (seen on a real page, 07.10): the canvas is a new node.
+  const canvas = screen.getByTestId("live-canvas");
+  expect(canvas).not.toBe(emptyCanvas);
+  expect(canvas.querySelector("[data-section-index='0']")).not.toBeNull();
+  // A second section joins the same canvas; taking both away empties it anew.
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Dodaj: Klasyczna lista" }),
+  );
+  expect(screen.getByTestId("live-canvas")).toBe(canvas);
+  fireEvent.click(screen.getByRole("button", { name: "Cofnij" }));
+  fireEvent.click(screen.getByRole("button", { name: "Cofnij" }));
+  expect(screen.getByTestId("live-canvas")).not.toBe(canvas);
+  expect(
+    screen.getByTestId("live-canvas").querySelector("[data-section-index]"),
+  ).toBeNull();
+});
+
 test("importuje szablon do wersjonowanego draftu przez API", async () => {
   getPageDraft.mockResolvedValue({ ...draft, blocks: [] });
   const onChanged = vi.fn().mockResolvedValue(undefined);
