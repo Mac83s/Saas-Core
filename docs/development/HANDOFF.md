@@ -82,9 +82,23 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   `features.marketingSite: false` (host platformy = panel, `/` → logowanie);
   odnośnik do działu w treści idzie za językiem czytelnika. Otwarte: adres z kropką
   nie dociera do renderera (matcher proxy), więc reguła dla niego nie zadziała; mapa
-  nie ma ekranu ani polecenia asystenta; własne bloki produktu to pakiet PB3a
-  (ADR-077 pkt 8); `develop-sites` jest przy limicie 16 kB i nie opisuje mapy —
-  opis jest w ADR-077 i w `shared/sites/old_addresses.py`.
+  nie ma ekranu ani polecenia asystenta; `develop-sites` jest przy limicie 16 kB
+  i nie opisuje mapy — opis jest w ADR-077 i w `shared/sites/old_addresses.py`.
+- **Własne typy bloków modułu w kreatorze (PB3a, 07.10, lokalnie, niewdrożone;
+  ADR-077 pkt 8, bez migracji):** moduł `shared`/`vertical` wnosi typy bloków
+  stron z własnych plików — manifest i schematy w
+  `packages/contracts/site-blocks/modules/<id modułu>/`, zestaw z
+  `defineModuleSiteBlocks`, lista zestawów w slocie
+  `apps/frontend/src/product/site-blocks.ts`; typ istnieje tylko w deploymencie,
+  który składa moduł (zapis gdzie indziej: `unknown_site_block_type`). Blok
+  stawiany ma formularz i sekcję w bibliotece, blok strony rekordu jest
+  `serverBuilt`. Kontrakt: `docs/architecture/site-block-types.md`; dowód na
+  testowym wertykale `vertical.sample`, którego nie składa żaden profil. Przy
+  okazji: pierwsza sekcja dodana do pustej strony rysuje się od razu (Chromium
+  gubił układ podglądu). Otwarte: formularz bloku modułu składa się z rodzajów pól
+  rdzenia (bez własnej kontrolki, np. wyboru rekordu); bramką jest skład
+  deploymentu, nie typ organizacji; pierwszym użytkownikiem będzie moduł ras
+  Puppily (PB4).
 - **Operacje treści per język (TL13, 04.10, lokalnie, niewdrożone; ops
   mac-20261004-24, SCR mac-20261004-25):** `content-change-set.v1` przyjmuje
   język jako wzorzec, a podstrona w języku innym niż źródłowy ma własną bazę i

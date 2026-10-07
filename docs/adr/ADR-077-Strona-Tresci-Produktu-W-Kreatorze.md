@@ -2,11 +2,13 @@
 
 **Status:** Accepted — decyzja właściciela z 2026-10-07 (memex, projekt `puppily`:
 `puppily-s-first-stage-runs-on-the-site-builder-w`); rozstrzygnięcia techniczne
-agenta w pakiecie PB3b planu memex `saas-core-wielojezycznosc-i-tlumaczenia-ai`.
+agenta w pakietach PB3b i PB3a (pkt 8) planu memex
+`saas-core-wielojezycznosc-i-tlumaczenia-ai`.
 **Data:** 2026-10-07
 
 **Zmienia:** ADR-048 pkt 1 i 4 — wyjątek opisany w pkt 1; dla produktów, które z niego
-nie korzystają, ADR-048 obowiązuje bez zmian.
+nie korzystają, ADR-048 obowiązuje bez zmian. Kontrakt modułów §6 (ADR-049): typy
+bloków stron przestają należeć wyłącznie do rdzenia (pkt 8).
 **Rozszerza:** ADR-035 §1–2 (workspace platformy znów jest wydawcą — tam, gdzie
 profil tak stanowi), ADR-028 (publiczny routing: odpowiedź 410), ADR-071
 „Uzupełnienie 2026-10-07” pkt 6 (jedno 308 obejmuje też mapę starych adresów) i jego
@@ -182,7 +184,56 @@ ją same. Strona 410 używa czcionki systemowej.
 
 ### 8. Typy bloków produktu
 
-*(Pisze pakiet PB3a.)*
+Moduł `shared` albo `vertical` — w praktyce wertykał produktu — wnosi własne typy
+bloków stron z własnych plików. Rdzeń nie zna ich z nazwy i żaden plik rdzenia się przy
+tym nie zmienia (ADR-049). Kontrakt wykonywalny: `docs/architecture/site-block-types.md`.
+
+**Nazwa.** `<id modułu>.<nazwa>`, np. `vertical.puppily.breed_index`; myślnik w
+identyfikatorze modułu zapisuje się podkreśleniem. `core.*` zostaje rdzenia.
+
+**Gdzie typ istnieje.** Tam, gdzie profil składa moduł. Backend czyta
+`packages/contracts/site-blocks/modules/<id modułu>/manifest.json` wyłącznie dla
+modułów z `ACTIVE_MODULES`; frontend bierze zestawy ze slotu
+`apps/frontend/src/product/site-blocks.ts` i pomija te, których modułu nie ma w
+`deployment.modules`. W składzie bez modułu zapis z takim typem dostaje `400
+unknown_site_block_type`, `capabilities` go nie wymienia, a studio i strona publiczna
+nie mają go w rejestrze — także wtedy, gdy pliki modułu leżą w tym samym repozytorium.
+Bramką jest skład deploymentu, nie typ organizacji ani plan: czy firma ma co pokazać,
+mówi źródło modułu.
+
+**Jedna deklaracja, dwie połowy.** Manifest w kontraktach (typy, wersje, `serverBuilt`,
+wyjątki tłumaczeń, sekcje biblioteki) czytają obie strony. Kod — komponent, formularz
+studia, migratory — dokłada frontend przez `defineModuleSiteBlocks`, które odmawia, gdy
+manifest i kod się rozchodzą. Manifest zepsuty zatrzymuje `manage.py check`
+(`sites.E011`–`E013`), nie stronę gościa.
+
+**Dwa rodzaje bloków.** Stawiany przez osobę — formularz z pól katalogu, sekcja
+w bibliotece po rodzinach rdzenia, a gdy pokazuje rekordy, `live` z odpowiedzią źródła
+publicznego. Budowany przez moduł dla własnej strony rekordu — `serverBuilt`, jak
+`core.document`: w żadnej bibliotece i w żadnym zapisie; moduł sprawdza jego kształt
+sam (`validate_built_site_block`). Rekordy i strony rekordów idą protokołem źródeł
+publicznych (ADR-074 pkt 7 z uzupełnieniem 2026-10-07).
+
+**Tłumaczenia.** Reguła rdzenia bez zmian: wolny string schematu jest fragmentem do
+tłumaczenia. Czego schemat nie wyrazi — nazwa własna kopiowana do każdego języka, dana,
+tekst o prawdziwych osobach — moduł podaje w manifeście (`translation`); tabela
+wyjątków w `shared/sites/localized_bodies.py` zostaje tabelą rdzenia. Słowa bloku
+budowanego przez moduł są słowami rekordu i tłumaczy je źródło tłumaczeń modułu.
+
+**Wersje.** Jak w rdzeniu: linia od 1, schemat opublikowanej wersji się nie zmienia,
+nowa wersja przychodzi z migratorem.
+
+**Co to zmienia.** Zdanie kontraktu modułów (§6) „bloki stron należą do rdzenia”
+przestaje dotyczyć typów bloków. Do rdzenia nadal należą szablony całych stron,
+konwersje między typami sekcji i rodzaje pól formularza studia. Kontrakt
+z SeoContentRank (ADR-035, ADR-046) zostaje, jaki był: blueprinty stron używają typów
+rdzenia, a automatyzacja zmienia teksty bloku modułu tak jak każdego innego.
+
+Dowód: testowy wertykał `vertical.sample`, którego nie składa żaden profil — blok
+stawiany w dwóch wersjach i blok strony rekordu, zapisane, przetłumaczone jako
+fragmenty, opublikowane, narysowane w studiu i na stronie, nieobecne w składzie bez
+modułu (`apps/backend/tests/test_sites_module_blocks.py`,
+`apps/frontend/src/modules/shared/sites/module-blocks*.test.tsx`).
 
 ## Granice i dług
 
@@ -196,6 +247,16 @@ ją same. Strona 410 używa czcionki systemowej.
   całą mapę usuwa `--replace` z pustym plikiem.
 - **`robots.txt` hosta platformy** przy wyłączonym marketingu zostaje, jaki był:
   wskazuje (pustą) sitemapę i nie zamyka hosta przed robotami.
+- **Formularz bloku modułu składa się z rodzajów pól rdzenia.** Własnej kontrolki —
+  wyboru jednego rekordu modułu — moduł nie wniesie; nowy rodzaj pola dodaje rdzeń.
+- **Bramką typów bloków jest skład deploymentu.** W deploymencie z kilkoma typami
+  organizacji biblioteka pokaże sekcje modułu także firmie, której typ tego modułu nie
+  ma; jej strona nic nie narysuje, bo źródło modułu nie odpowie.
+- **Blok budowany przez moduł nie jest walidowany przy odczycie strony.** Strona podaje
+  go rendererowi tak, jak go dostała; kształtu pilnują testy modułu.
+- **Sekcje modułu w bibliotece** nie mają zdjęć przykładowych ani filtra branży,
+  a styl bloku to klasy Tailwind w komponencie — import własnego pliku CSS nie jest
+  objęty testami rdzenia.
 
 ## Odrzucone
 
@@ -212,6 +273,16 @@ ją same. Strona 410 używa czcionki systemowej.
   reguły porównywania adresów.
 - **Przekierowanie do celu, który nie odpowiada** — 308 prowadzące do 404 jest gorsze
   od 404.
+- **Typy produktu dopisywane do manifestu rdzenia** (jak `core.stay_*`). Rdzeń znałby
+  produkt z nazwy, a typ istniałby w każdym deploymencie.
+- **Rejestracja typów bloków w `AppConfig.ready`.** Frontend i test kontraktów nie mają
+  jak jej przeczytać, a schematy i tak muszą być plikami wspólnymi dla obu stron.
+- **Pole z blokami w deskryptorze modułu.** Deskryptor opisuje skład (aplikacja,
+  uprawnienia, cechy planu); bloki mają własny katalog kontraktów, własne wersje
+  i własny test, a katalog nazwany identyfikatorem modułu wystarcza za powiązanie.
+- **Wykrywanie zestawów frontendu po konwencji plików.** Zależy od bundlera (Turbopack
+  i Vitest robią to inaczej); slot produktu jest wzorcem już sprawdzonym na pulpicie
+  i kalendarzu.
 
 ## Relacje
 
@@ -219,4 +290,6 @@ ADR-048 (wyjątek), ADR-035 (workspace platformy, operacje tylko dla człowieka)
 ADR-028 (routing hostów i domeny), ADR-039/041 (RLS nowej tabeli; renderer czyta ją
 w tenancie nazwanym przez host), ADR-049 (profil produktu, punkty rozszerzenia),
 ADR-070 pkt 15 i ADR-071 pkt 9, 12, 14 z uzupełnieniem 2026-10-07 (adresy i odnośniki
-per język), ADR-074 uzupełnienie 2026-10-07 (kto składa adres strony rekordu).
+per język), ADR-074 uzupełnienie 2026-10-07 (kto składa adres strony rekordu; źródła
+publiczne wypełniają bloki modułów), ADR-031 (kategorie sekcji i formularz studia),
+ADR-070 (fragmenty tłumaczeń z danych bloków).
