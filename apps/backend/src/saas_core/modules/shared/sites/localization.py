@@ -5,7 +5,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from saas_core.modules.core.organizations.public_sources import page_source_segments
+from saas_core.modules.core.organizations.public_sources import (
+    page_segment_reserved,
+    page_source_segments,
+)
 
 from .models import ContentCollection, Page, PageTranslation, Site
 
@@ -69,15 +72,32 @@ RESERVED_FIRST_SEGMENTS = frozenset({
 })
 
 
-def first_segment_reserved(segment: str) -> bool:
-    """Also the segment under which a source's records have their own pages
-    (`stay` for a booking's units, ADR-072 slice 5e; ADR-074 pkt 7), in any
-    language the source names one in: a new page must not take the addresses
-    those pages answer at."""
+def _platform_first_segment(segment: str) -> bool:
     two_letters = len(segment) == 2 and segment.isascii() and segment.isalpha()
-    return (
-        two_letters or segment in RESERVED_FIRST_SEGMENTS or segment in page_source_segments()
-    )
+    return two_letters or segment in RESERVED_FIRST_SEGMENTS
+
+
+def first_segment_reserved(segment: str) -> bool:
+    """What a section (blog) never takes as its name. Also the segment under
+    which a source's records have their own pages (`stay` for a booking's
+    units, ADR-072 slice 5e; ADR-074 pkt 7), in any language the source names
+    one in: a section's entries would take the addresses those pages answer
+    at. A page's slug is asked `page_slug_reserved`."""
+    return _platform_first_segment(segment) or segment in page_source_segments()
+
+
+def page_slug_reserved(slug: str, *, default_locale: str, locale: str) -> bool:
+    """One rule for a page's address in every language (ADR-074 pkt 7,
+    „Uzupełnienie 2026-10-07”, PB3d). A language's prefix and the platform's
+    paths are first segments, so they bind the site's own language only —
+    `/en/de/` is an address like any other. A record source's name of its
+    section binds every language, the name in another language included,
+    unless the source gives the section's own address to a page there
+    (`PublicSource.root_page`). Asked of a new or changed slug only: a stored
+    one keeps answering and saving (`sites_reserved_slugs` lists them)."""
+    if locale == default_locale and _platform_first_segment(slug):
+        return True
+    return page_segment_reserved(slug, locale)
 
 
 def localized_path(*, default_locale: str, locale: str, slug: str) -> str:

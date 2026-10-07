@@ -1,10 +1,13 @@
-"""Lists addresses that took a reserved first segment before the rule (ADR-071).
+"""Lists addresses that took a reserved segment before the rule (ADR-071).
 
 A source-language page slug or a blog address may not be two letters (a
-language prefix) or one of the platform's own paths. New ones are refused;
-ones saved earlier keep answering, and a page "de" shadows the German home
-page /de/ until somebody moves it. This shows where, per organization, so the
-move is a decision with the owner rather than a silent rename.
+language prefix) or one of the platform's own paths, and neither they nor a
+language version's slug may be a record source's name of its section
+(ADR-074 pkt 7; a page may where the source gives it the section's own
+address). New ones are refused; ones saved earlier keep answering and saving,
+and a page "de" shadows the German home page /de/ until somebody moves it.
+This shows where, per organization, so the move is a decision with the owner
+rather than a silent rename.
 
     python manage.py sites_reserved_slugs
 """
@@ -15,36 +18,47 @@ from typing import Any
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.db.models import F
 
 from saas_core.modules.core.organizations.context import set_local_organization_id
 from saas_core.modules.shared.billing.api import billing_organization_ids
 
-from ...localization import first_segment_reserved
+from ...localization import first_segment_reserved, localized_path, page_slug_reserved
 from ...models import ContentCollection, PageTranslation
 
 
 class Command(BaseCommand):
-    help = "Wypisuje adresy stron i blogów zajmujące zarezerwowany pierwszy segment."
+    help = "Wypisuje adresy stron i blogów zajmujące zarezerwowany segment."
 
     def handle(self, *_args: Any, **_options: Any) -> None:
         found = 0
         for organization_id in billing_organization_ids():
             with transaction.atomic():
                 set_local_organization_id(organization_id)
+                # A page's address in every language it has one in.
                 pages = (
                     PageTranslation.all_objects.filter(
                         organization_id=organization_id,
-                        locale=F("site__default_locale"),
                         page__deleted_at__isnull=True,
                     )
                     .select_related("site", "page")
-                    .order_by("site__slug", "slug")
+                    .order_by("site__slug", "slug", "locale")
                 )
                 rows = [
-                    f"{organization_id}\t{item.site.slug}\tpage\t/{item.slug}/\t{item.page.key}"
+                    "\t".join((
+                        str(organization_id),
+                        item.site.slug,
+                        "page",
+                        localized_path(
+                            default_locale=item.site.default_locale,
+                            locale=item.locale,
+                            slug=item.slug,
+                        ),
+                        item.page.key,
+                    ))
                     for item in pages
-                    if first_segment_reserved(item.slug)
+                    if page_slug_reserved(
+                        item.slug, default_locale=item.site.default_locale, locale=item.locale
+                    )
                 ]
                 rows += [
                     f"{organization_id}\t{item.site.slug}\tcollection\t{path}\t{item.key}"

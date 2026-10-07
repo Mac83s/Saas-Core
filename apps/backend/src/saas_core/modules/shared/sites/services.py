@@ -74,8 +74,8 @@ from .localization import (
     SiteLocalizationReport,
     build_localization_report,
     collection_index_path,
-    first_segment_reserved,
     localized_path,
+    page_slug_reserved,
 )
 from .metrics import OUTBOX_EVENTS
 from .models import (
@@ -255,8 +255,8 @@ class SlugReserved(APIException):
     default_detail = (
         "Ten adres jest zarezerwowany: dwuliterowe początki adresów należą do "
         "wersji językowych, media, api, internal, static, healthz i "
-        "site-renderer obsługuje platforma, a pod stay są strony jednostek "
-        "z rezerwacji."
+        "site-renderer obsługuje platforma, a pod nazwami działów rekordów "
+        "(na przykład stay) są strony tych rekordów."
     )
     default_code = "slug_reserved"
 
@@ -1773,12 +1773,11 @@ def save_page_translation(
         )
         .first()
     )
-    # Only a new or changed address: a page that already had one before the
-    # rule keeps it until somebody moves it (`sites_reserved_slugs` lists them).
-    if (
-        normalized_locale == site.default_locale
-        and (translation is None or translation.slug != values["slug"])
-        and first_segment_reserved(str(values["slug"]))
+    # Only a new or changed address, in whichever language: a page that
+    # already had one before the rule keeps it until somebody moves it
+    # (`sites_reserved_slugs` lists them).
+    if (translation is None or translation.slug != values["slug"]) and page_slug_reserved(
+        str(values["slug"]), default_locale=site.default_locale, locale=normalized_locale
     ):
         raise SlugReserved
     if translation is not None:
@@ -3152,7 +3151,9 @@ def change_page_url(
     )
     if translation.slug == normalized_slug:
         raise RedirectTargetUnchanged
-    if normalized_locale == site.default_locale and first_segment_reserved(normalized_slug):
+    if page_slug_reserved(
+        normalized_slug, default_locale=site.default_locale, locale=normalized_locale
+    ):
         raise SlugReserved
     if (
         PageTranslation.all_objects.filter(

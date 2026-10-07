@@ -45,7 +45,10 @@ keeps one of each for all of them:
   that name the section differently (`{"en": "dog-breeds", "de":
   "hunderassen"}` beside `page_segment="rasy-psow"`). The key is the language
   the page is read in, whichever of them is the site's own. Every segment of
-  every source is reserved for new pages and sections of a site;
+  every source, in every language, is the source's in every language of a
+  site: no new section (blog) takes one and no new page does — the site's
+  language's or a language version's, typed or worked out from a title — save
+  the one below;
 - the slug: a record with a slug per language names them in `SourcePage.slugs`
   and `SourcePageAddress.slugs`. `site_page` is asked with the slug of the
   address and looks the record up by its slug in ANY language; the site
@@ -58,6 +61,22 @@ The site builds every such address itself (`source_page_versions` in
 `shared.sites.publication_routing`); a source that links its own pages gets
 the address from `PageAddress` (its page's other languages) or from
 `page_base` (its blocks), never by joining segments.
+
+What answers at the section's own address (2026-10-07, same amendment, PB3d)
+------------------------------------------------------------------------
+Nothing, unless the source says `root_page=True`: `/<segment>/` is then a
+page a person builds in the site builder — the list of the records is a block
+they place on it, with an introduction and SEO fields of their own — and the
+source never answers there itself. Such a source lets a PAGE take its segment
+as the slug in the language the segment is the section's name in
+(`rasy-psow` in Polish, `dog-breeds` in English; a language that names none
+uses `page_segment`); another language's name stays refused there, and a
+section (blog) is refused every name, because its entries would stand where
+the records do. A language version of the page that stands at the root in the
+site's language takes the section's name in its own language by itself, where
+no other page has it. Where such a page is published, a record's trail leads
+through it: the company, the section's page, the record. A source that says
+nothing (`stay`, `documents`) keeps its segments closed to pages as before.
 """
 
 from __future__ import annotations
@@ -173,6 +192,11 @@ class PublicSource:
     #: The segment in the languages that name the section differently, by
     #: language code (`{"de": "hunderassen"}`); see the module note.
     page_segments: Mapping[str, str] = field(default_factory=dict)
+    #: The section's own address (`/<segment>/`) is a page a person builds on
+    #: the site: a page — never a blog section — may take the segment as its
+    #: slug in the language the segment names the section in; see the module
+    #: note. False — nothing of the site stands there.
+    root_page: bool = False
     #: `site_page(organization_id, locale, slug, address)` → the page of the
     #: record with that slug — in any language, where it has one per language
     #: (`SourcePage.slugs`) — in that language where the record has words in
@@ -207,6 +231,10 @@ def register_public_source(source: PublicSource) -> None:
     if source.page_segments and not source.page_segment:
         raise ImproperlyConfigured(
             f"Źródło {source.key} nazywa segment per język bez segmentu podstawowego."
+        )
+    if source.root_page and not source.page_segment:
+        raise ImproperlyConfigured(
+            f"Źródło {source.key} oddaje stronie korzeń działu, którego nie nazywa."
         )
     for segment in source.segments():
         # A two-letter segment is a language's prefix (ADR-071).
@@ -304,5 +332,24 @@ def page_source(segment: str, locale: str | None = None) -> PublicSource | None:
 
 def page_source_segments() -> frozenset[str]:
     """Every first segment a source's pages take, in any language: none of
-    them is free for a page or a section of a site."""
+    them is free for a section of a site, and for a page only as
+    `page_segment_reserved` says."""
     return frozenset().union(*(source.segments() for source in page_sources().values()))
+
+
+def page_segment_reserved(segment: str, locale: str) -> bool:
+    """Whether a page read in `locale` may not take `segment` as its slug:
+    it is some source's name of its section, in any language — every one of
+    them answers under every language of a site — unless that source gives
+    the section's own address to a page (`root_page`) and this is its name
+    of the section in `locale`."""
+    source = page_source(segment)
+    return source is not None and not (source.root_page and source.segment(locale) == segment)
+
+
+def section_root_segment(segment: str, locale: str, other: str) -> str:
+    """The name in `other` of the section whose own address a page at
+    `segment` in `locale` stands at (`root_page`); "" where it stands at
+    none."""
+    source = page_source(segment, locale)
+    return source.segment(other) if source is not None and source.root_page else ""

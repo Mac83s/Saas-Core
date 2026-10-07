@@ -35,6 +35,7 @@ from typing import Any
 from uuid import UUID
 
 from django.db import IntegrityError, transaction
+from django.db.models import F
 from django.utils import timezone
 
 from saas_core.content_protocol import registry
@@ -85,6 +86,11 @@ from saas_core.modules.core.organizations.context import (
     set_local_organization_id,
 )
 from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.core.organizations.public_sources import (
+    page_segment_reserved,
+    page_sources,
+    section_root_segment,
+)
 from saas_core.modules.shared.billing.api import authorize_entitled
 
 from .block_decoration import stored_block_payload
@@ -958,10 +964,30 @@ def _apply_meta(page: Page, row: PageTranslation, written: Mapping[str, Mapping[
     row.version += 1
 
 
+def _section_root(page: Page, locale: str) -> str:
+    """The name in `locale` of the record section whose own address the page
+    stands at in the site's language (`PublicSource.root_page`), else ""."""
+    if not any(source.root_page for source in page_sources().values()):
+        return ""
+    own = (
+        PageTranslation.all_objects.filter(
+            organization_id=page.organization_id,
+            page_id=page.id,
+            locale=F("site__default_locale"),
+        )
+        .values_list("slug", "locale")
+        .first()
+    )
+    return section_root_segment(own[0], own[1], locale) if own else ""
+
+
 def free_slug(page: Page, locale: str, wanted: str, *, keep: UUID | None = None) -> str:
     """Unique in (site, language) and never a collection's path — in any
     language, a section's name in one being free to become its name in
-    another — which the language's blog answers at (ADR-070 pkt 18)."""
+    another — which the language's blog answers at (ADR-070 pkt 18), nor a
+    record source's name of its section (`page_segment_reserved`, ADR-074
+    pkt 7). The version of a page that stands at such a section's own address
+    takes the section's name in its language, whatever its title says."""
     base = (wanted or page.key or "strona")[:72].strip("-") or "strona"
     taken = set(
         PageTranslation.all_objects.filter(
@@ -974,8 +1000,11 @@ def free_slug(page: Page, locale: str, wanted: str, *, keep: UUID | None = None)
         organization_id=page.organization_id, site_id=page.site_id
     ).values_list("base_path", "locale_paths"):
         taken |= {base_path, *(locale_paths or {}).values()}
+    root = _section_root(page, locale)
+    if root and root not in taken:
+        return root
     slug, number = base, 2
-    while slug in taken:
+    while slug in taken or page_segment_reserved(slug, locale):
         slug, number = f"{base}-{number}", number + 1
     return slug
 
