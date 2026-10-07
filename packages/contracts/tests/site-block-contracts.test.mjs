@@ -131,6 +131,27 @@ async function moduleDirectories() {
   return found;
 }
 
+/** The names of the properties whose pattern lets a path or a URL through:
+ *  what a block renders as a link. */
+function linkLikeKeys(schema, found = []) {
+  if (Array.isArray(schema))
+    schema.forEach((item) => linkLikeKeys(item, found));
+  else if (schema !== null && typeof schema === "object")
+    for (const [key, child] of Object.entries(schema)) {
+      if (
+        child !== null &&
+        typeof child === "object" &&
+        typeof child.pattern === "string" &&
+        ["/a", "https://a.test"].some((sample) =>
+          new RegExp(child.pattern).test(sample),
+        )
+      )
+        found.push(key);
+      linkLikeKeys(child, found);
+    }
+  return found;
+}
+
 test("a module's block manifest follows its contract", async () => {
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   const validate = ajv.compile(
@@ -159,6 +180,14 @@ test("a module's block manifest follows its contract", async () => {
         const schema = await readJson(`${directory}/${file}`);
         // The frontend checks the file it imported by this.
         assert.ok(schema.$id.endsWith(`/${file}`), `${file}: $id`);
+        // A link is a property named `href`: by that name the core checks
+        // an automation's link hosts and leads a link to the page in the
+        // reader's language. Any other name would get neither.
+        assert.deepEqual(
+          linkLikeKeys(schema).filter((key) => key !== "href"),
+          [],
+          `${file}: a link field not named href`,
+        );
         schemas[version] = new Ajv2020({ strict: true }).compile(schema);
       }
       // What only the server builds is in no library.

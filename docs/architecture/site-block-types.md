@@ -99,9 +99,12 @@ sprawdza, że zaimportował plik wskazany w manifeście.
 
 ### 4.1. Nazwy pól, które rdzeń rozumie
 
-- **Odnośnik** nazywa się `href`, `…Href` albo `…_href`. Po tej nazwie rdzeń
-  pilnuje listy dozwolonych hostów automatyzacji i przepisuje adresy na język
-  czytelnika.
+- **Odnośnik** to pole o nazwie `href` — zagnieżdżone tam, gdzie trzeba
+  (`action.href`, `items[].href`). Po tej nazwie rdzeń pilnuje listy
+  dozwolonych hostów automatyzacji i prowadzi odnośnik do strony w języku
+  czytelnika; pole o innej nazwie nie dostałoby żadnego z dwojga, więc test
+  kontraktów odrzuca schemat modułu, w którym wzorzec przyjmujący ścieżkę
+  albo adres stoi pod inną nazwą.
 - **Zdjęcie** to obiekt z `asset_id` (i `alt`). Po kluczu `asset_id` rdzeń
   wiąże media ze stroną, liczy rozmiary i dokłada oznaczenie AI; komponent
   rysuje je przez `renderImage` (§5.2).
