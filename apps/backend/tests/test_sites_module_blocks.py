@@ -26,6 +26,11 @@ from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
 from saas_core.config.composition import ModuleDescriptor
+from saas_core.modules.core.organizations.context import (
+    activate_tenant_context,
+    context_from_membership,
+)
+from saas_core.modules.core.organizations.models import Membership
 from saas_core.modules.core.organizations.public_sources import (
     PageAddress,
     PublicSource,
@@ -53,7 +58,8 @@ from saas_core.modules.shared.sites.localized_bodies import (
     extract_units,
     text_fields,
 )
-from test_site_language_publication import _get, _publish
+from saas_core.modules.shared.sites.models import Site
+from test_site_language_publication import _get, _publish, _site, _translate_all
 from test_site_language_versions_api import _hero, _page, _translate, _url
 from test_sites_api import create_page, create_site, csrf_value, sites_client
 from test_sites_collections import _verified_platform_domain
@@ -481,6 +487,146 @@ def test_a_module_reads_a_body_as_units_and_its_pages_address_through_the_api() 
     # The site puts a record's address together, never the module.
     assert sites_api.source_page_base("pl", "pl", "samples") == "/samples/"
     assert sites_api.source_page_base("pl", "en", "samples") == "/en/samples/"
+
+
+def test_a_products_code_builds_a_site_through_the_api() -> None:
+    """What a product's site command does beside pages and drafts — the look,
+    the menu, a section, a language version's words, the site's texts, a
+    page's kind and its removal — from the module's public door, as the
+    person it acts for."""
+    client, site_id, home, offer, _host = _site("api-built")
+    _translate_all(client, home, "api-built-home")
+    site = Site.all_objects.get(pk=site_id)
+    person = context_from_membership(Membership.objects.get(organization=site.organization_id))
+
+    with activate_tenant_context(person):
+        look = sites_api.get_site_appearance(site_id=site.id)
+        wanted = {
+            **look["appearance"],
+            "footer": {"layout": "simple", "text": "Zapraszamy", "links": []},
+        }
+        saved = sites_api.save_site_appearance(
+            site_id=site.id,
+            expected_version=look["version"],
+            appearance=wanted,
+            idempotency_key="api-look",
+        )
+        assert (saved["version"], saved["appearance"]) == (look["version"] + 1, wanted)
+        with pytest.raises(sites_api.AppearanceVersionConflict):
+            sites_api.save_site_appearance(
+                site_id=site.id,
+                expected_version=look["version"],
+                appearance=wanted,
+                idempotency_key="api-look-stale",
+            )
+
+        menu = sites_api.get_site_navigation(site_id=site.id)
+        assert isinstance(menu, sites_api.SiteNavigation)
+        placed = sites_api.save_site_navigation(
+            site_id=site.id,
+            expected_version=menu.site.navigation_version,
+            items=[{"page_id": offer, "visible": True}, {"page_id": home, "visible": True}],
+        )
+        assert [str(item.page_id) for item in placed.items] == [offer, home]
+        with pytest.raises(sites_api.NavigationVersionConflict):
+            sites_api.save_site_navigation(
+                site_id=site.id, expected_version=menu.site.navigation_version, items=[]
+            )
+
+        section, created = sites_api.create_collection(
+            site_id=site.id,
+            key="guide",
+            name="Poradnik",
+            kind="blog",
+            base_path="poradnik",
+            locale_paths={"en": "guide"},
+            idempotency_key="api-guide",
+        )
+        assert created and [one.key for one in sites_api.list_collections(site_id=site.id)] == [
+            "guide"
+        ]
+        assert sites_api.set_collection_navigation(
+            collection_id=section.id, show=True
+        ).show_in_navigation
+
+        body = sites_api.get_locale_body(page_id=UUID(home), locale="en")
+        assert isinstance(body, sites_api.LocaleBody) and body.untranslated == 0
+        written = sites_api.save_locale_body(
+            page_id=UUID(home),
+            locale="en",
+            source_version_id=body.source_version.id,
+            expected_body_version=body.translation.body_version,
+            units={"0/title": "Welcome"},
+            idempotency_key="api-home-en",
+            imported=True,
+        )
+        states: dict[str, Any] = {state.unit.key: state for state in written.value.units}
+        assert isinstance(states["0/title"], sites_api.UnitState)
+        assert (states["0/title"].text, states["0/title"].origin) == ("Welcome", "import")
+        with pytest.raises(sites_api.LocaleBodyVersionConflict):
+            sites_api.save_locale_body(
+                page_id=UUID(home),
+                locale="en",
+                source_version_id=body.source_version.id,
+                expected_body_version=body.translation.body_version,
+                units={"0/title": "Hello"},
+                idempotency_key="api-home-en-stale",
+            )
+        # Already on the page's current version: nothing to move.
+        assert not sites_api.rebase_locale_body(
+            page_id=UUID(home),
+            locale="en",
+            expected_body_version=written.value.translation.body_version,
+            idempotency_key="api-home-rebase",
+        ).created
+        with pytest.raises(sites_api.LocaleIsSource):
+            sites_api.get_locale_body(page_id=UUID(home), locale="pl")
+
+    _publish(client, site_id, "api-built-site")
+
+    with activate_tenant_context(person):
+        texts = sites_api.list_site_texts(site_id=site.id, locale="en")
+        assert isinstance(texts, sites_api.SiteTexts)
+        assert {"footer/text", f"collection/{section.id}"} <= {item.key for item in texts.items}
+        said = sites_api.save_site_texts(
+            site_id=site.id,
+            locale="en",
+            expected_version=texts.version,
+            texts={"footer/text": "Welcome"},
+        )
+        assert {item.key: item.text for item in said.items}["footer/text"] == "Welcome"
+        with pytest.raises(sites_api.SiteTextsVersionConflict):
+            sites_api.save_site_texts(
+                site_id=site.id, locale="en", expected_version=texts.version, texts={}
+            )
+        with pytest.raises(sites_api.SiteTextLocaleInvalid):
+            sites_api.list_site_texts(site_id=site.id, locale="pl")
+        out = sites_api.publish_site_texts(
+            site_id=site.id, locale="en", idempotency_key="api-texts-en"
+        )
+        assert out.snapshot["site_texts"]["en"]["footer/text"] == "Welcome"
+
+        draft = str(_page(client, site_id, "robocza", [_hero("Szkic", "Do usunięcia")]))
+        assert (
+            sites_api.set_page_type(page_id=UUID(draft), page_type="landing").page_type == "landing"
+        )
+        with pytest.raises(sites_api.PageInvalidType):
+            sites_api.set_page_type(page_id=UUID(draft), page_type="unknown")
+        removed = sites_api.delete_page(
+            page_id=UUID(draft),
+            expected_version=sites_api.get_draft(page_id=UUID(draft)).page.version,
+            redirect_to_page_id=None,
+            idempotency_key="api-draft-away",
+        )
+        assert isinstance(removed, sites_api.PageDeletion)
+        assert removed.created and removed.page.deleted_at is not None
+        with pytest.raises(sites_api.PageAlreadyDeleted):
+            sites_api.delete_page(
+                page_id=UUID(draft),
+                expected_version=removed.page.version,
+                redirect_to_page_id=None,
+                idempotency_key="api-draft-again",
+            )
 
 
 # --- A manifest that breaks its contract stops the deploy ---------------------

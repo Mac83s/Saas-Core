@@ -287,6 +287,28 @@ przykładowe pozostają rdzenia.
   `source_page_base(język_strony_firmy, język, source.segment(język))` z tego
   samego `api`, plus slug rekordu. Funkcja tylko składa adres — nie wie, w
   których językach strona firmy jest czytana ani czy rekord ma tam stronę.
+- **Witryna budowana kodem produktu** (komenda, która stawia podstrony,
+  wygląd i menu z plików produktu): serwisy, które woła panel, z tego samego
+  `api`, w kontekście osoby (`activate_tenant_context`) — każdy pyta o to samo
+  uprawnienie co panel i tak samo odmawia automatyzacji (`person_required`).
+  Obok podstron i szkiców (`create_page`, `save_draft`,
+  `save_page_translation`, `publish_site`) są tam:
+  - treść wersji językowej: `get_locale_body` (`LocaleBody`, w `units`
+    `UnitState`), `save_locale_body`, `rebase_locale_body`;
+  - wygląd, nagłówek i stopka: `get_site_appearance`, `save_site_appearance`;
+  - menu podstron, zawsze całe naraz: `get_site_navigation`
+    (`SiteNavigation`), `save_site_navigation`;
+  - dział (blog): `list_collections`, `create_collection`,
+    `set_collection_navigation`;
+  - teksty witryny w jej innych językach: `list_site_texts` (`SiteTexts`,
+    `SiteTextItem`), `save_site_texts`, `publish_site_texts`;
+  - rodzaj podstrony i jej usunięcie: `set_page_type`, `delete_page`
+    (`PageDeletion`).
+
+  Odmowy, które taki kod łapie, mają tam swoje nazwy (`…VersionConflict`,
+  `LocaleUnitInvalid`, `LocaleNotEnabled`, `PageIsHomepage`, `PageIsLast`…).
+  Modele (`Site`, `Page`, `ContentCollection`) produkt dostaje w odpowiedziach;
+  spod `shared.sites` nie importuje niczego poza `api`.
 
 ## 8. Gdzie typ istnieje
 

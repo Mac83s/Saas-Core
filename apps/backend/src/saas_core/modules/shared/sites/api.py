@@ -1,6 +1,7 @@
 """Public use-case API of the Sites module."""
 
 from .ai_badge import badge_visible
+from .appearance import AppearanceVersionConflict, get_site_appearance, save_site_appearance
 from .block_contracts import (
     InvalidSiteBlockData,
     UnknownSiteBlockType,
@@ -8,8 +9,26 @@ from .block_contracts import (
     validate_built_site_block,
     validate_site_block,
 )
+from .collections import (
+    CollectionNotFound,
+    create_collection,
+    list_collections,
+    set_collection_navigation,
+)
 from .content_checks import register_company_contact
 from .html_blocks import HtmlConversion, HtmlLoss, convert_html
+from .language_versions import (
+    LocaleBody,
+    LocaleBodyVersionConflict,
+    LocaleIsSource,
+    LocaleNotEnabled,
+    LocaleUnitInvalid,
+    SourceVersionMismatch,
+    UnitState,
+    get_locale_body,
+    rebase_locale_body,
+    save_locale_body,
+)
 from .localized_bodies import (
     AssembledBody,
     LocaleUnitsInvalid,
@@ -20,17 +39,28 @@ from .localized_bodies import (
     extract_units,
     texts_against,
 )
+from .page_deletion import (
+    PageAlreadyDeleted,
+    PageDeletion,
+    PageIsHomepage,
+    PageIsLast,
+    delete_page,
+)
 from .page_templates import PageTemplate, PageTemplateNotFound, page_template_catalog
 from .publication_routing import source_page_base
 from .services import (
     DraftVersionConflict,
     MutationResult,
+    NavigationInvalidTree,
+    NavigationVersionConflict,
     PageDraft,
+    PageInvalidType,
     PageKeyConflict,
     PageNotFound,
     PageTranslations,
     PageVersionNotFound,
     SiteMediaReferenceUnavailable,
+    SiteNavigation,
     SiteNotFound,
     SitePublication,
     SitePublicationConflict,
@@ -47,6 +77,7 @@ from .services import (
     get_draft,
     get_draft_preview,
     get_site_localization_report,
+    get_site_navigation,
     import_page_template,
     list_page_translations,
     list_pages,
@@ -55,6 +86,17 @@ from .services import (
     read_site_audit_target,
     save_draft,
     save_page_translation,
+    save_site_navigation,
+    set_page_type,
+)
+from .site_texts import (
+    SiteTextItem,
+    SiteTextLocaleInvalid,
+    SiteTexts,
+    SiteTextsVersionConflict,
+    list_site_texts,
+    publish_site_texts,
+    save_site_texts,
 )
 
 __all__ = [
@@ -75,6 +117,51 @@ __all__ = [
     # Where a source's records have their pages in a language, for a link
     # outside a page request (the panel): the site builds the address.
     "source_page_base",
+    # What a product's own code builds a whole site with, beside pages and
+    # drafts — the services the panel's routes call, each asking the same
+    # permission and the same person (docs/architecture/site-block-types.md
+    # §7, „Witryna budowana kodem produktu”).
+    # A language version's words, as text units against the source version.
+    "LocaleBody",
+    "LocaleBodyVersionConflict",
+    "LocaleIsSource",
+    "LocaleNotEnabled",
+    "LocaleUnitInvalid",
+    "SourceVersionMismatch",
+    "UnitState",
+    "get_locale_body",
+    "rebase_locale_body",
+    "save_locale_body",
+    # The look, the header and the footer.
+    "AppearanceVersionConflict",
+    "get_site_appearance",
+    "save_site_appearance",
+    # The menu of pages, and a section (blog) with its place in it.
+    "NavigationInvalidTree",
+    "NavigationVersionConflict",
+    "SiteNavigation",
+    "get_site_navigation",
+    "save_site_navigation",
+    "CollectionNotFound",
+    "create_collection",
+    "list_collections",
+    "set_collection_navigation",
+    # What the site says outside its pages, in its other languages.
+    "SiteTextItem",
+    "SiteTextLocaleInvalid",
+    "SiteTexts",
+    "SiteTextsVersionConflict",
+    "list_site_texts",
+    "publish_site_texts",
+    "save_site_texts",
+    # A page's kind and its removal.
+    "PageAlreadyDeleted",
+    "PageDeletion",
+    "PageInvalidType",
+    "PageIsHomepage",
+    "PageIsLast",
+    "delete_page",
+    "set_page_type",
     "register_company_contact",
     "badge_visible",
     "DraftVersionConflict",
