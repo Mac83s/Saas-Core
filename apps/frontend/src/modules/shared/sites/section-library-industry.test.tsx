@@ -9,6 +9,8 @@ import { SectionLibraryContent } from "./section-library";
 vi.mock("../../../product", () => ({
   product: { siteIndustry: "agriculture" },
 }));
+// The core's own catalogue: which sections lead is said of the core's.
+vi.mock("../../../product/site-blocks", () => ({ siteBlocks: [] }));
 
 afterEach(() => cleanup());
 
