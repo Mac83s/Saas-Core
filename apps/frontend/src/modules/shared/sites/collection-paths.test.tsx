@@ -75,6 +75,8 @@ test("shows the address in each language and stays accessible", async () => {
   expect(field("Adres bloga — English").value).toBe("");
   expect(field("Adres bloga — English").placeholder).toBe("poradnik");
   expect(field("Adres bloga — Deutsch").value).toBe("ratgeber");
+  // The language's part of the address stands by itself, never cut short.
+  expect(screen.getByText("/de/")).not.toBeNull();
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 });
 

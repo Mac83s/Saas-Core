@@ -266,7 +266,11 @@ export function CollectionPaths({
               </FieldLabel>
               <InputGroup>
                 <InputGroupAddon>
-                  <InputGroupText className="max-w-48 truncate">{`${host}/${code}/`}</InputGroupText>
+                  {/* The host may be cut short; the language's part never is. */}
+                  <InputGroupText className="gap-0">
+                    <span className="max-w-36 truncate">{host}</span>
+                    <span>{`/${code}/`}</span>
+                  </InputGroupText>
                 </InputGroupAddon>
                 {/* Empty: the address follows the site's language, shown as
                     the placeholder so the field still reads as an address. */}

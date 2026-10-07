@@ -529,8 +529,13 @@ export function BlogPanel({
                         </FieldLabel>
                         <InputGroup>
                           <InputGroupAddon>
-                            <InputGroupText className="max-w-48 truncate">
-                              {`${siteHost(address)}/${item.code}/`}
+                            {/* The host may be cut short; the language's
+                                part never is. */}
+                            <InputGroupText className="gap-0">
+                              <span className="max-w-36 truncate">
+                                {siteHost(address)}
+                              </span>
+                              <span>{`/${item.code}/`}</span>
                             </InputGroupText>
                           </InputGroupAddon>
                           <InputGroupInput

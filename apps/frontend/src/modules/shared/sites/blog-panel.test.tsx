@@ -337,7 +337,8 @@ test("names the new blog its own way in another language", async () => {
   expect(screen.queryByLabelText("Adres bloga — Polski")).toBeNull();
   // Empty, it reads as the address it follows.
   expect(english.placeholder).toBe("blog");
-  expect(screen.getByText("studio.example.test/en/")).not.toBeNull();
+  // The language's part of the address stands by itself, never cut short.
+  expect(screen.getByText("/en/")).not.toBeNull();
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 
   fireEvent.change(screen.getByLabelText("Nazwa"), {
