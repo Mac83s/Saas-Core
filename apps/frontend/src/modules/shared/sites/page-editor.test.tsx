@@ -104,8 +104,13 @@ vi.mock("../../../generated/deployment", async (importOriginal) => {
     deployment: {
       ...deployment,
       get modules() {
+        // Whatever profile the file was rendered for — the core's own or a
+        // product's, which may compose the module already: here it is in
+        // the list exactly when the case composes it.
         return [
-          ...deployment.modules,
+          ...(deployment.modules as readonly string[]).filter(
+            (module) => module !== "shared.image-generation",
+          ),
           ...(composed.imageGeneration ? ["shared.image-generation"] : []),
         ];
       },
