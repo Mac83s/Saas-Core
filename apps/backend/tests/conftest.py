@@ -8,7 +8,7 @@ tests of typed roles (`test_organization_roles.py`) configure the types they
 need themselves.
 """
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import replace
 from typing import Any
 
@@ -73,6 +73,33 @@ def core_global_roles(settings: Any) -> None:
         key: replace(organization_type, roles=())
         for key, organization_type in settings.ORGANIZATION_TYPES.items()
     }
+
+
+@pytest.fixture
+def register_test_source(monkeypatch: pytest.MonkeyPatch) -> Callable[[Any], Any]:
+    """Registers a test's own `PublicSource`, whatever the composition
+    registered at start.
+
+    A product runs the core suite under its own profile, and its real source
+    may hold the very segment a test source names (07.10: a product's breeds
+    held `rasy-psow` and the registry refused the test's). So the test gets a
+    registry of its own: the composition's sources without those that share
+    the test source's key or one of its segments, then the test's — all taken
+    back with the test. Name a test source's segments so that no product
+    would take them anyway (`test-…`)."""
+    from saas_core.modules.core.organizations import public_sources
+
+    def register(source: Any) -> Any:
+        kept = {
+            key: other
+            for key, other in public_sources._sources.items()
+            if key != source.key and not other.segments() & source.segments()
+        }
+        monkeypatch.setattr(public_sources, "_sources", kept)
+        public_sources.register_public_source(source)
+        return source
+
+    return register
 
 
 @pytest.fixture(autouse=True, scope="session")

@@ -26,14 +26,12 @@ from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
 from saas_core.config.composition import ModuleDescriptor
-from saas_core.modules.core.organizations import public_sources
 from saas_core.modules.core.organizations.public_sources import (
     PageAddress,
     PublicSource,
     SiteBlock,
     SourcePage,
     SourcePageAddress,
-    register_public_source,
 )
 from saas_core.modules.shared.sites.api import validate_built_site_block
 from saas_core.modules.shared.sites.apps import check_content_contracts
@@ -338,7 +336,7 @@ def _record_page(
 
 
 @pytest.fixture
-def records(monkeypatch: pytest.MonkeyPatch) -> PublicSource:
+def records(register_test_source: Any) -> PublicSource:
     """The module's public source (PB1's protocol): it fills the placed
     block and gives each record a page of its own."""
     source = PublicSource(
@@ -352,9 +350,9 @@ def records(monkeypatch: pytest.MonkeyPatch) -> PublicSource:
             SourcePageAddress(slug=slug, locales=frozenset({"en"})) for slug in RECORDS
         ],
     )
-    monkeypatch.setattr(public_sources, "_sources", dict(public_sources._sources))
-    register_public_source(source)
-    return source
+    # In a registry of the test's own: a composition may hold the segment.
+    registered: PublicSource = register_test_source(source)
+    return registered
 
 
 def test_a_placed_block_is_published_translated_and_filled_live(

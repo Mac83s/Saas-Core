@@ -594,31 +594,57 @@ def _breed_pages(_organization_id: Any) -> list[SourcePageAddress]:
     ]
 
 
-def _breeds(monkeypatch: pytest.MonkeyPatch, **fields: Any) -> PublicSource:
+def _breeds(register: Any, **fields: Any) -> PublicSource:
+    """Named so that no product's own source holds the same segments, and
+    registered through the front door in a registry of the test's own
+    (`register_test_source`): a composition's real source never stands in
+    its way."""
     source = PublicSource(
         key="test.breeds",
         shown_media=lambda _organization_id: (),
-        page_segment="rasy-psow",
-        page_segments={"en": "dog-breeds", "de": "hunderassen"},
+        page_segment="rasy-testowe",
+        page_segments={"en": "test-breeds", "de": "testrassen"},
         site_page=_breed_page,
         site_pages=_breed_pages,
         **fields,
     )
-    # Registered through the front door, taken back with the test.
-    monkeypatch.setattr(public_sources, "_sources", dict(public_sources._sources))
-    register_public_source(source)
-    return source
+    registered: PublicSource = register(source)
+    return registered
 
 
 @pytest.fixture
-def breeds(monkeypatch: pytest.MonkeyPatch) -> PublicSource:
-    return _breeds(monkeypatch)
+def breeds(register_test_source: Any) -> PublicSource:
+    return _breeds(register_test_source)
 
 
 @pytest.fixture
-def listed_breeds(monkeypatch: pytest.MonkeyPatch) -> PublicSource:
+def listed_breeds(register_test_source: Any) -> PublicSource:
     """The same source, giving its section's own address to a page."""
-    return _breeds(monkeypatch, root_page=True)
+    return _breeds(register_test_source, root_page=True)
+
+
+def test_a_test_source_stands_whatever_the_composition_registered(
+    monkeypatch: pytest.MonkeyPatch, register_test_source: Any
+) -> None:
+    """A product's real source holds the names the test source takes — as
+    Puppily's breeds did (07.10): the test's registry leaves it out."""
+    monkeypatch.setattr(public_sources, "_sources", dict(public_sources._sources))
+    register_public_source(
+        PublicSource(
+            key="product.breeds",
+            shown_media=lambda _organization_id: (),
+            page_segment="rasy-testowe",
+            page_segments={"en": "test-breeds"},
+            site_page=_breed_page,
+        )
+    )
+    others = set(public_sources._sources) - {"product.breeds"}
+
+    source = _breeds(register_test_source)
+
+    assert page_source("rasy-testowe") is page_source("test-breeds", "en") is source
+    # Only what stood in the way is left out.
+    assert set(public_sources._sources) == others | {"test.breeds"}
 
 
 def test_a_record_answers_under_its_section_and_slug_in_each_language(
@@ -627,8 +653,8 @@ def test_a_record_answers_under_its_section_and_slug_in_each_language(
     blog = Blog("section-records")
     host, origin = blog.host, f"https://{blog.host}"
     versions = {
-        "pl": "/rasy-psow/owczarek-niemiecki/",
-        "en": "/en/dog-breeds/german-shepherd/",
+        "pl": "/rasy-testowe/owczarek-niemiecki/",
+        "en": "/en/test-breeds/german-shepherd/",
     }
 
     for locale, path in versions.items():
@@ -646,35 +672,35 @@ def test_a_record_answers_under_its_section_and_slug_in_each_language(
     # Another language's slug, another language's name of the section, or
     # both: one 308 to the record's address in the language asked for.
     for asked, target in (
-        ("/en/dog-breeds/owczarek-niemiecki/", versions["en"]),
-        ("/en/rasy-psow/german-shepherd/", versions["en"]),
-        ("/en/rasy-psow/owczarek-niemiecki/", versions["en"]),
-        ("/en/hunderassen/owczarek-niemiecki", versions["en"]),
-        ("/rasy-psow/german-shepherd/", versions["pl"]),
-        ("/dog-breeds/german-shepherd/", versions["pl"]),
+        ("/en/test-breeds/owczarek-niemiecki/", versions["en"]),
+        ("/en/rasy-testowe/german-shepherd/", versions["en"]),
+        ("/en/rasy-testowe/owczarek-niemiecki/", versions["en"]),
+        ("/en/testrassen/owczarek-niemiecki", versions["en"]),
+        ("/rasy-testowe/german-shepherd/", versions["pl"]),
+        ("/test-breeds/german-shepherd/", versions["pl"]),
     ):
         assert _moved(host, asked) == (308, target), asked
-    assert _get(host, "/rasy-psow/jamnik/").status_code == 404
-    assert _get(host, "/en/dog-breeds/").status_code == 404
+    assert _get(host, "/rasy-testowe/jamnik/").status_code == 404
+    assert _get(host, "/en/test-breeds/").status_code == 404
 
     sitemap = _feed(host, "sitemap.xml").content.decode()
     assert set(versions.values()) <= set(_locs(sitemap, host))
     assert _alternates(sitemap, host, versions["en"]) == {**versions, "x-default": versions["pl"]}
-    assert "/en/rasy-psow/" not in sitemap and "/hunderassen/" not in sitemap
+    assert "/en/rasy-testowe/" not in sitemap and "/testrassen/" not in sitemap
 
     # A link written in the site's language leads under the section's name in
     # the reader's language.
-    assert _localized_href("/rasy-psow/owczarek-niemiecki/?a=1#b", {}, "/en") == (
-        "/en/dog-breeds/owczarek-niemiecki/?a=1#b"
+    assert _localized_href("/rasy-testowe/owczarek-niemiecki/?a=1#b", {}, "/en") == (
+        "/en/test-breeds/owczarek-niemiecki/?a=1#b"
     )
     # Every name of the section, in any language, is the source's alone.
-    for name in ("rasy-psow", "dog-breeds", "hunderassen"):
+    for name in ("rasy-testowe", "test-breeds", "testrassen"):
         assert first_segment_reserved(name)
         taken = create_collection(
             blog.client, blog.site_id, key=name, base_path=name, idempotency_key=name
         )
         assert (taken.status_code, taken.json()["code"]) == (400, "slug_reserved")
-    named = _rename(blog, "blog", {"en": "dog-breeds"}, preview=True)
+    named = _rename(blog, "blog", {"en": "test-breeds"}, preview=True)
     assert _errors(named) == [("locale_paths.en", "slug_reserved")]
 
 
@@ -689,11 +715,11 @@ def test_a_record_without_words_in_a_language_moves_to_the_site_language_once(
 
     with override_settings(SITES_SUPPORTED_LOCALES=("pl", "en", "de")):
         for asked in (
-            "/de/hunderassen/owczarek-niemiecki/",
-            "/de/hunderassen/german-shepherd/",
-            "/de/rasy-psow/german-shepherd/",
+            "/de/testrassen/owczarek-niemiecki/",
+            "/de/testrassen/german-shepherd/",
+            "/de/rasy-testowe/german-shepherd/",
         ):
-            assert _moved(blog.host, asked) == (308, "/rasy-psow/owczarek-niemiecki/"), asked
+            assert _moved(blog.host, asked) == (308, "/rasy-testowe/owczarek-niemiecki/"), asked
 
 
 def test_two_sources_never_share_a_section_name(breeds: PublicSource) -> None:
@@ -706,22 +732,29 @@ def test_two_sources_never_share_a_section_name(breeds: PublicSource) -> None:
         )
 
     for fields in (
-        {"page_segment": "psy", "page_segments": {"en": "dog-breeds"}},
-        {"page_segment": "hunderassen"},
-        {"page_segment": "psy", "page_segments": {"en": "Dog Breeds"}},
-        {"page_segment": "psy", "page_segments": {"en": "xx"}},
-        {"page_segments": {"en": "dogs"}},
+        {"page_segment": "psy-testowe", "page_segments": {"en": "test-breeds"}},
+        {"page_segment": "testrassen"},
+        {"page_segment": "psy-testowe", "page_segments": {"en": "Dog Breeds"}},
+        {"page_segment": "psy-testowe", "page_segments": {"en": "xx"}},
+        {"page_segments": {"en": "test-dogs"}},
         # A root given to a page needs a section to be the root of.
         {"root_page": True},
     ):
         with pytest.raises(ImproperlyConfigured):
             register_public_source(other(**fields))
-    register_public_source(other(page_segment="psy", page_segments={"en": "dogs"}))
-    assert page_source("dogs", "en") is page_source("psy", "pl") is page_source("dogs")
-    assert page_source("dogs", "pl") is None
-    assert {"psy", "dogs", "rasy-psow", "dog-breeds", "hunderassen"} <= page_source_segments()
+    register_public_source(other(page_segment="psy-testowe", page_segments={"en": "test-dogs"}))
+    found = page_source("test-dogs")
+    assert page_source("test-dogs", "en") is page_source("psy-testowe", "pl") is found
+    assert page_source("test-dogs", "pl") is None
+    assert {
+        "psy-testowe",
+        "test-dogs",
+        "rasy-testowe",
+        "test-breeds",
+        "testrassen",
+    } <= page_source_segments()
     # A source that names no segment per language has one in all of them.
-    assert breeds.segment("es") == "rasy-psow"
+    assert breeds.segment("es") == "rasy-testowe"
 
 
 def test_an_article_published_under_an_older_address_shape_keeps_it() -> None:
@@ -809,26 +842,26 @@ def test_a_page_stands_at_the_root_of_a_section_that_gives_it_one(
     page_id, save = _section_page(blog, "rasy")
 
     # The root in a language is under the section's name in that language.
-    for locale, slug in (("pl", "dog-breeds"), ("pl", "hunderassen"), ("en", "rasy-psow")):
+    for locale, slug in (("pl", "test-breeds"), ("pl", "testrassen"), ("en", "rasy-testowe")):
         assert _refused(save(locale, slug)) == (400, "slug_reserved"), (locale, slug)
-    assert save("pl", "rasy-psow").status_code in (200, 201)
-    assert save("en", "dog-breeds").status_code in (200, 201)
+    assert save("pl", "rasy-testowe").status_code in (200, 201)
+    assert save("en", "test-breeds").status_code in (200, 201)
     _translate_all(client, page_id, "rasy-en")
     blog.publish("root")
 
-    roots = {"pl": "/rasy-psow/", "en": "/en/dog-breeds/"}
+    roots = {"pl": "/rasy-testowe/", "en": "/en/test-breeds/"}
     for locale, path in roots.items():
         page = _get(host, path)
         assert page.status_code == 200, (path, page.status_code)
         assert page.data["locale"] == locale
         assert page.data["canonical_url"] == origin + path
         assert page.data["hreflang"] == {code: origin + to for code, to in roots.items()}
-    assert _get(host, "/en/dog-breeds/").data["blocks"][0]["data"]["title"] == "EN Rasy psów"
+    assert _get(host, "/en/test-breeds/").data["blocks"][0]["data"]["title"] == "EN Rasy psów"
 
     # Records answer under it as before, and their trail leads through it.
     for locale, path in (
-        ("pl", "/rasy-psow/owczarek-niemiecki/"),
-        ("en", "/en/dog-breeds/german-shepherd/"),
+        ("pl", "/rasy-testowe/owczarek-niemiecki/"),
+        ("en", "/en/test-breeds/german-shepherd/"),
     ):
         record = _get(host, path)
         assert record.status_code == 200, (path, record.status_code)
@@ -839,33 +872,33 @@ def test_a_page_stands_at_the_root_of_a_section_that_gives_it_one(
         ]
         assert len(record.data["breadcrumbs"]) == 3
         assert record.data["breadcrumbs"][1]["title"] == "Rasy psów"
-    assert _moved(host, "/en/rasy-psow/german-shepherd/") == (
+    assert _moved(host, "/en/rasy-testowe/german-shepherd/") == (
         308,
-        "/en/dog-breeds/german-shepherd/",
+        "/en/test-breeds/german-shepherd/",
     )
-    assert _get(host, "/rasy-psow/jamnik/").status_code == 404
+    assert _get(host, "/rasy-testowe/jamnik/").status_code == 404
     # Another language's name of the section is still nobody's root.
-    assert _get(host, "/en/rasy-psow/").status_code == 404
-    assert _get(host, "/dog-breeds/").status_code == 404
+    assert _get(host, "/en/rasy-testowe/").status_code == 404
+    assert _get(host, "/test-breeds/").status_code == 404
 
     # A link to the section's page is a link to a page: its version in the
     # reader's language, or as written where it has none — never a record's.
     site = Site.all_objects.get(pk=blog.site_id)
     targets = _link_targets(visible_snapshot(site.current_publication), "en")
-    assert _localized_href("/rasy-psow/#lista", targets, "/en") == "/en/dog-breeds/#lista"
-    assert _localized_href("/rasy-psow/", {}, "/en") == "/rasy-psow/"
-    assert _localized_href("/rasy-psow/owczarek-niemiecki/", targets, "/en") == (
-        "/en/dog-breeds/owczarek-niemiecki/"
+    assert _localized_href("/rasy-testowe/#lista", targets, "/en") == "/en/test-breeds/#lista"
+    assert _localized_href("/rasy-testowe/", {}, "/en") == "/rasy-testowe/"
+    assert _localized_href("/rasy-testowe/owczarek-niemiecki/", targets, "/en") == (
+        "/en/test-breeds/owczarek-niemiecki/"
     )
 
     # A section (blog) takes none of the names: its entries would stand where
     # the records do.
-    for name in ("rasy-psow", "dog-breeds", "hunderassen"):
+    for name in ("rasy-testowe", "test-breeds", "testrassen"):
         taken = create_collection(
             client, blog.site_id, key=name, base_path=name, idempotency_key=name
         )
         assert _refused(taken) == (400, "slug_reserved"), name
-    named = _rename(blog, "blog", {"en": "dog-breeds"}, preview=True)
+    named = _rename(blog, "blog", {"en": "test-breeds"}, preview=True)
     assert _errors(named) == [("locale_paths.en", "slug_reserved")]
 
 
@@ -876,20 +909,20 @@ def test_a_language_version_of_the_sections_page_takes_the_sections_name(
     version of the page at the root stands at the root whatever its title."""
     blog = Blog("section-root-version")
     page_id, save = _section_page(blog, "rasy")
-    assert save("pl", "rasy-psow").status_code in (200, 201)
+    assert save("pl", "rasy-testowe").status_code in (200, 201)
     root = Page.all_objects.get(pk=page_id)
     other = Page.all_objects.filter(site_id=blog.site_id).exclude(pk=page_id).first()
 
-    assert free_slug(root, "en", "all-dog-breeds-a-z") == "dog-breeds"
-    assert free_slug(root, "de", "alle-hunde") == "hunderassen"
+    assert free_slug(root, "en", "all-test-breeds-a-z") == "test-breeds"
+    assert free_slug(root, "de", "alle-hunde") == "testrassen"
     # French names no section of its own: it follows the source's first name.
-    assert free_slug(root, "fr", "races-de-chiens") == "rasy-psow"
+    assert free_slug(root, "fr", "races-de-chiens") == "rasy-testowe"
     # Any page may be titled into the root; another language's name is closed.
-    assert free_slug(other, "en", "dog-breeds") == "dog-breeds"
-    assert free_slug(other, "en", "rasy-psow") == "rasy-psow-2"
+    assert free_slug(other, "en", "test-breeds") == "test-breeds"
+    assert free_slug(other, "en", "rasy-testowe") == "rasy-testowe-2"
     # The root already has a page in English: the version keeps its title's.
-    PageTranslation.all_objects.filter(page=other, locale="en").update(slug="dog-breeds")
-    assert free_slug(root, "en", "all-dog-breeds-a-z") == "all-dog-breeds-a-z"
+    PageTranslation.all_objects.filter(page=other, locale="en").update(slug="test-breeds")
+    assert free_slug(root, "en", "all-test-breeds-a-z") == "all-test-breeds-a-z"
 
 
 def test_a_section_that_gives_no_root_is_closed_to_pages_in_every_language(
@@ -900,20 +933,20 @@ def test_a_section_that_gives_no_root_is_closed_to_pages_in_every_language(
     page_id, save = _section_page(blog, "rasy")
 
     for locale, slug in (
-        ("pl", "rasy-psow"),
-        ("pl", "dog-breeds"),
-        ("en", "dog-breeds"),
-        ("en", "rasy-psow"),
-        ("en", "hunderassen"),
+        ("pl", "rasy-testowe"),
+        ("pl", "test-breeds"),
+        ("en", "test-breeds"),
+        ("en", "rasy-testowe"),
+        ("en", "testrassen"),
     ):
         assert _refused(save(locale, slug)) == (400, "slug_reserved"), (locale, slug)
     assert save("pl", "rasy").status_code in (200, 201)
     assert save("en", "breeds").status_code in (200, 201)
     page = Page.all_objects.get(pk=page_id)
-    assert free_slug(page, "en", "dog-breeds") == "dog-breeds-2"
+    assert free_slug(page, "en", "test-breeds") == "test-breeds-2"
     moved = client.put(
         f"/api/v1/sites/pages/{page_id}/url/",
-        {"locale": "en", "slug": "dog-breeds", "reason": "Test."},
+        {"locale": "en", "slug": "test-breeds", "reason": "Test."},
         format="json",
         HTTP_X_CSRFTOKEN=csrf_value(client),
     )
@@ -922,15 +955,15 @@ def test_a_section_that_gives_no_root_is_closed_to_pages_in_every_language(
     # A language version saved before the rule keeps its address: it saves,
     # is listed for a decision, publishes and answers. Only a move to another
     # reserved name is refused.
-    PageTranslation.all_objects.filter(page_id=page_id, locale="en").update(slug="dog-breeds")
-    kept = save("en", "dog-breeds", 1, title="Breeds")
+    PageTranslation.all_objects.filter(page_id=page_id, locale="en").update(slug="test-breeds")
+    kept = save("en", "test-breeds", 1, title="Breeds")
     assert kept.status_code in (200, 201), kept.data
-    assert _refused(save("en", "hunderassen", 2)) == (400, "slug_reserved")
+    assert _refused(save("en", "testrassen", 2)) == (400, "slug_reserved")
     out = StringIO()
     call_command("sites_reserved_slugs", stdout=out)
-    assert f"\tmain-site\tpage\t/en/dog-breeds/\t{page.key}" in out.getvalue()
+    assert f"\tmain-site\tpage\t/en/test-breeds/\t{page.key}" in out.getvalue()
     assert "/rasy/" not in out.getvalue()
     _translate_all(client, page_id, "closed-en")
     blog.publish("closed")
-    assert _get(host, "/en/dog-breeds/").status_code == 200
-    assert _get(host, "/en/dog-breeds/german-shepherd/").status_code == 200
+    assert _get(host, "/en/test-breeds/").status_code == 200
+    assert _get(host, "/en/test-breeds/german-shepherd/").status_code == 200
