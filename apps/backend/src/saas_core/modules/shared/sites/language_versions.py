@@ -21,6 +21,7 @@ from uuid import UUID
 
 from django.db import transaction
 from django.db.models import Max
+from django.db.models.fields.json import KeyTextTransform
 from django.utils import timezone
 from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
@@ -45,7 +46,7 @@ from saas_core.modules.core.organizations.locales import organization_content_lo
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .block_decoration import stored_block_payload
-from .localization import entry_path
+from .localization import section_segment
 from .localized_bodies import (
     LocaleUnitsInvalid,
     TextUnit,
@@ -1165,9 +1166,16 @@ def page_language_states(site: Site, snapshot: Mapping[str, Any]) -> dict[tuple[
 
 
 def _entry_rows(site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
+    from .publication_routing import published_entry_path
+
     groups: dict[UUID, list[ContentEntry]] = {}
     for entry in (
         ContentEntry.all_objects.select_related("collection")
+        .annotate(
+            published_path=KeyTextTransform("path", "current_publication__snapshot"),
+            published_name=KeyTextTransform("base_path", "current_publication__snapshot"),
+            published_slug=KeyTextTransform("slug", "current_publication__snapshot"),
+        )
         .filter(organization_id=site.organization_id, site_id=site.id)
         .order_by("id")
     ):
@@ -1181,11 +1189,20 @@ def _entry_rows(site: Site, locales: tuple[str, ...]) -> list[OverviewRow]:
         return OverviewCell(
             locale,
             OVERVIEW_PUBLISHED,
-            path=entry_path(
-                entry.collection,
-                default_locale=site.default_locale,
-                locale=locale,
-                slug=entry.slug,
+            # Where visitors get it, as the resolver says — from the three
+            # facts of its publication, without reading its text.
+            path=published_entry_path(
+                entry,
+                {
+                    "locale": entry.locale,
+                    "slug": getattr(entry, "published_slug", None) or entry.slug,
+                    "path": getattr(entry, "published_path", None),
+                    "base_path": getattr(entry, "published_name", None)
+                    or section_segment(
+                        entry.collection, default_locale=site.default_locale, locale=entry.locale
+                    ),
+                },
+                site.default_locale,
             ),
         )
 

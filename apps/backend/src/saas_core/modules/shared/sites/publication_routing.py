@@ -1094,16 +1094,25 @@ def _find_entry(
     raise PublicSiteNotFound
 
 
-def published_entry_path(entry: ContentEntry, snapshot: dict[str, Any], default_locale: str) -> str:
-    """Where a published article answers now: under its section's name in its
-    language as it is today, with the slug it was published under. The
-    snapshot's own `path` is where it answered when it was published — the
-    same address until somebody renames the section (ADR-071 pkt 14)."""
+def published_entry_path(
+    entry: ContentEntry, snapshot: Mapping[str, Any], default_locale: str
+) -> str:
+    """Where a published article answers now — the one place that says so.
+
+    The address it was published at (`path` of its snapshot), for as long as
+    its section is called in its language what it was called then
+    (`base_path` of the snapshot): an article on a site nobody renamed
+    anything on keeps its address byte for byte, whatever shape addresses had
+    when it went out. Once the section is renamed, the article answers under
+    today's name with the slug it was published under (ADR-071 pkt 14,
+    „Uzupełnienie 2026-10-07"), and the stored address leads there."""
+    locale = str(snapshot["locale"])
+    name = section_segment(entry.collection, default_locale=default_locale, locale=locale)
+    stored = str(snapshot.get("path") or "")
+    if stored and snapshot.get("base_path", name) == name:
+        return stored
     return entry_path(
-        entry.collection,
-        default_locale=default_locale,
-        locale=str(snapshot["locale"]),
-        slug=str(snapshot["slug"]),
+        entry.collection, default_locale=default_locale, locale=locale, slug=str(snapshot["slug"])
     )
 
 
@@ -1891,6 +1900,31 @@ def moved_section(
     former, rest = parts[0], parts[1:]
     if not former:
         return None
+    # An article's own stored address — where it went out, in whatever shape
+    # addresses had then — leads to where it answers now.
+    wanted = _comparable_path(requested_path)
+    for entry in ContentEntry.all_objects.select_related(
+        "current_publication", "collection"
+    ).filter(
+        organization_id=organization_id,
+        site_id=site.id,
+        state=ContentEntryState.PUBLISHED,
+        current_publication__snapshot__path__in=[wanted, f"{wanted}/"],
+    ):
+        assert entry.current_publication is not None
+        try:
+            return _section_address(
+                organization_id=organization_id,
+                site=site,
+                path=published_entry_path(
+                    entry, entry.current_publication.snapshot, default_locale
+                ),
+                available=available,
+            )
+        except PublicSiteMoved as moved:
+            return moved.location
+        except PublicSiteNotFound:
+            continue
     for collection in ContentCollection.all_objects.filter(
         organization_id=organization_id, site_id=site.id
     ):

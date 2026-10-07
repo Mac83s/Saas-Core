@@ -76,7 +76,7 @@ class PageAddress(Protocol):
     language. `slug` is the record's slug in that language where it has one of
     its own; left out, the slug the page was asked under."""
 
-    def __call__(self, locale: str, slug: str = "") -> str: ...
+    def __call__(self, locale: str, slug: str = "", /) -> str: ...
 
 
 #: A first segment of an address: Latin letters, digits and single hyphens.

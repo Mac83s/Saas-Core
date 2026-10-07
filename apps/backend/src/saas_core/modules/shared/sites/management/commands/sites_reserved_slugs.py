@@ -47,11 +47,20 @@ class Command(BaseCommand):
                     if first_segment_reserved(item.slug)
                 ]
                 rows += [
-                    f"{organization_id}\t{item.site.slug}\tcollection\t/{item.base_path}/\t{item.key}"
+                    f"{organization_id}\t{item.site.slug}\tcollection\t{path}\t{item.key}"
                     for item in ContentCollection.all_objects.filter(
                         organization_id=organization_id
                     ).select_related("site")
-                    if first_segment_reserved(item.base_path)
+                    # Its name in the site's language and in each language
+                    # that names it differently (ADR-071 pkt 14).
+                    for path in (
+                        f"/{item.base_path}/",
+                        *(
+                            f"/{locale}/{name}/"
+                            for locale, name in sorted((item.locale_paths or {}).items())
+                        ),
+                    )
+                    if first_segment_reserved(path.strip("/").rsplit("/", 1)[-1])
                 ]
             for row in rows:
                 self.stdout.write(row)

@@ -995,9 +995,8 @@ def publish_entry(
         "entry_id": str(entry.id),
         "collection_key": entry.collection.key,
         # The section's name in the article's language, and the address, as
-        # they are at this publication. Visitors get the article where the
-        # section is called today (`published_entry_path`): these two are the
-        # record of where it went out.
+        # they are at this publication. `published_entry_path` reads both:
+        # the address holds for as long as the section keeps this name.
         "base_path": section_segment(
             entry.collection, default_locale=entry.site.default_locale, locale=entry.locale
         ),

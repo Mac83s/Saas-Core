@@ -27,7 +27,13 @@ from saas_core.modules.core.organizations.public_sources import (
     register_public_source,
 )
 from saas_core.modules.shared.sites.localization import first_segment_reserved
-from saas_core.modules.shared.sites.models import ContentCollection, Page, Site
+from saas_core.modules.shared.sites.models import (
+    ContentCollection,
+    ContentEntry,
+    ContentEntryPublication,
+    Page,
+    Site,
+)
 from saas_core.modules.shared.sites.publication_routing import _localized_href
 from saas_core.modules.shared.sites.translation_source import free_slug
 from test_sites_api import csrf_value
@@ -694,3 +700,50 @@ def test_two_sources_never_share_a_section_name(breeds: PublicSource) -> None:
     assert {"psy", "dogs", "rasy-psow", "dog-breeds", "hunderassen"} <= page_source_segments()
     # A source that names no segment per language has one in all of them.
     assert breeds.segment("es") == "rasy-psow"
+
+
+def test_an_article_published_under_an_older_address_shape_keeps_it() -> None:
+    """Found on a local site (07.10): an English article of a Polish site
+    published before articles had a language prefix answers at `/blog/<slug>/`.
+    It keeps that address for as long as nobody renames the section, and the
+    address leads to the article once somebody does."""
+    blog = _two_language_blog("section-legacy")
+    host, origin = blog.host, f"https://{blog.host}"
+    entry = ContentEntry.all_objects.get(collection_id=blog.collection_id, slug="in-english")
+    publication = entry.current_publication
+    assert publication is not None
+    # Publications are append-only: the old shape comes as a publication of
+    # its own, the way the article's one was written then.
+    legacy = ContentEntryPublication.all_objects.create(
+        organization_id=entry.organization_id,
+        entry=entry,
+        sequence=publication.sequence + 1,
+        snapshot={**publication.snapshot, "path": "/blog/in-english/"},
+        snapshot_hash="legacy",
+        created_by_id=publication.created_by_id,
+        idempotency_key="legacy-shape",
+    )
+    ContentEntry.all_objects.filter(pk=entry.pk).update(current_publication=legacy)
+
+    legacy = _get(host, "/blog/in-english/")
+    assert legacy.status_code == 200
+    assert (legacy.data["locale"], legacy.data["canonical_url"]) == (
+        "en",
+        f"{origin}/blog/in-english/",
+    )
+    assert _get(host, "/en/blog/in-english/").status_code == 404
+    # Every surface names the address it answers at.
+    assert _get(host, "/blog/wpis-jeden/").data["hreflang"]["en"] == f"{origin}/blog/in-english/"
+    assert "/blog/in-english/" in _items(_get(host, "/en/blog/"))
+    assert f"<loc>{origin}/blog/in-english/</loc>" in _feed(host, "sitemap.xml").content.decode()
+    overview = blog.client.get(
+        f"/api/v1/sites/{blog.site_id}/translations/", {"kind": "entry"}
+    ).json()["items"]
+    assert "/blog/in-english/" in [cell["path"] for row in overview for cell in row["cells"]]
+
+    assert _rename(blog, "blog", {"en": "journal"}, reason="Journal").status_code == 200
+    assert _get(host, "/en/journal/in-english/").status_code == 200
+    assert _moved(host, "/blog/in-english/") == (308, "/en/journal/in-english/")
+    assert _moved(host, "/blog/in-english") == (308, "/en/journal/in-english/")
+    # The site's own language was not renamed: its articles did not move.
+    assert _get(host, "/blog/wpis-jeden/").status_code == 200

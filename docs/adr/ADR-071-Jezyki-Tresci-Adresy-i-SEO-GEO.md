@@ -361,12 +361,17 @@ Rozstrzygnięcia techniczne (agent, plan memex
    ścieżki. Resolver dopasowuje żądanie do ich wyniku, a canonical, hreflang i
    x-default, przełącznik języka, okruszki i JSON-LD, lista wpisów, sitemapa, RSS i
    Atom, llms.txt, przegląd tłumaczeń, podgląd SEO i inwentarz wołają te same dwie.
-3. **Adres opublikowanego wpisu liczy się przy odczycie**, z dzisiejszej nazwy działu
-   w języku wpisu i slugu z jego migawki (`published_entry_path`). `path` i
-   `base_path` w migawce wpisu zostają zapisem, gdzie wpis wyszedł, i routing ich
-   nie czyta. Odrzucone: przepisanie migawek (publikacje są niezmienne) i ponowna
-   publikacja wszystkich wpisów przy zmianie nazwy (trzysta publikacji, trzysta
-   zdarzeń i zmiana `updated` kanałów za jedną zmianę słowa w adresie).
+3. **Adres opublikowanego wpisu mówi jedna funkcja, `published_entry_path`.** Dopóki
+   dział nazywa się w języku wpisu tak jak przy jego publikacji (`base_path` w
+   migawce wpisu), adresem jest `path` z tej migawki — znak w znak, także gdy wpis
+   wyszedł w starszym kształcie adresu (07.10 na lokalnej stronie znalazł się
+   angielski wpis polskiej strony pod `/blog/<slug>/`, sprzed prefiksu języka; liczenie
+   adresu od nowa przeniosłoby go). Po zmianie nazwy działu wpis odpowiada pod nazwą
+   dzisiejszą, ze slugiem z migawki i bez ponownej publikacji, a adres z migawki
+   prowadzi do niego jednym 308. Odrzucone: przepisanie migawek (publikacje są
+   niezmienne, pilnuje tego wyzwalacz bazy) i ponowna publikacja wszystkich wpisów
+   przy zmianie nazwy (trzysta publikacji, trzysta zdarzeń i zmiana `updated` kanałów
+   za jedną zmianę słowa w adresie).
 4. **Link działu w menu liczy się przy odczycie** (`collection_links`), a nie z
    migawki strony: zmiana nazwy działu nie wymaga publikacji strony. `path` we
    wpisie nawigacji migawki zostaje dla starszych czytelników.
@@ -388,6 +393,8 @@ Rozstrzygnięcia techniczne (agent, plan memex
    nazwa z języka strony liczy się we wszystkich językach, bo język bez własnej
    nazwy szedł za nią. Wyłączony język prowadzi od razu do wersji w języku strony
    (pkt 9), bez przystanku pod nową nazwą. Nazwa przywrócona przestaje być dawną.
+   Tak samo, jednym 308, odpowiada adres, pod którym wpis wyszedł (z jego migawki),
+   gdy wpis odpowiada już gdzie indziej.
    Przekierowanie działa od zapisu, bo wpisy publikują się niezależnie od strony
    (ADR-035 §1) — inaczej niż `SiteRedirect` podstrony, które wchodzi z publikacją.
 7. **Jeden adres, jedna odpowiedź, w każdym języku.** Nazwa działu w języku L nie
