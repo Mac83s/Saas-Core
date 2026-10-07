@@ -89,10 +89,16 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   poznaje rodzaj workspace'u (`workspace_kind`), oferuje z modułów wspólnych tylko
   `PUBLISHER_MODULES`, ma własne menu (strona pod „Pracą”, „Wiadomości”
   i „Ustawienia” pod „Firmą”, bez zespołu, abonamentu, kalendarza i magazynu),
-  a „Dziś” pokazuje stan strony (`components/panel/site-state.tsx`). Ekrany firmy
-  wpisane ręcznie odpowiadają tam „Nie ma takiej strony”. Otwarte: słowa „Firma”
-  i „Dane firmy” zostają także u wydawcy; listy modułów wydawcy produkt nie
-  rozszerza.
+  a „Dziś” pokazuje stan strony (`components/panel/site-state.tsx`). Adres ekranu
+  firmy wpisany ręcznie odpowiada tam „Nie ma takiej strony” (Zespół, Kalendarz,
+  Abonament, Kredyty i ekrany za bramką modułu) albo „Brak dostępu” (dokumenty,
+  zgody, usuwanie danych klienta); „API i webhooki” otwierają się, ale menu do
+  nich nie prowadzi. Otwarte: słowa „Firma” i „Dane firmy” zostają także
+  u wydawcy; listy modułów wydawcy produkt nie rozszerza. Przy okazji (te same
+  commity gałęzi): kontrola tekstów stron gościa (`guest-messages.test.ts`)
+  wymaga od profilu tylko tekstów stron, które profil składa, a deployment bez
+  typu z `selfSignup` nie proponuje rejestracji i nie podaje `/register` — poza
+  drogą z zaproszenia (ADR-050, uzupełnienie 2026-10-07).
 - **Własne typy bloków modułu w kreatorze (PB3a, 07.10, lokalnie, niewdrożone;
   ADR-077 pkt 8, bez migracji):** moduł `shared`/`vertical` wnosi typy bloków
   stron z własnych plików — manifest i schematy w
