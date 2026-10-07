@@ -6,6 +6,7 @@ import { siteUiTexts, type StayTexts } from "./site-ui-texts";
 import type {
   BlockComponentProps,
   BlockImageRenderer,
+  PriceConversion,
   StayBlockV1Data,
   StayLive,
   StayLiveChoice,
@@ -50,6 +51,90 @@ export function stayAmount(
     currency: price.currency,
     minimumFractionDigits: price.gross_minor % 100 === 0 ? 0 : 2,
   }).format(price.gross_minor / 100);
+}
+
+/** „≈ 69 €”: an amount of the company's in the reader's own currency, at
+ *  the bank's rate the server gave (ADR-072, slice 5i). Whole units from ten
+ *  up — it is a rough figure, and says so by its sign. Empty without a rate.
+ *  Information beside a price: the price itself is never replaced. */
+export function approxAmount(
+  minor: number,
+  conversion: PriceConversion | null | undefined,
+  locale: string,
+): string {
+  const rate = Number(conversion?.rate);
+  if (!conversion || !(rate > 0)) return "";
+  const value = (minor * rate) / 100;
+  const digits = value >= 10 ? 0 : 2;
+  return `≈ ${new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: conversion.currency,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value)}`;
+}
+
+/** The day of the bank's table as the page's language writes a date. */
+export function conversionDay(
+  conversion: PriceConversion,
+  locale: string,
+): string {
+  const day = new Date(`${conversion.date}T00:00:00Z`);
+  return Number.isNaN(day.getTime())
+    ? conversion.date
+    : new Intl.DateTimeFormat(locale, {
+        dateStyle: "medium",
+        timeZone: "UTC",
+      }).format(day);
+}
+
+/** „od 300 zł / noc ≈ 69 €”: the company's price, and beside it the rough
+ *  figure in the reader's currency where the server gave a rate. */
+function fromPrice(
+  price: NonNullable<StayLiveChoice["from_price"]>,
+  live: StayLive,
+  texts: StayTexts,
+  locale: string,
+): ReactNode {
+  const approx = approxAmount(price.gross_minor, live.conversion, locale);
+  return h(
+    "p",
+    { className: "site-stay-unit__price" },
+    texts.fromPrice(stayAmount(price, locale), price.per),
+    approx
+      ? h("span", { className: "site-stay-unit__approx" }, ` ${approx}`)
+      : null,
+  );
+}
+
+/** What the rough figures are, said once under what shows them: whose rate,
+ *  of which day, and that the booking and the payment are in the company's
+ *  currency. Nothing where no figure was shown. */
+function approxNote(
+  live: StayLive,
+  prices: readonly (StayLiveChoice["from_price"] | undefined)[],
+  texts: StayTexts,
+  locale: string,
+): ReactNode {
+  const currency = prices.find((price) => price)?.currency;
+  if (!live.conversion || !currency || !(Number(live.conversion.rate) > 0))
+    return null;
+  return h(
+    "p",
+    { className: "site-stay__approx-note" },
+    texts.approxNote(
+      conversionDay(live.conversion, locale),
+      live.conversion.bank,
+      currency,
+    ),
+  );
+}
+
+/** The company's own words in another language than the page's say so
+ *  (slice 5i): a screen reader then reads them in their language, and a
+ *  translating browser knows what to leave alone or translate. */
+function spoken(choice: StayLiveChoice, locale: string): { lang?: string } {
+  return choice.lang && choice.lang !== locale ? { lang: choice.lang } : {};
 }
 
 /** One picture of a unit at the site's own host: our two copies, never the
@@ -115,7 +200,7 @@ function unitCard(
       { className: "site-stay-unit__body" },
       h(
         heading,
-        { className: "site-stay-unit__name" },
+        { className: "site-stay-unit__name", ...spoken(choice, locale) },
         // The unit's own page, where the site has one: its pictures, all it
         // has and its calendar.
         choice.page_path
@@ -126,7 +211,11 @@ function unitCard(
         ? h("p", { className: "site-stay-unit__facts" }, facts.join(" · "))
         : null,
       choice.description
-        ? h("p", { className: "site-stay-unit__text" }, choice.description)
+        ? h(
+            "p",
+            { className: "site-stay-unit__text", ...spoken(choice, locale) },
+            choice.description,
+          )
         : null,
       amenities.length
         ? h(
@@ -148,14 +237,7 @@ function unitCard(
         "div",
         { className: "site-stay-unit__foot" },
         choice.from_price
-          ? h(
-              "p",
-              { className: "site-stay-unit__price" },
-              texts.fromPrice(
-                stayAmount(choice.from_price, locale),
-                choice.from_price.per,
-              ),
-            )
+          ? fromPrice(choice.from_price, live, texts, locale)
           : null,
         h(
           "a",
@@ -211,7 +293,7 @@ function otherUnits(
             { className: "site-stay-other__body" },
             h(
               "h3",
-              { className: "site-stay-unit__name" },
+              { className: "site-stay-unit__name", ...spoken(other, locale) },
               h("a", { href: other.page_path }, other.name),
             ),
             facts.length
@@ -356,6 +438,17 @@ export function StayUnitsBlock({
           ),
           previewNote(texts.preview.units),
         ),
+    // Under the cards: what the rough figures beside the prices are.
+    shown
+      ? approxNote(
+          shown,
+          shown.offers.flatMap((offer) =>
+            offer.choices.map((choice) => choice.from_price),
+          ),
+          texts,
+          locale,
+        )
+      : null,
   );
 }
 
@@ -549,12 +642,16 @@ export function StayUnitBlock({
       h(
         "div",
         { className: "site-stay-card__body" },
-        h(block.main ? "h1" : "h2", null, unit.name),
+        h(block.main ? "h1" : "h2", spoken(unit, locale), unit.name),
         facts.length
           ? h("p", { className: "site-stay-unit__facts" }, facts.join(" · "))
           : null,
         unit.description
-          ? h("p", { className: "site-stay-unit__text" }, unit.description)
+          ? h(
+              "p",
+              { className: "site-stay-unit__text", ...spoken(unit, locale) },
+              unit.description,
+            )
           : null,
         amenities.length
           ? h(
@@ -566,15 +663,9 @@ export function StayUnitBlock({
             )
           : null,
         unit.from_price
-          ? h(
-              "p",
-              { className: "site-stay-unit__price" },
-              texts.fromPrice(
-                stayAmount(unit.from_price, locale),
-                unit.from_price.per,
-              ),
-            )
+          ? fromPrice(unit.from_price, shown, texts, locale)
           : null,
+        approxNote(shown, [unit.from_price], texts, locale),
       ),
     ),
     h(

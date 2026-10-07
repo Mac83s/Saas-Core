@@ -13,6 +13,8 @@ export {
   type StayUnit,
 } from "./site-ui-texts";
 export {
+  approxAmount,
+  conversionDay,
   stayAmount,
   stayFormHref,
   stayMapEmbed,

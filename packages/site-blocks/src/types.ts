@@ -483,12 +483,29 @@ export type StayMapLive = {
   others?: StayLiveChoice[];
 };
 
+/** Roughly what the company's prices are in the reader's own currency
+ *  (ADR-072, slice 5i): a central bank's rate of one day, for an indicative
+ *  figure beside a price — never an amount anybody is charged. */
+export type PriceConversion = {
+  /** The reader's currency, ISO 4217. */
+  currency: string;
+  /** How much of it one unit of the company's currency is, as a decimal. */
+  rate: string;
+  /** The day of the bank's table, `YYYY-MM-DD`. */
+  date: string;
+  /** Whose table it is, as the page names it („NBP”, „EZB”). */
+  bank: string;
+};
+
 /** One thing a guest chooses of an offer: a group of identical units or a
  *  unit by itself. The content comes with the list of units only. */
 export type StayLiveChoice = {
   kind: "group" | "unit";
   id: string;
   name: string;
+  /** The language the name and the description are in: the page's where the
+   *  company wrote them in it, otherwise the company's own. */
+  lang?: string;
   /** The most people it takes; null — nobody counts. */
   capacity: number | null;
   description?: string;
@@ -523,6 +540,9 @@ export type StayLive = {
   /** The last arrival day the form takes. */
   last_day: string;
   paused: boolean;
+  /** Null or absent: the reader counts in the company's currency, no rate is
+   *  fresh, or the company shows no converted figures. */
+  conversion?: PriceConversion | null;
   offers: StayLiveOffer[];
   /** A unit's card only: the unit's content. */
   unit?: StayLiveChoice;

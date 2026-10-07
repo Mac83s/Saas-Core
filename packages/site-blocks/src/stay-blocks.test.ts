@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import {
+  approxAmount,
   coreSiteBlockManifest,
   createSiteBlockRegistry,
   renderDraftPreview,
@@ -355,6 +356,89 @@ describe("stay blocks", () => {
     expect(html).toContain("<li>Pomost</li><li>Rowery</li>");
     expect(html).toMatch(/od 300\szł \/ noc/);
     expect(html).toContain("Mrągowo · do 6 osób");
+  });
+
+  it("says beside a price roughly what it is in the reader's currency, and what that figure is", () => {
+    const rate = {
+      currency: "EUR",
+      rate: "0.228326",
+      date: "2026-10-07",
+      bank: "NBP",
+    };
+    const german = (answer: StayLive) =>
+      renderToStaticMarkup(
+        renderPublishedPage(
+          published([stay("units")], { "0": answer }, "de"),
+          registry,
+        ),
+      );
+
+    const html = german({ ...live, conversion: rate });
+    // The company's price stays the price; the rough figure follows it.
+    expect(html).toMatch(
+      /ab 300\s(zł|PLN) \/ Nacht<span class="site-stay-unit__approx"> ≈ 68\s€<\/span>/,
+    );
+    // Once under the cards: whose rate, of which day, and what is charged.
+    expect(html.match(/site-stay__approx-note/g)).toHaveLength(1);
+    expect(html).toContain(
+      "Beträge nach ≈ sind Richtwerte: NBP-Kurs vom 07.10.2026. Gebucht und bezahlt wird in PLN.",
+    );
+
+    // No rate — no figure and no line about one; and none without a price.
+    expect(german(live)).not.toContain("≈");
+    expect(german({ ...live, conversion: null })).not.toContain("approx");
+    const unpriced = {
+      ...live,
+      conversion: rate,
+      offers: [
+        {
+          ...live.offers[0]!,
+          choices: [live.offers[0]!.choices[1]!],
+        },
+      ],
+    };
+    expect(german(unpriced)).not.toContain("≈");
+    // A rate that is no number is no rate.
+    expect(
+      german({ ...live, conversion: { ...rate, rate: "" } }),
+    ).not.toContain("≈");
+
+    expect(approxAmount(30000, rate, "pl")).toMatch(/^≈ 68\s€$/);
+    // Small amounts keep their cents: „≈ 3 €” for 15 zł would be a third off.
+    expect(approxAmount(1500, rate, "en")).toBe("≈ €3.42");
+    expect(approxAmount(30000, null, "pl")).toBe("");
+  });
+
+  it("marks the company's own words in a page of another language", () => {
+    const [group] = live.offers[0]!.choices;
+    const card: SiteBlock = {
+      block_type: "core.stay_unit",
+      schema_version: 1,
+      data: { unit: FLAT, main: true },
+    };
+    const page = (lang: string, locale: string) =>
+      renderToStaticMarkup(
+        renderPublishedPage(
+          published(
+            [card],
+            { "0": { ...live, unit: { ...group!, lang } } },
+            locale,
+          ),
+          registry,
+        ),
+      );
+
+    // The German page of a unit nobody wrote in German: its name and its
+    // description say they are Polish; the page's own words do not.
+    const german = page("pl", "de");
+    expect(german).toContain('<h1 lang="pl">Domek 6-os.</h1>');
+    expect(german).toContain(
+      '<p class="site-stay-unit__text" lang="pl">Dwie sypialnie i taras.</p>',
+    );
+    expect(german).toContain('<p class="site-stay-unit__facts">Mrągowo · bis');
+    // In the words' own language nothing is marked.
+    expect(page("pl", "pl")).toContain("<h1>Domek 6-os.</h1>");
+    expect(page("de", "de")).toContain("<h1>Domek 6-os.</h1>");
   });
 
   it("leads from the list to a unit's own page where the site has one", () => {

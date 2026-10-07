@@ -34,6 +34,9 @@ export type StayUnit = "night" | "day";
 export interface StayTexts {
   /** „od 300 zł / noc”; the caller formats the amount. */
   readonly fromPrice: (amount: string, per: StayUnit | "stay") => string;
+  /** Under prices that got a rough figure in the reader's currency: whose
+   *  rate, of which day, and what the guest is charged in (ADR-072, 5i). */
+  readonly approxNote: (date: string, bank: string, currency: string) => string;
   /** „do 4 osób”. */
   readonly capacity: (count: number) => string;
   /** A unit's own action, where the block names none. */
@@ -198,6 +201,8 @@ const TEXTS = {
       body: "Została usunięta na stałe i nie wróci pod tym adresem.",
     },
     stay: {
+      approxNote: (date, bank, currency) =>
+        `Kwoty po znaku ≈ są orientacyjne: kurs ${bank} z ${date}. Rezerwacja i płatność w ${currency}.`,
       fromPrice: (amount, per) =>
         `od ${amount}${per === "night" ? " / noc" : per === "day" ? " / dzień" : ""}`,
       capacity: (count) => (count === 1 ? "do 1 osoby" : `do ${count} osób`),
@@ -316,6 +321,8 @@ const TEXTS = {
       body: "It was removed for good and will not return at this address.",
     },
     stay: {
+      approxNote: (date, bank, currency) =>
+        `Amounts after ≈ are indicative: the ${bank} rate of ${date}. You book and pay in ${currency}.`,
       fromPrice: (amount, per) =>
         `from ${amount}${per === "night" ? " / night" : per === "day" ? " / day" : ""}`,
       capacity: (count) =>
@@ -431,6 +438,8 @@ const TEXTS = {
       body: "Sie wurde dauerhaft entfernt und kommt unter dieser Adresse nicht zurück.",
     },
     stay: {
+      approxNote: (date, bank, currency) =>
+        `Beträge nach ≈ sind Richtwerte: ${bank}-Kurs vom ${date}. Gebucht und bezahlt wird in ${currency}.`,
       fromPrice: (amount, per) =>
         `ab ${amount}${per === "night" ? " / Nacht" : per === "day" ? " / Tag" : ""}`,
       capacity: (count) =>
@@ -545,6 +554,8 @@ const TEXTS = {
       body: "Se eliminó de forma definitiva y no volverá a esta dirección.",
     },
     stay: {
+      approxNote: (date, bank, currency) =>
+        `Los importes tras ≈ son orientativos: tipo de cambio del ${bank} del ${date}. La reserva y el pago son en ${currency}.`,
       fromPrice: (amount, per) =>
         `desde ${amount}${per === "night" ? " / noche" : per === "day" ? " / día" : ""}`,
       capacity: (count) =>
@@ -658,6 +669,8 @@ const TEXTS = {
       body: "Она удалена навсегда и не вернётся по этому адресу.",
     },
     stay: {
+      approxNote: (date, bank, currency) =>
+        `Суммы после знака ≈ ориентировочные: курс ${bank} на ${date}. Бронирование и оплата — в ${currency}.`,
       fromPrice: (amount, per) =>
         `от ${amount}${per === "night" ? " / ночь" : per === "day" ? " / день" : ""}`,
       capacity: (count) =>

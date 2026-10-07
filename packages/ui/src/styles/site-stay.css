@@ -90,6 +90,20 @@
   margin: 0;
   font-weight: 600;
 }
+/* The rough figure in the reader's currency beside a price, and the line
+   that says what it is (ADR-072, slice 5i): quieter than the price, which
+   is the amount that counts. */
+.site-stay-unit__approx {
+  font-weight: 400;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.site-theme .site-block .site-stay__approx-note {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
 @container (min-width: 44rem) {
   .site-stay-units--rows .site-stay-unit {
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
