@@ -25,6 +25,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type MouseEvent,
@@ -69,6 +70,11 @@ type TableEditorProps = {
   label: string;
   disabled?: boolean;
 };
+
+/** Undo and redo reset the page form, and the section's fields mount again:
+ *  an editor leaving with the caret hands it to the next editor of its path,
+ *  so Ctrl+Z, Ctrl+Y can be pressed in a row (as in the rich text editor). */
+const handover = new Map<string, number>();
 
 /** One editor per path, like the rich text editor: a section that moves gets
  *  a fresh one. */
@@ -333,6 +339,29 @@ function PathEditor({
   useEffect(() => {
     editor?.setEditable(!disabled);
   }, [editor, disabled]);
+
+  // Layout effects: the leaving editor's cleanup runs while its grid is still
+  // in the page with focus, and before the next editor's effect.
+  useLayoutEffect(() => {
+    if (!editor) return;
+    let frame = 0;
+    const caret = handover.get(name);
+    if (caret !== undefined) {
+      handover.delete(name);
+      const at = Math.min(caret, editor.state.doc.content.size);
+      editor.commands.focus(at);
+      // The page editor is a dialog: a frame after the old grid left the
+      // page it takes focus back to itself. The caret returns after that.
+      frame = requestAnimationFrame(() => {
+        if (!editor.isDestroyed) editor.commands.focus(at);
+      });
+    }
+    return () => {
+      cancelAnimationFrame(frame);
+      if (!editor.isDestroyed && editor.view.hasFocus())
+        handover.set(name, editor.state.selection.from);
+    };
+  }, [editor, name]);
 
   // Leaving the section with typing still pending writes it.
   useEffect(

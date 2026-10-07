@@ -58,6 +58,7 @@ const BLOCK_TYPES = [
   "quote",
   "product",
   "gallery",
+  "table",
   // Offers booked from–to (ADR-072, slice 5f): for a company that has one.
   "stay_search",
   "stay_units",

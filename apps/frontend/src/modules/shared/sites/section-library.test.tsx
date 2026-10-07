@@ -62,7 +62,32 @@ test("a chip names a kind of section as the outline and the inspector do", () =>
     "Cytat",
     "Produkt",
     "Galeria",
+    "Tabela",
   ]);
+});
+
+test("the table is a kind of its own: two sections, added as a grid of slots", () => {
+  const onAdd = vi.fn();
+  render(
+    <NextIntlClientProvider locale="pl" messages={pl}>
+      <SectionLibraryContent compact onAdd={onAdd} />
+    </NextIntlClientProvider>,
+  );
+  chooseCategory("core.table", "pl");
+  expect(screen.getByRole("heading", { name: "Tabela" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Tabela w paski" })).toBeVisible();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Dodaj: Tabela w paski" }),
+  );
+  // Words and a grid only: nothing is copied into the media library.
+  expect(materializeTemplatePhoto).not.toHaveBeenCalled();
+  expect(onAdd).toHaveBeenCalledWith(
+    expect.objectContaining({
+      block_type: "core.table",
+      data: expect.objectContaining({ layout: "striped", header: "row" }),
+    }),
+  );
+  expect(onAdd.mock.calls[0]![0].data.rows).toHaveLength(3);
 });
 
 test("a company with an offer booked from–to gets the stay sections; no other company sees them", () => {
@@ -112,7 +137,7 @@ test("a company with an offer booked from–to gets the stay sections; no other 
       <SectionLibraryContent compact onAdd={vi.fn()} />
     </NextIntlClientProvider>,
   );
-  expect(chips().at(-1)).toBe("Galeria");
+  expect(chips().at(-1)).toBe("Tabela");
   expect(screen.queryByText("Mapa położenia")).toBeNull();
 });
 
@@ -188,14 +213,14 @@ test("the category chips count what the search finds and hide the empty ones", (
   );
   const group = screen.getByRole("group", { name: "Category" });
   const chips = () => within(group).getAllByRole("button");
-  expect(chips()).toHaveLength(12);
+  expect(chips()).toHaveLength(13);
   expect(within(group).getByRole("button", { name: "All" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
   const search = screen.getByRole("searchbox", { name: "Find a template" });
   fireEvent.change(search, { target: { value: "captioned" } });
-  expect(chips().length).toBeLessThan(12);
+  expect(chips().length).toBeLessThan(13);
   const gallery = within(group).getByRole("button", { name: "Gallery" });
   const count = Number(gallery.textContent?.replace("Gallery", ""));
   expect(count).toBeGreaterThan(0);
@@ -218,7 +243,7 @@ test("limits initial thumbnail rendering and exposes the remaining catalogue", (
   );
   expect(screen.getAllByRole("article")).toHaveLength(12);
   fireEvent.click(
-    screen.getByRole("button", { name: "Show more templates (138 remaining)" }),
+    screen.getByRole("button", { name: "Show more templates (140 remaining)" }),
   );
   expect(screen.getAllByRole("article")).toHaveLength(24);
   chooseCategory("core.faq");
