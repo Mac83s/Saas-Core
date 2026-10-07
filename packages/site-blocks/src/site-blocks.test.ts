@@ -581,6 +581,48 @@ describe("allowlisted renderer", () => {
   });
 });
 
+describe("a section's index", () => {
+  const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
+  const page = (data: JsonObject) =>
+    renderToStaticMarkup(
+      renderPublishedPage(
+        {
+          kind: "publication",
+          publicationId: "pub-1",
+          snapshotHash: "a".repeat(64),
+          designTokens: tokens,
+          blocks: [{ block_type: "core.entry_list", schema_version: 1, data }],
+        },
+        registry,
+      ),
+    );
+
+  it("has its name as the page's one heading, with articles or without", () => {
+    const empty = page({
+      title: "Poradnik",
+      main: true,
+      empty_text: "Nie ma jeszcze artykułów.",
+      items: [],
+    });
+    expect(empty).toContain("<h1>Poradnik</h1>");
+    expect(empty).toContain("<p>Nie ma jeszcze artykułów.</p>");
+
+    const listed = page({
+      title: "Poradnik",
+      main: true,
+      items: [{ title: "Pierwszy", path: "/poradnik/pierwszy/" }],
+    });
+    expect(listed.match(/<h1/g)).toHaveLength(1);
+    expect(listed).toContain("<h3>Pierwszy</h3>");
+  });
+
+  it("stays a section's heading where somebody placed the list on a page", () => {
+    const placed = page({ title: "Najnowsze", items: [] });
+    expect(placed).toContain("<h2>Najnowsze</h2>");
+    expect(placed).not.toContain("<h1");
+  });
+});
+
 describe("preview landmarks", () => {
   it("keeps `main` for a publication and drops it for an embedded preview", () => {
     const registry = createSiteBlockRegistry([coreSiteBlockManifest]);

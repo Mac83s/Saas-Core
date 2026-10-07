@@ -1565,6 +1565,8 @@ def _find_collection_index(
         "schema_version": 1,
         "data": {
             "title": name,
+            # The page's own heading: the index has no other (`h1`).
+            "main": True,
             "empty_text": _ui_text(INDEX_EMPTY_TEXT, locale),
             "items": [_index_item(item) for item in window],
         },
@@ -1747,6 +1749,7 @@ def _find_tag_archive(
         "schema_version": 1,
         "data": {
             "title": title,
+            "main": True,
             "empty_text": _ui_text(INDEX_EMPTY_TEXT, locale),
             "items": [_index_item(item) for item in window],
         },

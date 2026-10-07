@@ -578,6 +578,8 @@ export type DocumentV1Data = JsonObject & {
 export type EntryListV1Data = JsonObject & {
   title?: string;
   empty_text?: string;
+  /** The list is the page's own heading (a section's index, an archive). */
+  main?: boolean;
   items: {
     title: string;
     path: string;

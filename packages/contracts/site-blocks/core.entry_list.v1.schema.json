@@ -8,6 +8,10 @@
   "properties": {
     "title": { "type": "string", "maxLength": 160 },
     "empty_text": { "type": "string", "maxLength": 200 },
+    "main": {
+      "description": "The list is the page's own heading: set on a section's index and a subject's archive, which nobody edits.",
+      "type": "boolean"
+    },
     "items": {
       "type": "array",
       "minItems": 0,

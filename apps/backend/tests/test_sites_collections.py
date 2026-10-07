@@ -812,6 +812,8 @@ def test_blog_index_lists_published_entries_without_anyone_editing_it() -> None:
     assert empty.status_code == 200
     assert empty.json()["blocks"][0]["block_type"] == "core.entry_list"
     assert empty.json()["blocks"][0]["data"]["items"] == []
+    # Its name is the page's heading: an index has no other block to say it.
+    assert empty.json()["blocks"][0]["data"]["main"] is True
 
     entry = create_entry(
         client, collection.data["id"], slug="pierwszy", idempotency_key="index-entry"
@@ -2553,6 +2555,7 @@ def test_a_tag_archive_lists_only_what_carries_that_tag() -> None:
         "/blog/wpis-jeden/",
     ]
     assert archive.json()["canonical_url"].endswith("/blog/tag/porady/")
+    assert archive.json()["blocks"][0]["data"]["main"] is True
     # Two articles is not a topic page, so the archive serves readers but asks
     # not to be indexed — in the page itself, not only by staying out of the
     # sitemap.

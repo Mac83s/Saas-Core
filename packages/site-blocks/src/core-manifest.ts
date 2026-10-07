@@ -466,7 +466,9 @@ function FooterBlock({ data, editor }: BlockComponentProps) {
 
 /** The blog index, and any "latest posts" section an operator places by hand.
  *  The items are a projection of what is published (ADR-035 §7), so the block
- *  renders whatever it is handed rather than reaching for data itself. */
+ *  renders whatever it is handed rather than reaching for data itself. On a
+ *  section's own index and a subject's archive (`main`) the title is the
+ *  page's heading: nothing else on that page is, with articles or without. */
 function EntryListBlock({ data, editor }: BlockComponentProps) {
   const text = editor?.text ?? plainBlockText;
   const list = data as EntryListV1Data;
@@ -479,7 +481,7 @@ function EntryListBlock({ data, editor }: BlockComponentProps) {
     list.title === undefined
       ? null
       : createElement(
-          "h2",
+          list.main ? "h1" : "h2",
           editor ? { role: "presentation" } : null,
           text(["title"], list.title),
         ),
