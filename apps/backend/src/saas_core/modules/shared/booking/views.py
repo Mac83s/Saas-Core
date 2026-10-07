@@ -856,7 +856,10 @@ class AppointmentListCreateView(APIView):
         description="Books a free start of a service at a place, for the people named or — "
         "with none named — the least busy free ones the service needs. The price is worked "
         "out and frozen in the booking (`quote`); with `quote_digest` a price other than the "
-        "one shown is 409 `quote_changed`. A taken time is 409 `slot_unavailable`. The same "
+        "one shown is 409 `quote_changed`. A taken time is 409 `slot_unavailable`. The "
+        "service's own form fields (`GET /booking/setup/fields/`) are answered in `answers`: "
+        "the mandatory ones are required here as on the public form (400 `field_required` "
+        "on `answers.<field_id>`), except consents, which only the customer gives. The same "
         "Idempotency-Key answers the first booking again (200).",
         tags=["booking"],
         parameters=[IDEMPOTENCY],
@@ -880,6 +883,9 @@ class AppointmentListCreateView(APIView):
             customer_data=customer,
             idempotency_key=_idem(request),
             principal_ref=str(context.actor_id),
+            # The panel's dialog shows the service's own fields: the office
+            # answers the mandatory ones for the customer (ADR-072 5j).
+            staff_form=True,
         )
         return Response(
             _appointment_payload(result.appointment, result.token),
@@ -3680,7 +3686,10 @@ class StayCreateView(APIView):
         summary="Book a stay or a rental",
         description="Books a range offer from–to on a unit, or on the least busy free unit of "
         "a group. A broken season rule is 400 with its code (`rule_min_length`, "
-        "`rule_start_weekday`, `closed_day`…), taken dates 409 `slot_unavailable`. The same "
+        "`rule_start_weekday`, `closed_day`…), taken dates 409 `slot_unavailable`. The "
+        "offer's own form fields (`GET /booking/setup/fields/`) are answered in `answers`: "
+        "the mandatory ones are required here as on the public form (400 `field_required` "
+        "on `answers.<field_id>`), except consents, which only the customer gives. The same "
         "Idempotency-Key answers the first booking again.",
         tags=["booking"],
         parameters=[IDEMPOTENCY],
@@ -3698,6 +3707,9 @@ class StayCreateView(APIView):
             customer_data=customer,
             idempotency_key=_idem(request),
             principal_ref=str(context.actor_id),
+            # The panel's dialog shows the offer's own fields: the office
+            # answers the mandatory ones for the guest (ADR-072 5j).
+            staff_form=True,
         )
         assert isinstance(result, CreatedAppointment)
         return Response(

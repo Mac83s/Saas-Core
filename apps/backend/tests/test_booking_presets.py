@@ -99,7 +99,7 @@ def test_a_company_reads_the_presets_in_the_contracts_order() -> None:
         "core.specialist_visit": 1,
         "core.service_at_customer": 2,
         "core.lodging": 6,
-        "core.rental": 4,
+        "core.rental": 5,
         "core.care_stay": 4,
     }
     # Hours are not booked yet: the preset is announced, and so not online either.
@@ -235,7 +235,7 @@ def test_the_words_come_in_the_companys_first_language() -> None:
     [
         # A stay's prepayment is the company's to switch on: until then nothing is said.
         ("core.lodging", "night", time(16), time(11), "none", 6),
-        ("core.rental", "day", time(9), time(18), "on_site", 4),
+        ("core.rental", "day", time(9), time(18), "on_site", 5),
         ("core.care_stay", "day", time(9), time(18), "on_site", 4),
     ],
 )

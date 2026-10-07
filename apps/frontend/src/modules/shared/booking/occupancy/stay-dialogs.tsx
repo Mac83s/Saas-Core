@@ -43,7 +43,14 @@ import { Textarea } from "@saas-core/ui/components/textarea";
 
 import { formatDateRange } from "#lib/dates";
 import { addDays, zonedInstant } from "../calendar-time";
+import { useOfferFields } from "../form-fields/use-offer-fields";
 import { changedQuote, isPriced, PanelQuote } from "../prices/panel-quote";
+import {
+  answersMissing,
+  givenAnswers,
+  OwnFields,
+  refusedAnswers,
+} from "../public-booking-parts";
 import {
   ExtrasPicker,
   extrasOf,
@@ -121,6 +128,12 @@ export function NewStayDialog({
   const [problem, setProblem] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [idempotencyKey] = useState(() => crypto.randomUUID());
+  // What the offer's own form asks (ADR-072, slice 5j): the office answers
+  // it for the guest on the phone — all but the consents, which are theirs.
+  const asks = useOfferFields(serviceId);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [refused, setRefused] = useState<Record<string, string>>({});
+  const [tried, setTried] = useState(false);
 
   const offers = (setup?.services ?? []).filter(
     (service) => service.active && service.time_model === "range",
@@ -231,10 +244,14 @@ export function NewStayDialog({
   }, [serviceId, target, startDate, endDate, asked]);
 
   async function book() {
+    setTried(true);
     if (!name.trim()) {
       setProblem(t("guestRequired"));
       return;
     }
+    // Said at each field left empty.
+    if (answersMissing(asks, answers)) return;
+    const given = givenAnswers(asks, answers);
     setBusy(true);
     setProblem(undefined);
     try {
@@ -242,6 +259,7 @@ export function NewStayDialog({
         await createStay(
           {
             ...input(),
+            ...(given.length ? { answers: given } : {}),
             // The price shown: another one by now is asked about, not booked.
             ...(isPriced(plan?.quote)
               ? { quote_digest: plan?.quote?.digest }
@@ -257,7 +275,11 @@ export function NewStayDialog({
         // books at them.
         setPlan({ ...plan, quote });
         setChanged(true);
-      } else setProblem(refusal(error, t("bookFailed")));
+      } else {
+        // What the server refuses of an answer is said at its field.
+        setRefused(refusedAnswers(error) ?? {});
+        setProblem(refusal(error, t("bookFailed")));
+      }
     } finally {
       setBusy(false);
     }
@@ -430,6 +452,20 @@ export function NewStayDialog({
                     value={notes}
                   />
                 </Field>
+                {asks.length ? (
+                  <div className="space-y-4 sm:col-span-2">
+                    <OwnFields
+                      fields={asks}
+                      onChange={(next) => {
+                        setAnswers(next);
+                        setRefused({});
+                      }}
+                      refused={refused}
+                      tried={tried}
+                      values={answers}
+                    />
+                  </div>
+                ) : null}
               </div>
             </>
           )}

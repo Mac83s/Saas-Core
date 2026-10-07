@@ -177,11 +177,14 @@ def _answers() -> serializers.ListField:
         required=False,
         max_length=40,
         help_text="What the customer answered to the offer's own fields (`form_fields` of "
-        "the catalogue). A mandatory one left out or empty is 400 with the field "
-        "`answers.<field_id>` and the code `field_required`; an answer that is no number, "
-        "date or option `field_invalid`; too long `field_too_long`; a field the offer does "
-        "not have now `field_unknown` on `answers`. Answers are the customer's personal "
-        "data: kept on the booking for the company, never sent back here or in an e-mail.",
+        "the public catalogue; in the panel `GET /booking/setup/fields/`, without the "
+        "consents — a consent is the customer's own to tick). A mandatory one left out or "
+        "empty is 400 with the field `answers.<field_id>` and the code `field_required`; an "
+        "answer that is no number, date or option `field_invalid`; too long "
+        "`field_too_long`; a field the offer does not have now, or a consent named by "
+        "somebody who is not the customer, `field_unknown` on `answers`. Answers are the "
+        "customer's personal data: kept on the booking for the company, never in an "
+        "e-mail.",
     )
 
 
@@ -382,6 +385,7 @@ class AppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     materials = MaterialInputSerializer(many=True, required=False)
     #: „Uwagi”: what the customer wants the company to know (never in an e-mail).
     customer_notes = serializers.CharField(required=False, allow_blank=True, max_length=500)
+    answers = _answers()
     place_town = serializers.CharField(
         required=False,
         allow_blank=True,
@@ -2495,6 +2499,7 @@ class StayInputSerializer(serializers.Serializer[dict[str, Any]]):
     )
     customer = CustomerInputSerializer()
     customer_notes = serializers.CharField(required=False, allow_blank=True, max_length=500)
+    answers = _answers()
     participants = _participants()
     extras = _extras()
     quote_digest = _quote_digest()

@@ -988,7 +988,7 @@ PRESET_APPLY = CommandSpec(
         "service only, always switched off: no place, person, unit, price or working hours "
         "are made — a stay's or a rental's units come from booking.offer.units.set and a "
         "price from booking.price.save, once the service exists. What the preset's booking "
-        "form asks its customers (an arrival hour, a licence number) comes with the "
+        "form asks its customers (an arrival hour, who is left in care) comes with the "
         "service as its form fields: read them with booking.form_fields.read. Pass "
         "staff_ids and "
         "location_ids only for people and places that exist "

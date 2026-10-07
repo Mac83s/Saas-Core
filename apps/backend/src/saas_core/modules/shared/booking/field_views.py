@@ -71,7 +71,8 @@ class FormFieldInputSerializer(serializers.Serializer[dict[str, Any]]):
     mandatory = serializers.BooleanField(
         required=False,
         help_text="A customer booking for themselves must answer it (tick it, for a "
-        "consent); the team's own bookings are asked for nothing.",
+        "consent), and so must a staff member booking for a customer in the panel — "
+        "except a consent, which only the customer gives.",
     )
     position = serializers.IntegerField(
         min_value=0,

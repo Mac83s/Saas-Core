@@ -300,10 +300,6 @@ def _catalogue(run: DemoRun, key: str, data: dict[str, Any]) -> Catalogue:
                 own = FormField.all_objects.filter(
                     organization=organization, service=service, name=asked["name"]
                 ).first()
-                if own is None and asked.get("active") is False:
-                    # Nothing to switch off: the offer is from before the
-                    # preset asked this.
-                    continue
                 if own is None:
                     own = save_field(
                         field_id=None,
@@ -314,15 +310,6 @@ def _catalogue(run: DemoRun, key: str, data: dict[str, Any]) -> Catalogue:
                         idempotency_key=_key(),
                     ).value
                     run.log(f"+ pole formularza {own.name}")
-                elif asked.get("active") is False and own.active:
-                    # One the preset brought and this company does not ask.
-                    own = save_field(
-                        field_id=own.id,
-                        data={"active": False},
-                        expected_version=own.version,
-                        idempotency_key=_key(),
-                    ).value
-                    run.log(f"- pole formularza {own.name} wyłączone")
                 _words("field", own, asked.get("words"))
             for season in wanted.get("seasons", ()):
                 _season(run, organization, service, season, today)

@@ -24,6 +24,7 @@ const api = vi.hoisted(() => ({
   getBookingOccupancy: vi.fn(),
   getBookingSetup: vi.fn(),
   listBookingExtras: vi.fn(),
+  listBookingFormFields: vi.fn(),
   listParticipantCategories: vi.fn(),
   previewStay: vi.fn(),
   removeUnitBlock: vi.fn(),
@@ -138,6 +139,8 @@ beforeEach(() => {
   // No price list: nobody but the people is asked about, nothing is offered.
   api.listParticipantCategories.mockResolvedValue([]);
   api.listBookingExtras.mockResolvedValue([]);
+  // The offers' forms ask nothing of their own unless a test says so.
+  api.listBookingFormFields.mockResolvedValue({ items: [] });
 });
 
 afterEach(() => {
@@ -509,6 +512,122 @@ test("pobyt z ceną: kto przyjeżdża i dodatki idą do wyceny, a zmienioną cen
   expect(
     await screen.findByText("Zarezerwowano pobyt: Anna Las."),
   ).toBeInTheDocument();
+});
+
+test("nowy pobyt pyta o pola własne oferty: obowiązkowe zatrzymuje, odpowiedzi idą z rezerwacją, zgody nie ma", async () => {
+  const asked = (id: string, name: string, more: object = {}) => ({
+    id,
+    service_id: "stay",
+    name,
+    kind: "text",
+    options: [],
+    mandatory: false,
+    position: 1,
+    active: true,
+    version: 1,
+    ...more,
+  });
+  api.getBookingSetup.mockResolvedValue(STAY_SETUP);
+  api.listBookingFormFields.mockResolvedValue({
+    items: [
+      asked("f-arrival", "Godzina przyjazdu", { mandatory: true }),
+      asked("f-cot", "Łóżeczko", {
+        kind: "choice",
+        options: ["Nie potrzebuję", "Poproszę"],
+        position: 2,
+      }),
+      // A consent is the guest's own to tick: the office is not asked.
+      asked("f-rules", "Znam regulamin obiektu", {
+        kind: "consent",
+        mandatory: true,
+        position: 3,
+      }),
+      asked("f-off", "Stare pytanie", { active: false, position: 4 }),
+      asked("f-other", "Pytanie innej oferty", { service_id: "other" }),
+    ],
+  });
+  api.previewStay.mockResolvedValue({
+    resource_id: ONE,
+    resource_name: "Domek 1",
+    starts_at: "2026-10-02T14:00:00Z",
+    ends_at: "2026-10-04T09:00:00Z",
+    length: 2,
+    range_unit: "night",
+  });
+  api.createStay
+    .mockRejectedValueOnce(
+      new ApiProblemError({
+        type: "about:blank",
+        title: "Problem",
+        status: 400,
+        code: "validation_error",
+        detail: "",
+        correlation_id: null,
+        errors: [
+          {
+            field: "answers.f-arrival",
+            code: "field_too_long",
+            message: "Najwyżej 200 znaków.",
+          },
+        ],
+      } as ConstructorParameters<typeof ApiProblemError>[0]),
+    )
+    .mockResolvedValue({ customer_name: "Anna Las" });
+  renderPanel();
+  fireEvent.click(await screen.findByRole("button", { name: "Nowy pobyt" }));
+  const dialog = await screen.findByRole("dialog", { name: "Nowy pobyt" });
+  const inside = within(dialog);
+  await waitFor(() =>
+    expect(inside.getByLabelText("Gdzie")).toHaveValue(`group:${COTTAGES}`),
+  );
+  fireEvent.change(inside.getByLabelText("Przyjazd"), {
+    target: { value: "2026-10-02" },
+  });
+  fireEvent.change(inside.getByLabelText("Wyjazd"), {
+    target: { value: "2026-10-04" },
+  });
+  fireEvent.change(
+    await inside.findByLabelText("Gość (imię i nazwisko albo nazwa)"),
+    { target: { value: "Anna Las" } },
+  );
+
+  // The offer's own questions stand under the notes; no consent, nothing
+  // switched off, nothing of another offer.
+  expect(inside.getByLabelText("Godzina przyjazdu")).toBeInTheDocument();
+  expect(
+    inside.getByLabelText("Łóżeczko (nieobowiązkowo)"),
+  ).toBeInTheDocument();
+  expect(inside.queryByText(/Znam regulamin obiektu/)).toBeNull();
+  expect(inside.queryByText(/Stare pytanie|Pytanie innej oferty/)).toBeNull();
+  expect((await axe.run(dialog)).violations).toEqual([]);
+
+  // A mandatory one left empty stops the office like it stops a guest.
+  fireEvent.click(inside.getByRole("button", { name: "Zarezerwuj" }));
+  expect(await inside.findByText("To pole jest wymagane.")).toBeInTheDocument();
+  expect(api.createStay).not.toHaveBeenCalled();
+
+  fireEvent.change(inside.getByLabelText("Godzina przyjazdu"), {
+    target: { value: "ok. 17:00" },
+  });
+  fireEvent.change(inside.getByLabelText("Łóżeczko (nieobowiązkowo)"), {
+    target: { value: "Poproszę" },
+  });
+  // What the server refuses of an answer is said at its field.
+  fireEvent.click(inside.getByRole("button", { name: "Zarezerwuj" }));
+  expect(
+    await inside.findByText(/Ta odpowiedź jest za długa/),
+  ).toBeInTheDocument();
+  fireEvent.change(inside.getByLabelText("Godzina przyjazdu"), {
+    target: { value: "17:00" },
+  });
+  fireEvent.click(inside.getByRole("button", { name: "Zarezerwuj" }));
+  await waitFor(() => expect(api.createStay).toHaveBeenCalledTimes(2));
+  expect(api.createStay.mock.calls[1][0].answers).toEqual([
+    { field_id: "f-arrival", value: "17:00" },
+    { field_id: "f-cot", value: "Poproszę" },
+  ]);
+  // Nothing about answers is asked while the dates are only checked.
+  expect(api.previewStay.mock.calls.at(-1)?.[0]).not.toHaveProperty("answers");
 });
 
 test("pobyt z ceną mówi na siatce i na karcie, ile wynosi", async () => {

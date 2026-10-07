@@ -327,6 +327,7 @@ def book_stay(
     consents: BookingConsents | None = None,
     origin: str = "",
     answers: Sequence[Mapping[str, Any]] | None = None,
+    staff_form: bool = False,
 ) -> CreatedAppointment | StayPlan:
     """Books a stay — the team in the panel, or a customer on the company's
     public form; with `preview`, says which unit it would take and refuses
@@ -345,7 +346,10 @@ def book_stay(
     `quote_digest` is the digest of the quote the caller showed, and another
     price by now is 409 `quote_changed` (ADR-072 §7). `consents` — the
     documents the customer accepted, when the caller showed them
-    (`consents.record`)."""
+    (`consents.record`). `answers` — what was answered to the offer's own
+    fields; `staff_form` — the panel's dialog showed them to a staff member,
+    who must answer the mandatory ones like a customer (`form_answers.checked`);
+    a preview asks for none."""
     context = _write(preview=preview)
     public = context.role_key == PUBLIC_BOOKING_ROLE
     if public:
@@ -436,7 +440,10 @@ def book_stay(
     organization = Organization.objects.get(pk=context.organization_id)
     # Before anything is written: an answer refused leaves no customer behind.
     asked = checked_answers(
-        plan.service, answers, locale=booking_locale(customer_data.get("locale"))
+        plan.service,
+        answers,
+        locale=booking_locale(customer_data.get("locale")),
+        staff_form=staff_form,
     )
     customer, email = match_or_create(organization, customer_data)
     token, digest = issue_self_service_token()

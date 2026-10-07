@@ -42,6 +42,7 @@ const api = vi.hoisted(() => ({
   getSelfServiceBooking: vi.fn(),
   listBookingAppointments: vi.fn(),
   listBookingExtras: vi.fn(),
+  listBookingFormFields: vi.fn(),
   listBookingPlaces: vi.fn(),
   listBookingPrices: vi.fn(),
   listParticipantCategories: vi.fn(),
@@ -264,6 +265,8 @@ beforeEach(() => {
   api.listBookingPrices.mockResolvedValue({ items: [], amounts: "gross" });
   api.listParticipantCategories.mockResolvedValue([]);
   api.listBookingExtras.mockResolvedValue([]);
+  // The services' forms ask nothing of their own unless a test says so.
+  api.listBookingFormFields.mockResolvedValue({ items: [] });
   api.getBookingQuote.mockResolvedValue(visitQuote([], 0, "0".repeat(64)));
   api.getPublicBookingDays.mockResolvedValue(["2026-08-20"]);
   // A company that has published no documents: the form asks for none.
@@ -1183,6 +1186,103 @@ test("a visit a module names goes by that name, the customer after it", async ()
   expect(
     within(details).getByText(`Product details of ${appointment.id}`),
   ).not.toBeNull();
+});
+
+test("a new appointment asks the service's own fields: a mandatory one stops it, the answers go with it, a consent is not the office's", async () => {
+  const asked = (id: string, name: string, more: object = {}) => ({
+    id,
+    service_id: catalog.services[0].id,
+    name,
+    kind: "text",
+    options: [],
+    mandatory: false,
+    position: 1,
+    active: true,
+    version: 1,
+    ...more,
+  });
+  api.listBookingFormFields.mockResolvedValue({
+    items: [
+      asked("f-pet", "Pet's name", { mandatory: true }),
+      asked("f-size", "Size", {
+        kind: "choice",
+        options: ["Small", "Large"],
+        position: 2,
+      }),
+      asked("f-rules", "I know the house rules", {
+        kind: "consent",
+        mandatory: true,
+        position: 3,
+      }),
+      asked("f-other", "Another service's question", {
+        service_id: "another",
+      }),
+    ],
+  });
+  api.getBookingSlots.mockResolvedValue({
+    items: [
+      {
+        starts_at: "2026-08-20T09:00:00Z",
+        ends_at: "2026-08-20T09:30:00Z",
+        staff_id: BEA,
+        resource_id: null,
+      },
+    ],
+  });
+  api.createBookingAppointment.mockResolvedValueOnce({
+    ...appointment,
+    id: "77777777-7777-4777-8777-777777777778",
+    customer_name: "Ewa Zielińska",
+  });
+  renderCalendar();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "New appointment" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "New appointment" });
+  const inside = within(dialog);
+  fireEvent.change(inside.getByLabelText("Service"), {
+    target: { value: catalog.services[0].id },
+  });
+  fireEvent.change(inside.getByLabelText("Date"), {
+    target: { value: "2026-08-20" },
+  });
+  fireEvent.click(await inside.findByRole("button", { name: /11:00/ }));
+  fireEvent.change(inside.getByLabelText("Full name"), {
+    target: { value: "Ewa Zielińska" },
+  });
+  fireEvent.change(inside.getByLabelText("Phone"), {
+    target: { value: "+48 600 100 200" },
+  });
+
+  // The service's own questions stand under the notes: no consent, nothing
+  // of another service.
+  expect(await inside.findByLabelText("Pet's name")).toBeInTheDocument();
+  expect(inside.getByLabelText("Size (optional)")).toBeInTheDocument();
+  expect(
+    inside.queryByText(/I know the house rules|Another service's question/),
+  ).toBeNull();
+  expect((await axe.run(dialog)).violations).toHaveLength(0);
+
+  fireEvent.click(inside.getByRole("button", { name: "Save appointment" }));
+  expect(
+    await inside.findByText("This field is required."),
+  ).toBeInTheDocument();
+  expect(api.createBookingAppointment).not.toHaveBeenCalled();
+
+  fireEvent.change(inside.getByLabelText("Pet's name"), {
+    target: { value: " Rex " },
+  });
+  fireEvent.change(inside.getByLabelText("Size (optional)"), {
+    target: { value: "Large" },
+  });
+  fireEvent.click(inside.getByRole("button", { name: "Save appointment" }));
+  await waitFor(() =>
+    expect(api.createBookingAppointment).toHaveBeenCalledTimes(1),
+  );
+  expect(api.createBookingAppointment.mock.calls[0][0].answers).toEqual([
+    { field_id: "f-pet", value: "Rex" },
+    { field_id: "f-size", value: "Large" },
+  ]);
 });
 
 test("a new appointment takes a free time and says when one is taken", async () => {

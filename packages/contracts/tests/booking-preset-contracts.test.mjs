@@ -406,6 +406,9 @@ test("what the engine runs today is ready, the rest is announced", async () => {
   // suggests the page template „Noclegi” (slice 5g). The next version of
   // each of the three carries what its booking form asks (slice 5j): an
   // arrival hour, a driving licence number, who or what is left in care.
+  // Version 5 of the rental asks nothing by itself again (owner's decision
+  // of 2026-10-07, data minimisation): a bike or a kayak rental must not ask
+  // for a licence number by default — a car rental adds the field itself.
   assert.deepEqual(readiness, {
     "core.specialist_visit": "ready v1",
     "core.online_visit": "soon v1",
@@ -413,7 +416,7 @@ test("what the engine runs today is ready, the rest is announced", async () => {
     "core.hourly_space": "soon v1",
     "core.table_or_group": "soon v1",
     "core.lodging": "ready v6",
-    "core.rental": "ready v4",
+    "core.rental": "ready v5",
     "core.care_stay": "ready v4",
     "core.exclusive_date": "soon v1",
     "core.group_class": "soon v1",

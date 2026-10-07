@@ -1703,11 +1703,14 @@ paths:
           description: ''
     post:
       operationId: booking_appointment_create
-      description: Books a free start of a service at a place, for the people named
+      description: 'Books a free start of a service at a place, for the people named
         or — with none named — the least busy free ones the service needs. The price
         is worked out and frozen in the booking (`quote`); with `quote_digest` a price
         other than the one shown is 409 `quote_changed`. A taken time is 409 `slot_unavailable`.
-        The same Idempotency-Key answers the first booking again (200).
+        The service''s own form fields (`GET /booking/setup/fields/`) are answered
+        in `answers`: the mandatory ones are required here as on the public form (400
+        `field_required` on `answers.<field_id>`), except consents, which only the
+        customer gives. The same Idempotency-Key answers the first booking again (200).'
       summary: Book a visit
       parameters:
       - in: header
@@ -8519,10 +8522,13 @@ paths:
   /api/v1/booking/stays/:
     post:
       operationId: booking_stay_create
-      description: Books a range offer from–to on a unit, or on the least busy free
+      description: 'Books a range offer from–to on a unit, or on the least busy free
         unit of a group. A broken season rule is 400 with its code (`rule_min_length`,
         `rule_start_weekday`, `closed_day`…), taken dates 409 `slot_unavailable`.
-        The same Idempotency-Key answers the first booking again.
+        The offer''s own form fields (`GET /booking/setup/fields/`) are answered in
+        `answers`: the mandatory ones are required here as on the public form (400
+        `field_required` on `answers.<field_id>`), except consents, which only the
+        customer gives. The same Idempotency-Key answers the first booking again.'
       summary: Book a stay or a rental
       parameters:
       - in: header
@@ -26031,6 +26037,20 @@ components:
         customer_notes:
           type: string
           maxLength: 500
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormAnswerInput'
+          description: 'What the customer answered to the offer''s own fields (`form_fields`
+            of the public catalogue; in the panel `GET /booking/setup/fields/`, without
+            the consents — a consent is the customer''s own to tick). A mandatory
+            one left out or empty is 400 with the field `answers.<field_id>` and the
+            code `field_required`; an answer that is no number, date or option `field_invalid`;
+            too long `field_too_long`; a field the offer does not have now, or a consent
+            named by somebody who is not the customer, `field_unknown` on `answers`.
+            Answers are the customer''s personal data: kept on the booking for the
+            company, never in an e-mail.'
+          maxItems: 40
         place_town:
           type: string
           description: '„Miejsce wizyty”: the town, when the visit is not at the company''s
@@ -33065,7 +33085,8 @@ components:
         mandatory:
           type: boolean
           description: A customer booking for themselves must answer it (tick it,
-            for a consent); the team's own bookings are asked for nothing.
+            for a consent), and so must a staff member booking for a customer in the
+            panel — except a consent, which only the customer gives.
         position:
           type: integer
           maximum: 1000
@@ -33228,7 +33249,8 @@ components:
         mandatory:
           type: boolean
           description: A customer booking for themselves must answer it (tick it,
-            for a consent); the team's own bookings are asked for nothing.
+            for a consent), and so must a staff member booking for a customer in the
+            panel — except a consent, which only the customer gives.
         position:
           type: integer
           maximum: 1000
@@ -39430,7 +39452,8 @@ components:
         mandatory:
           type: boolean
           description: A customer booking for themselves must answer it (tick it,
-            for a consent); the team's own bookings are asked for nothing.
+            for a consent), and so must a staff member booking for a customer in the
+            panel — except a consent, which only the customer gives.
         position:
           type: integer
           maximum: 1000
@@ -42937,12 +42960,14 @@ components:
           items:
             $ref: '#/components/schemas/FormAnswerInput'
           description: 'What the customer answered to the offer''s own fields (`form_fields`
-            of the catalogue). A mandatory one left out or empty is 400 with the field
-            `answers.<field_id>` and the code `field_required`; an answer that is
-            no number, date or option `field_invalid`; too long `field_too_long`;
-            a field the offer does not have now `field_unknown` on `answers`. Answers
-            are the customer''s personal data: kept on the booking for the company,
-            never sent back here or in an e-mail.'
+            of the public catalogue; in the panel `GET /booking/setup/fields/`, without
+            the consents — a consent is the customer''s own to tick). A mandatory
+            one left out or empty is 400 with the field `answers.<field_id>` and the
+            code `field_required`; an answer that is no number, date or option `field_invalid`;
+            too long `field_too_long`; a field the offer does not have now, or a consent
+            named by somebody who is not the customer, `field_unknown` on `answers`.
+            Answers are the customer''s personal data: kept on the booking for the
+            company, never in an e-mail.'
           maxItems: 40
         extras:
           type: array
@@ -44170,12 +44195,14 @@ components:
           items:
             $ref: '#/components/schemas/FormAnswerInput'
           description: 'What the customer answered to the offer''s own fields (`form_fields`
-            of the catalogue). A mandatory one left out or empty is 400 with the field
-            `answers.<field_id>` and the code `field_required`; an answer that is
-            no number, date or option `field_invalid`; too long `field_too_long`;
-            a field the offer does not have now `field_unknown` on `answers`. Answers
-            are the customer''s personal data: kept on the booking for the company,
-            never sent back here or in an e-mail.'
+            of the public catalogue; in the panel `GET /booking/setup/fields/`, without
+            the consents — a consent is the customer''s own to tick). A mandatory
+            one left out or empty is 400 with the field `answers.<field_id>` and the
+            code `field_required`; an answer that is no number, date or option `field_invalid`;
+            too long `field_too_long`; a field the offer does not have now, or a consent
+            named by somebody who is not the customer, `field_unknown` on `answers`.
+            Answers are the customer''s personal data: kept on the booking for the
+            company, never in an e-mail.'
           maxItems: 40
         quote_digest:
           type: string
@@ -49158,6 +49185,20 @@ components:
         customer_notes:
           type: string
           maxLength: 500
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormAnswerInput'
+          description: 'What the customer answered to the offer''s own fields (`form_fields`
+            of the public catalogue; in the panel `GET /booking/setup/fields/`, without
+            the consents — a consent is the customer''s own to tick). A mandatory
+            one left out or empty is 400 with the field `answers.<field_id>` and the
+            code `field_required`; an answer that is no number, date or option `field_invalid`;
+            too long `field_too_long`; a field the offer does not have now, or a consent
+            named by somebody who is not the customer, `field_unknown` on `answers`.
+            Answers are the customer''s personal data: kept on the booking for the
+            company, never in an e-mail.'
+          maxItems: 40
         participants:
           type: array
           items:

@@ -436,6 +436,7 @@ def create_appointment(
     consents: BookingConsents | None = None,
     origin: str = "",
     answers: Sequence[Mapping[str, Any]] | None = None,
+    staff_form: bool = False,
 ) -> CreatedAppointment:
     """Books a free slot, or — with `walk_in_minutes` — records work already under way.
 
@@ -478,7 +479,9 @@ def create_appointment(
 
     `answers` — what the customer answered to the offer's own fields
     (`[{"field_id", "value"}]`, `form_answers.checked`): a customer booking
-    for themselves must answer the mandatory ones.
+    for themselves must answer the mandatory ones, and so must the staff
+    member the panel's dialog showed them to (`staff_form`); a product that
+    shows no such form is asked for none.
     """
     place_town, place_address = place_town.strip(), place_address.strip()
     context = require_tenant_context()
@@ -647,7 +650,12 @@ def create_appointment(
     elif walk_in_minutes <= 0:
         raise ValidationError({"walk_in_minutes": "Podaj, na jak długo zająć okno."})
     # Before anything is written: an answer refused leaves no customer behind.
-    asked = checked_answers(service, answers, locale=booking_locale(customer_data.get("locale")))
+    asked = checked_answers(
+        service,
+        answers,
+        locale=booking_locale(customer_data.get("locale")),
+        staff_form=staff_form,
+    )
     customer, email = match_or_create(organization, customer_data)
     if materials is not None:
         # Hand-picked products: whoever types them must be allowed to take stock.

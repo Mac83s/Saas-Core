@@ -966,11 +966,10 @@ RENTALS: dict[str, Any] = {
                     "words": {"en": {"name": "Kayak delivery to the start"}},
                 },
             ],
-            # The preset's own question suits a car rental, not kayaks: the
-            # company switched it off and asks what it needs on the water —
-            # how many cannot swim, and that the safety rules were read.
+            # The preset asks nothing by itself (a licence number is a car
+            # rental's own question): the company asks what it needs on the
+            # water — how many cannot swim, and that the safety rules were read.
             "fields": [
-                {"name": "Numer prawa jazdy", "active": False},
                 {
                     "name": NON_SWIMMERS,
                     "kind": "number",

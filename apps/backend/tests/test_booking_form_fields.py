@@ -434,26 +434,48 @@ def test_a_visit_booked_on_the_form_asks_its_own_fields() -> None:
     assert errors(refused_long) == [(f"answers.{pet.id}", "field_too_long")]
 
 
-def test_the_team_is_asked_for_nothing_and_answers_are_read_like_the_phone() -> None:
+def test_the_office_answers_what_the_form_asks_and_answers_are_read_like_the_phone() -> None:
     configured = form("pola-zespol", priced=False, units=2)
     owner = configured["owner"]
     asked = asked_of(configured)
     with tenant(owner):
-        # The office takes a booking by phone: no field binds it, and it may
-        # still write down what it was told.
+        # Whoever books without the panel's dialog — a product through
+        # `booking.api`, a seed — shows no form and is asked for nothing.
         bare = stay(
             configured, configured["first"], configured["first"] + timedelta(days=2)
         ).appointment
         assert bare.form_answers == []
-    made = booked(
-        APIClient(),
-        configured,
-        answers=answers((asked["licence"], LICENCE), (asked["rules"], "true")),
-        start_date=_later(configured, 7),
-        end_date=_later(configured, 9),
-    )
+
+    client = authenticated_client(owner)
+
+    def office(**body: Any) -> Any:
+        return client.post(
+            "/api/v1/booking/stays/",
+            {
+                **configured["target"],
+                "start_date": _later(configured, 7),
+                "end_date": _later(configured, 9),
+                "customer": {"display_name": "Jan Telefoniczny", "phone": "+48 600 000 111"},
+                **body,
+            },
+            format="json",
+            HTTP_IDEMPOTENCY_KEY=key(),
+        )
+
+    # The panel's dialog shows the offer's fields: the office answers the
+    # mandatory ones for the caller — but never ticks a consent for them.
+    assert errors(office()) == [(f"answers.{asked['licence'].id}", "field_required")]
+    ticked = office(answers=answers((asked["licence"], LICENCE), (asked["rules"], "true")))
+    assert errors(ticked) == [("answers", "field_unknown")]
+    made = office(answers=answers((asked["licence"], LICENCE), (asked["frame"], "Damska")))
     assert made.status_code == 201, made.content
     booking_id = made.json()["id"]
+    assert [(line["name"], line["value"]) for line in made.json()["form_answers"]] == [
+        ("Numer prawa jazdy", LICENCE),
+        ("Rama", "Damska"),
+    ]
+    with tenant(owner):
+        assert not ConsentRecord.all_objects.filter(organization=owner.organization).exists()
 
     def read(member: Any) -> list[dict[str, Any]]:
         response = authenticated_client(member).get(
@@ -466,11 +488,49 @@ def test_the_team_is_asked_for_nothing_and_answers_are_read_like_the_phone() -> 
 
     assert [(line["name"], line["value"]) for line in read(owner)] == [
         ("Numer prawa jazdy", LICENCE),
-        ("Zapoznałem się z regulaminem obiektu", ""),
+        ("Rama", "Damska"),
     ]
     # Somebody of the company who does not see the customer's phone does not
     # see what the customer answered either.
     assert read(worker(owner, "pola-nie-widzi@example.test")) == []
+
+
+def test_the_office_answers_a_visits_fields_too() -> None:
+    configured = setup("pola-wizyta-biuro", people=1, need=1, choice="none")
+    owner = configured["owner"]
+    with tenant(owner):
+        pet = field(configured["service"].id, "Imię pupila", mandatory=True)
+        field(configured["service"].id, "Znam regulamin", kind="consent", mandatory=True)
+    client = authenticated_client(owner)
+    times = (
+        APIClient()
+        .get(
+            f"{configured['url']}/times/",
+            {**configured["query"], "date": configured["day"].isoformat()},
+        )
+        .json()["items"]
+    )
+
+    def office(**body: Any) -> Any:
+        return client.post(
+            "/api/v1/booking/appointments/",
+            {
+                **configured["query"],
+                "starts_at": times[0]["starts_at"],
+                "customer": {"display_name": "Anna Telefoniczna", "phone": "+48 600 000 222"},
+                **body,
+            },
+            format="json",
+            HTTP_IDEMPOTENCY_KEY=key(),
+        )
+
+    # The mandatory question is the office's to ask; the consent is not.
+    assert errors(office()) == [(f"answers.{pet.id}", "field_required")]
+    made = office(answers=answers((pet, "Reksio")))
+    assert made.status_code == 201, made.content
+    assert [(line["name"], line["value"]) for line in made.json()["form_answers"]] == [
+        ("Imię pupila", "Reksio")
+    ]
 
 
 def _later(configured: dict[str, Any], days: int) -> str:
@@ -503,7 +563,7 @@ def test_answers_leave_with_the_customer_and_the_journal_stays() -> None:
     ("preset_id", "locales", "name", "mandatory", "other"),
     [
         ("core.lodging", ["pl", "en"], "Przybliżona godzina przyjazdu", False, "en"),
-        ("core.rental", ["en", "pl"], "Driving licence number", False, "pl"),
+        ("core.care_stay", ["en", "pl"], "Who or what we look after", True, "pl"),
         ("core.care_stay", ["pl"], "Kogo lub co przyjmujemy", True, None),
     ],
 )
@@ -529,6 +589,23 @@ def test_a_preset_brings_what_its_form_asks_and_a_draft_takes_it_back(
         assert not Service.all_objects.filter(pk=draft.item_id).exists()
         assert not FormField.all_objects.filter(organization=owner.organization).exists()
         assert not FormFieldTranslation.all_objects.filter(organization=owner.organization).exists()
+
+
+def test_a_rental_from_the_preset_asks_nothing_by_itself() -> None:
+    """A licence number is a car rental's own question (the owner's decision
+    of 2026-10-07, data minimisation): the preset in use brings no field, and
+    the version that did stays what it was for whoever names it."""
+    owner = membership("pola-wzorzec-wypozyczalnia")
+    with tenant(owner):
+        latest = apply_preset(preset_id="core.rental", name="Rowery", idempotency_key=key())
+        assert latest.value.service.preset_version == 5
+        assert not FormField.all_objects.filter(service_id=latest.item_id).exists()
+        # A published version is never changed: version 4 still asks.
+        earlier = apply_preset(
+            preset_id="core.rental", version=4, name="Auta", idempotency_key=key()
+        )
+        (asked,) = FormField.all_objects.filter(service_id=earlier.item_id)
+        assert (asked.name, asked.mandatory) == ("Numer prawa jazdy", False)
 
 
 def test_the_form_marks_a_picture_a_model_made() -> None:

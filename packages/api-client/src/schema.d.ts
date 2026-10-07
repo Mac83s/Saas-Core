@@ -655,7 +655,7 @@ export interface paths {
         put?: never;
         /**
          * Book a visit
-         * @description Books a free start of a service at a place, for the people named or — with none named — the least busy free ones the service needs. The price is worked out and frozen in the booking (`quote`); with `quote_digest` a price other than the one shown is 409 `quote_changed`. A taken time is 409 `slot_unavailable`. The same Idempotency-Key answers the first booking again (200).
+         * @description Books a free start of a service at a place, for the people named or — with none named — the least busy free ones the service needs. The price is worked out and frozen in the booking (`quote`); with `quote_digest` a price other than the one shown is 409 `quote_changed`. A taken time is 409 `slot_unavailable`. The service's own form fields (`GET /booking/setup/fields/`) are answered in `answers`: the mandatory ones are required here as on the public form (400 `field_required` on `answers.<field_id>`), except consents, which only the customer gives. The same Idempotency-Key answers the first booking again (200).
          */
         post: operations["booking_appointment_create"];
         delete?: never;
@@ -2980,7 +2980,7 @@ export interface paths {
         put?: never;
         /**
          * Book a stay or a rental
-         * @description Books a range offer from–to on a unit, or on the least busy free unit of a group. A broken season rule is 400 with its code (`rule_min_length`, `rule_start_weekday`, `closed_day`…), taken dates 409 `slot_unavailable`. The same Idempotency-Key answers the first booking again.
+         * @description Books a range offer from–to on a unit, or on the least busy free unit of a group. A broken season rule is 400 with its code (`rule_min_length`, `rule_start_weekday`, `closed_day`…), taken dates 409 `slot_unavailable`. The offer's own form fields (`GET /booking/setup/fields/`) are answered in `answers`: the mandatory ones are required here as on the public form (400 `field_required` on `answers.<field_id>`), except consents, which only the customer gives. The same Idempotency-Key answers the first booking again.
          */
         post: operations["booking_stay_create"];
         delete?: never;
@@ -8607,6 +8607,8 @@ export interface components {
             customer: components["schemas"]["CustomerInput"];
             materials?: components["schemas"]["MaterialInput"][];
             customer_notes?: string;
+            /** @description What the customer answered to the offer's own fields (`form_fields` of the public catalogue; in the panel `GET /booking/setup/fields/`, without the consents — a consent is the customer's own to tick). A mandatory one left out or empty is 400 with the field `answers.<field_id>` and the code `field_required`; an answer that is no number, date or option `field_invalid`; too long `field_too_long`; a field the offer does not have now, or a consent named by somebody who is not the customer, `field_unknown` on `answers`. Answers are the customer's personal data: kept on the booking for the company, never in an e-mail. */
+            answers?: components["schemas"]["FormAnswerInput"][];
             /** @description „Miejsce wizyty”: the town, when the visit is not at the company's location. */
             place_town?: string;
             /** @description Street and number in that town; optional, and only with a town. */
@@ -11684,7 +11686,7 @@ export interface components {
             kind?: components["schemas"]["FormFieldKindEnum"];
             /** @description A choice's options in order, at least two; a booking's answer names one of them word for word. Ignored for every other kind. */
             options?: string[];
-            /** @description A customer booking for themselves must answer it (tick it, for a consent); the team's own bookings are asked for nothing. */
+            /** @description A customer booking for themselves must answer it (tick it, for a consent), and so must a staff member booking for a customer in the panel — except a consent, which only the customer gives. */
             mandatory?: boolean;
             /** @description The order on the form, smallest first; omitted — a new field goes last. */
             position?: number;
@@ -11764,7 +11766,7 @@ export interface components {
             kind?: components["schemas"]["FormFieldKindEnum"];
             /** @description A choice's options in order, at least two; a booking's answer names one of them word for word. Ignored for every other kind. */
             options?: string[];
-            /** @description A customer booking for themselves must answer it (tick it, for a consent); the team's own bookings are asked for nothing. */
+            /** @description A customer booking for themselves must answer it (tick it, for a consent), and so must a staff member booking for a customer in the panel — except a consent, which only the customer gives. */
             mandatory?: boolean;
             /** @description The order on the form, smallest first; omitted — a new field goes last. */
             position?: number;
@@ -14599,7 +14601,7 @@ export interface components {
             kind?: components["schemas"]["FormFieldKindEnum"];
             /** @description A choice's options in order, at least two; a booking's answer names one of them word for word. Ignored for every other kind. */
             options?: string[];
-            /** @description A customer booking for themselves must answer it (tick it, for a consent); the team's own bookings are asked for nothing. */
+            /** @description A customer booking for themselves must answer it (tick it, for a consent), and so must a staff member booking for a customer in the panel — except a consent, which only the customer gives. */
             mandatory?: boolean;
             /** @description The order on the form, smallest first; omitted — a new field goes last. */
             position?: number;
@@ -16172,7 +16174,7 @@ export interface components {
             /** Format: uuid */
             person_id?: string | null;
             customer_notes?: string;
-            /** @description What the customer answered to the offer's own fields (`form_fields` of the catalogue). A mandatory one left out or empty is 400 with the field `answers.<field_id>` and the code `field_required`; an answer that is no number, date or option `field_invalid`; too long `field_too_long`; a field the offer does not have now `field_unknown` on `answers`. Answers are the customer's personal data: kept on the booking for the company, never sent back here or in an e-mail. */
+            /** @description What the customer answered to the offer's own fields (`form_fields` of the public catalogue; in the panel `GET /booking/setup/fields/`, without the consents — a consent is the customer's own to tick). A mandatory one left out or empty is 400 with the field `answers.<field_id>` and the code `field_required`; an answer that is no number, date or option `field_invalid`; too long `field_too_long`; a field the offer does not have now, or a consent named by somebody who is not the customer, `field_unknown` on `answers`. Answers are the customer's personal data: kept on the booking for the company, never in an e-mail. */
             answers?: components["schemas"]["FormAnswerInput"][];
             /** @description The optional extras picked, each with how many (1 when omitted). The offer's mandatory extras are always charged. */
             extras?: components["schemas"]["ExtraPick"][];
@@ -16758,7 +16760,7 @@ export interface components {
             extras?: components["schemas"]["ExtraPick"][];
             customer: components["schemas"]["CustomerInput"];
             customer_notes?: string;
-            /** @description What the customer answered to the offer's own fields (`form_fields` of the catalogue). A mandatory one left out or empty is 400 with the field `answers.<field_id>` and the code `field_required`; an answer that is no number, date or option `field_invalid`; too long `field_too_long`; a field the offer does not have now `field_unknown` on `answers`. Answers are the customer's personal data: kept on the booking for the company, never sent back here or in an e-mail. */
+            /** @description What the customer answered to the offer's own fields (`form_fields` of the public catalogue; in the panel `GET /booking/setup/fields/`, without the consents — a consent is the customer's own to tick). A mandatory one left out or empty is 400 with the field `answers.<field_id>` and the code `field_required`; an answer that is no number, date or option `field_invalid`; too long `field_too_long`; a field the offer does not have now, or a consent named by somebody who is not the customer, `field_unknown` on `answers`. Answers are the customer's personal data: kept on the booking for the company, never in an e-mail. */
             answers?: components["schemas"]["FormAnswerInput"][];
             /** @description The `digest` of the quote the customer was shown. Required as soon as the booking has a price: without it, or when the price is another one by now, the answer is 409 `quote_changed` with the quote to show in `detail.quote`, and nothing is saved. */
             quote_digest?: string;
@@ -19022,6 +19024,8 @@ export interface components {
             end_date: string;
             customer: components["schemas"]["CustomerInput"];
             customer_notes?: string;
+            /** @description What the customer answered to the offer's own fields (`form_fields` of the public catalogue; in the panel `GET /booking/setup/fields/`, without the consents — a consent is the customer's own to tick). A mandatory one left out or empty is 400 with the field `answers.<field_id>` and the code `field_required`; an answer that is no number, date or option `field_invalid`; too long `field_too_long`; a field the offer does not have now, or a consent named by somebody who is not the customer, `field_unknown` on `answers`. Answers are the customer's personal data: kept on the booking for the company, never in an e-mail. */
+            answers?: components["schemas"]["FormAnswerInput"][];
             /** @description Who comes; omitted — one standard person. The price and a unit's capacity count them. */
             participants?: components["schemas"]["ParticipantInput"][];
             /** @description The optional extras picked, each with how many (1 when omitted). The offer's mandatory extras are always charged. */

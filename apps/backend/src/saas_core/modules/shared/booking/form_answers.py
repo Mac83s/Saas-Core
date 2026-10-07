@@ -22,9 +22,17 @@ A `consent` is not a value. Ticked, it is a line of the consent journal in the
 words and the language the customer was shown (`ConsentKind.FIELD`); the
 booking keeps only the mention that it was ticked. Not ticked, it is nothing.
 
-A mandatory field binds the customer who books for themselves. Whoever books
-for a customer — the team, a product — may pass answers and is asked for none,
-like the company's documents (`consents.record`).
+A mandatory field binds whoever fills the form in: the customer who books for
+themselves, and a staff member who books for a customer in the panel's own
+dialogs (`staff_form`) — the office asks the caller what the form would have
+asked. A product booking through `booking.api`, which shows no such form, may
+pass answers and is asked for none.
+
+A consent is the customer's own to give. The consent journal has no way to
+say that somebody ticked a box on a customer's behalf, so only the customer's
+own booking gives one: for everybody else the offer's consent fields are not
+part of the form — not asked, not required, and an answer naming one is
+refused.
 """
 
 from __future__ import annotations
@@ -135,22 +143,35 @@ def _shown(consents: Sequence[FormField], locale: str) -> tuple[str, ...]:
     return tuple(texts.get(asked.id, {}).get("name", asked.name) for asked in consents)
 
 
-def checked(service: Service, given: Sequence[Mapping[str, Any]] | None, *, locale: str) -> Answers:
+def checked(
+    service: Service,
+    given: Sequence[Mapping[str, Any]] | None,
+    *,
+    locale: str,
+    staff_form: bool = False,
+) -> Answers:
     """The answers of one booking of `service` (`[{"field_id", "value"}]`,
     every value as text), checked against the offer's fields that are
     switched on. Refuses with the field named `answers.<field id>`:
-    `field_required` — a mandatory one the customer left empty or a mandatory
-    consent they did not tick; `field_invalid` — not a number, not a date
+    `field_required` — a mandatory one left empty, or a mandatory consent the
+    customer did not tick; `field_invalid` — not a number, not a date
     (`YYYY-MM-DD`), not one of the options; `field_too_long`; and on `answers`
-    itself `field_unknown` — the offer has no such field now — and
-    `field_repeated`. `locale` is the booking's language, for the wording of
-    a consent."""
+    itself `field_unknown` — the offer has no such field now, or it is a
+    consent and the caller is not the customer — and `field_repeated`.
+
+    Mandatory fields are required of the customer booking for themselves and,
+    with `staff_form`, of the staff member the panel's dialog showed them to.
+    `locale` is the booking's language, for the wording of a consent."""
     public = require_tenant_context().role_key == PUBLIC_BOOKING_ROLE
-    fields = list(
-        FormField.all_objects.filter(
-            organization_id=service.organization_id, service=service, active=True
-        ).order_by("position", "name", "id")
+    required = public or staff_form
+    asked_now = FormField.all_objects.filter(
+        organization_id=service.organization_id, service=service, active=True
     )
+    if not public:
+        # A consent is the customer's own to give (the journal cannot say
+        # "ticked by the office for them").
+        asked_now = asked_now.exclude(kind=FieldKind.CONSENT)
+    fields = list(asked_now.order_by("position", "name", "id"))
     if not fields and not given:
         return Answers()
     known = {asked.id: asked for asked in fields}
@@ -175,7 +196,7 @@ def checked(service: Service, given: Sequence[Mapping[str, Any]] | None, *, loca
         if asked.kind == FieldKind.CONSENT and raw == "false":
             raw = ""
         if not raw:
-            if asked.mandatory and public:
+            if asked.mandatory and required:
                 errors[f"answers.{asked.id}"] = [
                     ErrorDetail(
                         "Zaznacz to pole, żeby zarezerwować."

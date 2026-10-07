@@ -1491,11 +1491,18 @@ własne to dane klienta”); tu jest, jak to działa.
   już takiego pola) i `field_repeated`. Odpowiedzi wchodzą do skrótu żądania:
   ten sam klucz z innymi odpowiedziami to 409, jak przy każdej innej zmianie
   żądania.
-- **Obowiązkowe wiąże klienta, nie zespół.** Pole obowiązkowe zatrzymuje
-  rezerwację z formularza publicznego. Zespół i produkt mogą przekazać
-  odpowiedzi, ale o nic nie są pytani — jak przy dokumentach firmy (ADR-073
-  §9): biuro przyjmujące rezerwację przez telefon nie zna jeszcze numeru prawa
-  jazdy.
+- **Obowiązkowe wiąże tego, kto wypełnia formularz** (zmienione 07.10 po
+  odbiorze plastra, decyzja koordynatora w imieniu właściciela). Klienta w
+  formularzu publicznym i osobę z zespołu w oknach „Nowa wizyta” i „Nowy
+  pobyt”: biuro pyta dzwoniącego o to, o co zapytałby formularz. Okna panelu
+  pokazują pola oferty tym samym komponentem co formularz publiczny
+  (`OwnFields`; lista z `GET /booking/setup/fields/`), a serwer wymaga
+  odpowiedzi, gdy zapis przychodzi z tych okien (`staff_form` w
+  `create_appointment` i `book_stay`, ustawiane przez widoki panelu). Kto
+  formularza nie pokazuje — produkt rezerwujący przez `booking.api`, seed — może
+  przekazać odpowiedzi, ale o nic nie jest pytany. Okno wizyty rodzaju
+  produktu (sekcja produktu przejmuje „Zapisz”, ADR-067) pól rdzenia nie
+  pokazuje: produkt pyta o swoje.
 - **Odpowiedź jest daną klienta, zamrożoną na rezerwacji.**
   `Appointment.form_answers` trzyma migawkę: identyfikator pola, pytanie w
   języku firmy, rodzaj i wartość. Późniejsza zmiana albo wyłączenie pola
@@ -1518,6 +1525,15 @@ własne to dane klienta”); tu jest, jak to działa.
   Niezaznaczona zgoda nieobowiązkowa nie zostawia nic. Zgoda może być
   obowiązkowa („Znam regulamin obiektu”): to oświadczenie firmy wobec jej
   klienta, a treść pisze firma.
+- **Zgodę daje tylko klient.** Dziennik zgód nie umie powiedzieć „zaznaczone
+  przez pracownika w imieniu klienta” (wiersz nie ma autora ani kanału), więc
+  poza rezerwacją samego klienta pola zgody nie należą do formularza: okna
+  panelu ich nie pokazują, serwer ich od zespołu nie wymaga i odrzuca
+  odpowiedź, która taką zgodę nazywa (`field_unknown`). Rezerwacja wpisana
+  przez biuro w ofercie z obowiązkową zgodą nie ma więc wiersza dziennika —
+  firma zbiera ją inaczej (na miejscu). Zgoda „w imieniu” wymagałaby nowego
+  pojęcia w dzienniku (kto, jak i na jakiej podstawie) i jest pytaniem do
+  prawnika, nie szczegółem okna.
 - **Tłumaczenia przez katalog rezerwacji.** Pole jest rodzajem `field` źródła
   `booking.catalog` (TL12c): jednostki `field/<id>/name` i `field/<id>/options`,
   te same drzwi co nazwa dopłaty (`…/translations/field/<id>/`), bez nowego
@@ -1533,11 +1549,22 @@ własne to dane klienta”); tu jest, jak to działa.
   zastąpić (§10). `requiredInputs` zostają tym, czym były: danymi, których
   preset potrzebuje od firmy (daty sezonów, zdjęcia), i gotowe presety dalej
   ich nie niosą. Nowe wersje: „Nocleg” 6 („Przybliżona godzina przyjazdu”,
-  nieobowiązkowe), „Wypożyczalnia” 4 („Numer prawa jazdy”, nieobowiązkowe),
-  „Pobyt z opieką” 4 („Kogo lub co przyjmujemy…”, obowiązkowe — opis presetu
-  nie odsyła już do uwag). Oferta z wcześniejszej wersji nie dostaje pól sama;
-  firma dodaje je w „Pola formularza”. Podgląd polecenia `booking.preset.apply`
-  mówi, o co formularz zapyta, zanim osoba się zgodzi.
+  nieobowiązkowe) i „Pobyt z opieką” 4 („Kogo lub co przyjmujemy…”,
+  obowiązkowe — opis presetu nie odsyła już do uwag). Oferta z wcześniejszej
+  wersji nie dostaje pól sama; firma dodaje je w „Pola formularza”. Podgląd
+  polecenia `booking.preset.apply` mówi, o co formularz zapyta, zanim osoba się
+  zgodzi.
+- **„Wypożyczalnia” nie pyta domyślnie o numer prawa jazdy** (decyzja
+  właściciela 07.10, wariant b). Wersja 4 wzorca niosła nieobowiązkowe pole
+  „Numer prawa jazdy” (przykład z planu); wersja 5 nie niesie żadnego pola.
+  Wzorzec obejmuje także rowery, kajaki, sprzęt i stroje, a formularz nie może
+  domyślnie pytać o numer dokumentu, którego firma nie potrzebuje —
+  minimalizacja danych (art. 5 ust. 1 lit. c RODO): wypożyczalnia rowerów albo
+  kajaków pytałaby o niego każdego klienta tylko dlatego, że nikt pola nie
+  wyłączył. Wypożyczalnia aut dodaje pole sama w „Pola formularza”. Firma,
+  która zastosowała wersję 4, zostaje z tym, co ma: zastosowanie to kopia
+  (§10), a wersja wzorca nigdy nie przepisuje zastosowanej oferty; wersja 4
+  zostaje w manifeście bez zmian (opublikowanej wersji się nie zmienia).
 - **Żadne pole presetu nie pyta o dane szczególnych kategorii** (zdrowie,
   przekonania — art. 9 RODO). Takie pole w presecie to pytanie do właściciela i
   prawnika, nie decyzja techniczna. Firma pisze własne pytania sama; panel i
@@ -1549,13 +1576,14 @@ własne to dane klienta”); tu jest, jak to działa.
   galeria w formularzu mają znaczek „AI” i dopisek w `alt` — jak strona firmy
   i katalog.
 - **Dane pokazowe.** `seed_demo`: „Domki nad Jeziorem” pytają o godzinę
-  przyjazdu i łóżeczko dla dziecka (wybór), „Kajaki Krutynia” wyłączyły pytanie
-  presetu o prawo jazdy i pytają, ile osób nie umie pływać, oraz wymagają
+  przyjazdu i łóżeczko dla dziecka (wybór), „Kajaki Krutynia” pytają, ile osób
+  nie umie pływać, i wymagają
   zaznaczenia „Znam zasady bezpieczeństwa na wodzie”. Historie rezerwacji z
   formularza niosą odpowiedzi — dla nowych dni; rezerwacji już zasianych seed
   nie zmienia.
-- **Poza 5j:** wpisywanie odpowiedzi przez zespół w oknach „Nowa wizyta” i
-  „Nowy pobyt” (API je przyjmuje); pole wspólne dla wszystkich ofert;
+- **Poza 5j:** zgoda zaznaczana przez zespół w imieniu klienta (dziennik zgód
+  nie ma takiego pojęcia); zmiana odpowiedzi w zapisanej rezerwacji; pole
+  wspólne dla wszystkich ofert;
   przeciąganie kolejności (dziś liczba w oknie pola); odpowiedzi w linku
   klienta i w eksporcie; rodzaje „plik” i „godzina”; pola zależne od innej
   odpowiedzi; zgoda dłuższa niż 160 znaków; tłumaczenie odmów formularza na

@@ -45,12 +45,13 @@
     },
     {
       "id": "core.rental",
-      "latestVersion": 4,
+      "latestVersion": 5,
       "versions": {
         "1": "core.rental.v1.json",
         "2": "core.rental.v2.json",
         "3": "core.rental.v3.json",
-        "4": "core.rental.v4.json"
+        "4": "core.rental.v4.json",
+        "5": "core.rental.v5.json"
       }
     },
     {

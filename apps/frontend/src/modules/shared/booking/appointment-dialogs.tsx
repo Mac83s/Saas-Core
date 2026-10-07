@@ -107,6 +107,7 @@ import {
 } from "./calendar-time";
 import { DeclineRequestDialog } from "./decline-request-dialog";
 import { CrewDialog } from "./dispatch/crew-dialog";
+import { useOfferFields } from "./form-fields/use-offer-fields";
 import {
   draftsOf,
   materialsInput,
@@ -126,6 +127,12 @@ import {
   type Party,
 } from "./prices/party";
 import { usePriceBook } from "./prices/price-book";
+import {
+  answersMissing,
+  givenAnswers,
+  OwnFields,
+  refusedAnswers,
+} from "./public-booking-parts";
 import { visitName, visitPerson } from "./visit-name";
 
 type Slot = BookingSlotList["items"][number];
@@ -875,6 +882,12 @@ function NewAppointmentForm({
   const need = chosen?.staff_count ?? 1;
   const section = productSection(access, chosen?.appointment_kind);
   const Section = section?.formSection;
+  // What the service's own form asks (ADR-072, slice 5j): the office answers
+  // it for the customer — all but the consents, which are theirs. A product's
+  // section books its own kind of visit itself, so it asks its own things.
+  const asks = useOfferFields(section ? "" : serviceId);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [refused, setRefused] = useState<Record<string, string>>({});
   const slots = crewSlots(search.slots, crew, need);
   const names = new Map(catalog.staff.map((item) => [item.id, item.name]));
   // Who the search found free at the chosen time: the add list says so.
@@ -1035,6 +1048,9 @@ function NewAppointmentForm({
       return;
     }
     setProblem(undefined);
+    // Said at each field left empty.
+    if (answersMissing(asks, answers)) return;
+    const given = givenAnswers(asks, answers);
     const notes = values.notes.trim();
     const town = values.place_town.trim();
     const address = values.place_address.trim();
@@ -1052,6 +1068,7 @@ function NewAppointmentForm({
         ...(customerLocale ? { locale: customerLocale } : {}),
       },
       ...(notes ? { customer_notes: notes } : {}),
+      ...(given.length ? { answers: given } : {}),
       ...(town || address ? { place_town: town, place_address: address } : {}),
       ...(edited && takesMaterials
         ? { materials: materialsInput(edited) }
@@ -1087,6 +1104,8 @@ function NewAppointmentForm({
         setVersion((value) => value + 1);
       const own = section?.problemErrors?.(error);
       if (own) setSectionErrors(own);
+      // What the server refuses of an answer is said at its field.
+      setRefused(refusedAnswers(error) ?? {});
       for (const [field, message] of fieldProblems(error))
         form.setError(field, { message });
       setProblem(problemText(error, t, "createError"));
@@ -1453,6 +1472,16 @@ function NewAppointmentForm({
           <FieldDescription>{t("notesHint")}</FieldDescription>
           <FieldError errors={[errors.notes]} />
         </Field>
+        <OwnFields
+          fields={asks}
+          onChange={(next) => {
+            setAnswers(next);
+            setRefused({});
+          }}
+          refused={refused}
+          tried={form.formState.submitCount > 0}
+          values={answers}
+        />
       </FieldSet>
       <FieldSet className={cn(summed && "hidden")}>
         <FieldLegend>{t("placeLegend")}</FieldLegend>
