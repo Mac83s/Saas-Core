@@ -481,7 +481,8 @@ def test_a_company_with_orders_keeps_its_currency_and_its_erasure_takes_them() -
 
 
 def test_two_sources_never_number_into_one_sequence() -> None:
-    assert [(source.kind, source.prefix) for source in order_sources()] == [("booking", "R")]
+    # Among whatever a composition's own modules number.
+    assert ("booking", "R") in [(source.kind, source.prefix) for source in order_sources()]
     with pytest.raises(ImproperlyConfigured, match="belongs to 'booking'"):
         register_order_source("shop", "R")
     with pytest.raises(ImproperlyConfigured, match="capital letters"):
@@ -595,7 +596,7 @@ def test_the_panel_lists_filters_and_reads_orders_over_the_api() -> None:
 
     options = client.get("/api/v1/commerce/options/").json()
     assert options["currency"] == "PLN"
-    assert options["sources"] == [{"kind": "booking", "prefix": "R"}]
+    assert {"kind": "booking", "prefix": "R"} in options["sources"]
     assert options["statuses"][:2] == ["draft", "awaiting_payment"]
     assert options["channels"] == ["company_site", "catalog", "office"]
     assert (options["tax_rates"], options["max_page_size"]) == (
