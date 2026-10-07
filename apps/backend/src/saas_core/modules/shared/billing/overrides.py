@@ -117,13 +117,7 @@ def create_entitlement_override(
         expires_at=expires_at,
     )
     if starts_at <= checked_at:
-        # The platform workspace has no plan to recompute against, so its
-        # snapshot is built from these overrides alone. Same audited path,
-        # same entitlement check afterwards.
-        if organization.workspace_kind == WorkspaceKind.PLATFORM:
-            refresh_internal_snapshot(organization, at=checked_at)
-        else:
-            refresh_entitlement_snapshot(organization, at=checked_at)
+        _refresh_snapshot(organization, at=checked_at)
     record_audit(
         organization=organization,
         action=OrganizationAuditAction.BILLING_OVERRIDE_CREATED,
@@ -158,7 +152,7 @@ def revoke_entitlement_override(*, actor: User, grant_id: UUID, reason: str) -> 
         return grant
     grant.revoked_at = timezone.now()
     grant.save(update_fields=["revoked_at", "updated_at"])
-    refresh_entitlement_snapshot(organization)
+    _refresh_snapshot(organization)
     record_audit(
         organization=organization,
         action=OrganizationAuditAction.BILLING_OVERRIDE_REVOKED,
@@ -217,7 +211,7 @@ def _expire_override_in_scope(*, grant_id: UUID, at: datetime) -> None:
     Organization.objects.select_for_update().get(pk=grant.organization_id)
     grant.revoked_at = expired_at
     grant.save(update_fields=["revoked_at", "updated_at"])
-    refresh_entitlement_snapshot(grant.organization, at=at)
+    _refresh_snapshot(grant.organization, at=at)
     record_audit(
         organization=grant.organization,
         action=OrganizationAuditAction.BILLING_OVERRIDE_EXPIRED,
@@ -226,6 +220,17 @@ def _expire_override_in_scope(*, grant_id: UUID, at: datetime) -> None:
         target_id=grant.id,
         metadata={"expired_at": expired_at.isoformat()},
     )
+
+
+def _refresh_snapshot(organization: Organization, *, at: datetime | None = None) -> None:
+    """The platform workspace has no plan to recompute against, so its snapshot
+    is built from its overrides alone — when one is granted, and just the same
+    when one is revoked or runs out. Same audited path, same entitlement check
+    afterwards."""
+    if organization.workspace_kind == WorkspaceKind.PLATFORM:
+        refresh_internal_snapshot(organization, at=at)
+    else:
+        refresh_entitlement_snapshot(organization, at=at)
 
 
 def _authorize_operator(actor: User) -> None:

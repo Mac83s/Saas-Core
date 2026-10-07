@@ -279,18 +279,102 @@ def test_provisioning_grants_internal_entitlements_through_the_audited_path() ->
     ).exists()
 
     grants = EntitlementGrant.all_objects.filter(organization=workspace)
-    assert sorted(grant.feature.key for grant in grants) == [
+    assert sorted(grant.feature.key for grant in grants if grant.feature_id) == [
+        "custom_domain.enabled",
         "sites.enabled",
         "storage.enabled",
     ]
+    # One site and room for its files (ADR-077): without the quotas the
+    # workspace could hold the features and still create nothing.
+    assert {
+        grant.quota_definition.key: grant.limit_value
+        for grant in grants
+        if grant.quota_definition_id
+    } == {"sites.max": 1, "storage.bytes": 20 * 1024**3}
     assert all(grant.source == GrantSource.OVERRIDE for grant in grants)
     assert all(grant.granted_by_id == person.id for grant in grants)
     assert OrganizationAuditEntry.objects.filter(organization=workspace).exists()
 
-    # Safe to repeat: a second run adds neither a workspace nor a second grant.
-    call_command("provision_platform_workspace", operator=person.email)
+    # Safe to repeat, by this operator or another one: a second run adds
+    # neither a workspace nor a second grant, and asks for no other size.
+    second = operator(email="drugi-operator@example.test")
+    confirm_mfa(second)
+    for email in (person.email, second.email):
+        call_command("provision_platform_workspace", operator=email, storage_gib=50)
     assert Organization.objects.filter(workspace_kind=WorkspaceKind.PLATFORM).count() == 1
-    assert EntitlementGrant.all_objects.filter(organization=workspace).count() == 2
+    assert EntitlementGrant.all_objects.filter(organization=workspace).count() == 5
+    assert Membership.objects.filter(organization=workspace).count() == 2
+
+
+def _enter_workspace(person: User, secret: str, workspace: Organization) -> APIClient:
+    from saas_core.modules.core.identity.mfa import current_totp_code
+
+    client = APIClient(enforce_csrf_checks=True)
+    assert login(client, person).status_code == 202
+    confirmed = client.post(
+        "/api/v1/auth/login/mfa/",
+        {"code": current_totp_code(secret, at=timezone.now().timestamp() + 30)},
+        format="json",
+        HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
+    )
+    assert confirmed.status_code == 200, confirmed.data
+    session = client.session
+    session[ACTIVE_ORGANIZATION_SESSION_KEY] = str(workspace.id)
+    session.save()
+    return client
+
+
+def test_the_provisioned_workspace_publishes_one_site_with_files_and_a_domain() -> None:
+    """What `create_site`, an upload and a domain really ask for (ADR-077):
+    through the panel's own API, with no plan and no checkout behind it."""
+    from saas_core.modules.shared.billing.models import EntitlementGrant
+    from saas_core.modules.shared.billing.overrides import revoke_entitlement_override
+    from saas_core.modules.shared.billing.snapshots import EntitlementSnapshot
+    from test_domains import create_custom_domain
+    from test_media_api import initiate_upload
+    from test_sites_api import create_site
+
+    person = operator()
+    secret = confirm_mfa(person)
+    call_command("provision_platform_workspace", operator=person.email, storage_gib=1)
+    workspace = Organization.objects.get(workspace_kind=WorkspaceKind.PLATFORM)
+    client = _enter_workspace(person, secret, workspace)
+
+    site = create_site(client, slug="puppily")
+    assert site.status_code == 201, site.data
+    # One site, not as many as it likes.
+    assert create_site(client, slug="drugi", idempotency_key="site-two").status_code == 409
+    # Reserved against `storage.bytes`: without the quota this is refused.
+    assert initiate_upload(client).status_code == 201
+    domain = create_custom_domain(client, site.data["id"], "produkt.example.test", key="domain")
+    assert domain.status_code == 201, domain.data
+
+    # A limit is changed the way an operator changes a customer's: the old
+    # grant revoked, the command run again. The snapshot follows both steps.
+    from saas_core.modules.core.organizations.context import (
+        TenantContext,
+        activate_tenant_context,
+    )
+
+    grant = EntitlementGrant.all_objects.get(
+        organization=workspace, quota_definition__key="storage.bytes"
+    )
+    membership = Membership.objects.get(organization=workspace, user=person)
+    with activate_tenant_context(
+        TenantContext(
+            organization_id=workspace.id,
+            membership_id=membership.id,
+            actor_id=person.id,
+            role_key="owner",
+            permissions=frozenset({"organization.billing.manage"}),
+        )
+    ):
+        revoke_entitlement_override(actor=person, grant_id=grant.id, reason="Większy dysk.")
+    snapshot = EntitlementSnapshot.all_objects.get(organization=workspace)
+    assert "storage.bytes" not in snapshot.quotas and snapshot.quotas["sites.max"] == 1
+    call_command("provision_platform_workspace", operator=person.email, storage_gib=3)
+    snapshot.refresh_from_db()
+    assert snapshot.quotas == {"sites.max": 1, "storage.bytes": 3 * 1024**3}
 
 
 def test_provisioning_refuses_an_actor_who_is_not_an_operator_with_mfa() -> None:
