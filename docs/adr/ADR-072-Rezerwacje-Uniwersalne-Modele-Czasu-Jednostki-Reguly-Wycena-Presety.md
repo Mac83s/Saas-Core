@@ -641,7 +641,7 @@ prowadzi.
 | **5f** | Szablon „Noclegi” (start, domki, okolica, galeria, cennik, regulamin, kontakt z mapą) według listy „Szablony nastawione na konwersję”; strona prawna witryny z dokumentów firmy (ADR-073, „Otwarte technicznie”) | — | biblioteka szablonów, strona firmy |
 | **5g** | Presety przy ręcznym zakładaniu firmy: gotowe do zastosowania, „wkrótce” z zapisem i pytaniem „Czego Ci brakuje?”; preset podpowiada kategorię katalogu i szablon strony. Ścieżka ręczna jest pierwsza — asystent (faza A6 jego planu) korzysta z niej, nie odwrotnie | według plastra | zakładanie firmy, Ustawienia |
 | **5h** | Katalog: kategoria z presetu, odznaka i filtr „rezerwacja online” (rejestr profiles, §11), strona jednostki pod `/katalog/<miasto>/<firma>/<jednostka>`, podpisany token pochodzenia i kanał `catalog` na rezerwacji | booking (kanał na rezerwacji) | katalog |
-| **5i** | Języki profilu (pilot PL, EN, DE): wszystko, co widzi gość — formularz, kalendarz, komunikaty odmów, e-maile — w językach firmy; orientacyjne przeliczenie walut na stronie w obcym języku (decyzja 16) | — | formularz, strona firmy |
+| **5i** | Języki profilu (pilot PL, EN, DE): wszystko, co widzi gość — formularz, kalendarz, komunikaty odmów, e-maile — w językach firmy; orientacyjne przeliczenie walut na stronie w obcym języku (decyzja 16) | organizations (tabela kursów) | formularz, strona firmy, katalog |
 | **5j** | Pola własne formularza (`booking.field`) z presetu i oferty | booking | oferta, formularz |
 
 Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
@@ -1006,7 +1006,9 @@ Rozstrzygnięcia tego uzupełnienia (decyzje techniczne, z powodem):
   podstrony odpowiadają pierwsze. Słowo jest angielskie i ogólne: jednostką
   bywa domek, pokój i kajak, a adres per język wymagałby zamrożenia slugu
   wersji językowej, której ta strona nie ma.
-- **Inny język tylko tam, gdzie jednostka ma w nim własną nazwę.** Strona
+- **Inny język tylko tam, gdzie jednostka ma w nim własną nazwę.** (Od 5i
+  adres w języku bez nazwy odpowiada 200 w tym języku zamiast 308 — poza
+  indeksem; „Rozstrzygnięcia plastra 5i”.) Strona
   jest zawsze w języku źródłowym witryny. W języku L istnieje, gdy L jest
   dostępny na stronie (ADR-071 pkt 8) i jednostka — albo grupa, którą
   reprezentuje — ma w L przetłumaczoną nazwę; inaczej `/L/stay/<adres>/`
@@ -1588,3 +1590,127 @@ własne to dane klienta”); tu jest, jak to działa.
   klienta i w eksporcie; rodzaje „plik” i „godzina”; pola zależne od innej
   odpowiedzi; zgoda dłuższa niż 160 znaków; tłumaczenie odmów formularza na
   wszystkie języki firmy (5i).
+
+### Rozstrzygnięcia plastra 5i (języki i waluta gościa)
+
+Plaster 5i domyka to, co gość czyta w swoim języku, i dodaje orientacyjną kwotę
+w jego walucie (decyzja 16). Mechanizmu tłumaczeń nie buduje: nazwy i opisy
+ofert, jednostek, grup, kategorii, dopłat i pól formularza są jednostkami źródła
+`booking.catalog` (TL12c, 5j), treść strony — źródeł stron (TL11), e-maile do
+klientów mają wersje pl, en i de (TL17), a tłumaczenie AI zamawia się w
+„Strona internetowa → Tłumaczenia”. Jedna migracja: organizations 0060 (tabela
+kursów, odwracalna) — tabela plastrów mówiła „bez migracji”, zanim było
+wiadomo, skąd kurs.
+
+- **Każda odmowa, na którą gość może trafić, ma zdanie w jego języku.** Jedna
+  lista kodów (`REFUSALS` w `public-booking-parts.tsx`) i trzy zdania z
+  wariantami: pobyt (`PublicBooking.stayRefused`), wizyta
+  (`PublicBooking.visitRefused`, zastępuje ogólne `createError`) i link
+  klienta (`BookingSelfService.refused`). Doszły reguły sezonu
+  (`rule_closed`, `rule_window`, `rule_start_weekday`, `rule_end_weekday`,
+  `rule_length_multiple`), `closed_day`, `end_before_start`, `booking_paused`
+  (pauza włączona po otwarciu strony), `extra_quantity_exceeded`,
+  `participants_required` i `appointment_not_changeable`. Zapis pobytu
+  odrzucony z innego powodu niż cena mówi powód, a nie „sprawdź dane”. Kod,
+  dla którego strona nie ma zdania, czyta się jak dotąd jako ogólne („tego
+  terminu nie można zarezerwować”) — to kody, których gość nie naprawi
+  wyborem (`booking_idempotency_conflict`, `currency_mismatch`,
+  `unit_without_place`). **Zdanie serwera nigdy nie trafia na stronę**: jest
+  w jednym języku; strona czyta tylko kod. Katalogi gościa pl, en i de są
+  kompletne (pilnuje tego `guest-messages.test.ts`); es i ru czytają dla
+  nowych zdań angielski.
+- **Formularz mówi słowami oferty tam, gdzie ktoś je ma.** Katalog formularza
+  oddaje przy pobycie `words`: `unit` („Domek” zamiast „Co rezerwujesz?”) i
+  `participants` („Goście” zamiast „Osoby”) w języku strony
+  (`presets.guest_words`). W języku, w którym firma pisze, są to słowa oferty
+  (`Service.vocabulary`), w innym — słowa wersji wzorca, z której oferta
+  powstała. Wzorce mówią po polsku i angielsku, więc **strona niemiecka
+  czyta słowa ogólne formularza** („Personen”) — poprawne, tylko nie własne
+  oferty. Firma pisząca po niemiecku też: jej kopia słów powstała z wersji
+  angielskiej (łańcuch z §10) i nie jest niemiecka. Wiersze tłumaczeń
+  słownictwa, które zapowiadało „Uzupełnienie 2026-10-03: zastosowanie
+  presetu” („powstaną z pierwszym czytelnikiem”), nie powstają: słownictwa
+  nikt nie edytuje (żadne API go nie zapisuje), więc tłumaczenie per firma
+  byłoby migracją i jednostkami silnika dla ośmiu słów, które wzorzec zna
+  sam. Niemieckie słowa dojdą z kolejną wersją wzorców (zmiana treści to nowa
+  wersja), nie w dniu, w którym „Nocleg” dostał już wersję 6.
+- **Strona jednostki odpowiada w każdym języku strony firmy — 200, nie 308.**
+  Zmienia „Inny język tylko tam, gdzie jednostka ma w nim własną nazwę” z 5e
+  w jednym punkcie: `/de/stay/<adres>/` jednostki bez niemieckiej nazwy nie
+  przenosi już na stronę polską, tylko odpowiada po niemiecku — słownik
+  (wyposażenie, kalendarz, przyciski, kwota orientacyjna) w języku strony,
+  nazwa i opis w języku firmy, oznaczone atrybutem `lang` (`lang` przy
+  wyborze w `live` i w katalogu formularza; mówi o nazwie). Taka strona **nie
+  jest wersją językową**: `noindex`, bez `hreflang`, poza mapą strony;
+  indeksowane zostają języki, w których jednostka ma własną nazwę — jak
+  strona jednostki w katalogu (5h). Powód: gość strony niemieckiej klika
+  domek z listy i dotąd lądował na stronie polskiej, z polskim kalendarzem i
+  odnośnikiem do polskiego formularza — tracił język dokładnie w chwili,
+  gdy chciał rezerwować. ADR-071 pkt 9 (308 do języka źródłowego) mówi o
+  wersjach językowych podstron, których nikt nie opublikował; strona
+  jednostki wersji nie ma — buduje ją źródło przy żądaniu i umie ją zbudować
+  w każdym języku. Źródło mówi to flagą `SourcePage.any_language`
+  (`core.organizations.public_sources`); rekord bez flagi zachowuje 308, a
+  język, w którym strona firmy nie jest czytana, zostaje 404.
+- **Kwota w walucie gościa to informacja obok ceny, nigdy cena.** Strona w
+  języku, którego czytelnicy liczą w innej walucie niż firma, pokazuje po
+  cenie „≈ 68 €” i jedno zdanie: „Kwoty po znaku ≈ są orientacyjne: kurs NBP
+  z 7 paź 2026. Rezerwujesz i płacisz w PLN.” Wycena, jej skrót, migawka w
+  rezerwacji, zamówienie, e-maile i ceny w JSON-LD zostają w walucie firmy i
+  nic o kursie nie wiedzą (test: `"EUR" not in str(stay.quote)`).
+- **Serwer daje kurs, strona liczy kwotę.** Odpowiedzi, które niosą ceny
+  gościa, dostają `conversion` — `currency`, `rate` (ile waluty gościa za
+  jednostkę waluty firmy, sześć miejsc), `date` (dzień tabeli) i `bank`
+  (nazwa w języku strony: NBP, EBC/ECB/EZB) — albo `null`: katalog formularza
+  (`GET /booking/public/<slug>/`), `live` bloków pobytu, wizytówka i strona
+  jednostki w katalogu (`booking.conversion`), rezerwacja i link klienta.
+  Kwotę liczy jedna funkcja (`approxAmount` w `@saas-core/site-blocks`):
+  kwota w groszach razy kurs, od dziesięciu jednostek w górę bez groszy.
+  Kwoty przeliczonej serwer nie oddaje przy żadnej cenie: jedna liczba na
+  odpowiedź zamiast drugiej kwoty przy każdej pozycji wyceny, przy „od X zł”
+  i przy dopłatach, i nic, co musiałoby się zgadzać z migawką. Figurę dostaje
+  „od X zł/noc” i suma wyceny; pozycje, kaucja i przedpłata — nie.
+- **Waluta czytelnika wynika z języka strony** (`READER_CURRENCY` w
+  `exchange_rates.py`): pl — PLN, en, de i es — EUR; ru nie ma waluty
+  (czytany w zbyt wielu), więc nie ma kwoty. Angielski czyta euro, walutę
+  rynków, na które platforma wchodzi. Gdy waluta czytelnika jest walutą
+  firmy, nie ma czego przeliczać. Wybór waluty per język przez firmę (USD dla
+  angielskiego) zostaje poza plastrem.
+- **Kursy są w rdzeniu, z dziennej tabeli banku centralnego.**
+  `core.organizations.exchange_rates`: tabela A NBP (kursy średnie w złotych)
+  albo kursy referencyjne EBC — bezpłatne, bez klucza; które, mówi ustawienie
+  platformy `exchange_rates.source` (domyślnie `nbp`; plan, T22: „dla PLN
+  tabela NBP; źródło kursów jako ustawienie platformy”). Kursy krzyżowe
+  (EUR↔USD z tabeli NBP) liczą się przez walutę tabeli. Tabela trafia do
+  `ExchangeRateTable` (wiersz na źródło i dzień publikacji; bez organizacji,
+  więc bez RLS), zostają w niej tylko waluty firm i czytelników. Zadanie
+  `refresh_exchange_rates` chodzi co trzy godziny (banki publikują raz w dniu
+  roboczym: NBP około południa, EBC około 16:00) i **pyta bank tylko wtedy,
+  gdy nie ma jeszcze dzisiejszej tabeli** — kilka zapytań dziennie, to jedyne
+  wyjście tego mechanizmu na zewnątrz. Odpowiedź, która nie jest tabelą,
+  niczego nie zmienia. Rdzeń, nie booking: kwoty pokaże też sklep (ADR-074),
+  a produkt bez rezerwacji nie powinien dostawać drugiego mechanizmu.
+- **Stary kurs to brak kwoty.** Tabela starsza niż pięć dni (`MAX_AGE_DAYS`,
+  stała ochronna: najdłuższa przerwa w publikacji to czwartek–wtorek w
+  Wielkanoc) nie jest pokazywana; strona wtedy po prostu nie ma figury ani
+  zdania. Dzień tabeli jest zawsze w zdaniu obok kwoty.
+- **Firma może to wyłączyć.** Ustawienie `booking.online.price_conversion`
+  („Pokazuj gościom orientacyjną cenę w ich walucie”, domyślnie włączone) w
+  grupie „Rezerwacja online” — panel, API i polecenie asystenta
+  `booking.settings_online.update` dostają je z rejestru. Jedno miejsce czyta
+  przełącznik i kurs: `company_settings.shown_conversion`.
+- **Słowa wyceny i e-mail o zmianie osoby po niemiecku.** Pozycje, których
+  cennik nie nazywa („Dodatkowa osoba”, „Rabat za długość pobytu”), mają
+  niemieckie słowa. E-mail „zmieniła się osoba” pytał o język wersję 1
+  szablonu (pl, en), a wysyłał wersję 2 — klient niemiecki dostawał
+  angielski; teraz jedno nazwane miejsce mówi wersję (`PERSON_CHANGED_VERSION`).
+- **Poza 5i:** niemieckie słowa ofert (kolejna wersja wzorców albo
+  słownictwo jako pole tłumaczone); waluta czytelnika wybierana przez firmę i
+  waluty spoza PLN, EUR, USD; kwota orientacyjna przy pozycjach wyceny,
+  dopłatach, kaucji i przedpłacie; e-maile pobytu mówiące dzień wyjazdu i
+  jednostkę (dziś każdy mówi tylko początek, słowami wizyty — „Termin”);
+  zdania odmów w es i ru; `lang` przy nazwach w samym formularzu; dzień
+  ostatniej tabeli kursów widoczny dla operatora w panelu (dziś mówi go
+  `manage.py refresh_exchange_rates`). Tłumaczenie AI katalogu rezerwacji i
+  stron do en i de sprawdzone jest tylko z atrapą modelu — próba na żywym
+  modelu czeka na doładowanie konta OpenRouter.
