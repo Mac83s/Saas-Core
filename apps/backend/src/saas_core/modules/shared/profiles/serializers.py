@@ -2,6 +2,8 @@ from typing import Any
 
 from rest_framework import serializers
 
+from saas_core.modules.core.organizations.serializers import PriceConversionSerializer
+
 from .models import CatalogLayout, ProfileSubjectKind
 
 
@@ -261,6 +263,12 @@ class CatalogBookingSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="The units the form shows the content of; empty for a company "
         "that books visits only.",
     )
+    conversion = PriceConversionSerializer(
+        required=False,
+        allow_null=True,
+        help_text="Roughly what the prices are in the currency of whoever reads the page's "
+        "language, for an indicative figure beside each; null — nothing to convert.",
+    )
 
 
 class CatalogProfileSerializer(CatalogItemSerializer):
@@ -358,6 +366,12 @@ class CatalogUnitFormSerializer(serializers.Serializer[dict[str, Any]]):
     paused = serializers.BooleanField(help_text="The company paused online booking.")
     origin = serializers.CharField(
         help_text="The token a link to the form carries as `origin` (see the card)."
+    )
+    conversion = PriceConversionSerializer(
+        required=False,
+        allow_null=True,
+        help_text="Roughly what the unit's price is in the currency of whoever reads the "
+        "page's language; null — nothing to convert.",
     )
 
 

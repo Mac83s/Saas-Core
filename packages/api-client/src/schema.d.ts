@@ -9404,6 +9404,8 @@ export interface components {
             contact?: components["schemas"]["ContactA7eEnum"] | components["schemas"]["NullEnum"];
             /** @description On: the booking form on the company's site shows one optional box, unticked by default, asking the customer whether they want the company's offers and promotions by e-mail; a ticked box is a line of the consent journal. Off: the form does not ask. */
             marketing_consent?: boolean | null;
+            /** @description On: where the booking form, the company's site or its catalogue page is read in a language whose readers count in another currency than the company's, each price shown to a guest gets an indicative converted figure beside it, from the central bank's daily reference rate with the rate's day, and a note that the booking and the payment are in the company's currency. Nothing but the display changes: quotes, orders and e-mails stay in the company's currency. Off: no converted figure is shown. */
+            price_conversion?: boolean | null;
         };
         /**
          * @description * `paused` - paused
@@ -9411,9 +9413,10 @@ export interface components {
          *     * `horizon_days` - horizon_days
          *     * `contact` - contact
          *     * `marketing_consent` - marketing_consent
+         *     * `price_conversion` - price_conversion
          * @enum {string}
          */
-        BookingOnlineSettingsChangeResetEnum: "paused" | "resume_on" | "horizon_days" | "contact" | "marketing_consent";
+        BookingOnlineSettingsChangeResetEnum: "paused" | "resume_on" | "horizon_days" | "contact" | "marketing_consent" | "price_conversion";
         BookingOnlineSettingsPreview: {
             /** @description The version token the preview read. */
             version: string;
@@ -9433,6 +9436,7 @@ export interface components {
             horizon_days: components["schemas"]["SettingSourceEnum"];
             contact: components["schemas"]["SettingSourceEnum"];
             marketing_consent: components["schemas"]["SettingSourceEnum"];
+            price_conversion: components["schemas"]["SettingSourceEnum"];
         };
         BookingOnlineSettingsValues: {
             /** @description Paused: the booking form on the company's site says online booking is paused and refuses new bookings; the team still adds visits in the panel and customers can still change or cancel theirs. */
@@ -9455,6 +9459,8 @@ export interface components {
             contact: components["schemas"]["ContactA7eEnum"];
             /** @description On: the booking form on the company's site shows one optional box, unticked by default, asking the customer whether they want the company's offers and promotions by e-mail; a ticked box is a line of the consent journal. Off: the form does not ask. */
             marketing_consent: boolean;
+            /** @description On: where the booking form, the company's site or its catalogue page is read in a language whose readers count in another currency than the company's, each price shown to a guest gets an indicative converted figure beside it, from the central bank's daily reference rate with the rate's day, and a note that the booking and the payment are in the company's currency. Nothing but the display changes: quotes, orders and e-mails stay in the company's currency. Off: no converted figure is shown. */
+            price_conversion: boolean;
         };
         /**
          * @description A booking's price (ADR-072 §7): whole minor units, the tax worked out on
@@ -9933,6 +9939,8 @@ export interface components {
             origin: string;
             /** @description The units the form shows the content of; empty for a company that books visits only. */
             units: components["schemas"]["CatalogBookableUnit"][];
+            /** @description Roughly what the prices are in the currency of whoever reads the page's language, for an indicative figure beside each; null — nothing to convert. */
+            conversion?: components["schemas"]["PriceConversion"] | null;
         };
         CatalogCategory: {
             key: string;
@@ -10202,6 +10210,8 @@ export interface components {
             paused: boolean;
             /** @description The token a link to the form carries as `origin` (see the card). */
             origin: string;
+            /** @description Roughly what the unit's price is in the currency of whoever reads the page's language; null — nothing to convert. */
+            conversion?: components["schemas"]["PriceConversion"] | null;
         };
         /**
          * @description An offer the unit is booked through, with the one choice that books
@@ -14441,6 +14451,8 @@ export interface components {
             contact?: components["schemas"]["ContactA7eEnum"] | components["schemas"]["NullEnum"];
             /** @description On: the booking form on the company's site shows one optional box, unticked by default, asking the customer whether they want the company's offers and promotions by e-mail; a ticked box is a line of the consent journal. Off: the form does not ask. */
             marketing_consent?: boolean | null;
+            /** @description On: where the booking form, the company's site or its catalogue page is read in a language whose readers count in another currency than the company's, each price shown to a guest gets an indicative converted figure beside it, from the central bank's daily reference rate with the rate's day, and a note that the booking and the payment are in the company's currency. Nothing but the display changes: quotes, orders and e-mails stay in the company's currency. Off: no converted figure is shown. */
+            price_conversion?: boolean | null;
         };
         PatchedBookingRemindersSettingsChange: {
             /** @description The version token read with the values; a stale one is a 409. */
@@ -15696,6 +15708,25 @@ export interface components {
             recorded_since: string | null;
             items: components["schemas"]["PriceChange"][];
         };
+        /**
+         * @description Roughly what the company's prices are in the reader's own currency
+         *     (`exchange_rates.conversion`; ADR-072, slice 5i). Information for the page
+         *     only: every amount of a quote, an order and a payment stays in the
+         *     company's currency, and whoever shows the figure says so beside it.
+         */
+        PriceConversion: {
+            /** @description The reader's currency, ISO 4217. */
+            currency: string;
+            /** @description How much of it one unit of the company's currency is, a decimal string (`0.228326`). An amount in minor units times the rate, rounded, is the figure to show after „≈” — never an amount to charge. */
+            rate: string;
+            /**
+             * Format: date
+             * @description The day of the central bank's table.
+             */
+            date: string;
+            /** @description Whose table it is, as the page names it in its language: NBP, ECB (EBC, EZB). */
+            bank: string;
+        };
         PriceListOn: {
             /** Format: date */
             day: string;
@@ -16175,6 +16206,8 @@ export interface components {
             self_service: components["schemas"]["PublicSelfService"];
             /** @description The price frozen when the visit was booked or last moved; null when the service had none. */
             quote?: components["schemas"]["PublicQuote"] | null;
+            /** @description Roughly what the quote is in the currency of whoever reads the customer's language — for an indicative figure beside the total. Null: nothing to convert, no fresh rate, or the company switched it off. */
+            conversion?: components["schemas"]["PriceConversion"] | null;
         };
         /**
          * @description The customer names the service, place and time, and — where the service
@@ -16256,6 +16289,8 @@ export interface components {
             form_fields?: components["schemas"]["PublicFormField"][];
             /** @description The currency of the company's prices, ISO 4217. */
             currency?: string;
+            /** @description Roughly what the prices are in the currency of whoever reads this language: the rate of a central bank's daily table, for an indicative figure beside each price. Null: the reader counts in the company's currency, no rate is fresh, or the company switched it off (`booking.online.price_conversion`). Amounts of a quote and of the order stay in the company's currency. */
+            conversion?: components["schemas"]["PriceConversion"] | null;
             timezone: string;
             /** @description Whether the company takes online bookings now (ADR-078, booking.online). */
             online: components["schemas"]["PublicOnline"];
@@ -16815,6 +16850,8 @@ export interface components {
             from_price: components["schemas"]["PublicFromPrice"] | null;
             /** @description The address segment of the unit whose content this is — the unit itself, or the one that speaks for its group; its own page on the company's site is `/stay/<public_slug>/`. Empty where the company shows none. */
             public_slug: string;
+            /** @description The language `name` and `description` are in: the one asked for where the company wrote the name in it, otherwise the company's own. */
+            lang?: string;
             /**
              * Format: uuid
              * @description Send it as `group_id`.
@@ -16880,6 +16917,10 @@ export interface components {
             confirmation: components["schemas"]["ConfirmationEnum"];
             /** @description With `on_request`: how many hours the company has to answer. */
             response_hours: number;
+            /** @description The offer's own words for the form's labels, in the language asked for: `unit` — what is booked („Domek”), `participants` — who comes („Goście”). A key is absent where the offer has no word in that language; the form then says its general one. */
+            words?: {
+                [key: string]: string;
+            };
             groups: components["schemas"]["PublicStayGroup"][];
             units: components["schemas"]["PublicStayUnit"][];
         };
@@ -16948,6 +16989,8 @@ export interface components {
             from_price: components["schemas"]["PublicFromPrice"] | null;
             /** @description The address segment of the unit whose content this is — the unit itself, or the one that speaks for its group; its own page on the company's site is `/stay/<public_slug>/`. Empty where the company shows none. */
             public_slug: string;
+            /** @description The language `name` and `description` are in: the one asked for where the company wrote the name in it, otherwise the company's own. */
+            lang?: string;
             /**
              * Format: uuid
              * @description Send it as `resource_id`.

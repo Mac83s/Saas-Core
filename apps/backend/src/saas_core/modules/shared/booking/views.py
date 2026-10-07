@@ -38,6 +38,7 @@ from .company_settings import (
     online_last_day,
     online_paused,
     self_service_allows,
+    shown_conversion,
 )
 from .consents import BookingConsents
 from .consents import shown as consents_shown
@@ -473,6 +474,12 @@ def _public_appointment_payload(value: Any, token: str | None = None) -> dict[st
         **({"self_service_token": token} if token else {}),
         "self_service": _self_service(value),
         "quote": customer_quote(value.quote),
+        # Beside the total, roughly what it is in the customer's own money.
+        "conversion": (
+            shown_conversion(value.quote["currency"], value.customer.locale)
+            if value.quote
+            else None
+        ),
     }
 
 
@@ -1403,6 +1410,11 @@ class PublicBookingCatalogView(APIView):
                 "form_fields": offered_fields(organization, priced, locale),
                 "timezone": _zone().key,
                 "currency": organization.currency,
+                # Roughly what the prices are in the reader's own money: for
+                # the figure beside a price, never for an amount (slice 5i).
+                "conversion": shown_conversion(
+                    organization.currency, locale or source_locale(organization)
+                ),
                 "online": {
                     "paused": paused,
                     "resume_on": resume_on,

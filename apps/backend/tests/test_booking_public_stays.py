@@ -146,12 +146,15 @@ def test_the_form_lists_stays_apart_from_visits_with_what_a_guest_chooses() -> N
         "range_end_local": stay["range_end_local"],
         "confirmation": "instant",
         "response_hours": 24,
+        # An offer made by hand has no words of a preset.
+        "words": {},
         # A group is one choice: which of its cottages, the server picks.
         "groups": [
             {
                 "id": str(configured["group"].id),
                 "name": "Domek 6-os.",
                 "description": "",
+                "lang": "pl",
                 "capacity": 6,
                 "units": 2,
                 **plain,
@@ -162,6 +165,7 @@ def test_the_form_lists_stays_apart_from_visits_with_what_a_guest_chooses() -> N
                 "id": str(lakeside.id),
                 "name": "Apartament nad jeziorem",
                 "description": "Z tarasem.",
+                "lang": "pl",
                 "capacity": 4,
                 "public_slug": "",
                 **plain,

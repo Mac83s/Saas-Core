@@ -241,7 +241,7 @@ def refresh(*, today: date | None = None) -> ExchangeRateTable:
 
 def conversion(currency: str, locale: str, *, today: date | None = None) -> dict[str, str] | None:
     """What a price in `currency` is roughly in the money of whoever reads
-    `locale`: `{"currency", "rate", "date", "source"}` — the reader's
+    `locale`: `{"currency", "rate", "date", "bank"}` — the reader's
     currency, how much of it one unit of `currency` is, the day of the table
     and whose it is, named in the reader's language. None: nothing to say
     (see the module note). Reads one row; asks no bank."""
@@ -265,5 +265,5 @@ def conversion(currency: str, locale: str, *, today: date | None = None) -> dict
         "currency": wanted,
         "rate": str(rate),
         "date": table.published_on.isoformat(),
-        "source": source.names.get(locale, source.names["en"]),
+        "bank": source.names.get(locale, source.names["en"]),
     }

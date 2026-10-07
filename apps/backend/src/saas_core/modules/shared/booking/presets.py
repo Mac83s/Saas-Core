@@ -154,6 +154,26 @@ def find_preset(preset_id: str, version: int | None) -> Preset:
     return preset
 
 
+#: The offer's words a guest's form says in place of its general ones
+#: (ADR-072, slice 5i): what is booked („Domek”) and who comes („Goście”).
+GUEST_WORDS = ("unit", "participants")
+
+
+def guest_words(service: Service, language: str, source: str) -> dict[str, str]:
+    """The offer's own words as a guest reads them on the form, in
+    `language`. In the language the company writes in (`source`) they are the
+    offer's (`Service.vocabulary`) — where the preset speaks that language,
+    for otherwise the copy was made from another one; elsewhere the words of
+    the preset version the offer was made from. Empty where nobody has words
+    in that language: the form keeps its general ones („Osoby”)."""
+    versions = dict(_catalogue()).get(service.preset_id) or {}
+    preset = versions.get(service.preset_version or 0)
+    spoken: dict[str, Any] = (preset.raw.get("vocabulary") or {}) if preset else {}
+    own = language == source and language in spoken
+    words: dict[str, Any] = (service.vocabulary if own else spoken.get(language)) or {}
+    return {key: str(words[key]) for key in GUEST_WORDS if words.get(key)}
+
+
 def _refuse(message: str, code: str) -> NoReturn:
     raise ValidationError({"preset_id": [ErrorDetail(message, code=code)]})
 

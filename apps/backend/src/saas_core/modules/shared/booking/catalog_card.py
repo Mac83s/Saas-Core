@@ -38,7 +38,7 @@ from saas_core.modules.shared.media.api import shown_image_facts
 from saas_core.modules.shared.notifications.api import public_url
 
 from .availability import _zone
-from .company_settings import online_paused
+from .company_settings import online_paused, shown_conversion
 from .item_translations import source_locale
 from .models import (
     PublicBookingRoute,
@@ -182,6 +182,8 @@ def card(organization_id: UUID, locale: str) -> dict[str, Any] | None:
         return {
             "form_url": _form_url(organization, locale, route.public_slug),
             "units": list(units.values()),
+            # Roughly what the prices are in the reader's own money (5i).
+            "conversion": shown_conversion(organization.currency, locale),
         }
 
 
@@ -211,6 +213,7 @@ def unit(organization_id: UUID, locale: str, public_slug: str) -> dict[str, Any]
             "timezone": zone.key,
             "last_day": period_last_day(zone).isoformat(),
             "paused": paused,
+            "conversion": shown_conversion(organization.currency, locale),
             "unit": {
                 "slug": public_slug,
                 "name": item["name"],

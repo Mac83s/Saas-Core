@@ -47,7 +47,7 @@ from saas_core.modules.shared.billing.authorization import authorize_entitled
 from saas_core.modules.shared.notifications.api import public_url
 
 from .availability import _zone
-from .company_settings import online_paused
+from .company_settings import online_paused, shown_conversion
 from .item_translations import localized_texts, source_locale, translatable
 from .models import PublicBookingRoute, Resource, ResourceGroup
 from .periods import period_last_day
@@ -141,6 +141,9 @@ def _form(organization_id: UUID, locale: str) -> Iterator[_Form | None]:
                 "timezone": zone.key,
                 "last_day": period_last_day(zone).isoformat(),
                 "paused": paused,
+                # Roughly what the prices are in the money of whoever reads
+                # the page's language (slice 5i); None — nothing to convert.
+                "conversion": shown_conversion(organization.currency, locale),
             },
             stays=stays,
         )
@@ -155,6 +158,9 @@ def _choice(
         "kind": kind,
         "id": str(item["id"]),
         "name": item["name"],
+        # The language the name and description are in — the company's own
+        # where it has not written them in the page's (slice 5i).
+        "lang": item.get("lang", ""),
         "capacity": item["capacity"],
     }
     if content:
@@ -233,7 +239,16 @@ def _others(form: _Form, public_slug: str, locale: str, page_base: str) -> list[
         others.append({
             **{
                 name: choice[name]
-                for name in ("kind", "id", "name", "capacity", "town", "from_price", "page_path")
+                for name in (
+                    "kind",
+                    "id",
+                    "name",
+                    "lang",
+                    "capacity",
+                    "town",
+                    "from_price",
+                    "page_path",
+                )
             },
             # The cover alone.
             "photos": choice["photos"][:1],
@@ -444,7 +459,9 @@ def site_page(
     """The page of the unit at that address: its card as the page's one
     block. None — the form shows no such unit now. A unit's page links to no
     other language of itself, so where the site answers for it (`address`)
-    goes unread."""
+    goes unread. It answers in every language the site is read in
+    (`any_language`, slice 5i): in one the unit has no name in, the page's
+    own words are that language's and the unit's are the company's."""
     with _form(organization_id, locale) as form:
         if form is None:
             return None
@@ -479,6 +496,10 @@ def site_page(
             # The cover: the first picture the unit shows.
             image=unit.photos[0] if unit.photos else None,
             thing=_thing(stay, item, unit, locale),
+            # A reader of another language of the site stays in it: the page
+            # is built in `locale` above, the unit's words where it has none
+            # there are the company's own, marked as such (`lang`).
+            any_language=True,
         )
 
 

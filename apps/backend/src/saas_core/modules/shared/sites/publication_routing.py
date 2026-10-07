@@ -1836,9 +1836,11 @@ def _find_source_page(
     """The page a record has by itself on a published site — `/stay/<unit>/`,
     `/de/stay/<unit>/` — asked of the record's source. A language the record
     has no words of its own in answers one 308 to the page in the site's own
-    language (ADR-071 pkt 9). A record written per language (a company's
-    document) is never moved to another language's text: the source's page
-    says where it can be read, and stays out of search. An address spelled
+    language (ADR-071 pkt 9) — unless the source lets its words stand in
+    there (`any_language`, a unit: ADR-072 slice 5i): the page then answers
+    in the language asked for, out of search. A record written per language
+    (a company's document) is never moved to another language's text: the
+    source's page says where it can be read, and stays out of search. An address spelled
     with another language's slug or name of the section answers one 308 to
     the record's address in the language asked for."""
     # „On every published site”: a site nobody published has no such pages.
@@ -1878,10 +1880,12 @@ def _find_source_page(
         per_language=found.per_language,
         slugs=found.slugs,
     )
-    if locale not in versions and not found.per_language:
+    if locale not in versions and not (found.per_language or found.any_language):
         raise PublicSiteMoved(versions[default_locale])
-    # A per-language record asked for where it has no text: the page that
-    # says so, at the address asked for.
+    # A record asked for where it has no words of its own, at the address
+    # asked for: a per-language one's page says so; one whose words stand in
+    # (`any_language`) is read there in the site's language. Neither is a
+    # version of the page: out of search and of the alternates.
     wordless = locale not in versions
     path = (
         address(locale, found.slugs.get(locale) or found.slugs.get(default_locale) or "")

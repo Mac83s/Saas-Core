@@ -478,6 +478,8 @@ def resolve_catalog_unit(
             **{key: found[key] for key in ("form_url", "form_slug", "timezone", "last_day")},
             "paused": found["paused"],
             "origin": issue_origin(ORIGIN_CHANNEL, entry.organization_id),
+            # What the booking source says of the reader's currency, if anything.
+            "conversion": found.get("conversion"),
         },
         "unit": found["unit"],
         "offers": found["offers"],

@@ -84,8 +84,12 @@ _RATES = {
 }
 #: The lines the price list has no name for; another language reads English.
 _WORDS = {
-    EXTRA_PERSON: {"pl": "Dodatkowa osoba", "en": "Extra person"},
-    DISCOUNT: {"pl": "Rabat za długość pobytu", "en": "Discount for the length of stay"},
+    EXTRA_PERSON: {"pl": "Dodatkowa osoba", "en": "Extra person", "de": "Zusätzliche Person"},
+    DISCOUNT: {
+        "pl": "Rabat za długość pobytu",
+        "en": "Discount for the length of stay",
+        "de": "Rabatt für die Aufenthaltsdauer",
+    },
 }
 
 

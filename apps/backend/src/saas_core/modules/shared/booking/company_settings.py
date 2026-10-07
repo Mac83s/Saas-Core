@@ -12,6 +12,9 @@ Two groups on core's settings registry:
   the panel as before; optionally until a day, when it resumes by itself.
   Also what the form asks of a customer: which contact, and whether it shows
   the marketing consent (`booking.online.marketing_consent`, on by default).
+  And whether a guest reading another language sees beside each price roughly
+  what it is in their own currency (`booking.online.price_conversion`, on by
+  default; `shown_conversion`) — the rate is the core's, the switch is here.
 """
 
 from __future__ import annotations
@@ -30,6 +33,7 @@ from saas_core.modules.core.organizations.api import (
     SettingGroup,
     SettingSpec,
     group_commands,
+    price_conversion,
     register_command,
     register_setting_area,
     register_setting_group,
@@ -49,6 +53,7 @@ SELF_SERVICE_CUTOFF = "booking.self_service.cutoff_hours"
 HORIZON_DAYS = "booking.online.horizon_days"
 CONTACT = "booking.online.contact"
 MARKETING_CONSENT = "booking.online.marketing_consent"
+PRICE_CONVERSION = "booking.online.price_conversion"
 OFFICE_NOTICES = "booking.notices.office"
 
 
@@ -103,6 +108,18 @@ def online_paused(zone: str) -> tuple[bool, str | None]:
     if resume_on and timezone.localdate(timezone=ZoneInfo(zone)) >= date.fromisoformat(resume_on):
         return False, None
     return True, resume_on
+
+
+def shown_conversion(currency: str, locale: str) -> dict[str, str] | None:
+    """What the company's prices are roughly in the money of whoever reads
+    `locale` (ADR-072, slice 5i): the reader's currency, the rate, its day and
+    whose it is — for the figure a page shows beside a price, never for an
+    amount of a booking. None: the company switched it off, the reader counts
+    in the company's currency, or no rate is fresh. Inside the company's
+    tenant: the switch is the company's setting."""
+    if not setting(PRICE_CONVERSION):
+        return None
+    return price_conversion(currency, locale)
 
 
 def refuse_when_paused(zone: str) -> None:
@@ -287,6 +304,34 @@ ONLINE = SettingGroup(
             "box, unticked by default, asking the customer whether they want the company's "
             "offers and promotions by e-mail; a ticked box is a line of the consent journal. "
             "Off: the form does not ask.",
+        ),
+        SettingSpec(
+            key=PRICE_CONVERSION,
+            type="bool",
+            default=True,
+            scopes=("organization",),
+            label={
+                "pl": "Pokazuj gościom orientacyjną cenę w ich walucie",
+                "en": "Show guests an indicative price in their currency",
+            },
+            help={
+                "pl": "Na stronie w innym języku gość widzi obok ceny jej przybliżenie w "
+                "swojej walucie (np. „≈ 103 EUR”), po kursie banku centralnego z podanego "
+                "dnia. To tylko informacja: rezerwacja, zamówienie, e-maile i płatność "
+                "zostają w walucie firmy, a strona mówi to obok kwoty.",
+                "en": "On a page in another language a guest sees beside a price roughly "
+                "what it is in their currency (e.g. “≈ 103 EUR”), at the central bank's "
+                "rate of the day shown. Information only: the booking, the order, e-mails "
+                "and the payment stay in the company's currency, and the page says so "
+                "beside the figure.",
+            },
+            model_description="On: where the booking form, the company's site or its "
+            "catalogue page is read in a language whose readers count in another currency "
+            "than the company's, each price shown to a guest gets an indicative converted "
+            "figure beside it, from the central bank's daily reference rate with the rate's "
+            "day, and a note that the booking and the payment are in the company's currency. "
+            "Nothing but the display changes: quotes, orders and e-mails stay in the "
+            "company's currency. Off: no converted figure is shown.",
         ),
     ),
     commands=("booking.settings_online.read@1", "booking.settings_online.update@1"),

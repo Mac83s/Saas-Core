@@ -2412,7 +2412,7 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns the company's settings 'Online booking' (paused, resume_on, horizon_days, contact, marketing_consent): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. Whether customers book through the form on the company's site. A pause does not affect visits added in the panel or changes to existing bookings.",
+      "model_description": "Returns the company's settings 'Online booking' (paused, resume_on, horizon_days, contact, marketing_consent, price_conversion): the value that applies to each, where it comes from (code, platform or the company) and the version. Use it before proposing a change. Whether customers book through the form on the company's site. A pause does not affect visits added in the panel or changes to existing bookings.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",
@@ -2431,6 +2431,9 @@
                 "type": "string"
               },
               "paused": {
+                "type": "string"
+              },
+              "price_conversion": {
                 "type": "string"
               },
               "resume_on": {
@@ -2462,6 +2465,10 @@
                 "x-data-class": "public"
               },
               "paused": {
+                "type": "boolean",
+                "x-data-class": "public"
+              },
+              "price_conversion": {
                 "type": "boolean",
                 "x-data-class": "public"
               },
@@ -2547,6 +2554,13 @@
               "null"
             ]
           },
+          "price_conversion": {
+            "description": "On: where the booking form, the company's site or its catalogue page is read in a language whose readers count in another currency than the company's, each price shown to a guest gets an indicative converted figure beside it, from the central bank's daily reference rate with the rate's day, and a note that the booking and the payment are in the company's currency. Nothing but the display changes: quotes, orders and e-mails stay in the company's currency. Off: no converted figure is shown. Null keeps it as it is.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "reset": {
             "description": "Fields to give back to the default (the platform's or the code's); null or an empty list resets nothing.",
             "items": {
@@ -2555,7 +2569,8 @@
                 "resume_on",
                 "horizon_days",
                 "contact",
-                "marketing_consent"
+                "marketing_consent",
+                "price_conversion"
               ],
               "type": "string"
             },
@@ -2579,6 +2594,7 @@
           "horizon_days",
           "contact",
           "marketing_consent",
+          "price_conversion",
           "reset"
         ],
         "type": "object"
@@ -2602,6 +2618,9 @@
                 "type": "string"
               },
               "paused": {
+                "type": "string"
+              },
+              "price_conversion": {
                 "type": "string"
               },
               "resume_on": {
@@ -2633,6 +2652,10 @@
                 "x-data-class": "public"
               },
               "paused": {
+                "type": "boolean",
+                "x-data-class": "public"
+              },
+              "price_conversion": {
                 "type": "boolean",
                 "x-data-class": "public"
               },

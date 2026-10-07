@@ -372,3 +372,21 @@ class CommandConsentSerializer(serializers.Serializer[dict[str, Any]]):
 class CommandConsentGrantSerializer(serializers.Serializer[dict[str, Any]]):
     consent_token = serializers.CharField()
     expires_at = serializers.DateTimeField()
+
+
+class PriceConversionSerializer(serializers.Serializer[dict[str, Any]]):
+    """Roughly what the company's prices are in the reader's own currency
+    (`exchange_rates.conversion`; ADR-072, slice 5i). Information for the page
+    only: every amount of a quote, an order and a payment stays in the
+    company's currency, and whoever shows the figure says so beside it."""
+
+    currency = serializers.CharField(help_text="The reader's currency, ISO 4217.")
+    rate = serializers.CharField(
+        help_text="How much of it one unit of the company's currency is, a decimal string "
+        "(`0.228326`). An amount in minor units times the rate, rounded, is the figure to "
+        "show after „≈” — never an amount to charge."
+    )
+    date = serializers.DateField(help_text="The day of the central bank's table.")
+    bank = serializers.CharField(
+        help_text="Whose table it is, as the page names it in its language: NBP, ECB (EBC, EZB)."
+    )

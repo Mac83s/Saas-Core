@@ -153,14 +153,14 @@ def test_a_reader_gets_their_currency_the_rate_its_day_and_whose_it_is(
         "currency": "EUR",
         "rate": "0.228326",
         "date": "2026-10-07",
-        "source": "NBP",
+        "bank": "NBP",
     }
     # A company that prices in euro, read in Polish: through the złoty table.
     assert conversion("EUR", "pl", today=DAY) == {
         "currency": "PLN",
         "rate": "4.379700",
         "date": "2026-10-07",
-        "source": "NBP",
+        "bank": "NBP",
     }
     assert conversion("USD", "en", today=DAY)["rate"] == "0.893006"
 
@@ -199,8 +199,8 @@ def test_another_banks_table_is_not_read_after_the_operator_changed_the_source(
     refresh(today=DAY)
     found = conversion("PLN", "de", today=DAY)
     assert found is not None
-    assert (found["rate"], found["source"]) == ("0.228311", "EZB")
-    assert conversion("PLN", "en", today=DAY)["source"] == "ECB"
+    assert (found["rate"], found["bank"]) == ("0.228311", "EZB")
+    assert conversion("PLN", "en", today=DAY)["bank"] == "ECB"
 
 
 def test_the_task_keeps_the_table_and_is_scheduled_every_three_hours(

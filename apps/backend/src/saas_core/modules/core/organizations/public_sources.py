@@ -30,6 +30,11 @@ text in, the site's own included, and where a visitor asks for it in another
 one the source's page says in which languages it can be read instead of
 showing a text nobody approved in that language.
 
+A record whose words may stand in for a language it has none in — a unit's
+name and description — says so with `any_language` (slice 5i): its page then
+answers in every language the site is read in, in that language's own words
+around the record's, instead of moving the reader to the site's language.
+
 Where a record's page answers (2026-10-07, ADR-074 pkt 7 „Uzupełnienie")
 ----------------------------------------------------------------------
 `/<segment>/<slug>/` in the site's own language, `/<xx>/<segment>/<slug>/` in
@@ -114,6 +119,15 @@ class SourcePage:
     #: The record's slug by language, where it has one per language; empty —
     #: one slug in every language, the one the page was asked under.
     slugs: Mapping[str, str] = field(default_factory=dict)
+    #: The page answers in every language the site is read in (ADR-072, slice
+    #: 5i): where the record has no words of its own (a language outside
+    #: `locales`), the source builds the page in that language with the
+    #: record's words in the site's own standing in — and says which language
+    #: they are in. Such a page stays out of search and of the language
+    #: alternates, and the sitemap lists `locales` as before; without this a
+    #: reader of the German site is moved to the Polish page and loses the
+    #: language with everything that follows it — the calendar, the form.
+    any_language: bool = False
 
 
 @dataclass(frozen=True, slots=True)

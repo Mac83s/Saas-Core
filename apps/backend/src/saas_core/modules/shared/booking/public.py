@@ -35,6 +35,7 @@ from .models import (
     StaffTeamMember,
     TimeModel,
 )
+from .presets import guest_words
 from .quote import from_prices
 from .unit_content import amenities_in, photo_urls, town_of
 
@@ -209,11 +210,17 @@ def public_stays(
         "resource": localized_texts(translatable("resource"), units, locale),
     }
 
+    language = locale or source_locale(organization)
+
     def words(kind: str, item: Any) -> dict[str, str]:
         found = texts[kind].get(item.id, {})
         return {
             "name": found.get("name", item.name),
             "description": found.get("description", item.description),
+            # The language the name is in: the one asked for where the company
+            # wrote it there, otherwise its own — a page in another language
+            # marks such words (slice 5i).
+            "lang": language if "name" in found else source_locale(organization),
         }
 
     # „od X zł/noc” for every offer and unit it can be booked on, worked out
@@ -230,7 +237,6 @@ def public_stays(
         ],
         [today + timedelta(days=offset) for offset in range(FROM_PRICE_DAYS)],
     )
-    language = locale or source_locale(organization)
     # What a page states of each picture it shows — its stored size, and
     # whether a model made it, which the form marks like the site does
     # (ADR-059 pkt 7). One read for every unit shown.
@@ -314,6 +320,8 @@ def public_stays(
             "range_end_local": offer.range_end_local,
             "confirmation": offer.confirmation,
             "response_hours": offer.response_hours,
+            # „Domek”, „Goście”: the offer's words for the form's own labels.
+            "words": guest_words(offer, language, source_locale(organization)),
             "groups": pooled,
             "units": single,
         })

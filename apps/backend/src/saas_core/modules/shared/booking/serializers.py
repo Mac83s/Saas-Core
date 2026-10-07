@@ -10,7 +10,10 @@ from saas_core.modules.core.organizations.options import (
     SETTING_TYPES,
     SETTING_UNITS,
 )
-from saas_core.modules.core.organizations.serializers import LocalizedTextSerializer
+from saas_core.modules.core.organizations.serializers import (
+    LocalizedTextSerializer,
+    PriceConversionSerializer,
+)
 
 from .cancellation import CANCEL_REASONS, REFUND_THRESHOLDS
 from .models import (
@@ -872,6 +875,13 @@ class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
         allow_null=True,
         help_text="The price frozen when the visit was booked or last moved; null when "
         "the service had none.",
+    )
+    conversion = PriceConversionSerializer(
+        required=False,
+        allow_null=True,
+        help_text="Roughly what the quote is in the currency of whoever reads the "
+        "customer's language — for an indicative figure beside the total. Null: nothing "
+        "to convert, no fresh rate, or the company switched it off.",
     )
 
 
@@ -2109,6 +2119,11 @@ class _PublicUnitContentSerializer(serializers.Serializer[dict[str, Any]]):
         "or the one that speaks for its group; its own page on the company's site is "
         "`/stay/<public_slug>/`. Empty where the company shows none.",
     )
+    lang = serializers.CharField(
+        required=False,
+        help_text="The language `name` and `description` are in: the one asked for where "
+        "the company wrote the name in it, otherwise the company's own.",
+    )
 
 
 class PublicStayUnitSerializer(_PublicUnitContentSerializer):
@@ -2161,6 +2176,14 @@ class PublicStayOfferSerializer(serializers.Serializer[dict[str, Any]]):
     response_hours = serializers.IntegerField(
         help_text="With `on_request`: how many hours the company has to answer."
     )
+    words = serializers.DictField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="The offer's own words for the form's labels, in the language asked for: "
+        "`unit` — what is booked („Domek”), `participants` — who comes („Goście”). A key "
+        "is absent where the offer has no word in that language; the form then says its "
+        "general one.",
+    )
     groups = PublicStayGroupSerializer(many=True)
     units = PublicStayUnitSerializer(many=True)
 
@@ -2208,6 +2231,15 @@ class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
     )
     currency = serializers.CharField(
         required=False, help_text="The currency of the company's prices, ISO 4217."
+    )
+    conversion = PriceConversionSerializer(
+        required=False,
+        allow_null=True,
+        help_text="Roughly what the prices are in the currency of whoever reads this language: the "
+        "rate of a central bank's daily table, for an indicative figure beside each price. "
+        "Null: the reader counts in the company's currency, no rate is fresh, or the "
+        "company switched it off (`booking.online.price_conversion`). Amounts of a quote "
+        "and of the order stay in the company's currency.",
     )
     #: The organization's zone: the days and times offered are its wall clock.
     timezone = serializers.CharField()

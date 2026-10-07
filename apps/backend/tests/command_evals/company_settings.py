@@ -113,6 +113,7 @@ EVALS = {
             "horizon_days": None,
             "contact": None,
             "marketing_consent": None,
+            "price_conversion": None,
             "reset": None,
         },
         wrong_arguments={
@@ -121,6 +122,7 @@ EVALS = {
             "horizon_days": None,
             "contact": None,
             "marketing_consent": None,
+            "price_conversion": None,
             "reset": None,
         },
         wrong_field="paused",

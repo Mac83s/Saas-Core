@@ -49,6 +49,9 @@ from saas_core.modules.shared.notifications.security import decrypt_secret
 from .models import Appointment, AppointmentStatus, StaffMember
 from .security import NOTIFY_ROLE
 
+#: The version of „the person on your visit changed” that is sent: the one
+#: with German (TL17). One name for the language asked of it and the send.
+PERSON_CHANGED_VERSION = 2
 ASSIGNED = "booking.assigned"
 UNASSIGNED = "booking.unassigned"
 MOVED = "booking.moved"
@@ -118,13 +121,17 @@ def customer_person_changed(appointment: Appointment, *, previous_lead_id: UUID)
     organization = Organization.objects.get(pk=appointment.organization_id)
     # The customer's language, or the template's fallback when it has no such
     # version yet — the link then opens the page in the language of the mail.
-    locale = resolve_template_locale(TEMPLATES[("booking.person_changed", 1)], customer.locale)
+    # Of the version that is sent: asked of the first one, a German customer
+    # was told in English (found with slice 5i).
+    locale = resolve_template_locale(
+        TEMPLATES[("booking.person_changed", PERSON_CHANGED_VERSION)], customer.locale
+    )
     token = decrypt_secret(appointment.self_service_token_ciphertext)
     with _as_the_organization(appointment.organization_id):
         queue_email(
             recipient_email=customer.email,
             template_key="booking.person_changed",
-            template_version=2,
+            template_version=PERSON_CHANGED_VERSION,
             locale=locale,
             template_context={
                 "organization_name": organization.name,

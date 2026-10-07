@@ -224,6 +224,7 @@ def test_a_published_page_says_what_its_stay_blocks_show_now() -> None:
             "kind": "group",
             "id": str(configured["group"].id),
             "name": group["name"],
+            "lang": "pl",
             "capacity": group["capacity"],
         }
     ]
@@ -665,7 +666,15 @@ def test_a_shown_unit_has_a_card_and_a_page_of_its_own(settings: Any) -> None:
     assert home["1"]["unit"]["photos"] == [str(photo.id)]
     assert home["1"]["unit"]["town"] == {"slug": "mragowo", "name": "Mrągowo"}
     assert [offer["choices"] for offer in home["1"]["offers"]] == [
-        [{"kind": "group", "id": str(group.id), "name": group.name, "capacity": listed["capacity"]}]
+        [
+            {
+                "kind": "group",
+                "id": str(group.id),
+                "name": group.name,
+                "lang": "pl",
+                "capacity": listed["capacity"],
+            }
+        ]
     ]
     assert home["1"]["form_url"].endswith("/book/strona-jednostki")
 
@@ -803,6 +812,7 @@ def test_a_units_own_page_says_whose_it_is_and_leads_on_to_other_units() -> None
         "kind": "unit",
         "id": str(alone[0].id),
         "name": "Apartament",
+        "lang": "pl",
         "capacity": 4,
         "town": None,
         "from_price": None,
@@ -826,7 +836,7 @@ def test_a_units_own_page_says_whose_it_is_and_leads_on_to_other_units() -> None
     assert "others" not in str(page(host, paths[0])["live"])
 
 
-def test_a_units_page_has_another_address_only_in_a_language_it_has_words_in(
+def test_a_units_page_is_a_version_only_in_a_language_it_has_words_in(
     settings: Any,
 ) -> None:
     settings.SITES_SUPPORTED_LOCALES = ("pl", "en", "de")
@@ -838,10 +848,18 @@ def test_a_units_page_has_another_address_only_in_a_language_it_has_words_in(
     change(owner, unit, public=True)
     host = published(owner, [block("stay_units")])
 
-    # No words of its own in English: the address answers one 308 to the
-    # page in the site's language, and nothing names an English version.
-    moved = asked(host, "/en/stay/domek-1/")
-    assert (moved.status_code, moved["Location"]) == (308, "/stay/domek-1/")
+    # No words of its own in English: the reader of the English site stays in
+    # English (slice 5i) — the page's own words are English, the unit's are
+    # the company's and say so — but it is no version of the page: out of
+    # search, and nothing names it.
+    standing_in = page(host, "/en/stay/domek-1/")
+    assert standing_in["locale"] == "en"
+    assert standing_in["noindex"] is True
+    assert standing_in["hreflang"] == {}
+    assert standing_in["canonical_url"].endswith("/en/stay/domek-1/")
+    card = standing_in["live"]["0"]
+    assert (card["unit"]["name"], card["unit"]["lang"]) == (group.name, "pl")
+    assert card["form_url"].endswith("/en/book/strona-jezyki")
     assert list(page(host, "/stay/domek-1/")["hreflang"]) == ["pl"]
 
     with tenant(owner):
@@ -857,11 +875,17 @@ def test_a_units_page_has_another_address_only_in_a_language_it_has_words_in(
     assert english["locale"] == "en"
     assert english["title"] == "Lakeside cottage"
     assert english["live"]["0"]["unit"]["name"] == "Lakeside cottage"
+    assert english["live"]["0"]["unit"]["lang"] == "en"
+    assert english["noindex"] is False
     assert sorted(english["hreflang"]) == ["en", "pl"]
     assert english["x_default"].endswith("/stay/domek-1/")
     assert english["canonical_url"].endswith("/en/stay/domek-1/")
-    # German still has none.
-    assert asked(host, "/de/stay/domek-1/").status_code == 308
+    # German still has none: read in German, kept out of search.
+    german = page(host, "/de/stay/domek-1/")
+    assert (german["locale"], german["noindex"], german["hreflang"]) == ("de", True, {})
+    assert german["live"]["0"]["unit"]["lang"] == "pl"
+    # A language the site is not read in is still no page at all.
+    assert asked(host, "/es/stay/domek-1/").status_code == 404
 
     # The sitemap names the page in both languages, each with the other.
     sitemap = (
