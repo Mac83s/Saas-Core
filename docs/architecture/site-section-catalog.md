@@ -239,3 +239,18 @@ Recepta strony `core.lodging` v1 („Noclegi”, cel: rezerwacja) przeszła list
 8. **Metadane:** `conversion.goal` `booking`, etap każdej sekcji w recepcie;
    cztery sekcje pobytów są przypięte do wersji z katalogu (`sectionRefs`).
 
+
+## Tabele — 2026-10-07
+
+Katalog v7 dostał dwie sekcje z blokiem `core.table` (plan PB2,
+[site-html-import.md](site-html-import.md)) — łącznie 165 wpisów, 157
+oferowanych:
+
+| Sekcja | Blok | Układ | Etap ścieżki |
+| --- | --- | --- | --- |
+| `core.table_lines` „Tabela” | `core.table` v1 | `lines` | zainteresowanie |
+| `core.table_striped` „Tabela w paski” | `core.table` v1 | `striped` | zainteresowanie |
+
+Obie są dla stron i wpisów. Zalążek to podpis, wiersz nagłówka i dwa wiersze
+po trzy komórki — same miejsca `[Uzupełnij: …]`: tabela nie niesie
+przykładowych liczb, cen ani parametrów, bo to dane właściciela.

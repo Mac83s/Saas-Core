@@ -1038,6 +1038,8 @@ REL_CAPABLE_BLOCKS = frozenset({
     ("core.rich_text", 4),
     ("core.link_list", 2),
     ("core.footer", 2),
+    # A table cell holds rich text's runs, `rel` included.
+    ("core.table", 1),
 })
 
 

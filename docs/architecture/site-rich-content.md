@@ -17,6 +17,7 @@ karty biblioteki.
 | Cytaty redakcyjne | `core.quote` v1, v2 | cytowana wypowiedź z autorem i źródłem; nie jest opinią klienta, nie ma oceny; v2 pięć układów, tytuł, kolejne wypowiedzi i jedno działanie (F4-P2) |
 | Prezentacje produktu | `core.product` v1–v3 | produkt z fotografiami, parametrami i zastosowaniami; bez ceny, stanu i koszyka; v3 siedem układów i ich listy (F4-P4) |
 | Galerie i historie obrazem | `core.gallery` v1 | zdjęcia z tytułem i podpisem, pokazywane jako całość; zdjęcie pozycji jest opcjonalne (F4-P3) |
+| Tabele | `core.table` v1 | dane w wierszach i kolumnach z podpisem i nagłówkami; komórka to jeden przebieg tekstu; osobny blok, nie węzeł tekstu ([site-html-import.md](site-html-import.md), PB2) |
 
 Wszystkie poprzednie wersje schematów pozostają bez zmian i nadal są
 przyjmowane.

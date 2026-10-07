@@ -8,6 +8,7 @@ from .block_contracts import (
     validate_site_block,
 )
 from .content_checks import register_company_contact
+from .html_blocks import HtmlConversion, HtmlLoss, convert_html
 from .page_templates import PageTemplate, PageTemplateNotFound, page_template_catalog
 from .services import (
     DraftVersionConflict,
@@ -45,6 +46,9 @@ from .services import (
 )
 
 __all__ = [
+    "HtmlConversion",
+    "HtmlLoss",
+    "convert_html",
     "register_company_contact",
     "badge_visible",
     "DraftVersionConflict",
