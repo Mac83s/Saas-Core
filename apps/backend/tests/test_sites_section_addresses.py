@@ -665,6 +665,9 @@ def test_a_record_answers_under_its_section_and_slug_in_each_language(
         assert page.data["hreflang"] == {code: origin + to for code, to in versions.items()}
         assert page.data["x_default"] == origin + versions["pl"]
         assert page.data["breadcrumbs"][-1]["path"] == path
+        # The trail starts where the site does in that language — here a site
+        # with no page marked as the home page: its root answers with the first.
+        assert page.data["breadcrumbs"][0]["path"] == {"pl": "/", "en": "/en/"}[locale]
         # The address the site hands the source for the page's other language.
         other = versions["en" if locale == "pl" else "pl"]
         assert page.data["blocks"][0]["data"]["text"] == other

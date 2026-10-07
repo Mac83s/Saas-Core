@@ -274,14 +274,19 @@ def test_a_documents_page_says_whose_it_is_and_wears_the_home_pages_look() -> No
 def test_a_trail_starts_at_the_home_page_in_the_pages_language() -> None:
     from types import SimpleNamespace
 
-    def trail(locale: str, home: dict[str, Any] | None, name: str = "") -> list[dict[str, Any]]:
+    def trail(
+        locale: str,
+        home: dict[str, Any] | None,
+        name: str = "",
+        snapshot: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         asked_page = SimpleNamespace(
             locale=locale,
             canonical_path="/en/documents/booking-terms/",
             page={"selected_locale": {"title": "Booking terms — Domki"}},
         )
         found = SimpleNamespace(name=name)
-        return _source_trail(asked_page, found, home, {}, "Domki")  # type: ignore[arg-type]
+        return _source_trail(asked_page, found, home, snapshot or {}, "Domki")  # type: ignore[arg-type]
 
     home = {"hreflang": {"pl": "/", "en": "/en/"}}
     assert trail("en", home, "Booking terms") == [
@@ -295,6 +300,20 @@ def test_a_trail_starts_at_the_home_page_in_the_pages_language() -> None:
         {"title": "Domki", "path": "/"},
         {"title": "Booking terms — Domki", "path": "/en/documents/booking-terms/"},
     ]
+    # No page is marked as the home page: the site still starts somewhere —
+    # the page its root answers with, in each language that page is read in.
+    unmarked = {
+        "pages": [
+            {
+                "page_type": "landing",
+                "locales": [{"locale": "pl", "path": "/"}, {"locale": "en", "path": "/en/"}],
+                "hreflang": {"pl": "/", "en": "/en/"},
+            }
+        ]
+    }
+    assert trail("en", None, snapshot=unmarked)[0] == {"title": "Domki", "path": "/en/"}
+    assert trail("pl", None, snapshot=unmarked)[0]["path"] == "/"
+    assert trail("de", None, snapshot=unmarked)[0]["path"] == "/"
 
 
 def test_a_title_carries_the_company_only_where_both_fit() -> None:

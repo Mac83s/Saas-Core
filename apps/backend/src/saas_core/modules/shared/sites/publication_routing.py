@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterator, Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -728,8 +729,12 @@ def _source_trail(
     under the company's name as its structured data states it, and the page
     itself follows under the record's own name. Between them stands the page
     published at the section's own address in that language, where there is
-    one (`PublicSource.root_page`, ADR-074 pkt 7)."""
+    one (`PublicSource.root_page`, ADR-074 pkt 7). A site with no page marked
+    as the home page starts at the page its root answers with (`_visible`)."""
     facts = site_snapshot.get("organization") or {}
+    if home is None:
+        with suppress(PublicSiteNotFound):
+            home, _root = find_page(site_snapshot, "/")
     section: list[dict[str, Any]] = []
     try:
         _above, document = find_page(
