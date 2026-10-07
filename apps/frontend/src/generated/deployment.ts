@@ -15,11 +15,17 @@ export const deployment = {
     "core.health",
     "core.identity",
     "core.organizations",
+    "shared.model-port",
     "shared.billing",
+    "shared.media",
     "shared.notifications",
     "shared.sites",
-    "shared.media",
+    "shared.image-generation",
     "shared.profiles",
+    "shared.translation",
+    "shared.assistant",
+    "shared.customers",
+    "shared.commerce",
     "shared.booking",
     "shared.seo",
     "shared.farms",
@@ -38,11 +44,17 @@ export const deployment = {
       },
       "description": null,
       "modules": [
+        "shared.model-port",
         "shared.billing",
+        "shared.media",
         "shared.notifications",
         "shared.sites",
-        "shared.media",
+        "shared.image-generation",
         "shared.profiles",
+        "shared.translation",
+        "shared.assistant",
+        "shared.customers",
+        "shared.commerce",
         "shared.booking",
         "shared.seo",
         "shared.farms",
@@ -58,5 +70,5 @@ export const deployment = {
       "serviceTemplates": []
     }
   ],
-  "profileHash": "sha256:8741acb63a8270e7ebc9091d6cf9152065e180906cac9642efe294d3762661b1"
+  "profileHash": "sha256:6e8ed5e25303eb0be48b7c90beebc0709ba7b3cb5d36e6621be25ec20c26ae45"
 } as const
