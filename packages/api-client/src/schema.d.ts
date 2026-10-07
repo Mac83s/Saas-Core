@@ -16850,8 +16850,10 @@ export interface components {
             from_price: components["schemas"]["PublicFromPrice"] | null;
             /** @description The address segment of the unit whose content this is — the unit itself, or the one that speaks for its group; its own page on the company's site is `/stay/<public_slug>/`. Empty where the company shows none. */
             public_slug: string;
-            /** @description The language `name` and `description` are in: the one asked for where the company wrote the name in it, otherwise the company's own. */
+            /** @description The language `name` is in: the one asked for where the company wrote the name in it, otherwise the company's own. */
             lang?: string;
+            /** @description The language `description` is in, told the same way. */
+            description_lang?: string;
             /**
              * Format: uuid
              * @description Send it as `group_id`.
@@ -16989,8 +16991,10 @@ export interface components {
             from_price: components["schemas"]["PublicFromPrice"] | null;
             /** @description The address segment of the unit whose content this is — the unit itself, or the one that speaks for its group; its own page on the company's site is `/stay/<public_slug>/`. Empty where the company shows none. */
             public_slug: string;
-            /** @description The language `name` and `description` are in: the one asked for where the company wrote the name in it, otherwise the company's own. */
+            /** @description The language `name` is in: the one asked for where the company wrote the name in it, otherwise the company's own. */
             lang?: string;
+            /** @description The language `description` is in, told the same way. */
+            description_lang?: string;
             /**
              * Format: uuid
              * @description Send it as `resource_id`.

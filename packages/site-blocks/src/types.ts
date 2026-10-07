@@ -503,9 +503,11 @@ export type StayLiveChoice = {
   kind: "group" | "unit";
   id: string;
   name: string;
-  /** The language the name and the description are in: the page's where the
-   *  company wrote them in it, otherwise the company's own. */
+  /** The language the name is in: the page's where the company wrote it in
+   *  it, otherwise the company's own. */
   lang?: string;
+  /** The same for the description: each is translated by itself. */
+  description_lang?: string;
   /** The most people it takes; null — nobody counts. */
   capacity: number | null;
   description?: string;

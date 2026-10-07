@@ -859,6 +859,7 @@ def test_a_units_page_is_a_version_only_in_a_language_it_has_words_in(
     assert standing_in["canonical_url"].endswith("/en/stay/domek-1/")
     card = standing_in["live"]["0"]
     assert (card["unit"]["name"], card["unit"]["lang"]) == (group.name, "pl")
+    assert card["unit"]["description_lang"] == "pl"
     assert card["form_url"].endswith("/en/book/strona-jezyki")
     assert list(page(host, "/stay/domek-1/")["hreflang"]) == ["pl"]
 

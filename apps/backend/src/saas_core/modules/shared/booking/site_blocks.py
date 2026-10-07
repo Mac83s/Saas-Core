@@ -158,14 +158,15 @@ def _choice(
         "kind": kind,
         "id": str(item["id"]),
         "name": item["name"],
-        # The language the name and description are in — the company's own
-        # where it has not written them in the page's (slice 5i).
+        # The language the name is in — the company's own where it has not
+        # written it in the page's (slice 5i).
         "lang": item.get("lang", ""),
         "capacity": item["capacity"],
     }
     if content:
         choice.update(
             description=item["description"],
+            description_lang=item.get("description_lang", ""),
             # By id: the site serves a picture at its own host.
             photos=[str(photo["id"]) for photo in item["photos"]],
             # The dictionary's words follow the page, whatever the company's

@@ -416,12 +416,21 @@ describe("stay blocks", () => {
       schema_version: 1,
       data: { unit: FLAT, main: true },
     };
-    const page = (lang: string, locale: string) =>
+    const page = (lang: string, locale: string, description?: string) =>
       renderToStaticMarkup(
         renderPublishedPage(
           published(
             [card],
-            { "0": { ...live, unit: { ...group!, lang } } },
+            {
+              "0": {
+                ...live,
+                unit: {
+                  ...group!,
+                  lang,
+                  description_lang: description ?? lang,
+                },
+              },
+            },
             locale,
           ),
           registry,
@@ -439,6 +448,13 @@ describe("stay blocks", () => {
     // In the words' own language nothing is marked.
     expect(page("pl", "pl")).toContain("<h1>Domek 6-os.</h1>");
     expect(page("de", "de")).toContain("<h1>Domek 6-os.</h1>");
+    // Each by itself: a name the company translated beside a description it
+    // did not.
+    const mixed = page("de", "de", "pl");
+    expect(mixed).toContain("<h1>Domek 6-os.</h1>");
+    expect(mixed).toContain(
+      '<p class="site-stay-unit__text" lang="pl">Dwie sypialnie i taras.</p>',
+    );
   });
 
   it("leads from the list to a unit's own page where the site has one", () => {

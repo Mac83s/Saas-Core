@@ -526,6 +526,9 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
         "self_service",
         # The price as the customer reads it: gross, no company ids (ADR-072 §7).
         "quote",
+        # A bank's rate for a rough figure in the customer's own currency
+        # beside the total (slice 5i): no amount, nobody's data.
+        "conversion",
     }
 
     listing = client.get(f"{url}/")
@@ -549,6 +552,8 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
         # the company's questions, nobody's answers (ADR-072 5j).
         "form_fields",
         "currency",
+        # The same rate for the prices the form shows (slice 5i); null here.
+        "conversion",
     }
     # Nobody is shown to customers here, so no team and no person is listed.
     assert (listing.json()["teams"], listing.json()["people"]) == ([], [])

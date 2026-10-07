@@ -2121,8 +2121,12 @@ class _PublicUnitContentSerializer(serializers.Serializer[dict[str, Any]]):
     )
     lang = serializers.CharField(
         required=False,
-        help_text="The language `name` and `description` are in: the one asked for where "
-        "the company wrote the name in it, otherwise the company's own.",
+        help_text="The language `name` is in: the one asked for where the company wrote "
+        "the name in it, otherwise the company's own.",
+    )
+    description_lang = serializers.CharField(
+        required=False,
+        help_text="The language `description` is in, told the same way.",
     )
 
 

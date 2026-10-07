@@ -133,8 +133,8 @@ function approxNote(
 /** The company's own words in another language than the page's say so
  *  (slice 5i): a screen reader then reads them in their language, and a
  *  translating browser knows what to leave alone or translate. */
-function spoken(choice: StayLiveChoice, locale: string): { lang?: string } {
-  return choice.lang && choice.lang !== locale ? { lang: choice.lang } : {};
+function spoken(lang: string | undefined, locale: string): { lang?: string } {
+  return lang && lang !== locale ? { lang } : {};
 }
 
 /** One picture of a unit at the site's own host: our two copies, never the
@@ -200,7 +200,7 @@ function unitCard(
       { className: "site-stay-unit__body" },
       h(
         heading,
-        { className: "site-stay-unit__name", ...spoken(choice, locale) },
+        { className: "site-stay-unit__name", ...spoken(choice.lang, locale) },
         // The unit's own page, where the site has one: its pictures, all it
         // has and its calendar.
         choice.page_path
@@ -213,7 +213,10 @@ function unitCard(
       choice.description
         ? h(
             "p",
-            { className: "site-stay-unit__text", ...spoken(choice, locale) },
+            {
+              className: "site-stay-unit__text",
+              ...spoken(choice.description_lang, locale),
+            },
             choice.description,
           )
         : null,
@@ -293,7 +296,10 @@ function otherUnits(
             { className: "site-stay-other__body" },
             h(
               "h3",
-              { className: "site-stay-unit__name", ...spoken(other, locale) },
+              {
+                className: "site-stay-unit__name",
+                ...spoken(other.lang, locale),
+              },
               h("a", { href: other.page_path }, other.name),
             ),
             facts.length
@@ -642,14 +648,17 @@ export function StayUnitBlock({
       h(
         "div",
         { className: "site-stay-card__body" },
-        h(block.main ? "h1" : "h2", spoken(unit, locale), unit.name),
+        h(block.main ? "h1" : "h2", spoken(unit.lang, locale), unit.name),
         facts.length
           ? h("p", { className: "site-stay-unit__facts" }, facts.join(" · "))
           : null,
         unit.description
           ? h(
               "p",
-              { className: "site-stay-unit__text", ...spoken(unit, locale) },
+              {
+                className: "site-stay-unit__text",
+                ...spoken(unit.description_lang, locale),
+              },
               unit.description,
             )
           : null,

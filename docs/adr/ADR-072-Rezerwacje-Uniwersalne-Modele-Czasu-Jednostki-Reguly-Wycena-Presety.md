@@ -1639,8 +1639,9 @@ wiadomo, skąd kurs.
   w jednym punkcie: `/de/stay/<adres>/` jednostki bez niemieckiej nazwy nie
   przenosi już na stronę polską, tylko odpowiada po niemiecku — słownik
   (wyposażenie, kalendarz, przyciski, kwota orientacyjna) w języku strony,
-  nazwa i opis w języku firmy, oznaczone atrybutem `lang` (`lang` przy
-  wyborze w `live` i w katalogu formularza; mówi o nazwie). Taka strona **nie
+  nazwa i opis w języku firmy, oznaczone atrybutem `lang` (`lang` i
+  `description_lang` przy wyborze w `live` i w katalogu formularza — każde
+  osobno, bo firma tłumaczy nazwę i opis osobno). Taka strona **nie
   jest wersją językową**: `noindex`, bez `hreflang`, poza mapą strony;
   indeksowane zostają języki, w których jednostka ma własną nazwę — jak
   strona jednostki w katalogu (5h). Powód: gość strony niemieckiej klika

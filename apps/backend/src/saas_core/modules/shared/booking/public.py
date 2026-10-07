@@ -217,10 +217,14 @@ def public_stays(
         return {
             "name": found.get("name", item.name),
             "description": found.get("description", item.description),
-            # The language the name is in: the one asked for where the company
+            # The language each is in: the one asked for where the company
             # wrote it there, otherwise its own — a page in another language
-            # marks such words (slice 5i).
+            # marks such words (slice 5i). Each by itself: a name translated
+            # beside a description that is not is two languages.
             "lang": language if "name" in found else source_locale(organization),
+            "description_lang": (
+                language if "description" in found else source_locale(organization)
+            ),
         }
 
     # „od X zł/noc” for every offer and unit it can be booked on, worked out
