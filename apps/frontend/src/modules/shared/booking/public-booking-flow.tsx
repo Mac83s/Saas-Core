@@ -56,6 +56,7 @@ import {
   ownFields,
   OwnFields,
   pickedExtras,
+  refusalOf,
   refusedAnswers,
   ticked,
 } from "./public-booking-parts";
@@ -373,7 +374,9 @@ export function PublicBookingFlow({
           setProblem(t("" in unanswered ? "fieldsChanged" : "answersRefused"));
           return;
         }
-        setProblem(t("createError"));
+        // Whatever else the server refused, in the guest's words: the time
+        // just taken, a pause that began meanwhile — else the general one.
+        setProblem(t("visitRefused", { reason: refusalOf(error) }));
       }
     },
   );
@@ -617,7 +620,9 @@ export function PublicBookingFlow({
             options={options}
             picked={picked}
           />
-          {quote ? <QuoteSummary quote={quote} /> : null}
+          {quote ? (
+            <QuoteSummary conversion={catalog?.conversion} quote={quote} />
+          ) : null}
           <ContactFields
             contact={contact}
             errors={errors}

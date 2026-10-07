@@ -570,6 +570,117 @@ test("what the server refuses is said in the guest's words", async () => {
   expect(screen.getByRole("button", { name: "Zarezerwuj" })).toBeDisabled();
 });
 
+test("a rule of the season and a pause that began meanwhile are said in the guest's words too", async () => {
+  api.getPublicStayPlan.mockRejectedValueOnce(
+    problem(400, "invalid", {
+      errors: [
+        { field: "start_date", code: "rule_start_weekday", message: "x" },
+      ],
+    }),
+  );
+  show();
+  await pickDates();
+
+  expect(
+    await screen.findByText(
+      "W tym terminie pobyt nie może zacząć się w ten dzień tygodnia. Wybierz inny dzień przyjazdu.",
+    ),
+  ).toBeInTheDocument();
+});
+
+test("a booking refused for another reason than the price says the reason, not „check your details”", async () => {
+  api.createPublicStay.mockRejectedValueOnce(problem(409, "booking_paused"));
+  show();
+  await pickDates();
+  await screen.findByText(/1350,00\szł/);
+  fireEvent.change(screen.getByLabelText("Imię i nazwisko"), {
+    target: { value: "Jan Gość" },
+  });
+  fireEvent.change(screen.getByLabelText("E-mail"), {
+    target: { value: "jan@example.test" },
+  });
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: /Akceptuję regulamin/ }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Zarezerwuj" }));
+
+  expect(
+    await screen.findByText(
+      "Rezerwacje online są chwilowo wstrzymane. Skontaktuj się z firmą.",
+    ),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Sprawdź dane/)).toBeNull();
+});
+
+test("a guest who counts in another currency reads beside each price roughly what it is in theirs", async () => {
+  // A company that prices in euro, read in Polish: the rate is the server's.
+  const [stay] = catalog.stays ?? [];
+  api.getPublicBookingCatalog.mockResolvedValue({
+    ...catalog,
+    currency: "EUR",
+    conversion: {
+      currency: "PLN",
+      rate: "4.379700",
+      date: "2026-10-07",
+      bank: "NBP",
+    },
+    stays: [
+      {
+        ...stay,
+        groups: [
+          {
+            ...stay?.groups[0],
+            from_price: { gross_minor: 10000, currency: "EUR", per: "night" },
+          },
+        ],
+      },
+    ],
+  });
+  api.getPublicStayPlan.mockResolvedValue({
+    ...plan,
+    quote: { ...quote, currency: "EUR" },
+  });
+  show();
+
+  // „od 100 € za noc” stays the price; the rough figure follows it.
+  expect(
+    await screen.findByText(/od 100,00\s€ za noc ≈ 438\szł/),
+  ).toBeInTheDocument();
+  const note =
+    "Kwoty po znaku ≈ są orientacyjne: kurs NBP z 7 paź 2026. Rezerwujesz i płacisz w EUR.";
+  expect(screen.getAllByText(note)).toHaveLength(1);
+
+  await pickDates();
+  // The quote is the company's amounts; under the total, the rough figure
+  // and what it is — and nothing but the total gets one.
+  expect(await screen.findByText(/1350,00\s€/)).toBeInTheDocument();
+  expect(await screen.findByText(/^≈ 5913\szł$/)).toBeInTheDocument();
+  expect(screen.getAllByText(note)).toHaveLength(2);
+  expect(screen.getAllByText(/≈/)).toHaveLength(4);
+});
+
+test("no rate from the server, no figure and no line about one", async () => {
+  show();
+  await pickDates();
+  await screen.findByText(/1350,00\szł/);
+
+  expect(screen.queryByText(/≈/)).toBeNull();
+});
+
+test("the form says the offer's own words where the offer has them", async () => {
+  const [stay] = catalog.stays ?? [];
+  api.getPublicBookingCatalog.mockResolvedValue({
+    ...catalog,
+    stays: [{ ...stay, words: { unit: "Domek", participants: "Goście" } }],
+  });
+  show();
+
+  expect(await screen.findByText("Domek")).toBeInTheDocument();
+  expect(screen.getByLabelText("Goście")).toBeInTheDocument();
+  expect(screen.queryByText("Co rezerwujesz?")).toBeNull();
+  expect(screen.queryByLabelText("Osoby")).toBeNull();
+});
+
 test("too many questions at once is said as such, not as a date that cannot be booked", async () => {
   api.getPublicStayPlan.mockRejectedValue(problem(429, "throttled"));
   show();

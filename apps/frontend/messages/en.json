@@ -3334,7 +3334,7 @@
     "manage": "Change the time or cancel",
     "manageWaiting": "See your booking or cancel it",
     "loadError": "Available times could not be loaded.",
-    "createError": "The time is no longer available or the details are invalid.",
+    "visitRefused": "{reason, select, slot_unavailable {This time has just been taken. Choose another.} booking_paused {Online booking is paused for now. Contact the company.} beyond_booking_horizon {A time this far ahead cannot be booked online yet.} price_missing {This service has no price for this time yet. Contact the company.} throttled {Too many attempts at once. Try again in a moment.} extra_quantity_exceeded {Too many of one of the extras. Reduce the number.} other {The time is no longer available or the details are invalid.}}",
     "required": "This field is required.",
     "pickTime": "Choose a time.",
     "invalidEmail": "Enter a valid email address.",
@@ -3393,7 +3393,7 @@
     "stayDatesRequired": "Choose the dates.",
     "stayNoDays": "There are no available dates in this month.",
     "stayChecking": "Checking the dates and the price…",
-    "stayRefused": "{reason, select, unit_capacity_exceeded {{count, plural, =0 {Too many people.} other {Too many people: # at most.}}} slot_unavailable {These dates are already taken. Choose others.} price_missing {There is no price for these dates yet. Contact the company.} rule_min_length {A stay on these dates has to be longer.} rule_max_length {A stay on these dates has to be shorter.} rule_notice {It is too late to book these dates.} beyond_booking_horizon {Dates this far ahead cannot be booked online yet.} throttled {Too many requests at once. Try again in a moment.} other {These dates cannot be booked. Choose others.}}",
+    "stayRefused": "{reason, select, unit_capacity_exceeded {{count, plural, =0 {Too many people.} other {Too many people: # at most.}}} slot_unavailable {These dates are already taken. Choose others.} price_missing {There is no price for these dates yet. Contact the company.} rule_min_length {A stay on these dates has to be longer.} rule_max_length {A stay on these dates has to be shorter.} rule_notice {It is too late to book these dates.} beyond_booking_horizon {Dates this far ahead cannot be booked online yet.} rule_closed {No bookings are taken for these dates. Choose others.} rule_window {Dates this far ahead cannot be booked online yet.} rule_start_weekday {On these dates a stay cannot start on this day of the week. Choose another arrival day.} rule_end_weekday {On these dates a stay cannot end on this day of the week. Choose another departure day.} rule_length_multiple {On these dates a stay has to be of another length, for example whole weeks.} closed_day {The company is closed on this day. Choose another.} end_before_start {The departure has to be after the arrival.} booking_paused {Online booking is paused for now. Contact the company.} extra_quantity_exceeded {Too many of one of the extras. Reduce the number.} participants_required {Say how many people are coming.} throttled {Too many requests at once. Try again in a moment.} other {These dates cannot be booked. Choose others.}}",
     "stayTaken": "Somebody has just booked these dates. Choose others.",
     "stayCreateError": "The booking could not be saved. Check the details and try again.",
     "stayNotesHint": "Anything the company should know beforehand. Only the company sees it.",
@@ -3461,7 +3461,8 @@
     "stayCheck": "Check the dates",
     "stayPlan": "New dates: {when}.",
     "stayMove": "Move the booking",
-    "stayMoveError": "These dates cannot be booked. Choose others."
+    "stayMoveError": "These dates cannot be booked. Choose others.",
+    "refused": "{reason, select, appointment_not_changeable {This booking can no longer be changed or canceled through this link. Contact the company.} slot_unavailable {This time is already taken. Choose another.} beyond_booking_horizon {A time this far ahead cannot be booked online yet.} throttled {Too many attempts at once. Try again in a moment.} other {The booking could not be changed. Try again or contact the company.}}"
   },
   "Notifications": {
     "navigation": "Notifications",
@@ -4833,6 +4834,7 @@
     "bookDates": "Book these dates",
     "checkDates": "Check availability",
     "from": "{per, select, night {from {amount} per night} day {from {amount} per day} other {from {amount}}}",
+    "approxNote": "Amounts after ≈ are indicative: the {bank} rate of {date}. You book and pay in {currency}.",
     "capacity": "{count, plural, one {for # person} other {up to # people}}",
     "amenities": "Amenities",
     "photosOf": "Photos: {name}",
@@ -6203,7 +6205,8 @@
     "refundRow": "{days, plural, =0 {Until the day it starts} one {At least # day before the start} other {At least # days before the start}}: {percent}% back",
     "refundLater": "Later: no refund",
     "refundOfDeposit": "The refund is counted on the prepayment; anything else you paid comes back whole.",
-    "refundOfPaid": "The refund is counted on everything you paid."
+    "refundOfPaid": "The refund is counted on everything you paid.",
+    "approxNote": "Amounts after ≈ are indicative: the {bank} rate of {date}. You book and pay in {currency}."
   },
   "PriceHistory": {
     "title": "Price history",

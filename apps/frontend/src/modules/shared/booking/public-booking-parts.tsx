@@ -29,7 +29,11 @@ import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
-import { siteUiTexts } from "@saas-core/site-blocks";
+import {
+  approxAmount,
+  siteUiTexts,
+  type PriceConversion,
+} from "@saas-core/site-blocks";
 
 import { nativeName } from "#lib/company-locales";
 import { dateFormat, formatWhen, wallClock } from "./calendar-time";
@@ -665,21 +669,33 @@ export function UnitCover({
   );
 }
 
-/** „Mrągowo · od 250,00 zł za noc” and what the unit has. */
-export function UnitFacts({ unit }: { unit: UnitContent }) {
+/** „Mrągowo · od 250,00 zł za noc” and what the unit has; with a rate, the
+ *  rough figure in the reader's currency after the price („≈ 57 €”). */
+export function UnitFacts({
+  conversion,
+  unit,
+}: {
+  conversion?: PriceConversion | null;
+  unit: UnitContent;
+}) {
   const t = useTranslations("PublicBooking");
   const locale = useLocale();
   const price = unit.from_price;
   const facts = [
     unit.town?.name,
     price
-      ? t("stayFrom", {
-          per: price.per,
-          amount: new Intl.NumberFormat(locale, {
-            style: "currency",
-            currency: price.currency,
-          }).format(price.gross_minor / 100),
-        })
+      ? [
+          t("stayFrom", {
+            per: price.per,
+            amount: new Intl.NumberFormat(locale, {
+              style: "currency",
+              currency: price.currency,
+            }).format(price.gross_minor / 100),
+          }),
+          approxAmount(price.gross_minor, conversion, locale),
+        ]
+          .filter(Boolean)
+          .join(" ")
       : undefined,
   ].filter(Boolean);
   const more = unit.amenities.length - AMENITIES_SHOWN;
@@ -734,9 +750,13 @@ export function UnitGallery({
   );
 }
 
-/** The refusals of a stay the pages have their own words for
- *  (`PublicBooking.stayRefused`); anything else is said as „nie można
- *  zarezerwować”. */
+/** The refusals the guest's pages have their own words for, in the guest's
+ *  language (ADR-072, slice 5i): every code a guest can run into by what
+ *  they choose. Each page says them with its own sentences — a stay
+ *  (`PublicBooking.stayRefused`), a visit (`visitRefused`), the customer's
+ *  link (`BookingSelfService.refused`) — and a code a page has no sentence
+ *  for reads as its „other”. The server's own words are never shown: they
+ *  are in one language. */
 const REFUSALS = [
   // Too many questions at once: nothing is wrong with the dates.
   "throttled",
@@ -747,10 +767,24 @@ const REFUSALS = [
   "rule_max_length",
   "rule_notice",
   "beyond_booking_horizon",
+  // A season's rule or a day the company is closed.
+  "rule_closed",
+  "rule_window",
+  "rule_start_weekday",
+  "rule_end_weekday",
+  "rule_length_multiple",
+  "closed_day",
+  "end_before_start",
+  // The company paused its form after the page was opened.
+  "booking_paused",
+  "extra_quantity_exceeded",
+  "participants_required",
+  // The customer's link: the booking is past changing.
+  "appointment_not_changeable",
 ];
 
-/** Why the server refused a stay, as a key of `stayRefused`: the first
- *  field problem's code, or the problem's own. */
+/** Why the server refused, as a key of the page's refusal sentences: the
+ *  first field problem's code, or the problem's own. */
 export function refusalOf(error: unknown): string {
   if (!(error instanceof ApiProblemError)) return "other";
   const code = error.problem.errors?.[0]?.code ?? error.problem.code;
@@ -927,7 +961,11 @@ export function BookedCard({
           <TransferDetails payment={booked.payment} zone={booked.timezone} />
         ) : null}
         {booked.quote ? (
-          <QuoteSummary quote={booked.quote} settled={state === "confirmed"} />
+          <QuoteSummary
+            conversion={booked.conversion}
+            quote={booked.quote}
+            settled={state === "confirmed"}
+          />
         ) : null}
         <div className="flex flex-wrap gap-3">
           {booked.self_service_token ? (

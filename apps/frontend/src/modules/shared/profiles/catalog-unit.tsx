@@ -2,7 +2,11 @@ import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
 import type { CatalogUnitPage as CatalogUnitPayload } from "@saas-core/api-client";
-import { stayAmount } from "@saas-core/site-blocks";
+import {
+  approxAmount,
+  conversionDay,
+  stayAmount,
+} from "@saas-core/site-blocks";
 
 import { localizedPath } from "../../../marketing/seo";
 import { CatalogUnitPhoto } from "./catalog-unit-photo";
@@ -26,6 +30,7 @@ export async function CatalogUnitPage({
 }) {
   const t = await getTranslations("Catalog");
   const { company, unit } = page;
+  const conversion = page.booking.conversion ?? null;
   const card = localizedPath(
     locale,
     `/katalog/${company.city_slug}/${company.slug}`,
@@ -35,10 +40,16 @@ export async function CatalogUnitPage({
     unit.town?.name,
     unit.capacity ? t("capacity", { count: unit.capacity }) : undefined,
     unit.from_price
-      ? t("from", {
-          per: unit.from_price.per,
-          amount: stayAmount(unit.from_price, locale),
-        })
+      ? [
+          t("from", {
+            per: unit.from_price.per,
+            amount: stayAmount(unit.from_price, locale),
+          }),
+          // Roughly what it is in the reader's own currency (slice 5i).
+          approxAmount(unit.from_price.gross_minor, conversion, locale),
+        ]
+          .filter(Boolean)
+          .join(" ")
       : undefined,
   ].filter(Boolean);
 
@@ -69,6 +80,15 @@ export async function CatalogUnitPage({
         {facts.length > 0 && (
           <p className="text-muted-foreground" lang={locale}>
             {facts.join(" · ")}
+          </p>
+        )}
+        {conversion && unit.from_price && (
+          <p className="text-muted-foreground text-xs" lang={locale}>
+            {t("approxNote", {
+              bank: conversion.bank,
+              date: conversionDay(conversion, locale),
+              currency: unit.from_price.currency,
+            })}
           </p>
         )}
       </header>

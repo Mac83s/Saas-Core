@@ -46,6 +46,7 @@
     "bookDates": "Diesen Zeitraum buchen",
     "checkDates": "Freie Termine prüfen",
     "from": "{per, select, night {ab {amount} pro Nacht} day {ab {amount} pro Tag} other {ab {amount}}}",
+    "approxNote": "Beträge nach ≈ sind Richtwerte: {bank}-Kurs vom {date}. Gebucht und bezahlt wird in {currency}.",
     "capacity": "{count, plural, one {für # Person} other {bis zu # Personen}}",
     "amenities": "Ausstattung",
     "photosOf": "Fotos: {name}",
@@ -101,7 +102,7 @@
     "manage": "Termin ändern oder absagen",
     "manageWaiting": "Buchung ansehen oder absagen",
     "loadError": "Die freien Zeiten konnten nicht geladen werden.",
-    "createError": "Die Zeit ist nicht mehr frei oder die Angaben sind ungültig.",
+    "visitRefused": "{reason, select, slot_unavailable {Dieser Termin wurde gerade vergeben. Wählen Sie einen anderen.} booking_paused {Online-Buchungen sind derzeit pausiert. Wenden Sie sich bitte an das Unternehmen.} beyond_booking_horizon {So weit im Voraus kann online noch nicht gebucht werden.} price_missing {Für diesen Termin hat die Leistung noch keinen Preis. Wenden Sie sich an das Unternehmen.} throttled {Zu viele Versuche auf einmal. Versuchen Sie es gleich noch einmal.} extra_quantity_exceeded {Von einer Zusatzleistung wurden zu viele gewählt. Verringern Sie die Anzahl.} other {Die Zeit ist nicht mehr frei oder die Angaben sind ungültig.}}",
     "required": "Dieses Feld ist erforderlich.",
     "pickTime": "Wählen Sie eine Uhrzeit.",
     "invalidEmail": "Geben Sie eine gültige E-Mail-Adresse ein.",
@@ -160,7 +161,7 @@
     "stayDatesRequired": "Wählen Sie den Zeitraum.",
     "stayNoDays": "In diesem Monat gibt es keine freien Termine.",
     "stayChecking": "Zeitraum und Preis werden geprüft…",
-    "stayRefused": "{reason, select, unit_capacity_exceeded {{count, plural, =0 {Zu viele Personen.} other {Zu viele Personen: höchstens #.}}} slot_unavailable {Dieser Zeitraum ist bereits belegt. Wählen Sie einen anderen.} price_missing {Für diesen Zeitraum gibt es noch keinen Preis. Wenden Sie sich an das Unternehmen.} rule_min_length {In diesem Zeitraum muss der Aufenthalt länger sein.} rule_max_length {In diesem Zeitraum muss der Aufenthalt kürzer sein.} rule_notice {Für diesen Zeitraum ist es bereits zu spät.} beyond_booking_horizon {So weit im Voraus kann online noch nicht gebucht werden.} throttled {Zu viele Anfragen auf einmal. Versuchen Sie es gleich noch einmal.} other {Dieser Zeitraum kann nicht gebucht werden. Wählen Sie einen anderen.}}",
+    "stayRefused": "{reason, select, unit_capacity_exceeded {{count, plural, =0 {Zu viele Personen.} other {Zu viele Personen: höchstens #.}}} slot_unavailable {Dieser Zeitraum ist bereits belegt. Wählen Sie einen anderen.} price_missing {Für diesen Zeitraum gibt es noch keinen Preis. Wenden Sie sich an das Unternehmen.} rule_min_length {In diesem Zeitraum muss der Aufenthalt länger sein.} rule_max_length {In diesem Zeitraum muss der Aufenthalt kürzer sein.} rule_notice {Für diesen Zeitraum ist es bereits zu spät.} beyond_booking_horizon {So weit im Voraus kann online noch nicht gebucht werden.} rule_closed {Für diesen Zeitraum werden keine Buchungen angenommen. Wählen Sie einen anderen.} rule_window {So weit im Voraus kann online noch nicht gebucht werden.} rule_start_weekday {In diesem Zeitraum kann der Aufenthalt nicht an diesem Wochentag beginnen. Wählen Sie einen anderen Anreisetag.} rule_end_weekday {In diesem Zeitraum kann der Aufenthalt nicht an diesem Wochentag enden. Wählen Sie einen anderen Abreisetag.} rule_length_multiple {In diesem Zeitraum muss der Aufenthalt eine andere Länge haben, zum Beispiel ganze Wochen.} closed_day {An diesem Tag ist das Unternehmen geschlossen. Wählen Sie einen anderen.} end_before_start {Die Abreise muss nach der Anreise liegen.} booking_paused {Online-Buchungen sind derzeit pausiert. Wenden Sie sich bitte an das Unternehmen.} extra_quantity_exceeded {Von einer Zusatzleistung wurden zu viele gewählt. Verringern Sie die Anzahl.} participants_required {Geben Sie an, wie viele Personen kommen.} throttled {Zu viele Anfragen auf einmal. Versuchen Sie es gleich noch einmal.} other {Dieser Zeitraum kann nicht gebucht werden. Wählen Sie einen anderen.}}",
     "stayTaken": "Dieser Zeitraum wurde gerade gebucht. Wählen Sie einen anderen.",
     "stayCreateError": "Die Buchung konnte nicht gespeichert werden. Prüfen Sie die Angaben und versuchen Sie es erneut.",
     "stayNotesHint": "Alles, was das Unternehmen vorab wissen sollte. Nur das Unternehmen sieht es.",
@@ -203,7 +204,8 @@
     "stayCheck": "Zeitraum prüfen",
     "stayPlan": "Neuer Zeitraum: {when}.",
     "stayMove": "Buchung verschieben",
-    "stayMoveError": "Dieser Zeitraum kann nicht gebucht werden. Wählen Sie einen anderen."
+    "stayMoveError": "Dieser Zeitraum kann nicht gebucht werden. Wählen Sie einen anderen.",
+    "refused": "{reason, select, appointment_not_changeable {Diese Buchung kann über diesen Link nicht mehr geändert oder abgesagt werden. Wenden Sie sich an das Unternehmen.} slot_unavailable {Dieser Termin ist bereits vergeben. Wählen Sie einen anderen.} beyond_booking_horizon {So weit im Voraus kann online noch nicht gebucht werden.} throttled {Zu viele Versuche auf einmal. Versuchen Sie es gleich noch einmal.} other {Die Buchung konnte nicht geändert werden. Versuchen Sie es erneut oder wenden Sie sich an das Unternehmen.}}"
   },
   "Marketing": {
     "nav": {
@@ -272,7 +274,8 @@
     "refundRow": "{days, plural, =0 {Bis zum Tag des Beginns} one {Mindestens # Tag vor Beginn} other {Mindestens # Tage vor Beginn}}: {percent}% Erstattung",
     "refundLater": "Später: keine Erstattung",
     "refundOfDeposit": "Die Erstattung wird von der Vorauszahlung berechnet; weitere Zahlungen erhalten Sie vollständig zurück.",
-    "refundOfPaid": "Die Erstattung wird von allen Zahlungen berechnet."
+    "refundOfPaid": "Die Erstattung wird von allen Zahlungen berechnet.",
+    "approxNote": "Beträge nach ≈ sind Richtwerte: {bank}-Kurs vom {date}. Gebucht und bezahlt wird in {currency}."
   },
   "CustomerDocument": {
     "kinds": {

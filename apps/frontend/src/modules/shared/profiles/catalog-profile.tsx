@@ -1,7 +1,11 @@
 import { getLocale, getTranslations } from "next-intl/server";
 
 import type { CatalogProfile } from "@saas-core/api-client";
-import { stayAmount } from "@saas-core/site-blocks";
+import {
+  approxAmount,
+  conversionDay,
+  stayAmount,
+} from "@saas-core/site-blocks";
 
 import { localizedPath } from "../../../marketing/seo";
 import { catalogFormHref } from "./catalog-links";
@@ -97,10 +101,21 @@ export async function CatalogProfilePage({
                           ? t("capacity", { count: unit.capacity })
                           : undefined,
                         unit.from_price
-                          ? t("from", {
-                              per: unit.from_price.per,
-                              amount: stayAmount(unit.from_price, locale),
-                            })
+                          ? [
+                              t("from", {
+                                per: unit.from_price.per,
+                                amount: stayAmount(unit.from_price, locale),
+                              }),
+                              // Roughly what it is in the reader's own
+                              // currency (ADR-072, slice 5i).
+                              approxAmount(
+                                unit.from_price.gross_minor,
+                                booking.conversion,
+                                locale,
+                              ),
+                            ]
+                              .filter(Boolean)
+                              .join(" ")
                           : undefined,
                       ]
                         .filter(Boolean)
@@ -114,6 +129,19 @@ export async function CatalogProfilePage({
               ))}
             </ul>
           )}
+          {/* What the figures after „≈” are: once, under the units. */}
+          {booking.conversion &&
+            booking.units.some((unit) => unit.from_price) && (
+              <p className="text-muted-foreground text-xs">
+                {t("approxNote", {
+                  bank: booking.conversion.bank,
+                  date: conversionDay(booking.conversion, locale),
+                  currency:
+                    booking.units.find((unit) => unit.from_price)?.from_price
+                      ?.currency ?? "",
+                })}
+              </p>
+            )}
           <p>
             <a
               className="bg-primary text-primary-foreground inline-flex min-h-11 items-center justify-center rounded-lg px-5 text-sm font-medium"

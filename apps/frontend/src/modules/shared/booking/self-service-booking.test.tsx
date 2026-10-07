@@ -2,9 +2,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, expect, test, vi } from "vitest";
 
-import type {
-  BookingPublicAppointment,
-  BookingPublicQuote,
+import {
+  ApiProblemError,
+  type BookingPublicAppointment,
+  type BookingPublicQuote,
 } from "@saas-core/api-client";
 
 import polishMessages from "../../../../messages/pl.json";
@@ -140,6 +141,59 @@ test("a stay moves only after its new dates and price were shown", async () => {
   expect(api.moveSelfServiceStay.mock.calls[0][3]).toBe("digest-new");
   expect(
     await screen.findByText("14–16 listopada 2026 · 2 noce"),
+  ).toBeInTheDocument();
+});
+
+test("a stay that can no longer be moved says so, in the customer's words", async () => {
+  api.moveSelfServiceStay.mockRejectedValue(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Problem",
+      status: 409,
+      code: "appointment_not_changeable",
+      // The server's own sentence is in one language and is never shown.
+      detail: "Tej wizyty nie można już zmienić.",
+      correlation_id: null,
+    }),
+  );
+  show();
+  fireEvent.change(await screen.findByLabelText("Przyjazd"), {
+    target: { value: "2026-11-14" },
+  });
+  fireEvent.change(screen.getByLabelText("Wyjazd"), {
+    target: { value: "2026-11-16" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Sprawdź termin" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Przenieś rezerwację" }),
+  );
+
+  expect(
+    await screen.findByText(
+      "Tej rezerwacji nie można już zmienić ani odwołać przez ten link. Skontaktuj się z firmą.",
+    ),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Tej wizyty nie można/)).toBeNull();
+});
+
+test("the customer's own link says roughly what the total is in their currency", async () => {
+  api.getSelfServiceBooking.mockResolvedValue({
+    ...stay,
+    conversion: {
+      currency: "EUR",
+      rate: "0.228326",
+      date: "2026-10-07",
+      bank: "NBP",
+    },
+  });
+  show();
+
+  expect(await screen.findByText(/1200,00\szł/)).toBeInTheDocument();
+  expect(screen.getByText(/^≈ 274\s€$/)).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "Kwoty po znaku ≈ są orientacyjne: kurs NBP z 7 paź 2026. Rezerwujesz i płacisz w PLN.",
+    ),
   ).toBeInTheDocument();
 });
 

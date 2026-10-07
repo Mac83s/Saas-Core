@@ -3,13 +3,46 @@
 import { useLocale, useTranslations } from "next-intl";
 
 import type { BookingPublicQuote } from "@saas-core/api-client";
+import {
+  approxAmount,
+  conversionDay,
+  type PriceConversion,
+} from "@saas-core/site-blocks";
+
+/** What the figures after „≈” are, said where they are shown (ADR-072,
+ *  slice 5i): whose rate, of which day — and that the booking and the
+ *  payment are in the company's currency, whatever the figure says. */
+export function ApproxNote({
+  conversion,
+  currency,
+}: {
+  conversion: PriceConversion;
+  /** The company's currency: what the guest is charged in. */
+  currency: string;
+}) {
+  const t = useTranslations("BookingPrice");
+  const locale = useLocale();
+  return (
+    <p className="text-xs text-muted-foreground">
+      {t("approxNote", {
+        bank: conversion.bank,
+        date: conversionDay(conversion, locale),
+        currency,
+      })}
+    </p>
+  );
+}
 
 /** A price as the customer reads it: the lines, what they pay, the deposit
- *  and how they pay (ADR-072 §7–§8). Every amount is the server's. */
+ *  and how they pay (ADR-072 §7–§8). Every amount is the server's; with a
+ *  rate (`conversion`) the total gets a rough figure in the reader's own
+ *  currency under it — information, said to be so. */
 export function QuoteSummary({
+  conversion,
   quote,
   settled = false,
 }: {
+  conversion?: PriceConversion | null;
   quote: BookingPublicQuote;
   /** The booking no longer waits for its prepayment: the terms of paying it
    *  are not an instruction any more, so they are left out. */
@@ -22,6 +55,9 @@ export function QuoteSummary({
       style: "currency",
       currency: quote.currency,
     }).format(minor / 100);
+  const approx = quote.lines.length
+    ? approxAmount(quote.gross_minor, conversion, locale)
+    : "";
   return (
     <section
       aria-label={t("title")}
@@ -46,6 +82,14 @@ export function QuoteSummary({
             <span>{t("total")}</span>
             <span className="tabular-nums">{money(quote.gross_minor)}</span>
           </p>
+          {approx && conversion ? (
+            <>
+              <p className="text-right tabular-nums text-muted-foreground">
+                {approx}
+              </p>
+              <ApproxNote conversion={conversion} currency={quote.currency} />
+            </>
+          ) : null}
         </>
       ) : null}
       {quote.security_deposit_minor ? (

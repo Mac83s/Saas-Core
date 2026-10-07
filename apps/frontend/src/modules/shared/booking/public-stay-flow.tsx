@@ -61,7 +61,7 @@ import {
   UnitGallery,
   type UnitContent,
 } from "./public-booking-parts";
-import { QuoteSummary } from "./quote-summary";
+import { ApproxNote, QuoteSummary } from "./quote-summary";
 import { StayDatePicker } from "./stay-date-picker";
 
 type Documents = BookingPublicConsents["documents"];
@@ -169,6 +169,9 @@ export function PublicStayFlow({
   const choices = useMemo(() => choicesOf(offer), [offer]);
   const unit = offer?.range_unit === "day" ? "day" : "night";
   const contact = catalog.online.contact;
+  // Roughly what the prices are in the reader's own currency, where the
+  // server gave a rate (slice 5i): a figure beside a price, never a price.
+  const conversion = catalog.conversion ?? null;
   // What is booked: the only choice by itself, otherwise the guest's pick —
   // or the one the link named, when the offer has it.
   const [chosen, setChosen] = useState(() => {
@@ -364,7 +367,14 @@ export function PublicStayFlow({
         setProblem(t("" in unanswered ? "fieldsChanged" : "answersRefused"));
         return;
       }
-      setProblem(t("stayCreateError"));
+      // Whatever else the server refused, in the guest's words where the
+      // page has them — a rule of the season, a pause that began meanwhile.
+      const reason = refusalOf(error);
+      setProblem(
+        reason === "other"
+          ? t("stayCreateError")
+          : t("stayRefused", { reason, count: choice?.capacity ?? 0 }),
+      );
     }
   });
   // What is left unchosen is said together with the fields left empty.
@@ -422,7 +432,11 @@ export function PublicStayFlow({
           ) : null}
           {choices.length > 1 ? (
             <FieldSet data-invalid={tried && !choice}>
-              <FieldLegend variant="label">{t("stayChoice")}</FieldLegend>
+              {/* The offer's own word for what is booked („Domek”), where it
+                  has one in this language. */}
+              <FieldLegend variant="label">
+                {offer?.words?.unit ?? t("stayChoice")}
+              </FieldLegend>
               <div className="grid gap-2">
                 {choices.map((item) => (
                   <label
@@ -450,7 +464,7 @@ export function PublicStayFlow({
                           {item.description}
                         </span>
                       ) : null}
-                      <UnitFacts unit={item} />
+                      <UnitFacts conversion={conversion} unit={item} />
                     </span>
                   </label>
                 ))}
@@ -473,8 +487,14 @@ export function PublicStayFlow({
                   {choice.description}
                 </span>
               ) : null}
-              <UnitFacts unit={choice} />
+              <UnitFacts conversion={conversion} unit={choice} />
             </p>
+          ) : null}
+          {conversion && choices.some((item) => item.from_price) ? (
+            <ApproxNote
+              conversion={conversion}
+              currency={catalog.currency ?? "PLN"}
+            />
           ) : null}
           {/* What is chosen, in pictures: each opens large in a new tab. */}
           {choice ? (
@@ -483,7 +503,7 @@ export function PublicStayFlow({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="booking-people">
-                {t("stayPeople")}
+                {offer?.words?.participants ?? t("stayPeople")}
               </FieldLabel>
               <Input
                 id="booking-people"
@@ -593,7 +613,9 @@ export function PublicStayFlow({
               })}
             </p>
           ) : null}
-          {plan?.quote ? <QuoteSummary quote={plan.quote} /> : null}
+          {plan?.quote ? (
+            <QuoteSummary conversion={conversion} quote={plan.quote} />
+          ) : null}
           <ContactFields
             contact={contact}
             errors={form.formState.errors}

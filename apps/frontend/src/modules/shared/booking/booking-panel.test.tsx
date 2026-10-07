@@ -2641,6 +2641,58 @@ test("the customer's page names the person shown to customers", async () => {
   expect(await screen.findByText("Przyjmie Cię: dr Anna Nowak")).not.toBeNull();
 });
 
+test("a visit the server refuses says why in the guest's words, never the server's sentence (ADR-072, 5i)", async () => {
+  renderPublic();
+  await searchPublic();
+  await waitFor(() =>
+    expect(screen.getByLabelText("Day")).toHaveProperty("disabled", false),
+  );
+  fireEvent.change(screen.getByLabelText("Day"), {
+    target: { value: "2026-08-20" },
+  });
+  const time = screen.getByLabelText("Time");
+  await waitFor(() =>
+    expect(within(time).getAllByRole("option")).toHaveLength(3),
+  );
+  fireEvent.change(time, { target: { value: "2026-08-20T08:30:00Z" } });
+  fireEvent.change(screen.getByLabelText("Full name"), {
+    target: { value: "Anna Nowak" },
+  });
+  fireEvent.change(screen.getByLabelText("E-mail"), {
+    target: { value: "anna@example.test" },
+  });
+  const refusal = (code: string) =>
+    new ApiProblemError({
+      type: "about:blank",
+      title: "",
+      status: 409,
+      code,
+      detail: "Wybrany termin nie jest już dostępny.",
+      correlation_id: null,
+    });
+
+  // Somebody took the time a moment earlier.
+  api.createPublicBookingAppointment.mockRejectedValueOnce(
+    refusal("slot_unavailable"),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Book" }));
+  expect(
+    await screen.findByText("This time has just been taken. Choose another."),
+  ).not.toBeNull();
+  expect(screen.queryByText(/Wybrany termin/)).toBeNull();
+
+  // A refusal the page has no sentence of its own for: the general one.
+  api.createPublicBookingAppointment.mockRejectedValueOnce(
+    refusal("booking_idempotency_conflict"),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Book" }));
+  expect(
+    await screen.findByText(
+      "The time is no longer available or the details are invalid.",
+    ),
+  ).not.toBeNull();
+});
+
 test("a company that paused online booking says so instead of a form (ADR-078)", async () => {
   api.getPublicBookingCatalog.mockResolvedValue({
     locations: catalog.locations,

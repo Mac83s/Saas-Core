@@ -3334,7 +3334,7 @@
     "manage": "Zmień termin lub odwołaj",
     "manageWaiting": "Zobacz rezerwację lub zrezygnuj",
     "loadError": "Nie udało się pobrać terminów.",
-    "createError": "Termin nie jest już dostępny albo dane są nieprawidłowe.",
+    "visitRefused": "{reason, select, slot_unavailable {Ten termin został właśnie zajęty. Wybierz inny.} booking_paused {Rezerwacje online są chwilowo wstrzymane. Skontaktuj się z firmą.} beyond_booking_horizon {Tak odległego terminu nie można jeszcze zarezerwować online.} price_missing {Ta usługa nie ma jeszcze ceny na ten termin. Skontaktuj się z firmą.} throttled {Za dużo prób naraz. Spróbuj za chwilę.} extra_quantity_exceeded {Wybrano za dużo sztuk jednej z dopłat. Zmniejsz liczbę.} other {Termin nie jest już dostępny albo dane są nieprawidłowe.}}",
     "required": "To pole jest wymagane.",
     "pickTime": "Wybierz godzinę.",
     "invalidEmail": "Podaj poprawny adres e-mail.",
@@ -3393,7 +3393,7 @@
     "stayDatesRequired": "Wybierz termin.",
     "stayNoDays": "W tym miesiącu nie ma wolnych terminów.",
     "stayChecking": "Sprawdzam termin i cenę…",
-    "stayRefused": "{reason, select, unit_capacity_exceeded {{count, plural, =0 {Za dużo osób.} other {Za dużo osób: zmieści się najwyżej #.}}} slot_unavailable {Ten termin jest już zajęty. Wybierz inny.} price_missing {Na ten termin nie ma jeszcze ceny. Skontaktuj się z firmą.} rule_min_length {W tym terminie pobyt musi być dłuższy.} rule_max_length {W tym terminie pobyt musi być krótszy.} rule_notice {Na ten termin jest już za późno.} beyond_booking_horizon {Tak odległego terminu nie można jeszcze zarezerwować online.} throttled {Za dużo zapytań naraz. Spróbuj za chwilę.} other {Tego terminu nie można zarezerwować. Wybierz inny.}}",
+    "stayRefused": "{reason, select, unit_capacity_exceeded {{count, plural, =0 {Za dużo osób.} other {Za dużo osób: zmieści się najwyżej #.}}} slot_unavailable {Ten termin jest już zajęty. Wybierz inny.} price_missing {Na ten termin nie ma jeszcze ceny. Skontaktuj się z firmą.} rule_min_length {W tym terminie pobyt musi być dłuższy.} rule_max_length {W tym terminie pobyt musi być krótszy.} rule_notice {Na ten termin jest już za późno.} beyond_booking_horizon {Tak odległego terminu nie można jeszcze zarezerwować online.} rule_closed {W tym terminie nie przyjmujemy rezerwacji. Wybierz inny.} rule_window {Tak odległego terminu nie można jeszcze zarezerwować online.} rule_start_weekday {W tym terminie pobyt nie może zacząć się w ten dzień tygodnia. Wybierz inny dzień przyjazdu.} rule_end_weekday {W tym terminie pobyt nie może skończyć się w ten dzień tygodnia. Wybierz inny dzień wyjazdu.} rule_length_multiple {W tym terminie pobyt musi mieć inną długość, na przykład pełne tygodnie.} closed_day {W tym dniu firma jest zamknięta. Wybierz inny dzień.} end_before_start {Wyjazd musi być po przyjeździe.} booking_paused {Rezerwacje online są chwilowo wstrzymane. Skontaktuj się z firmą.} extra_quantity_exceeded {Wybrano za dużo sztuk jednej z dopłat. Zmniejsz liczbę.} participants_required {Podaj, ile osób przyjedzie.} throttled {Za dużo zapytań naraz. Spróbuj za chwilę.} other {Tego terminu nie można zarezerwować. Wybierz inny.}}",
     "stayTaken": "Ktoś właśnie zarezerwował ten termin. Wybierz inny.",
     "stayCreateError": "Nie udało się zapisać rezerwacji. Sprawdź dane i spróbuj ponownie.",
     "stayNotesHint": "Coś, co firma powinna wiedzieć przed tym terminem. Zobaczy to tylko firma.",
@@ -3461,7 +3461,8 @@
     "stayCheck": "Sprawdź termin",
     "stayPlan": "Nowy termin: {when}.",
     "stayMove": "Przenieś rezerwację",
-    "stayMoveError": "Tego terminu nie można zarezerwować. Wybierz inny."
+    "stayMoveError": "Tego terminu nie można zarezerwować. Wybierz inny.",
+    "refused": "{reason, select, appointment_not_changeable {Tej rezerwacji nie można już zmienić ani odwołać przez ten link. Skontaktuj się z firmą.} slot_unavailable {Ten termin jest już zajęty. Wybierz inny.} beyond_booking_horizon {Tak odległego terminu nie można jeszcze zarezerwować online.} throttled {Za dużo prób naraz. Spróbuj za chwilę.} other {Nie udało się zmienić rezerwacji. Spróbuj ponownie albo skontaktuj się z firmą.}}"
   },
   "Notifications": {
     "navigation": "Powiadomienia",
@@ -4833,6 +4834,7 @@
     "bookDates": "Zarezerwuj ten termin",
     "checkDates": "Sprawdź wolne terminy",
     "from": "{per, select, night {od {amount} za noc} day {od {amount} za dzień} other {od {amount}}}",
+    "approxNote": "Kwoty po znaku ≈ są orientacyjne: kurs {bank} z {date}. Rezerwujesz i płacisz w {currency}.",
     "capacity": "{count, plural, one {dla # osoby} other {do # osób}}",
     "amenities": "Wyposażenie",
     "photosOf": "Zdjęcia: {name}",
@@ -6203,7 +6205,8 @@
     "refundRow": "{days, plural, =0 {Do dnia rozpoczęcia} one {Co najmniej # dzień przed początkiem} other {Co najmniej # dni przed początkiem}}: zwrot {percent}%",
     "refundLater": "Później: bez zwrotu",
     "refundOfDeposit": "Zwrot liczymy od przedpłaty; pozostałe wpłaty wracają w całości.",
-    "refundOfPaid": "Zwrot liczymy od wszystkich wpłat."
+    "refundOfPaid": "Zwrot liczymy od wszystkich wpłat.",
+    "approxNote": "Kwoty po znaku ≈ są orientacyjne: kurs {bank} z {date}. Rezerwujesz i płacisz w {currency}."
   },
   "PriceHistory": {
     "title": "Historia cen",

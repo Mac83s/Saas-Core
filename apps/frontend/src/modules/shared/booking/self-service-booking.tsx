@@ -35,6 +35,17 @@ import { TransferDetails } from "./transfer-details";
 
 const schema = z.object({ starts_at: z.string().min(1) });
 
+/** The refusals the customer's link has its own sentence for
+ *  (`BookingSelfService.refused`, ADR-072 slice 5i); any other reads as the
+ *  general sentence of what the customer was doing. */
+const LINK_REFUSALS = [
+  "appointment_not_changeable",
+  "slot_unavailable",
+  "beyond_booking_horizon",
+  "throttled",
+];
+type LinkFallback = "stayMoveError" | "rescheduleError" | "cancelError";
+
 /**
  * A stay is moved by its dates (ADR-072, phase 5): the customer names the
  * new days, the server says whether they fit and at what price, and only
@@ -51,6 +62,12 @@ function StayMove({
 }) {
   const t = useTranslations("BookingSelfService");
   const refused = useTranslations("PublicBooking");
+  const refusalText = (error: unknown, fallback: LinkFallback) => {
+    const reason = refusalOf(error);
+    return LINK_REFUSALS.includes(reason)
+      ? t("refused", { reason })
+      : t(fallback);
+  };
   const stayWhen = useStayWhen();
   const unit = appointment.range_unit === "day" ? "day" : "night";
   const [dates, setDates] = useState({ start_date: "", end_date: "" });
@@ -105,7 +122,7 @@ function StayMove({
         return;
       }
       setPlan(undefined);
-      setProblem(t("stayMoveError"));
+      setProblem(refusalText(error, "stayMoveError"));
     } finally {
       setBusy(false);
     }
@@ -176,6 +193,12 @@ function StayMove({
 export function SelfServiceBooking({ token }: { token: string }) {
   const t = useTranslations("BookingSelfService");
   const locale = useLocale();
+  const refusalText = (error: unknown, fallback: LinkFallback) => {
+    const reason = refusalOf(error);
+    return LINK_REFUSALS.includes(reason)
+      ? t("refused", { reason })
+      : t(fallback);
+  };
   const [appointment, setAppointment] = useState<BookingPublicAppointment>();
   const [problem, setProblem] = useState<string>();
   const stayWhen = useStayWhen();
@@ -237,7 +260,7 @@ export function SelfServiceBooking({ token }: { token: string }) {
           return;
         }
       }
-      setProblem(t("rescheduleError"));
+      setProblem(refusalText(error, "rescheduleError"));
     }
   });
 
@@ -246,8 +269,8 @@ export function SelfServiceBooking({ token }: { token: string }) {
       const value = await cancelSelfServiceBooking(token, crypto.randomUUID());
       setAppointment(value);
       setProblem(undefined);
-    } catch {
-      setProblem(t("cancelError"));
+    } catch (error) {
+      setProblem(refusalText(error, "cancelError"));
     }
   };
 
@@ -315,6 +338,7 @@ export function SelfServiceBooking({ token }: { token: string }) {
             ) : null}
             {appointment.quote ? (
               <QuoteSummary
+                conversion={appointment.conversion}
                 quote={appointment.quote}
                 settled={
                   appointment.status !== "pending_payment" &&
