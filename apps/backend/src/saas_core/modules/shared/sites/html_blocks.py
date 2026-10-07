@@ -189,6 +189,7 @@ class _Tree(HTMLParser):
         self.stack = [self.root]
         self.stray: Counter[str] = Counter()
         self.comments = 0
+        self.declarations = 0
 
     def _close(self, tags: frozenset[str] | set[str], stop: frozenset[str] | set[str]) -> None:
         for index in range(len(self.stack) - 1, 0, -1):
@@ -236,6 +237,16 @@ class _Tree(HTMLParser):
 
     def handle_comment(self, data: str) -> None:
         self.comments += 1
+
+    def handle_decl(self, decl: str) -> None:
+        self.declarations += 1
+
+    def handle_pi(self, data: str) -> None:
+        self.declarations += 1
+
+    def unknown_decl(self, data: str) -> None:
+        # `<![CDATA[…]]>` in HTML is a bogus comment: a browser shows none of it.
+        self.declarations += 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -452,7 +463,8 @@ class _Converter:
             scheme = re.match(r"[a-zA-Z][a-zA-Z0-9+.-]*:", href)
             reason = f"scheme {scheme.group(0)}" if scheme else "relative address"
         if reason is None and not words:
-            reason = "link without words"
+            around = any(item.tag == "img" for item in _descendants(element))
+            reason = "link around an image" if around else "link without words"
         if reason is not None:
             self.note(LOST, "link_dropped", reason, f"{words} → {raw}")
             return marks
@@ -793,6 +805,8 @@ class _Converter:
                 self.note(LOST, "link_dropped", "in a heading", f"{run['text']} → {run['href']}")
         if any(run.get("italic") for run in runs):
             self.note(CHANGED, "heading_marks_dropped", "italic", text)
+        if len({bool(run.get("bold")) for run in runs}) > 1:
+            self.note(CHANGED, "heading_marks_dropped", "bold on a part", text)
         if level != target:
             self.note(CHANGED, "heading_level_changed", f"h{level} → h{target}", text)
         if len(text) > _MAX_HEADING:
@@ -936,6 +950,9 @@ class _Converter:
             ):
                 # Who said it, or where: the quote's own field.
                 self.attributes(child)
+                for item in _descendants(child):
+                    self.attributes(item)
+                    self.note(CHANGED, "quote_source_marks_dropped", item.tag, words)
                 for text in _texts(child):
                     text.used = True
                     self.characters_in += len(_squash(text.value))
@@ -1018,6 +1035,11 @@ class _Converter:
         # The picture takes it when it is written (`image`).
         self.caption = _text_of(runs)
         self.flow([child for child in element.children if child is not caption], marks)
+        if self.caption:
+            # The picture stood where a figure cannot (a cell, a list item).
+            self.flush_paragraph()
+            words, self.caption = self.caption, ""
+            self.add_node({"type": "paragraph", "content": self.finish([{"text": words}])})
 
     # -- a table ------------------------------------------------------------
 
@@ -1091,6 +1113,8 @@ class _Converter:
             if cells:
                 grid.append(cells)
                 headers.append(flags)
+            else:
+                self.note(CHANGED, "empty_block_dropped", "tr")
 
         caption_text = _text_of(caption)
         if any(run.keys() - {"text"} for run in caption):
@@ -1328,6 +1352,8 @@ class _Converter:
                 self.note(CHANGED, "stray_end_tag", tag)
         for _ in range(tree.comments):
             self.note(CHANGED, "comment_dropped")
+        for _ in range(tree.declarations):
+            self.note(CHANGED, "declaration_dropped")
         self.unplaced(tree.root)
         characters_out = len(_squash("".join(_written(self.blocks))))
         if self.characters_in + self.inserted != characters_out:

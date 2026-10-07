@@ -215,6 +215,16 @@ def test_a_heading_too_long_for_one_or_holding_a_link_says_so():
     assert kinds(conversion) == {"link_dropped": 1, "heading_too_long": 1}
 
 
+def test_a_heading_has_one_weight_so_bold_on_a_part_of_it_is_named():
+    whole = convert_html("<h2><strong>Cały gruby</strong></h2>")
+    assert whole.losses == ()
+    part = convert_html("<h2>Rasa: <b>owczarek</b></h2>")
+    assert nodes(part)[0]["text"] == "Rasa: owczarek"
+    assert [(loss.kind, loss.detail) for loss in part.losses] == [
+        ("heading_marks_dropped", "bold on a part")
+    ]
+
+
 def test_an_underline_is_removed_and_a_bold_underlined_paragraph_is_a_sub_heading():
     conversion = convert_html(
         "<p><b><u>Wygląd ogólny</u></b></p>"
@@ -351,6 +361,11 @@ def test_a_quote_is_one_run_with_its_source():
         {"type": "quote", "content": [{"text": "Krótko."}]},
     ]
     assert kinds(conversion) == {"blocks_joined": 1}
+    marked = convert_html("<blockquote>Tak.<cite><em>Kronika</em>, 1920</cite></blockquote>")
+    assert nodes(marked)[0]["source"] == "Kronika, 1920"
+    assert [(loss.kind, loss.detail) for loss in marked.losses] == [
+        ("quote_source_marks_dropped", "em")
+    ]
 
 
 def test_a_rule_is_a_separator_block_between_two_texts():
@@ -485,6 +500,24 @@ def test_a_table_wider_than_the_block_becomes_lines_of_text():
     assert conversion.stats["characters_in"] == conversion.stats["characters_out"]
 
 
+def test_an_empty_row_is_named_and_a_caption_whose_picture_cannot_stand_is_kept():
+    conversion = convert_html("<table><tr></tr><tr><td>a</td></tr></table>")
+    assert conversion.blocks[0]["data"]["rows"] == [{"cells": [{"content": [{"text": "a"}]}]}]
+    assert [(loss.kind, loss.detail) for loss in conversion.losses] == [
+        ("empty_block_dropped", "tr")
+    ]
+    figure = convert_html(
+        '<figure><ul><li><img src="https://cdn.example/a.jpg" alt="Pies"> w liście</li></ul>'
+        "<figcaption>Podpis zostaje</figcaption></figure>",
+        image_assets={"https://cdn.example/a.jpg": ASSET},
+    )
+    assert nodes(figure)[-1] == {"type": "paragraph", "content": [{"text": "Podpis zostaje"}]}
+    assert [(loss.severity, loss.kind, loss.detail) for loss in figure.losses] == [
+        (LOST, "image_dropped", "in a list item")
+    ]
+    assert figure.stats["characters_in"] == figure.stats["characters_out"]
+
+
 def test_words_in_a_place_a_table_has_no_cell_for_are_named_as_lost():
     conversion = convert_html("<table>luzem<tr>w wierszu<td>komórka</td></tr></table>")
     assert conversion.blocks[0]["data"]["rows"] == [{"cells": [{"content": [{"text": "komórka"}]}]}]
@@ -596,6 +629,8 @@ def test_what_is_not_content_is_removed_and_named():
     conversion = convert_html(
         "<p>Tekst.</p><script>alert(1)</script><style>p{}</style>"
         '<iframe src="https://video.example/1"></iframe><!-- uwaga --></b>'
+        "<!DOCTYPE html><?php echo 1 ?><![CDATA[ukryte]]>"
+        '<a href="/duze.jpg"><img src="https://cdn.example/a.jpg" alt="Pies"></a>'
         '<form><input name="q"><button>Szukaj</button></form>'
     )
     assert nodes(conversion) == [{"type": "paragraph", "content": [{"text": "Tekst."}]}]
@@ -605,8 +640,12 @@ def test_what_is_not_content_is_removed_and_named():
         (LOST, "tag_dropped", "iframe"),
         (LOST, "tag_dropped", "form"),
         (CHANGED, "comment_dropped", ""),
+        (CHANGED, "declaration_dropped", ""),
         (CHANGED, "stray_end_tag", "b"),
+        (LOST, "link_dropped", "link around an image"),
+        (LOST, "image_dropped", "no media asset given"),
     }
+    assert kinds(conversion)["declaration_dropped"] == 3
 
 
 def test_markup_a_browser_forgives_is_read_as_a_browser_reads_it():
