@@ -209,7 +209,8 @@ def check_against_site(report: OldAddressReport, *, host: str) -> None:
         target = answer(row.to_path)
         if not target:
             report.note("target_missing", row.line, f"{row.old_path} → {row.to_path}")
-        elif target != "200":
+        elif target != "200" and target.rstrip("/") != f"→ {row.to_path}".rstrip("/"):
+            # Another address, not the same one with its slash put right.
             report.note("target_moves", row.line, f"{row.to_path} {target}")
 
 

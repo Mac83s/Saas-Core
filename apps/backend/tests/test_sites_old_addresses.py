@@ -185,6 +185,8 @@ def test_the_load_shows_first_and_is_safe_to_repeat(staff: str, tmp_path: Path) 
     # What a person should look at before the switch.
     assert "nowy adres dziś nie odpowiada" in shown and "/stare → /nie-ma/" in shown
     assert "stary adres odpowiada dziś na stronie" in shown and "/blog (→ /blog/)" in shown
+    # A target that only lacks its slash leads nowhere else: no note for it.
+    assert "sam przekierowuje" not in _load(blog, staff, tmp_path, "/x,/oferta\n", dry_run=True)
 
     assert "Zapisano: 4 nowych, 0 zmienionych, 0 usuniętych; bez zmian 0." in _load(
         blog, staff, tmp_path, rows
@@ -205,6 +207,33 @@ def test_the_load_shows_first_and_is_safe_to_repeat(staff: str, tmp_path: Path) 
     assert _rules(blog) == {"/ogloszenia": "/oferta/"}
     loads = OrganizationAuditEntry.objects.filter(action=OLD_ADDRESSES_LOADED)
     assert [entry.metadata["added"] for entry in loads.order_by("occurred_at", "id")] == [4, 0, 0]
+
+
+def test_the_load_reads_the_company_only_inside_its_tenant(staff: str, tmp_path: Path) -> None:
+    """The test database does not apply row-level security, so the order is
+    what is asserted: on a running stack the command once joined the
+    organization to the host lookup, before any tenant was set, and every site
+    was „unknown” (07.10)."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    blog = Blog("old-map-order")
+    file = tmp_path / "old.csv"
+    file.write_text("/stare,/oferta\n/ogloszenia,gone\n", encoding="utf-8")
+
+    with CaptureQueriesContext(connection) as queries:
+        call_command(
+            "load_old_addresses", host=blog.host, csv=str(file), operator=staff, stdout=StringIO()
+        )
+
+    statements = [query["sql"] for query in queries.captured_queries]
+    tenant_set = next(
+        index for index, sql in enumerate(statements) if "SET LOCAL app.organization_id" in sql
+    )
+    for table in ("organizations_organization", "sites_siteoldaddress"):
+        first_read = next(index for index, sql in enumerate(statements) if f'"{table}"' in sql)
+        assert tenant_set < first_read, table
+    assert _rules(blog) == {"/stare": "/oferta", "/ogloszenia": "gone"}
 
 
 def test_a_refused_row_stops_the_whole_load(staff: str, tmp_path: Path) -> None:

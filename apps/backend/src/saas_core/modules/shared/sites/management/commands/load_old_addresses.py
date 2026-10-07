@@ -77,8 +77,11 @@ class Command(BaseCommand):
             hostname = normalize_hostname(options["host"], allow_port=True)
         except InvalidHostname as error:
             raise CommandError(f"Niepoprawny host: {error}") from error
+        # The site only: the host names the tenant, and the organization's own
+        # row is readable inside it alone (ADR-041) — joined here, before any
+        # tenant is set, it would make every site look unknown.
         domain = (
-            Domain.all_objects.select_related("site__organization")
+            Domain.all_objects.select_related("site")
             .filter(hostname=hostname, status=DomainStatus.VERIFIED)
             .first()
         )
