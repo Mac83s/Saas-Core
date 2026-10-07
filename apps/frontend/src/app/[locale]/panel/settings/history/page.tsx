@@ -46,7 +46,7 @@ export default async function HistorySettingsPage({
                 {history("allChanges")}
               </Link>
             ) : null}
-            <SettingsSearch />
+            <SettingsSearch access={panelAccess(organization)} />
           </>
         ) : undefined
       }

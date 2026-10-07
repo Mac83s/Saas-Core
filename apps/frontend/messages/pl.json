@@ -605,7 +605,12 @@
     "dayQueue": "Do przydzielenia ({count})",
     "dayFailed": "Nie udało się wczytać wizyt. Odśwież stronę.",
     "dayLoading": "Wczytywanie wizyt…",
-    "dayMore": "{count, plural, one {Jeszcze # wizyta w kalendarzu} few {Jeszcze # wizyty w kalendarzu} other {Jeszcze # wizyt w kalendarzu}}"
+    "dayMore": "{count, plural, one {Jeszcze # wizyta w kalendarzu} few {Jeszcze # wizyty w kalendarzu} other {Jeszcze # wizyt w kalendarzu}}",
+    "descriptionPublisher": "Stan Twojej strony, a pod nim skróty do jej części.",
+    "publisherPagesDescription": "Twórz i edytuj podstrony, sprawdzaj, co czeka na publikację.",
+    "publisherBlogDescription": "Pisz wpisy i publikuj je niezależnie od reszty strony.",
+    "publisherTranslationsDescription": "Każda podstrona i każdy wpis w pozostałych językach strony.",
+    "publisherAddressDescription": "Adres na platformie, własna domena i jej weryfikacja."
   },
   "GettingStarted": {
     "title": "Na start",
@@ -641,6 +646,27 @@
     "profileAction": "Otwórz wizytówkę",
     "doneLine": "Na start: gotowe {total} z {total}",
     "show": "Pokaż"
+  },
+  "SiteState": {
+    "title": "Twoja strona",
+    "loading": "Wczytujemy stan strony…",
+    "failed": "Nie udało się wczytać stanu strony.",
+    "retry": "Spróbuj ponownie",
+    "emptyTitle": "Strona jeszcze nie istnieje",
+    "emptyBody": "Zacznij od nazwy i adresu. Podstrony, blog i kolejne języki dodasz potem.",
+    "emptyAction": "Utwórz stronę",
+    "noAddress": "Strona nie ma jeszcze adresu, pod którym odpowiada.",
+    "publication": "Ostatnia publikacja",
+    "neverPublished": "Jeszcze nie publikowano",
+    "pages": "Podstrony",
+    "pagesCount": "{count, plural, one {# podstrona} few {# podstrony} many {# podstron} other {# podstrony}}",
+    "pagesWaiting": "{count, plural, one {# czeka na publikację} few {# czekają na publikację} many {# czeka na publikację} other {# czeka na publikację}}",
+    "blog": "Blog",
+    "blogNone": "Nie założono",
+    "languages": "Języki",
+    "domainPending": "Własna domena {hostname} czeka na weryfikację.",
+    "domainFailed": "Własna domena {hostname} nie przeszła sprawdzenia DNS.",
+    "domainAction": "Otwórz „Adres i domeny”"
   },
   "TeamPage": {
     "eyebrow": "Zespół",

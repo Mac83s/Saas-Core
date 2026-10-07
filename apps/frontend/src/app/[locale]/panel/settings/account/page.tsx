@@ -1,7 +1,7 @@
 import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
-import { modulesFor } from "#lib/organization-types";
+import { panelAccess } from "#lib/panel-navigation";
 import { getServerCurrentOrganization, getServerUser } from "#lib/server-auth";
 import {
   PasswordCard,
@@ -30,9 +30,7 @@ export default async function AccountSettingsPage() {
         <TwoFactorCard />
         {/* One's own messages from this company, for every role (UX-051). */}
         {organization &&
-        modulesFor(organization.organization_type).has(
-          "shared.notifications",
-        ) ? (
+        panelAccess(organization).modules.includes("shared.notifications") ? (
           <NotificationPreferences />
         ) : null}
         <SessionManager />

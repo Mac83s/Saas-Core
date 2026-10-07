@@ -2,7 +2,11 @@ import {
   ArrowRightIcon,
   CalendarDaysIcon,
   CreditCardIcon,
+  FileTextIcon,
   Globe2Icon,
+  LanguagesIcon,
+  LinkIcon,
+  NewspaperIcon,
   PackageIcon,
   UsersIcon,
   type LucideIcon,
@@ -14,6 +18,7 @@ import { getPanelTranslations } from "#lib/panel-messages";
 import { Link } from "#i18n/navigation";
 import { GettingStarted } from "#components/panel/getting-started";
 import { PanelPage, PanelSection } from "#components/panel/panel-page";
+import { SiteState } from "#components/panel/site-state";
 import { getServerCurrentOrganization, getServerUser } from "#lib/server-auth";
 import { allows, panelAccess } from "#lib/panel-navigation";
 import { DayAgenda } from "../../../modules/shared/booking";
@@ -21,10 +26,11 @@ import type { ProductDashboard as ProductDashboardEntry } from "#lib/product-ext
 import ProductDashboard from "../../../product/dashboard";
 
 export default async function PanelHomePage() {
-  const [user, organization, t, locale] = await Promise.all([
+  const [user, organization, t, nav, locale] = await Promise.all([
     getServerUser(),
     getServerCurrentOrganization(),
     getPanelTranslations("Dashboard"),
+    getPanelTranslations("DashboardNav"),
     getLocale(),
   ]);
   // An operator outside any company works in „Platforma” (S-T5).
@@ -50,7 +56,38 @@ export default async function PanelHomePage() {
   // Who plans the team's day sets the company up too; everybody else gets
   // their own day and their own things (UX-023).
   const plans = can("booking.appointment.manage");
-  const actions = [
+  // A platform workspace's start (ADR-077 pkt 9): the site's state, then the
+  // site's own screens under the names the menu gives them. Nothing of a
+  // company's start applies there — no day, no „Na start”, no plan, no team.
+  const publisher = access.publisher === true;
+  const site = modules.has("shared.sites") && can("site.content.edit");
+  const publisherActions = [
+    {
+      href: "/panel/sites",
+      icon: FileTextIcon,
+      title: nav("sitePages"),
+      description: t("publisherPagesDescription"),
+    },
+    {
+      href: "/panel/sites/blog",
+      icon: NewspaperIcon,
+      title: nav("siteBlog"),
+      description: t("publisherBlogDescription"),
+    },
+    {
+      href: "/panel/sites/translations",
+      icon: LanguagesIcon,
+      title: nav("siteTranslations"),
+      description: t("publisherTranslationsDescription"),
+    },
+    {
+      href: "/panel/sites/address",
+      icon: LinkIcon,
+      title: nav("siteAddress"),
+      description: t("publisherAddressDescription"),
+    },
+  ];
+  const companyActions = [
     modules.has("shared.sites") && can("site.content.edit")
       ? {
           href: "/panel/sites",
@@ -96,10 +133,17 @@ export default async function PanelHomePage() {
         }
       : null,
   ].filter((item): item is NonNullable<typeof item> => item !== null);
+  const actions = publisher ? (site ? publisherActions : []) : companyActions;
 
   return (
     <PanelPage
-      description={t(plans ? "description" : "descriptionOwn")}
+      description={t(
+        publisher
+          ? "descriptionPublisher"
+          : plans
+            ? "description"
+            : "descriptionOwn",
+      )}
       eyebrow={t("eyebrow")}
       title={t("greeting", {
         name:
@@ -111,24 +155,36 @@ export default async function PanelHomePage() {
     >
       {/* The day first (UX-022); what is left to set up after it, and a list
           already done folds itself to one line. */}
-      {organization &&
-      modules.has("shared.booking") &&
-      can("booking.appointment.read") ? (
-        <DayAgenda access={access} timeZone={organization.timezone} />
-      ) : null}
-      {organization ? <GettingStarted access={access} /> : null}
+      {publisher ? (
+        site ? (
+          <SiteState />
+        ) : null
+      ) : (
+        <>
+          {organization &&
+          modules.has("shared.booking") &&
+          can("booking.appointment.read") ? (
+            <DayAgenda access={access} timeZone={organization.timezone} />
+          ) : null}
+          {organization ? <GettingStarted access={access} /> : null}
+        </>
+      )}
 
-      <PanelSection
-        description={t("quickActionsDescription")}
-        title={t("quickActions")}
-      >
-        {/* Two by two on a phone: four shortcuts fit one screen. */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-          {actions.map((action) => (
-            <ActionCard key={action.href} {...action} />
-          ))}
-        </div>
-      </PanelSection>
+      {/* A publisher who may not edit the site has no shortcuts to be
+          offered: the section would be a title over nothing. */}
+      {publisher && actions.length === 0 ? null : (
+        <PanelSection
+          description={t("quickActionsDescription")}
+          title={t("quickActions")}
+        >
+          {/* Two by two on a phone: four shortcuts fit one screen. */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+            {actions.map((action) => (
+              <ActionCard key={action.href} {...action} />
+            ))}
+          </div>
+        </PanelSection>
+      )}
     </PanelPage>
   );
 }

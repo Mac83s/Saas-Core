@@ -21,7 +21,11 @@ export default async function CompanySettingsPage() {
   ]);
   return (
     <PanelPage
-      actions={organization ? <SettingsSearch /> : undefined}
+      actions={
+        organization ? (
+          <SettingsSearch access={panelAccess(organization)} />
+        ) : undefined
+      }
       description={t("companyDescription")}
       eyebrow={t("eyebrow")}
       form

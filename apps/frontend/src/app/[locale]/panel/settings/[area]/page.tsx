@@ -4,6 +4,7 @@ import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
 import { SettingsNotice } from "#components/panel/settings-notice";
+import { panelAccess, panelSettings } from "#lib/panel-navigation";
 import {
   getServerCurrentOrganization,
   getServerSettingsSchema,
@@ -23,12 +24,14 @@ export default async function SettingsAreaPage({
 }: {
   params: Promise<{ area: string; locale: string }>;
 }) {
-  const [{ area: key, locale }, t, organization, schema] = await Promise.all([
+  const [{ area: key, locale }, t, organization, all] = await Promise.all([
     params,
     getPanelTranslations("Settings"),
     getServerCurrentOrganization(),
     getServerSettingsSchema(),
   ]);
+  const access = panelAccess(organization);
+  const schema = all ? panelSettings(all, access) : null;
   const area = schema?.areas.find(
     (item) => item.key === key && item.page === null,
   );
@@ -44,7 +47,7 @@ export default async function SettingsAreaPage({
     : "";
   return (
     <PanelPage
-      actions={organization ? <SettingsSearch /> : undefined}
+      actions={organization ? <SettingsSearch access={access} /> : undefined}
       description={description}
       eyebrow={t("eyebrow")}
       form

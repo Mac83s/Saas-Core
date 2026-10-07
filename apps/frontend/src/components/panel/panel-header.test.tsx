@@ -3,6 +3,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { afterEach, expect, test, vi } from "vitest";
 
 import polishMessages from "../../../messages/pl.json";
+import type { PanelAccess } from "#lib/panel-navigation";
 import { PanelHeader } from "./panel-header";
 
 vi.mock("#i18n/navigation", () => ({
@@ -18,18 +19,18 @@ vi.mock("@saas-core/ui/components/sidebar", () => ({
   SidebarTrigger: (props: object) => <button type="button" {...props} />,
 }));
 
-const access = {
+const access: PanelAccess = {
   modules: ["core.organizations"],
   permissions: ["organization.read"],
   isOwner: true,
   limited: false,
 };
 
-function view() {
+function view(current: PanelAccess = access) {
   return render(
     <NextIntlClientProvider locale="pl" messages={polishMessages}>
       <PanelHeader
-        access={access}
+        access={current}
         user={{ email: "anna@saas.test", first_name: "Anna", last_name: "W" }}
       />
     </NextIntlClientProvider>,
@@ -71,4 +72,23 @@ test("on a phone the theme and the language are in the account menu", async () =
     "aria-checked",
     "true",
   );
+});
+
+test("„Moja karta” jest w menu konta firmy; workspace platformy nie ma zespołu, więc i karty", async () => {
+  phone(false);
+  view();
+  fireEvent.click(screen.getByRole("button", { name: /AW, / }));
+  expect(
+    await screen.findByRole("menuitem", { name: "Moja karta" }),
+  ).toBeInTheDocument();
+  cleanup();
+
+  view({ ...access, publisher: true });
+  fireEvent.click(screen.getByRole("button", { name: /AW, / }));
+  expect(
+    await screen.findByRole("menuitem", { name: "Ustawienia konta" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("menuitem", { name: "Moja karta" }),
+  ).not.toBeInTheDocument();
 });

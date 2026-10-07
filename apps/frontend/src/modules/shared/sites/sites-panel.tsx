@@ -75,6 +75,7 @@ import { Input } from "@saas-core/ui/components/input";
 import { PanelPage } from "#components/panel/panel-page";
 
 import { sitesErrorMessage } from "./problem";
+import { publicSiteUrl } from "./public-site-url";
 import { slugifyTitle } from "./slug";
 import { Link, useRouter } from "#i18n/navigation";
 import { mutationKey, type MutationReceipt } from "./idempotency";
@@ -934,35 +935,6 @@ export function SitesPanel({
       ) : null}
     </section>
   );
-}
-
-function publicSiteUrl(domains: SiteDomain[]) {
-  const controlHostname =
-    typeof window !== "undefined" ? window.location.hostname : "";
-  const localControl =
-    controlHostname === "localhost" || controlHostname.endsWith(".localhost");
-  const localPlatformDomain = domains.find(
-    (item) =>
-      item.status === "verified" &&
-      item.kind === "platform" &&
-      item.hostname.endsWith(".localhost"),
-  );
-  const domain =
-    (localControl ? localPlatformDomain : undefined) ??
-    domains.find((item) => item.status === "verified" && item.is_canonical) ??
-    domains.find(
-      (item) => item.status === "verified" && item.kind === "platform",
-    ) ??
-    domains.find((item) => item.status === "verified");
-  if (!domain) return null;
-
-  const local =
-    domain.hostname === "localhost" || domain.hostname.endsWith(".localhost");
-  const port =
-    local && typeof window !== "undefined" ? window.location.port : "";
-  return `${local ? "http" : "https"}://${domain.hostname}${
-    port ? `:${port}` : ""
-  }`;
 }
 
 function requiresBillingPlan(error: unknown) {

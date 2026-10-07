@@ -80,8 +80,9 @@ export function PanelHeader({
             </Link>
           ) : null}
           <AccountMenu
-            // One's own card needs a company to be a person of.
-            myCard={access.permissions !== null}
+            // One's own card needs a company to be a person of — and a
+            // team: a platform workspace has none (ADR-077 pkt 9).
+            myCard={access.permissions !== null && !access.publisher}
             user={user}
           />
         </div>

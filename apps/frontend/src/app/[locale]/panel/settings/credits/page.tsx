@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
+import { companyOnly } from "#lib/company-only";
 import { getServerCurrentOrganization } from "#lib/server-auth";
 import { CreditsPanel } from "../../../../../modules/shared/billing";
 
@@ -10,6 +11,9 @@ export default async function CreditsSettingsPage() {
     getPanelTranslations("Credits"),
     getServerCurrentOrganization(),
   ]);
+  // A platform workspace's translations run on the platform's budget, not on
+  // credits: there is nothing of its own to show or to buy.
+  await companyOnly();
   return (
     <PanelPage
       description={t("description")}

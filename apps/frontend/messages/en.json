@@ -605,7 +605,12 @@
     "dayQueue": "To assign ({count})",
     "dayFailed": "Could not load the visits. Refresh the page.",
     "dayLoading": "Loading visits…",
-    "dayMore": "{count, plural, one {# more visit in the calendar} other {# more visits in the calendar}}"
+    "dayMore": "{count, plural, one {# more visit in the calendar} other {# more visits in the calendar}}",
+    "descriptionPublisher": "The state of your site, and below it shortcuts to its parts.",
+    "publisherPagesDescription": "Create and edit pages and see what waits for publication.",
+    "publisherBlogDescription": "Write entries and publish them independently of the rest of the site.",
+    "publisherTranslationsDescription": "Every page and every entry in the site's other languages.",
+    "publisherAddressDescription": "The platform address, your own domain and its verification."
   },
   "GettingStarted": {
     "title": "Getting started",
@@ -641,6 +646,27 @@
     "profileAction": "Open the business card",
     "doneLine": "Getting started: {total} of {total} done",
     "show": "Show"
+  },
+  "SiteState": {
+    "title": "Your site",
+    "loading": "Loading the site's state…",
+    "failed": "The site's state could not be loaded.",
+    "retry": "Try again",
+    "emptyTitle": "There is no site yet",
+    "emptyBody": "Start with a name and an address. Pages, a blog and more languages come later.",
+    "emptyAction": "Create the site",
+    "noAddress": "The site has no address it answers at yet.",
+    "publication": "Last publication",
+    "neverPublished": "Not published yet",
+    "pages": "Pages",
+    "pagesCount": "{count, plural, one {# page} other {# pages}}",
+    "pagesWaiting": "{count, plural, one {# waits for publication} other {# wait for publication}}",
+    "blog": "Blog",
+    "blogNone": "Not set up",
+    "languages": "Languages",
+    "domainPending": "Your own domain {hostname} is waiting for verification.",
+    "domainFailed": "Your own domain {hostname} did not pass the DNS check.",
+    "domainAction": "Open “Address and domains”"
   },
   "TeamPage": {
     "eyebrow": "Team",

@@ -16,6 +16,7 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 
 import { Link } from "#i18n/navigation";
+import { panelSettings, type PanelAccess } from "#lib/panel-navigation";
 
 type Localized = { pl: string; en: string };
 
@@ -112,7 +113,13 @@ export function searchSettings(
  * a setting wherever it stands (answer 33a), read from the same schema the
  * forms are drawn from — so a module's new setting is found without code here.
  */
-export function SettingsSearch() {
+export function SettingsSearch({
+  access,
+}: {
+  /** Whose panel it is: a platform workspace finds only what its panel
+   * draws (`panelSettings`). Without it, everything the schema lists. */
+  access?: Pick<PanelAccess, "publisher" | "modules">;
+}) {
   const t = useTranslations("CompanySettings");
   const locale = useLocale();
   const inputId = useId();
@@ -133,8 +140,11 @@ export function SettingsSearch() {
   }, [open, schema]);
 
   const entries = useMemo(
-    () => (schema ? settingsIndex(schema, locale) : []),
-    [schema, locale],
+    () =>
+      schema
+        ? settingsIndex(access ? panelSettings(schema, access) : schema, locale)
+        : [],
+    [schema, access, locale],
   );
   const found = searchSettings(entries, query);
 

@@ -177,3 +177,64 @@ test("okno szukania pokazuje wyniki z łączem i nazywa brak wyników, PL i EN b
     unmount();
   }
 });
+
+test("workspace platformy szuka tylko w tym, co rysuje jego panel; firma we wszystkim", async () => {
+  getSettingsSchema.mockResolvedValue({
+    areas: [
+      ...SCHEMA.areas,
+      {
+        key: "bookings",
+        title: { pl: "Rezerwacje", en: "Bookings" },
+        description: { pl: "Wizyty.", en: "Visits." },
+        page: "/panel/settings/bookings",
+      },
+    ],
+    groups: [
+      ...SCHEMA.groups,
+      {
+        ...SCHEMA.groups[1],
+        key: "booking.reminders",
+        module: "shared.booking",
+        area: "bookings",
+        title: { pl: "Przypomnienia o wizycie", en: "Visit reminders" },
+        keys: [],
+      },
+    ],
+  });
+  const modules = ["core.organizations", "shared.sites"];
+  for (const [access, found] of [
+    [{ publisher: true, modules }, false],
+    [{ modules: [...modules, "shared.booking"] }, true],
+  ] as const) {
+    const { unmount } = render(
+      <NextIntlClientProvider locale="pl" messages={messages}>
+        <SettingsSearch access={access} />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.CompanySettings.searchOpen }),
+    );
+    const field = await screen.findByLabelText(
+      messages.CompanySettings.searchLabel,
+    );
+    fireEvent.change(field, { target: { value: "2FA" } });
+    expect(
+      await screen.findByRole("link", { name: /Wymagaj/ }),
+    ).toBeInTheDocument();
+    fireEvent.change(field, { target: { value: "przypomnienia" } });
+    if (found)
+      expect(
+        await screen.findByRole("link", { name: /Przypomnienia o wizycie/ }),
+      ).toHaveAttribute("href", "/panel/settings/bookings");
+    else
+      expect(
+        await screen.findByText(
+          messages.CompanySettings.searchEmpty.replace(
+            "{query}",
+            "przypomnienia",
+          ),
+        ),
+      ).toBeInTheDocument();
+    unmount();
+  }
+});

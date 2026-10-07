@@ -15,7 +15,10 @@ import {
   WarehouseIcon,
 } from "lucide-react";
 
-import type { OrganizationSummary } from "@saas-core/api-client";
+import type {
+  OrganizationSummary,
+  SettingsSchema,
+} from "@saas-core/api-client";
 
 import { deployment } from "../generated/deployment";
 import { product } from "../product";
@@ -350,23 +353,83 @@ export type PanelAccess = {
   /** 0 for everyone but a platform operator: 1, or 2 for a platform
    * administrator (GET /auth/me/). */
   operatorLevel?: number;
+  /** The deployment's platform workspace (ADR-077 pkt 9): the panel is a
+   * publisher's, see `PUBLISHER_MODULES`. Absent in every company. */
+  publisher?: true;
 };
+
+/**
+ * The shared modules a platform workspace is offered (ADR-077 pkt 9). It
+ * publishes the deployment's own site and is never sold a plan, invited into
+ * or billed, so its panel shows the site, its files and its translations —
+ * and whatever the product's own modules (`vertical.*`) bring. Every other
+ * shared module takes a plan this workspace cannot buy: the API refuses it,
+ * and the panel does not lead there. A new shared module is left out until
+ * it is named here.
+ */
+export const PUBLISHER_MODULES: readonly string[] = [
+  "shared.sites",
+  "shared.media",
+  "shared.translation",
+  "shared.model-port",
+  "shared.image-generation",
+];
+
+function publisherUses(module: string): boolean {
+  return !module.startsWith("shared.") || PUBLISHER_MODULES.includes(module);
+}
+
+/**
+ * The settings a panel draws — its menu's areas, the generic page, the
+ * search. A company's are the schema as the API gives it. A platform
+ * workspace's are the groups of the modules it is offered and the areas that
+ * still hold one (ADR-077 pkt 9): the registry also lists what a plan would
+ * switch on, and this workspace buys none.
+ */
+export function panelSettings(
+  schema: SettingsSchema,
+  access: Pick<PanelAccess, "publisher" | "modules">,
+): SettingsSchema {
+  if (!access.publisher) return schema;
+  const groups = schema.groups.filter((group) =>
+    access.modules.includes(group.module),
+  );
+  return {
+    ...schema,
+    groups,
+    areas: schema.areas.filter((area) =>
+      groups.some((group) => group.area === area.key),
+    ),
+  };
+}
 
 export function panelAccess(
   organization: OrganizationSummary | null,
 ): PanelAccess {
   const type = organization?.organization_type;
+  const modules = [...modulesFor(type)];
+  // The kind, not the type: a platform workspace carries the deployment's
+  // default type like any company, so the type cannot tell them apart.
+  const publisher = organization?.workspace_kind === "platform";
   return {
-    modules: [...modulesFor(type)],
+    modules: publisher ? modules.filter(publisherUses) : modules,
     permissions: organization?.permissions ?? null,
     isOwner: organization?.role === "owner",
     limited: typeRole(type, organization?.role)?.limited ?? false,
     organizationType: type,
+    ...(publisher ? { publisher } : {}),
   };
 }
 
+const TODAY: PanelNavItem = {
+  href: "/panel",
+  icon: HomeIcon,
+  labelKey: "today",
+  group: "work",
+};
+
 const WORK: PanelNavItem[] = [
-  { href: "/panel", icon: HomeIcon, labelKey: "today", group: "work" },
+  TODAY,
   {
     href: "/panel/calendar",
     icon: CalendarDaysIcon,
@@ -426,6 +489,29 @@ const WORK: PanelNavItem[] = [
   },
 ];
 
+const WEBSITE: PanelNavItem = {
+  href: "/panel/sites",
+  icon: Globe2Icon,
+  labelKey: "website",
+  group: "company",
+  module: "shared.sites",
+  permission: "site.content.edit",
+  section: "website",
+};
+
+const MESSAGES: PanelNavItem = {
+  href: "/panel/notifications",
+  icon: MessageSquareTextIcon,
+  labelKey: "messages",
+  group: "company",
+  module: "shared.notifications",
+  anyAccess: [
+    { module: "shared.notifications", permission: "notifications.manage" },
+    { module: "shared.sites", permission: "site.content.edit" },
+  ],
+  section: "messages",
+};
+
 const COMPANY: PanelNavItem[] = [
   {
     href: "/panel/team",
@@ -445,27 +531,8 @@ const COMPANY: PanelNavItem[] = [
     module: "shared.profiles",
     permission: "profiles.manage",
   },
-  {
-    href: "/panel/sites",
-    icon: Globe2Icon,
-    labelKey: "website",
-    group: "company",
-    module: "shared.sites",
-    permission: "site.content.edit",
-    section: "website",
-  },
-  {
-    href: "/panel/notifications",
-    icon: MessageSquareTextIcon,
-    labelKey: "messages",
-    group: "company",
-    module: "shared.notifications",
-    anyAccess: [
-      { module: "shared.notifications", permission: "notifications.manage" },
-      { module: "shared.sites", permission: "site.content.edit" },
-    ],
-    section: "messages",
-  },
+  WEBSITE,
+  MESSAGES,
   {
     // The owner lands on the plan, everyone else on the credits they spend.
     href: "/panel/settings/billing",
@@ -494,6 +561,19 @@ const PLATFORM: PanelNavItem = {
   labelKey: "platformSettings",
   group: "platform",
   operator: true,
+};
+
+/**
+ * A platform workspace's menu (ADR-077 pkt 9), in place of the company's
+ * `WORK` and `COMPANY`: the site is the daily work, so it stands under „Praca”
+ * and on the phone's bottom bar; „Wiadomości” is what the site's forms bring
+ * in. There is no team — nobody is invited there, an editor is an operator
+ * added by `provision_platform_workspace` — and nothing that takes a plan.
+ * The product's entries, „Ustawienia” and „Platforma” follow as in a company.
+ */
+const PUBLISHER: Record<"work" | "company", PanelNavItem[]> = {
+  work: [TODAY, { ...WEBSITE, group: "work" }],
+  company: [{ ...MESSAGES, module: "shared.sites" }],
 };
 
 /** Whether the deployment's profile switches a feature on (`deployment.json`). */
@@ -586,11 +666,15 @@ export function panelNavigation(access: PanelAccess): {
         },
       ];
     });
+  const core = access.publisher ? PUBLISHER : { work: WORK, company: COMPANY };
   return {
-    work: visible([...WORK, ...fromProduct.filter((i) => i.group === "work")]),
+    work: visible([
+      ...core.work,
+      ...fromProduct.filter((i) => i.group === "work"),
+    ]),
     // Settings closes the list whatever the product adds.
     company: visible([
-      ...COMPANY,
+      ...core.company,
       ...fromProduct.filter((i) => i.group === "company"),
       SETTINGS,
     ]),

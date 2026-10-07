@@ -22,7 +22,12 @@ import {
 } from "#lib/server-auth";
 import { typeRole, typeText } from "#lib/organization-types";
 import { getPanelMessages, getPanelTranslations } from "#lib/panel-messages";
-import { allows, panelAccess, type PanelAccess } from "#lib/panel-navigation";
+import {
+  allows,
+  panelAccess,
+  panelSettings,
+  type PanelAccess,
+} from "#lib/panel-navigation";
 import { PANEL_WIDTH_COOKIE } from "#lib/panel-width";
 import { isPanelLocale } from "#i18n/routing";
 import {
@@ -147,8 +152,9 @@ async function withSettingsAreas(
 ): Promise<PanelAccess> {
   if (!allows(access, { permission: "organization.settings.manage" }))
     return access;
-  const schema = await getServerSettingsSchema();
-  if (!schema) return access;
+  const all = await getServerSettingsSchema();
+  if (!all) return access;
+  const schema = panelSettings(all, access);
   const changeable = new Set(
     schema.groups
       .filter((group) => group.can_change)

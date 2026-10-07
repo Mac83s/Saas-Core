@@ -3,6 +3,7 @@ import { getLocale } from "next-intl/server";
 import { getPanelTranslations } from "#lib/panel-messages";
 
 import { PanelPage } from "#components/panel/panel-page";
+import { companyOnly } from "#lib/company-only";
 import { allows, panelAccess } from "#lib/panel-navigation";
 import {
   getServerCurrentOrganization,
@@ -19,6 +20,7 @@ export default async function BillingSettingsPage() {
     getServerCurrentOrganization(),
     getServerSettingsSchema(),
   ]);
+  await companyOnly();
   // Who manages billing besides the owner (34a) — shown to the billing roles.
   const access = allows(panelAccess(organization), {
     permission: "organization.billing.manage",
