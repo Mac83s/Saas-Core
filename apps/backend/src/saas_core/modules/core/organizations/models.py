@@ -792,6 +792,32 @@ class PlatformSettingEntry(models.Model):
         return f"{self.key}@{self.created_at.isoformat()}"
 
 
+class ExchangeRateTable(models.Model):
+    """One day's reference rates of one source (`exchange_rates.py`; ADR-072,
+    slice 5i): what one unit of each currency is worth in the source's base
+    currency, as decimal strings — `{"EUR": "4.3797", "PLN": "1"}` for NBP's
+    table in złoty. One row per source and day of publication; a table read
+    again replaces its row. No organization: the rates are everybody's."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    source = models.CharField(max_length=16)
+    base_currency = models.CharField(max_length=3)
+    published_on = models.DateField()
+    rates = models.JSONField(default=dict)
+    fetched_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ("-published_on",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source", "published_on"], name="organizations_rate_table_uq"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.source}@{self.published_on.isoformat()}"
+
+
 class OrganizationSettingsReceipt(models.Model):
     """The answer to one change of a settings group (ADR-046:31-36): a repeat
     with the same key and request gets it again, another request with the same

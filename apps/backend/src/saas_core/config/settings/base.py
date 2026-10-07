@@ -758,7 +758,14 @@ _MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
         "privacy-retention-run": {
             "task": "saas_core.modules.core.organizations.tasks.run_privacy_retention",
             "schedule": crontab(hour=2, minute=30),
-        }
+        },
+        # Every three hours: a central bank publishes its reference table once
+        # on a working day (NBP about noon, the ECB about 16:00 CET), and the
+        # task asks it only while today's table is not here (ADR-072, 5i).
+        "exchange-rates-refresh": {
+            "task": "saas_core.modules.core.organizations.tasks.refresh_exchange_rates",
+            "schedule": crontab(minute=20, hour="*/3"),
+        },
     },
     "shared.inventory": {
         # Hourly: each company hears once a day, from the hour of its own day it

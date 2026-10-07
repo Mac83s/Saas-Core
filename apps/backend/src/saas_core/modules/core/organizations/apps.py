@@ -47,5 +47,10 @@ class OrganizationsConfig(AppConfig):
         register_setting_group(SECURITY)
         for command in group_commands(SECURITY):
             register_command(command)
+        # Whose table gives the rate for a guest's indicative price (ADR-072, 5i).
+        from .exchange_rates import PLATFORM_AREA, RATES  # noqa: PLC0415
+
+        register_setting_area(PLATFORM_AREA)
+        register_setting_group(RATES)
         # A product's starting value for a setting nobody declares fails the start.
         from . import settings_checks  # noqa: F401, PLC0415

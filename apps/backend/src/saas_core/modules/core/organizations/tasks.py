@@ -413,3 +413,20 @@ def run_privacy_retention() -> int:
         logger.warning("privacy_retention_schedule_paused")
         return 0
     return sum(done.count for done in run_retention().removed)
+
+
+@shared_task(name="saas_core.modules.core.organizations.tasks.refresh_exchange_rates")  # type: ignore[untyped-decorator]
+def refresh_exchange_rates() -> str:
+    """The day's reference rates of exchange, for the indicative prices a
+    guest reads in their own currency (`exchange_rates.py`). A bank that does
+    not answer is tried again with the next run; what is kept stays, and a
+    page stops showing a figure once it is too old."""
+    from .exchange_rates import RatesUnavailable, refresh  # noqa: PLC0415 — registers settings
+
+    try:
+        return refresh().published_on.isoformat()
+    except RatesUnavailable as error:
+        logging.getLogger("saas_core.rates").warning(
+            "exchange_rates_unavailable", extra={"reason": str(error)}
+        )
+        return ""

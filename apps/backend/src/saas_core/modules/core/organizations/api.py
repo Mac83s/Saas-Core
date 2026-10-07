@@ -42,6 +42,7 @@ from .events import (
     dispatch_domain_event,
     register_domain_event_handler,
 )
+from .exchange_rates import conversion as price_conversion
 from .history import HistoryTarget, register_history_target
 from .identity_facts import OrganizationFacts, organization_facts, register_organization_facts
 from .joining import (
@@ -157,6 +158,7 @@ __all__ = [
     "has_link",
     "inherited",
     "platform_setting",
+    "price_conversion",
     "register_setting_area",
     "register_setting_group",
     "relabel_settings",
