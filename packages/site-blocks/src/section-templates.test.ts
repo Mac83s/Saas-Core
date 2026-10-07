@@ -17,7 +17,9 @@ import {
   replaceSectionLayout,
   sampleMediaOf,
   sectionTemplateBlock,
+  unfilledPlaceholders,
   type JsonObject,
+  type TableV1Data,
 } from "./index";
 
 const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
@@ -409,7 +411,7 @@ describe("section template contract", () => {
   });
 
   it("v7 appends 5f: five sections of offers booked from–to — a choice and words, never a unit, a price or a day", () => {
-    expect(coreSectionTemplates()).toHaveLength(163);
+    expect(coreSectionTemplates()).toHaveLength(165);
     const added = coreSectionTemplates().slice(158, 163);
     expect(
       added.map((template) => [
@@ -478,9 +480,50 @@ describe("section template contract", () => {
     ).toEqual(added.map((template) => template.id));
   });
 
+  it("v7 appends two tables (PB2): a grid of slots, no sample figures, for a page or an entry", () => {
+    const added = coreSectionTemplates().slice(163, 165);
+    expect(
+      added.map((template) => [
+        template.id,
+        template.blockType,
+        template.layout,
+      ]),
+    ).toEqual([
+      ["core.table_lines", "core.table", "lines"],
+      ["core.table_striped", "core.table", "striped"],
+    ]);
+    for (const template of added) {
+      expect(template).toMatchObject({
+        version: 1,
+        schemaVersion: 1,
+        kind: "default",
+        requirements: { media: "none" },
+        targetSurface: ["page", "entry"],
+        conversion: { stage: "interest", primaryAction: false },
+      });
+      for (const locale of ["pl", "en"] as const) {
+        const block = sectionTemplateBlock(template, locale, registry);
+        const rows = (block.data as TableV1Data).rows;
+        // A header row and two rows under it, three columns each.
+        expect(rows.map((row) => row.cells.length)).toEqual([3, 3, 3]);
+        // Every cell and the caption are the owner's to fill: a table ships
+        // with no figure, price or parameter of ours.
+        const texts = [
+          (block.data as TableV1Data).caption ?? "",
+          ...rows.flatMap((row) =>
+            row.cells.map((cell) => cell.content?.[0]?.text ?? ""),
+          ),
+        ];
+        for (const text of texts)
+          expect(text).toMatch(/^\[(Uzupełnij|Fill in): [^\]]+\]$/);
+        expect(unfilledPlaceholders([block])).toHaveLength(10);
+      }
+    }
+  });
+
   it("offers the newest version of each template, one per id, in catalogue order", () => {
     const offered = offeredSectionTemplates();
-    expect(offered).toHaveLength(155);
+    expect(offered).toHaveLength(157);
     // A revision keeps its predecessor's place in the library; new ids follow.
     expect(offered.map((template) => template.id)).toEqual([
       ...v6Catalog.templates.map((template) => template.id),
@@ -488,7 +531,7 @@ describe("section template contract", () => {
         .slice(128)
         .map((template) => template.id),
     ]);
-    expect(new Set(offered.map((template) => template.id)).size).toBe(155);
+    expect(new Set(offered.map((template) => template.id)).size).toBe(157);
     for (const template of offered)
       expect(template.version).toBe(
         Math.max(

@@ -135,6 +135,13 @@
       }
     },
     {
+      "type": "core.table",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.table.v1.schema.json"
+      }
+    },
+    {
       "type": "core.stay_units",
       "latestVersion": 1,
       "schemas": {

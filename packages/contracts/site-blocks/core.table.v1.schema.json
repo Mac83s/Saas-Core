@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.table.v1.schema.json",
+  "title": "Core table block v1",
+  "description": "A data table in the content of a page or an entry. Rows of cells, never HTML: a cell holds one inline run with the marks rich text has (bold, italic, an allowlisted link with an optional `rel`, ADR-061), or nothing. Every row is meant to have as many cells as the first one; the renderer fills a shorter row with empty cells. There are no merged cells. `header` says which cells name the others: the first row, the first column, both or none.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["rows"],
+  "properties": {
+    "layout": {
+      "type": "string",
+      "enum": ["lines", "striped"],
+      "default": "lines"
+    },
+    "caption": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "header": {
+      "type": "string",
+      "enum": ["row", "column", "both", "none"],
+      "default": "row"
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 120,
+      "items": {
+        "$ref": "#/$defs/row"
+      }
+    }
+  },
+  "$defs": {
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "bold": {
+          "const": true
+        },
+        "italic": {
+          "const": true
+        },
+        "href": {
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^(?:/(?!/)|https://|mailto:|tel:|#[a-z][a-z0-9-]{0,63}$)"
+        },
+        "rel": {
+          "description": "ADR-061: how the link vouches for its target. Absent means an editorial link.",
+          "enum": ["sponsored", "ugc", "nofollow"]
+        }
+      },
+      "dependentRequired": {
+        "rel": ["href"]
+      }
+    },
+    "inline": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/span"
+      }
+    },
+    "cell": {
+      "description": "An empty cell has no `content`, so it is no text unit of a translation.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "$ref": "#/$defs/inline"
+        }
+      }
+    },
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cells"],
+      "properties": {
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "$ref": "#/$defs/cell"
+          }
+        }
+      }
+    }
+  }
+}

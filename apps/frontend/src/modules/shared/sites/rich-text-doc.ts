@@ -21,7 +21,8 @@ import { linkRelOf, normalizeSpans } from "./rich-text-spans";
 
 type ListStyle = "bullet" | "ordered";
 
-function textNodes(spans: readonly RichTextSpan[]): JSONContent[] {
+/** One inline run as the editor's text nodes; also a table cell's. */
+export function textNodes(spans: readonly RichTextSpan[]): JSONContent[] {
   return spans.flatMap((span) => {
     if (!span.text) return [];
     const marks = [
@@ -116,7 +117,8 @@ export function toEditorDoc(nodes: readonly RichTextNode[]): JSONContent {
   };
 }
 
-function spans(content: readonly JSONContent[] = []): RichTextSpan[] {
+/** The editor's text nodes as canonical runs; also a table cell's. */
+export function spans(content: readonly JSONContent[] = []): RichTextSpan[] {
   return normalizeSpans(
     content.flatMap((node) => {
       if (node.type !== "text" || !node.text) return [];

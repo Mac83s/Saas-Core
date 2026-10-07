@@ -18,6 +18,7 @@ import richTextV4Schema from "@saas-core/contracts/site-blocks/core.rich_text.v4
 import quoteV1Schema from "@saas-core/contracts/site-blocks/core.quote.v1.schema.json";
 import quoteV2Schema from "@saas-core/contracts/site-blocks/core.quote.v2.schema.json";
 import galleryV1Schema from "@saas-core/contracts/site-blocks/core.gallery.v1.schema.json";
+import tableV1Schema from "@saas-core/contracts/site-blocks/core.table.v1.schema.json";
 import productV1Schema from "@saas-core/contracts/site-blocks/core.product.v1.schema.json";
 import productV2Schema from "@saas-core/contracts/site-blocks/core.product.v2.schema.json";
 import productV3Schema from "@saas-core/contracts/site-blocks/core.product.v3.schema.json";
@@ -40,6 +41,7 @@ import { createElement } from "react";
 import { renderImage } from "./ai-badge";
 import { FULL_WIDTH, publicImage } from "./public-image";
 import { GalleryBlock } from "./gallery-block";
+import { TableBlock } from "./table-block";
 import { ProductV3Block } from "./product-layouts";
 
 import contactV1Schema from "@saas-core/contracts/site-blocks/core.contact.v1.schema.json";
@@ -1207,6 +1209,29 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
           },
           { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },
           { path: ["action", "href"], kind: "url", labelKey: "actionHref" },
+        ],
+      },
+    },
+    {
+      type: "core.table",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: tableV1Schema }],
+      migrators: {},
+      component: TableBlock,
+      catalog: {
+        category: "about",
+        labelKey: "tableBlock",
+        fields: [
+          { path: ["caption"], kind: "text", labelKey: "tableCaption" },
+          {
+            path: ["header"],
+            kind: "choice",
+            labelKey: "tableHeader",
+            options: ["row", "column", "both", "none"],
+          },
+          // The whole grid in one editor: rows of cells are a list inside a
+          // list, which the list field does not edit.
+          { path: ["rows"], kind: "table", labelKey: "tableRows" },
         ],
       },
     },

@@ -80,6 +80,17 @@ function spans(
   });
 }
 
+/** An inline run outside rich text (a table cell): the same markup, so bold,
+ *  italic and a link read alike wherever a company writes them. */
+export function renderInlineRun(
+  content: readonly RichTextSpan[],
+  path: readonly string[],
+  text: BlockTextRenderer,
+  editor?: BlockEditor,
+): ReactNode[] {
+  return spans(content, path, { text, editor, publication: false });
+}
+
 function list(
   node: Extract<RichTextNode, { type: "list" }>,
   path: readonly string[],

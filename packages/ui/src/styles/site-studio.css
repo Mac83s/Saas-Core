@@ -1218,3 +1218,44 @@
 .rich-text-editor--full-screen .rich-text-card__fields {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
 }
+
+/* The grid editor of a table section: cells are written in place. The cells
+   the section's "Nagłówki" choice names look like headers. */
+.table-editor__scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.table-editor__content {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  outline: none;
+}
+.table-editor__content table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--background);
+}
+.table-editor__content td {
+  min-width: 6rem;
+  border: 1px solid var(--input);
+  padding: 0.375rem 0.5rem;
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+.table-editor__content:focus-visible table {
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+}
+.table-editor__content a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+.table-editor__scroll:is([data-header="row"], [data-header="both"])
+  tr:first-child
+  td,
+.table-editor__scroll:is([data-header="column"], [data-header="both"])
+  td:first-child {
+  background: var(--muted);
+  font-weight: 600;
+}

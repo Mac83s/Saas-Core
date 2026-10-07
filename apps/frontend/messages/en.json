@@ -2247,6 +2247,25 @@
     "galleryItemCaption": "Caption",
     "galleryLinkLabel": "Link beside the photo — label",
     "galleryLinkHref": "Link beside the photo — address",
+    "tableBlock": "Table",
+    "tableCaption": "Table caption (what it shows)",
+    "tableHeader": "Headers",
+    "tableHeaderOptions": {
+      "row": "First row",
+      "column": "First column",
+      "both": "First row and first column",
+      "none": "No headers"
+    },
+    "tableRows": "Table cells",
+    "tableEditor": {
+      "hint": "Write in the cells as in a document. Tab moves to the next cell, Enter to the cell below. Rows and columns are added and removed with the buttons — at the cell holding the caret.",
+      "toolbar": "Table formatting and layout",
+      "addRow": "Row below",
+      "addColumn": "Column beside",
+      "deleteRow": "Delete row",
+      "deleteColumn": "Delete column",
+      "position": "Row {row} of {rows}, column {column} of {columns}"
+    },
     "productTagline": "Product tagline",
     "productImages": "Product photos",
     "imageCaption": "Photo caption",

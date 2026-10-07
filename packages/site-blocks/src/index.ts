@@ -101,6 +101,7 @@ export {
 export { sectionDecorationPresets } from "./section-decoration-presets";
 export type { SectionDecorationPreset } from "./section-decoration-presets";
 export type { SeparatorV1Data } from "./separator-block";
+export { tableColumnCount } from "./table-block";
 export {
   deadAnchorLinks,
   sampleData,

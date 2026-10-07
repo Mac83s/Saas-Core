@@ -169,6 +169,16 @@ export type RichTextNode =
       caption?: string;
       width?: "column" | "wide";
     };
+/** `core.table` v1: rows of cells; a cell holds one inline run or nothing. */
+export type TableCell = { content?: RichTextSpan[] };
+export type TableV1Data = JsonObject & {
+  layout?: "lines" | "striped";
+  caption?: string;
+  /** Which cells name the others; absent means the first row. */
+  header?: "row" | "column" | "both" | "none";
+  rows: { cells: TableCell[] }[];
+};
+
 export type RichTextAsideNode = Extract<
   RichTextNode,
   { type: "paragraph" } | { type: "list" }
@@ -592,6 +602,8 @@ export type BlockFieldKind =
   | "list"
   | "media"
   | "richText"
+  /** `core.table` `rows`: the panel edits the whole grid in one editor. */
+  | "table"
   | "choice"
   /** One of the company's offers booked from–to, or all of them: the panel
    *  lists them, the block keeps the id. */

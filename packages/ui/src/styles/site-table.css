@@ -1,0 +1,70 @@
+/* core.table: a data table in the reading flow of a page or an article. The
+   markup is fixed by the renderer; data never carries CSS. A table is content
+   between two sections of text, so it keeps its own short spacing instead of
+   a section's rhythm (like the separator). */
+.site-theme .site-block.site-table,
+.site-theme.site-theme--compact .site-block.site-table,
+.site-theme.site-theme--spacious .site-block.site-table,
+.site-theme[class*="site-style--"] .site-block.site-table {
+  padding-block: clamp(1rem, 0.5rem + 2cqw, 2rem);
+}
+/* A wide table scrolls inside its own region; the page never does. */
+.site-theme .site-table__scroll {
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+.site-theme .site-table__scroll:focus-visible {
+  outline: 2px solid var(--site-accent, currentColor);
+  outline-offset: 2px;
+}
+.site-theme .site-table table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  text-align: start;
+  font-size: clamp(0.9375rem, 0.9rem + 0.2cqw, 1.0625rem);
+  line-height: 1.55;
+}
+.site-theme .site-table caption {
+  caption-side: top;
+  padding-block-end: 0.75rem;
+  text-align: start;
+  font-weight: 600;
+}
+/* Words break between words here, not anywhere: with the section's
+   `overflow-wrap: anywhere` a narrow column would fold to single letters
+   instead of letting the region scroll. */
+.site-theme .site-table :is(th, td) {
+  min-inline-size: 7rem;
+  padding: 0.75rem 1rem;
+  border-block-end: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  vertical-align: top;
+  text-align: start;
+  overflow-wrap: break-word;
+}
+.site-theme .site-table :is(th, td):first-child {
+  padding-inline-start: 0;
+}
+.site-theme .site-table th {
+  font-weight: 600;
+}
+.site-theme .site-table thead th {
+  border-block-end: 2px solid var(--site-accent, currentColor);
+  vertical-align: bottom;
+}
+.site-theme .site-table :is(a, .site-prose__link) {
+  color: var(--site-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.site-theme .site-table a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+/* Striped: every second row of the body on a tint of the text colour, so it
+   keeps its contrast on any section surface. */
+.site-theme .site-table--striped tbody tr:nth-child(even) {
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+.site-theme .site-table--striped :is(th, td):first-child {
+  padding-inline-start: 1rem;
+}

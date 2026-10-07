@@ -83,6 +83,16 @@ const Figure = Node.create({
   renderHTML: ({ HTMLAttributes }) => ["figure", HTMLAttributes],
 });
 
+/** The contract's link: an allowlisted address, nothing the editor adds by
+ *  itself. Shared with the table editor, whose cells hold the same runs. */
+export const RichLink = Link.configure({
+  autolink: false,
+  linkOnPaste: false,
+  openOnClick: false,
+  HTMLAttributes: { rel: null, target: null, class: null },
+  isAllowedUri: (url) => isRichTextHref(url),
+});
+
 export type RichTextNodeType = RichTextNode["type"];
 
 /** `allowed` narrows the blocks, as the aside does (paragraphs and lists):
@@ -97,13 +107,7 @@ export function richTextExtensions(
     Text,
     Bold,
     Italic,
-    Link.configure({
-      autolink: false,
-      linkOnPaste: false,
-      openOnClick: false,
-      HTMLAttributes: { rel: null, target: null, class: null },
-      isAllowedUri: (url) => isRichTextHref(url),
-    }),
+    RichLink,
     ...(has("heading") ? [RichHeading] : []),
     ...(has("list") ? [BulletList, OrderedList, RichListItem] : []),
     ...(has("quote") ? [Quote] : []),

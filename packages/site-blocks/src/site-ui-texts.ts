@@ -122,6 +122,8 @@ export interface SiteUiTexts {
     readonly position: (current: number, total: number) => string;
   };
   readonly contents: string;
+  /** The name of a table that has no caption, for whoever does not see it. */
+  readonly table: string;
   /** Before the day an article's text last changed. */
   readonly updated: string;
   /** On a machine translation nobody has checked yet (ADR-071 pkt 17). */
@@ -151,6 +153,7 @@ const TEXTS = {
       position: (current, total) => `Strona ${current} z ${total}`,
     },
     contents: "Spis treści",
+    table: "Tabela",
     updated: "Zaktualizowano",
     machineNotice:
       "Ten tekst przetłumaczyła maszyna i nikt go jeszcze nie sprawdził.",
@@ -264,6 +267,7 @@ const TEXTS = {
       position: (current, total) => `Page ${current} of ${total}`,
     },
     contents: "Contents",
+    table: "Table",
     updated: "Updated",
     machineNotice:
       "This text was translated by a machine and nobody has checked it yet.",
@@ -373,6 +377,7 @@ const TEXTS = {
       position: (current, total) => `Seite ${current} von ${total}`,
     },
     contents: "Inhalt",
+    table: "Tabelle",
     updated: "Aktualisiert",
     machineNotice:
       "Dieser Text wurde maschinell übersetzt und noch von niemandem geprüft.",
@@ -483,6 +488,7 @@ const TEXTS = {
       position: (current, total) => `Página ${current} de ${total}`,
     },
     contents: "Índice",
+    table: "Tabla",
     updated: "Actualizado",
     machineNotice:
       "Este texto fue traducido por una máquina y nadie lo ha revisado todavía.",
@@ -592,6 +598,7 @@ const TEXTS = {
       position: (current, total) => `Страница ${current} из ${total}`,
     },
     contents: "Содержание",
+    table: "Таблица",
     updated: "Обновлено",
     machineNotice: "Этот текст переведён машиной, и его ещё никто не проверил.",
     aiImage: " — изображение создано ИИ",

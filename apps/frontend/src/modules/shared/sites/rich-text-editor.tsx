@@ -78,14 +78,14 @@ import {
 import { htmlToRichNodes, plainTextToRichNodes } from "./rich-text-paste";
 import { richTextExtensions, type RichTextNodeType } from "./rich-text-schema";
 
-const IDLE_COMMIT_MS = 700;
+export const IDLE_COMMIT_MS = 700;
 
 const SETTLE = "richTextSettle";
 const LEVELS = [2, 3, 4] as const;
 
 /** Every heading and section anchor in `value`, duplicates included: they
  *  share one namespace on the page. */
-function collectAnchors(value: unknown, found: string[] = []): string[] {
+export function collectAnchors(value: unknown, found: string[] = []): string[] {
   if (Array.isArray(value))
     value.forEach((item) => collectAnchors(item, found));
   else if (value !== null && typeof value === "object") {
@@ -113,7 +113,7 @@ function firstError(node: unknown): string | undefined {
   return undefined;
 }
 
-function useErrorText(path: string) {
+export function useErrorText(path: string) {
   const t = useTranslations("Sites");
   const { control } = useFormContext();
   const { errors } = useFormState({ control, name: path });
@@ -884,7 +884,7 @@ function TodoStatus({ editor }: { editor: Editor | null }) {
  *  outside a link, the address itself becomes the linked text. Mounted while
  *  open, so it starts from the link under the caret. There is no `<form>`:
  *  the dialog renders inside the page form's React tree. */
-function LinkDialog({
+export function LinkDialog({
   editor,
   onClose,
   pageAnchors,

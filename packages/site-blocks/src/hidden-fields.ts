@@ -86,7 +86,8 @@ function missing(
     if (
       field.kind === "text" ||
       field.kind === "textarea" ||
-      field.kind === "richText"
+      field.kind === "richText" ||
+      field.kind === "table"
     )
       return !shown([...base, ...field.path]);
     return false;
@@ -188,6 +189,8 @@ function filledIn(
       );
     else if (field.kind === "richText")
       value = [{ type: "paragraph", content: [{ text: "x" }] }];
+    else if (field.kind === "table")
+      value = [{ cells: [{ content: [{ text: "x" }] }] }];
     else if (field.kind === "media") {
       value = `00000000-0000-4000-8000-${String(photos.size + 1).padStart(12, "0")}`;
       photos.set(key, value);
@@ -229,7 +232,7 @@ function shownKeys(
       return seen.texts.some((key) => key === own || key.startsWith(`${own}.`));
     };
     const drawn = list.filter((field) =>
-      ["text", "textarea", "richText", "media"].includes(field.kind),
+      ["text", "textarea", "richText", "table", "media"].includes(field.kind),
     );
     const beside = (field: BlockFieldDefinition) =>
       drawn.filter(

@@ -766,8 +766,8 @@ export function UnfilledBadge({ count }: { count: number }) {
 
 /** The outline names a section by its own words where it has some. */
 export function outlineTitle(block: BlockFormValues): string {
-  const { title, heading, author, quote } = block.data;
-  for (const candidate of [title, heading, author])
+  const { title, heading, author, quote, caption } = block.data;
+  for (const candidate of [title, heading, author, caption])
     if (typeof candidate === "string" && candidate.trim()) return candidate;
   if (typeof quote === "string" && quote.trim()) {
     const words = quote.trim().split(/\s+/);

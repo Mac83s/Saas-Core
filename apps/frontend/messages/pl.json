@@ -2247,6 +2247,25 @@
     "galleryItemCaption": "Podpis",
     "galleryLinkLabel": "Odnośnik przy zdjęciu — tekst",
     "galleryLinkHref": "Odnośnik przy zdjęciu — adres",
+    "tableBlock": "Tabela",
+    "tableCaption": "Podpis tabeli (co ona pokazuje)",
+    "tableHeader": "Nagłówki",
+    "tableHeaderOptions": {
+      "row": "Pierwszy wiersz",
+      "column": "Pierwsza kolumna",
+      "both": "Pierwszy wiersz i pierwsza kolumna",
+      "none": "Bez nagłówków"
+    },
+    "tableRows": "Komórki tabeli",
+    "tableEditor": {
+      "hint": "Pisz w komórkach jak w dokumencie. Tab przechodzi do następnej komórki, Enter do komórki poniżej. Wiersze i kolumny dodajesz i usuwasz przyciskami — przy komórce, w której stoi kursor.",
+      "toolbar": "Formatowanie i układ tabeli",
+      "addRow": "Wiersz poniżej",
+      "addColumn": "Kolumna obok",
+      "deleteRow": "Usuń wiersz",
+      "deleteColumn": "Usuń kolumnę",
+      "position": "Wiersz {row} z {rows}, kolumna {column} z {columns}"
+    },
     "productTagline": "Hasło produktu",
     "productImages": "Zdjęcia produktu",
     "imageCaption": "Podpis zdjęcia",

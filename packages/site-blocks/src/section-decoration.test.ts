@@ -127,6 +127,18 @@ describe("shared section decoration contract", () => {
         data: { unit: "11111111-1111-4111-8111-111111111111" },
       },
       { block_type: "core.stay_map", schema_version: 1, data: {} },
+      // A data table in the content of a page or an entry.
+      {
+        block_type: "core.table",
+        schema_version: 1,
+        data: {
+          caption: "Cennik",
+          rows: [
+            { cells: [{ content: [{ text: "Usługa" }] }, {}] },
+            { cells: [{ content: [{ text: "Kąpiel" }] }, {}] },
+          ],
+        },
+      },
       // A company's document, as the server builds it for the document's page.
       {
         block_type: "core.document",

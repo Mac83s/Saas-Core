@@ -43,6 +43,9 @@ test("site block manifest references valid canonical schemas", async () => {
       "core.quote",
       "core.product",
       "core.gallery",
+      // A data table in the content of a page or an entry: rows of cells with
+      // rich text's inline marks, never HTML.
+      "core.table",
       // Offers booked from–to (ADR-072, slice 5d): each carries a choice,
       // the units, prices and free days are read live.
       "core.stay_units",

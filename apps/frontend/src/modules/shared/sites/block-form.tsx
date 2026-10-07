@@ -22,6 +22,7 @@ import { PageEditorContext } from "./page-editor-context";
 import { StayOfferSelect } from "./stay-offer-select";
 import { LayoutChooser } from "./layout-chooser";
 import { SectionTypeChooser } from "./section-conversion";
+import { emptyTableRows } from "./table-doc";
 import {
   useFieldArray,
   useWatch,
@@ -68,6 +69,12 @@ import type { MediaAsset } from "@saas-core/api-client";
  *  ProseMirror stays out of the rest of the panel. */
 const RichTextEditor = dynamic(
   () => import("./rich-text-editor").then((module) => module.RichTextEditor),
+  { ssr: false },
+);
+
+/** The grid editor loads only where a section is a table, like the WYSIWYG. */
+const TableEditor = dynamic(
+  () => import("./table-editor").then((module) => module.TableEditor),
   { ssr: false },
 );
 
@@ -662,6 +669,17 @@ function BlockField<TValues extends FieldValues>({
     );
   }
 
+  if (field.kind === "table") {
+    // Like the rich text editor, it reads the surrounding form from context.
+    return (
+      <TableEditor
+        headerName={fieldName(pathPrefix, ["header"])}
+        label={t(field.labelKey)}
+        name={name}
+      />
+    );
+  }
+
   if (field.kind === "list") {
     return (
       <BlockListField
@@ -903,9 +921,11 @@ function emptyFieldData(fields: readonly BlockFieldDefinition[]): JsonObject {
     target[leaf] =
       field.kind === "list" || field.kind === "richText"
         ? []
-        : field.kind === "choice"
-          ? (field.options?.[0] ?? "")
-          : "";
+        : field.kind === "table"
+          ? emptyTableRows()
+          : field.kind === "choice"
+            ? (field.options?.[0] ?? "")
+            : "";
   }
   return data;
 }
@@ -1065,16 +1085,26 @@ export function withUniqueAnchors(
 }
 
 export function blockPayload(block: BlockFormValues) {
+  const fields = blockOption(block.block_type)?.fields ?? [];
   const pruned = pruneEmpty(
     block.data,
-    (blockOption(block.block_type)?.fields ?? [])
+    fields
       .filter((field) => field.kind === "richText")
       .map((field) => field.path.join(".")),
   );
+  const data = isObject(pruned) ? pruned : {};
+  // A table's grid is stored as its editor wrote it: an empty cell is `{}`
+  // and keeps its place — pruning it would shift the rest of the row.
+  for (const field of fields) {
+    if (field.kind !== "table") continue;
+    const rows = readAt(block.data, field.path);
+    if (Array.isArray(rows) && rows.length > 0)
+      data[field.path[0]!] = structuredClone(rows);
+  }
   return {
     block_type: block.block_type,
     schema_version: blockOption(block.block_type)?.latestVersion ?? 1,
-    data: isObject(pruned) ? pruned : {},
+    data,
     ...(block.decoration !== undefined
       ? { decoration: structuredClone(block.decoration) }
       : {}),

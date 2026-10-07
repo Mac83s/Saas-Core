@@ -24,6 +24,8 @@ const STRUCTURAL: Record<string, readonly string[]> = {
   "core.faq": ["accordion"],
   // Drawn by `__rule`, `__dots` and `__shape`; `space` is the gap alone.
   "core.separator": ["space", "line", "dots", "wave", "curve"],
+  // The plain table: rules between the rows are the table's own.
+  "core.table": ["lines"],
   // The showcase is `.site-section--product`; each v3 layout is drawn by its
   // own `.site-product__…` structure (notes, spec groups, cards, the box,
   // variants, materials, steps).

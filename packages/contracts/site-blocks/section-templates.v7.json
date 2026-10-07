@@ -18280,6 +18280,204 @@
         "stage": "objection",
         "primaryAction": false
       }
+    },
+    {
+      "id": "core.table_lines",
+      "version": 1,
+      "blockType": "core.table",
+      "schemaVersion": 1,
+      "layout": "lines",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Tabela",
+          "description": "Dane w wierszach i kolumnach: pierwszy wiersz nazywa kolumny, cienkie linie oddzielają wiersze.",
+          "usage": "Układ: tabela z liniami. Środek strony lub wpis. Do zestawień, parametrów i porównań, które czyta się w poprzek — nie do układania treści w kolumny. Podpis mówi, co tabela pokazuje; pierwszy wiersz, pierwsza kolumna albo oba mogą być nagłówkami. Na telefonie szeroka tabela przewija się w bok we własnym polu, strona zostaje na miejscu. Liczby, ceny i parametry wpisuje właściciel — tabela nie ma danych przykładowych."
+        },
+        "en": {
+          "name": "Table",
+          "description": "Data in rows and columns: the first row names the columns, fine rules separate the rows.",
+          "usage": "Layout: ruled table. Page body or an entry. For listings, specifications and comparisons read across — not for laying content out in columns. The caption says what the table shows; the first row, the first column or both can be headers. On a phone a wide table scrolls sideways inside its own area and the page stays put. Figures, prices and specifications are the owner's to enter — the table ships with no sample data."
+        }
+      },
+      "goals": ["summarize_facts", "explain_topic"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["editorial", "offer", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": { "replaceWithinType": true, "preservesFields": true },
+      "automation": { "mode": "draft_only", "facts": "user_supplied" },
+      "seed": {
+        "pl": {
+          "layout": "lines",
+          "caption": "[Uzupełnij: co pokazuje ta tabela]",
+          "header": "row",
+          "rows": [
+            {
+              "cells": [
+                { "content": [{ "text": "[Uzupełnij: nazwa kolumny]" }] },
+                { "content": [{ "text": "[Uzupełnij: nazwa kolumny]" }] },
+                { "content": [{ "text": "[Uzupełnij: nazwa kolumny]" }] }
+              ]
+            },
+            {
+              "cells": [
+                { "content": [{ "text": "[Uzupełnij: nazwa wiersza]" }] },
+                { "content": [{ "text": "[Uzupełnij: wartość]" }] },
+                { "content": [{ "text": "[Uzupełnij: wartość]" }] }
+              ]
+            },
+            {
+              "cells": [
+                { "content": [{ "text": "[Uzupełnij: nazwa wiersza]" }] },
+                { "content": [{ "text": "[Uzupełnij: wartość]" }] },
+                { "content": [{ "text": "[Uzupełnij: wartość]" }] }
+              ]
+            }
+          ]
+        },
+        "en": {
+          "layout": "lines",
+          "caption": "[Fill in: what this table shows]",
+          "header": "row",
+          "rows": [
+            {
+              "cells": [
+                { "content": [{ "text": "[Fill in: column name]" }] },
+                { "content": [{ "text": "[Fill in: column name]" }] },
+                { "content": [{ "text": "[Fill in: column name]" }] }
+              ]
+            },
+            {
+              "cells": [
+                { "content": [{ "text": "[Fill in: row name]" }] },
+                { "content": [{ "text": "[Fill in: value]" }] },
+                { "content": [{ "text": "[Fill in: value]" }] }
+              ]
+            },
+            {
+              "cells": [
+                { "content": [{ "text": "[Fill in: row name]" }] },
+                { "content": [{ "text": "[Fill in: value]" }] },
+                { "content": [{ "text": "[Fill in: value]" }] }
+              ]
+            }
+          ]
+        }
+      },
+      "contentProfiles": ["M", "L"],
+      "readingPattern": "reference",
+      "styleAffinities": ["editorial", "expert", "technical"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": { "stage": "interest", "primaryAction": false }
+    },
+    {
+      "id": "core.table_striped",
+      "version": 1,
+      "blockType": "core.table",
+      "schemaVersion": 1,
+      "layout": "striped",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Tabela w paski",
+          "description": "Ta sama tabela z co drugim wierszem na delikatnym tle — łatwiej utrzymać wzrok w długim wierszu.",
+          "usage": "Układ: tabela w paski. Środek strony lub wpis. Do dłuższych zestawień o wielu kolumnach, w których wiersz czyta się od lewej do prawej. Paski biorą kolor z tekstu sekcji, więc zachowują kontrast na każdym tle. Liczby, ceny i parametry wpisuje właściciel — tabela nie ma danych przykładowych."
+        },
+        "en": {
+          "name": "Striped table",
+          "description": "The same table with every second row on a light tint — easier to keep your place in a long row.",
+          "usage": "Layout: striped table. Page body or an entry. For longer listings with many columns where a row is read left to right. The stripes take their colour from the section's text, so they keep their contrast on any background. Figures, prices and specifications are the owner's to enter — the table ships with no sample data."
+        }
+      },
+      "goals": ["summarize_facts", "explain_topic"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["editorial", "offer", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": { "replaceWithinType": true, "preservesFields": true },
+      "automation": { "mode": "draft_only", "facts": "user_supplied" },
+      "seed": {
+        "pl": {
+          "layout": "striped",
+          "caption": "[Uzupełnij: co pokazuje ta tabela]",
+          "header": "row",
+          "rows": [
+            {
+              "cells": [
+                { "content": [{ "text": "[Uzupełnij: nazwa kolumny]" }] },
+                { "content": [{ "text": "[Uzupełnij: nazwa kolumny]" }] },
+                { "content": [{ "text": "[Uzupełnij: nazwa kolumny]" }] }
+              ]
+            },
+            {
+              "cells": [
+                { "content": [{ "text": "[Uzupełnij: nazwa wiersza]" }] },
+                { "content": [{ "text": "[Uzupełnij: wartość]" }] },
+                { "content": [{ "text": "[Uzupełnij: wartość]" }] }
+              ]
+            },
+            {
+              "cells": [
+                { "content": [{ "text": "[Uzupełnij: nazwa wiersza]" }] },
+                { "content": [{ "text": "[Uzupełnij: wartość]" }] },
+                { "content": [{ "text": "[Uzupełnij: wartość]" }] }
+              ]
+            }
+          ]
+        },
+        "en": {
+          "layout": "striped",
+          "caption": "[Fill in: what this table shows]",
+          "header": "row",
+          "rows": [
+            {
+              "cells": [
+                { "content": [{ "text": "[Fill in: column name]" }] },
+                { "content": [{ "text": "[Fill in: column name]" }] },
+                { "content": [{ "text": "[Fill in: column name]" }] }
+              ]
+            },
+            {
+              "cells": [
+                { "content": [{ "text": "[Fill in: row name]" }] },
+                { "content": [{ "text": "[Fill in: value]" }] },
+                { "content": [{ "text": "[Fill in: value]" }] }
+              ]
+            },
+            {
+              "cells": [
+                { "content": [{ "text": "[Fill in: row name]" }] },
+                { "content": [{ "text": "[Fill in: value]" }] },
+                { "content": [{ "text": "[Fill in: value]" }] }
+              ]
+            }
+          ]
+        }
+      },
+      "contentProfiles": ["M", "L"],
+      "readingPattern": "reference",
+      "styleAffinities": ["editorial", "expert", "technical"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": { "stage": "interest", "primaryAction": false }
     }
   ]
 }
