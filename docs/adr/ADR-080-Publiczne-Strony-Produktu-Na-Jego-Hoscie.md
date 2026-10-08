@@ -149,6 +149,11 @@ bez marketingu rdzenia — i uruchomiona tak jak w obrazie (serwer `standalone`)
   stronie klienta (bez żądania dokumentu), strona kliencka się hydratyzuje, plik
   czcionki z cyrylicą ładuje się dla rosyjskich słów.
 
+W tym samym składzie (pełny slot, pięć języków, marketing rdzenia wyłączony) przeszedł
+cały zestaw vitest frontendu poza kontrolą tekstów gości dla jednorazowego profilu
+(es/ru z rezerwacjami — istniejący wymóg ADR-071 pkt 19, nie tego pakietu), `tsc`
+i lint plików produktu pisanych według kontraktu.
+
 Strony zespołu i gości nie były częścią tego przebiegu (wymagają backendu): ich
 odpowiedzi proxy pilnują pliki `*.golden.json`. Skrypty przebiegu:
 `~/DEVELOPMENT/.local-dev/resume/package-pr1/`. Uwaga dla powtarzających: serwer

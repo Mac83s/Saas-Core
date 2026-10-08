@@ -99,8 +99,8 @@ Co odpowiada na hoście platformy, gdy tabela jest czynna:
   `setRequestLocale(locale)` z `params`.
 - **Strona z parametrem odpowiada `notFound()` na wartość, której nie zna.** Tabela
   sprawdza tylko kształt adresu; czy rasa istnieje, wie strona.
-- Kodowanych adresów nie pisze się ręcznie (§5). Odnośnik do panelu to zwykłe
-  `/panel` albo `Link` z `#i18n/navigation`.
+- Kodowanych adresów nie pisze się ręcznie (§5). Odnośnik do panelu albo logowania
+  to `Link` z `#i18n/navigation` (lint rdzenia odrzuca `<a href="/panel">`).
 
 ## 5. Linki, przełącznik języka, canonical i hreflang
 
