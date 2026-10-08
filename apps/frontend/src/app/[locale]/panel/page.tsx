@@ -68,11 +68,13 @@ export default async function PanelHomePage() {
       title: nav("sitePages"),
       description: t("publisherPagesDescription"),
     },
+    // The platform's workspace runs content types whatever companies are
+    // offered (ADR-079 pkt 28): its menu says „Treści”, and so does its start.
     {
-      href: "/panel/sites/blog",
+      href: "/panel/sites/content",
       icon: NewspaperIcon,
-      title: nav("siteBlog"),
-      description: t("publisherBlogDescription"),
+      title: nav("siteContent"),
+      description: t("publisherContentDescription"),
     },
     {
       href: "/panel/sites/translations",

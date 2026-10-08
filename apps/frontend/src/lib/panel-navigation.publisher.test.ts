@@ -192,10 +192,12 @@ describe("workspace platformy: panel wydawcy (ADR-077 pkt 9)", () => {
     const menu = panelNavigation(publisher);
     const website = menu.work.find((item) => item.labelKey === "website")!;
     expect(website.group).toBe("work");
+    // „Treści”, though this profile offers companies no content types: the
+    // switch is about companies, the workspace runs its own (ADR-079 pkt 28).
     expect(hrefs(website.pages!)).toEqual([
       "/panel/sites",
       "/panel/sites/menu",
-      "/panel/sites/blog",
+      "/panel/sites/content",
       "/panel/sites/translations",
       "/panel/sites/publication",
       "/panel/sites/address",

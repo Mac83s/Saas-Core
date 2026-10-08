@@ -87,6 +87,10 @@ export type PanelSectionTab = Pick<
   /** Only where the deployment's profile offers it (`features` of
    * `deployment.json`), e.g. `customerRetention`. */
   feature?: string;
+  /** One of the two entries of a site's entries (ADR-079 pkt 25): "list" —
+   * „Treści”, where the panel offers content types beyond a site's first;
+   * "blog" — today's „Blog”, where it does not. */
+  contentTypes?: "list" | "blog";
   /** A number beside the label, e.g. visits waiting in „Do przydzielenia”. */
   count?: number;
   /** The name as the API gives it, already in the panel's language — an
@@ -218,7 +222,21 @@ export const PANEL_SECTIONS = {
   website: [
     { href: "/panel/sites", labelKey: "sitePages", module: "shared.sites" },
     { href: "/panel/sites/menu", labelKey: "siteMenu", module: "shared.sites" },
-    { href: "/panel/sites/blog", labelKey: "siteBlog", module: "shared.sites" },
+    // One of the two (ADR-079 pkt 25): the site's content types with the
+    // blog first, or the blog alone where the platform offers nothing
+    // beside it. /panel/sites/blog answers in both.
+    {
+      href: "/panel/sites/content",
+      labelKey: "siteContent",
+      module: "shared.sites",
+      contentTypes: "list",
+    },
+    {
+      href: "/panel/sites/blog",
+      labelKey: "siteBlog",
+      module: "shared.sites",
+      contentTypes: "blog",
+    },
     // Every page and article against the site's other languages (TL16).
     {
       href: "/panel/sites/translations",
@@ -584,6 +602,18 @@ export function profileOffers(feature: string): boolean {
   );
 }
 
+/**
+ * Whether this panel offers content types beyond a site's first (ADR-079
+ * pkt 21, 28): where the deployment's profile does (`features.contentTypes`),
+ * and always in the platform's own workspace — the switch is about what
+ * companies are offered.
+ */
+export function offersContentTypes(
+  access: Pick<PanelAccess, "publisher">,
+): boolean {
+  return profileOffers("contentTypes") || access.publisher === true;
+}
+
 export function allows(
   access: PanelAccess,
   item: Pick<
@@ -600,10 +630,16 @@ export function allows(
     requests?: PanelSectionTab["requests"];
     stays?: PanelSectionTab["stays"];
     feature?: PanelSectionTab["feature"];
+    contentTypes?: PanelSectionTab["contentTypes"];
   },
 ): boolean {
   if (item.module && !access.modules.includes(item.module)) return false;
   if (item.feature && !profileOffers(item.feature)) return false;
+  if (
+    item.contentTypes &&
+    (item.contentTypes === "list") !== offersContentTypes(access)
+  )
+    return false;
   if (item.operator && (access.operatorLevel ?? 0) < 1) return false;
   if (item.stays && !access.booking?.stays) return false;
   if (item.requests && (access.booking?.requests ?? null) === null)

@@ -7,7 +7,7 @@ import {
 /** Every page of "Strona internetowa" (ADR-057): the same panel, its own part. */
 export async function sitesPage(
   section: SitesSection,
-  page?: { pageId: string; preview: boolean },
+  page?: { pageId?: string; preview?: boolean; typeId?: string },
 ) {
   const organization = await getServerCurrentOrganization();
   return (
@@ -17,6 +17,7 @@ export async function sitesPage(
       pageId={page?.pageId}
       previewOnOpen={page?.preview}
       section={section}
+      typeId={page?.typeId}
     />
   );
 }

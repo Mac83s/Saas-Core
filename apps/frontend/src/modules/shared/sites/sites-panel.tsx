@@ -33,6 +33,7 @@ import {
   publishSite,
   rollbackSitePublication,
   type PageListItem,
+  type ContentCollection,
   type SiteDomain,
   type SiteLocalizationReport,
   type SitePublication,
@@ -81,6 +82,13 @@ import { Link, useRouter } from "#i18n/navigation";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { AutomationConnectionsPanel } from "./connections-panel";
 import { BlogPanel } from "./blog-panel";
+import { ContentTypeSettings } from "./content-type-settings";
+import {
+  ContentTypesPanel,
+  CreateContentTypeDialog,
+  contentTypeHref,
+  contentTypesHref,
+} from "./content-types-panel";
 import { DomainPanel } from "./domain-panel";
 import { NavigationEditor } from "./navigation-editor";
 import { PageStudio } from "./page-studio";
@@ -106,6 +114,11 @@ export type SitesSection =
   | "page"
   | "menu"
   | "blog"
+  // „Treści” (ADR-079 pkt 25): the list of content types, one type's
+  // entries, one type's settings.
+  | "content"
+  | "contentType"
+  | "contentTypeSettings"
   | "translations"
   | "publication"
   | "address"
@@ -178,12 +191,15 @@ export function SitesPanel({
   canManageBilling = false,
   section = "pages",
   pageId,
+  typeId,
   previewOnOpen = false,
 }: {
   canManageBilling?: boolean;
   section?: SitesSection;
   /** The page the "page" section edits. */
   pageId?: string;
+  /** The content type the "contentType" sections work on. */
+  typeId?: string;
   /** The list's "Preview": the editor opens with the draft preview. */
   previewOnOpen?: boolean;
 }) {
@@ -208,6 +224,10 @@ export function SitesPanel({
   // The translations list is asked for again: the page's refresh, or an
   // order from its header that ended.
   const [translationsReload, setTranslationsReload] = useState(0);
+  // The content type a type's page shows, for its title; and the list of
+  // types asked for again after one was added from the header.
+  const [contentType, setContentType] = useState<ContentCollection>();
+  const [contentTypesReload, setContentTypesReload] = useState(0);
   const [translationsDecided, setTranslationsDecided] = useState(0);
   // Which site the pages, report and domains on screen belong to: until they
   // arrive the list is loading, not empty, and a page is not yet "gone".
@@ -501,6 +521,9 @@ export function SitesPanel({
   // Until the sites arrive the page is the section's, not the onboarding's.
   const hasSite = sites.length > 0 || loading;
   const detailsLoading = loading || detailsFor !== selectedSiteId;
+  // A page of one content type stands under „Treści”, named after the type.
+  const ofContentType =
+    section === "contentType" || section === "contentTypeSettings";
   const heading = (
     <PanelPage
       actions={
@@ -509,6 +532,18 @@ export function SitesPanel({
             <CreatePageDialog
               onCreate={createPage}
               onPlanRequired={() => setPlanAttention(true)}
+            />
+          ) : null}
+          {section === "content" && selectedSiteId ? (
+            <CreateContentTypeDialog
+              address={domains.length ? publicSiteUrl(domains) : null}
+              defaultLocale={selectedSite?.default_locale}
+              key={selectedSiteId}
+              onCreated={(created) => {
+                setContentTypesReload((value) => value + 1);
+                router.push(contentTypeHref(selectedSiteId, created.id));
+              }}
+              siteId={selectedSiteId}
             />
           ) : null}
           {section === "translations" && selectedSiteId ? (
@@ -545,15 +580,29 @@ export function SitesPanel({
           ? t("panelEyebrow")
           : section === "page"
             ? t("sections.pages.title")
-            : t("title")
+            : ofContentType
+              ? t("sections.content.title")
+              : t("title")
       }
-      eyebrowHref={hasSite && section === "page" ? "/panel/sites" : undefined}
+      eyebrowHref={
+        !hasSite
+          ? undefined
+          : section === "page"
+            ? "/panel/sites"
+            : ofContentType
+              ? selectedSiteId
+                ? contentTypesHref(selectedSiteId)
+                : "/panel/sites/content"
+              : undefined
+      }
       title={
         !hasSite
           ? t("title")
           : section === "page"
             ? (selectedPage?.name ?? t("sections.page.title"))
-            : t(`sections.${section}.title`)
+            : ofContentType
+              ? (contentType?.name ?? t(`sections.${section}.title`))
+              : t(`sections.${section}.title`)
       }
       titleId="sites-heading"
     />
@@ -879,6 +928,36 @@ export function SitesPanel({
           defaultLocale={selectedSite?.default_locale}
           key={selectedSiteId}
           siteId={selectedSiteId}
+        />
+      ) : null}
+
+      {section === "content" && selectedSiteId ? (
+        <ContentTypesPanel
+          key={selectedSiteId}
+          reloads={contentTypesReload}
+          siteId={selectedSiteId}
+        />
+      ) : null}
+
+      {section === "contentType" && selectedSiteId && typeId ? (
+        <BlogPanel
+          address={domains.length ? publicSiteUrl(domains) : null}
+          defaultLocale={selectedSite?.default_locale}
+          key={`${selectedSiteId}-${typeId}`}
+          onLoaded={setContentType}
+          siteId={selectedSiteId}
+          typeId={typeId}
+        />
+      ) : null}
+
+      {section === "contentTypeSettings" && selectedSiteId && typeId ? (
+        <ContentTypeSettings
+          address={domains.length ? publicSiteUrl(domains) : null}
+          key={`${selectedSiteId}-${typeId}`}
+          onLoaded={setContentType}
+          onSwitchedOff={() => router.push(contentTypesHref(selectedSiteId))}
+          siteId={selectedSiteId}
+          typeId={typeId}
         />
       ) : null}
 

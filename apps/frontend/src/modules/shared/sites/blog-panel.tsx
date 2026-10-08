@@ -23,6 +23,7 @@ import {
   PlusIcon,
   RefreshCwIcon,
   SendIcon,
+  SettingsIcon,
 } from "lucide-react";
 import { z } from "zod";
 
@@ -39,7 +40,7 @@ import {
   type ContentEntry,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
-import { Button } from "@saas-core/ui/components/button";
+import { Button, buttonVariants } from "@saas-core/ui/components/button";
 import {
   Card,
   CardContent,
@@ -67,6 +68,7 @@ import {
 } from "@saas-core/ui/components/input-group";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { Link } from "#i18n/navigation";
 import { nativeName, useCompanyLocales } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { AutomationPolicyField } from "./automation-policy";
@@ -77,6 +79,7 @@ import {
   sectionPathErrors,
   siteHost,
 } from "./collection-paths";
+import { contentTypeHref, contentTypesHref } from "./content-types-panel";
 import { EntryEditor } from "./entry-editor";
 import { EntryMetadata } from "./entry-metadata";
 import { EntrySchedule } from "./entry-schedule";
@@ -99,12 +102,21 @@ export function BlogPanel({
   siteId,
   address,
   defaultLocale,
+  typeId,
+  onLoaded,
 }: {
   siteId: string;
   /** The site's public address, before the blog's own part of it. */
   address?: string | null;
   /** The site's own language: its addresses carry no language prefix. */
   defaultLocale?: string;
+  /** One content type's entries (ADR-079 pkt 25, `/panel/sites/content/<typ>`):
+   *  no choice of section and no first-blog form, and what the type is —
+   *  its address, menu, automation — lives on its settings page. Without
+   *  it this is the blog screen as it has always been. */
+  typeId?: string;
+  /** The type shown, for the page's title. */
+  onLoaded?: (collection: ContentCollection) => void;
 }) {
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
@@ -205,7 +217,7 @@ export function BlogPanel({
     setLoading(true);
     setProblem(undefined);
     try {
-      const found = await listContentCollections(siteId);
+      const found = shown(await listContentCollections(siteId), typeId);
       setCollections(found);
       const next = found[0]?.id;
       setCollectionId(next);
@@ -219,7 +231,7 @@ export function BlogPanel({
     } finally {
       setLoading(false);
     }
-  }, [loadEntries, siteId, t]);
+  }, [loadEntries, siteId, t, typeId]);
 
   // The first load runs from the effect without setting `loading` up front: it
   // already starts true, and setting it again synchronously would queue a
@@ -227,11 +239,13 @@ export function BlogPanel({
   useEffect(() => {
     let mounted = true;
     void listContentCollections(siteId)
-      .then(async (found) => {
+      .then(async (all) => {
         if (!mounted) return;
+        const found = shown(all, typeId);
         setCollections(found);
         const next = found[0]?.id;
         setCollectionId(next);
+        if (found[0]) onLoaded?.(found[0]);
         if (next) await loadEntries(next);
       })
       .catch((error: unknown) => {
@@ -243,7 +257,10 @@ export function BlogPanel({
     return () => {
       mounted = false;
     };
-  }, [loadEntries, siteId, t]);
+    // `onLoaded` is the page's own setter: asking again when it changes
+    // identity would load the list on every render of the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadEntries, siteId, t, typeId]);
 
   /** Every mutation follows the same shape: run it, refresh the list, surface a
    *  Problem Details message. Sharing it keeps a forgotten refresh from showing
@@ -446,7 +463,16 @@ export function BlogPanel({
         </div>
       )}
 
-      {collections.length === 0 && !loading ? (
+      {typeId && collections.length === 0 && !loading && !problem ? (
+        <div className="space-y-3 text-sm">
+          <p role="alert">{t("contentTypes.notFound")}</p>
+          <Link className="underline" href={contentTypesHref(siteId)}>
+            {t("contentTypes.backToList")}
+          </Link>
+        </div>
+      ) : null}
+
+      {!typeId && collections.length === 0 && !loading ? (
         <Card>
           <CardHeader>
             <CardTitle>{t("blogCreateTitle")}</CardTitle>
@@ -570,7 +596,18 @@ export function BlogPanel({
         </Card>
       ) : null}
 
-      {collection && (
+      {collection?.archived ? (
+        <div className="space-y-3 text-sm">
+          <p className="rounded-lg border bg-muted/40 p-3">
+            {t("contentTypes.isOff")}
+          </p>
+          <Link className="underline" href={contentTypesHref(siteId)}>
+            {t("contentTypes.backToList")}
+          </Link>
+        </div>
+      ) : null}
+
+      {collection && !collection.archived && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]">
           <Card>
             <CardHeader>
@@ -586,7 +623,17 @@ export function BlogPanel({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {collections.length > 1 && (
+              {typeId ? (
+                <Link
+                  className={buttonVariants({ size: "sm", variant: "outline" })}
+                  href={contentTypeHref(siteId, typeId, "/settings")}
+                >
+                  <SettingsIcon aria-hidden="true" />
+                  {t("contentTypes.typeSettings")}
+                </Link>
+              ) : null}
+
+              {!typeId && collections.length > 1 && (
                 <Field>
                   <FieldLabel htmlFor="collection-picker">
                     {t("blogChoose")}
@@ -612,69 +659,75 @@ export function BlogPanel({
                 </Field>
               )}
 
-              <CollectionPaths
-                address={address}
-                collection={collection}
-                key={collection.id}
-                onSaved={(updated) =>
-                  setCollections((current) =>
-                    current.map((item) =>
-                      item.id === updated.id ? updated : item,
-                    ),
-                  )
-                }
-              />
+              {!typeId && (
+                <CollectionPaths
+                  address={address}
+                  collection={collection}
+                  key={collection.id}
+                  onSaved={(updated) =>
+                    setCollections((current) =>
+                      current.map((item) =>
+                        item.id === updated.id ? updated : item,
+                      ),
+                    )
+                  }
+                />
+              )}
 
               {/* The menu a visitor sees comes from the last publication, so
                   the change lands when the site is published — the same rule
                   every other content change follows. */}
-              <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
-                <input
-                  checked={collection.show_in_navigation}
-                  className="mt-1"
-                  disabled={busy}
-                  onChange={(event) => {
-                    const show = event.target.checked;
+              {!typeId && (
+                <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                  <input
+                    checked={collection.show_in_navigation}
+                    className="mt-1"
+                    disabled={busy}
+                    onChange={(event) => {
+                      const show = event.target.checked;
+                      void run(async () => {
+                        const updated = await setCollectionNavigation(
+                          collection.id,
+                          show,
+                        );
+                        setCollections((current) =>
+                          current.map((item) =>
+                            item.id === updated.id ? updated : item,
+                          ),
+                        );
+                      });
+                    }}
+                    type="checkbox"
+                  />
+                  <span>
+                    <span className="font-medium">{t("blogInMenu")}</span>
+                    <span className="block text-muted-foreground">
+                      {t("blogInMenuHint")}
+                    </span>
+                  </span>
+                </label>
+              )}
+
+              {!typeId && (
+                <AutomationPolicyField
+                  busy={busy}
+                  id="collection-policy"
+                  onChange={(policy) =>
                     void run(async () => {
-                      const updated = await setCollectionNavigation(
+                      const updated = await setCollectionAutomationPolicy(
                         collection.id,
-                        show,
+                        policy,
                       );
                       setCollections((current) =>
                         current.map((item) =>
                           item.id === updated.id ? updated : item,
                         ),
                       );
-                    });
-                  }}
-                  type="checkbox"
+                    })
+                  }
+                  value={collection.automation_policy}
                 />
-                <span>
-                  <span className="font-medium">{t("blogInMenu")}</span>
-                  <span className="block text-muted-foreground">
-                    {t("blogInMenuHint")}
-                  </span>
-                </span>
-              </label>
-
-              <AutomationPolicyField
-                busy={busy}
-                id="collection-policy"
-                onChange={(policy) =>
-                  void run(async () => {
-                    const updated = await setCollectionAutomationPolicy(
-                      collection.id,
-                      policy,
-                    );
-                    setCollections((current) =>
-                      current.map((item) =>
-                        item.id === updated.id ? updated : item,
-                      ),
-                    );
-                  })
-                }
-                value={collection.automation_policy}
-              />
+              )}
 
               {entries.length === 0 ? (
                 <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
@@ -682,7 +735,13 @@ export function BlogPanel({
                 </p>
               ) : (
                 <DataTable
-                  caption={t("lists.blogCaption")}
+                  caption={
+                    typeId
+                      ? t("contentTypes.entriesCaption", {
+                          name: collection.name,
+                        })
+                      : t("lists.blogCaption")
+                  }
                   columns={columns}
                   data={entries}
                   getRowId={(item) => item.id}
@@ -783,7 +842,7 @@ export function BlogPanel({
         </div>
       )}
 
-      {entry && (
+      {entry && !collection?.archived && (
         <EntryMetadata
           entry={entry}
           key={`metadata-${entry.id}`}
@@ -793,7 +852,7 @@ export function BlogPanel({
         />
       )}
 
-      {entry && (
+      {entry && !collection?.archived && (
         <EntryTags
           entry={entry}
           key={`tags-${entry.id}-${entry.tags.map((tag) => tag.slug).join(",")}`}
@@ -803,7 +862,7 @@ export function BlogPanel({
         />
       )}
 
-      {entry && (
+      {entry && !collection?.archived && (
         <EntrySchedule
           entry={entry}
           key={`schedule-${entry.id}-${entry.schedule_state}`}
@@ -813,7 +872,7 @@ export function BlogPanel({
         />
       )}
 
-      {entry && (
+      {entry && !collection?.archived && (
         <EntryTranslations
           entry={entry}
           key={`translations-${entry.id}`}
@@ -823,7 +882,7 @@ export function BlogPanel({
         />
       )}
 
-      {entry && (
+      {entry && !collection?.archived && (
         <EntryEditor
           entry={entry}
           key={entry.id}
@@ -836,6 +895,17 @@ export function BlogPanel({
       )}
     </div>
   );
+}
+
+/** What the screen works on: the one type asked for, or — on the blog screen
+ *  — every section that is switched on (a switched-off one takes no work). */
+function shown(
+  found: ContentCollection[],
+  typeId: string | undefined,
+): ContentCollection[] {
+  return typeId
+    ? found.filter((item) => item.id === typeId)
+    : found.filter((item) => !item.archived);
 }
 
 /** Titles imply their address, and typing the same words twice is where a

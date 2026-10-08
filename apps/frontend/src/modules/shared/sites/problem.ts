@@ -14,6 +14,12 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
       return t("scannerBusy");
     case "page_limit_reached":
       return t("pageLimitReached");
+    case "content_type_archived":
+      return t("contentTypeArchived");
+    case "content_type_not_empty":
+      return t("contentTypeNotEmpty");
+    case "slug_is_content_type":
+      return t("slugIsContentType");
     case "site_publication_not_ready":
       return t("notReady");
     case "draft_version_conflict":
