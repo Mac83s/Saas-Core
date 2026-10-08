@@ -51,6 +51,9 @@ def _published_asset_ids(*, organization_id: Any, site_id: Any) -> set[str]:
         site_id=site_id,
         state=ContentEntryState.PUBLISHED,
         current_publication__isnull=False,
+        # A switched-off type's pictures answer no more than its entries do
+        # (ADR-079 pkt 23).
+        collection__archived_at__isnull=True,
     ):
         entry_publication = entry.current_publication
         if entry_publication is None:

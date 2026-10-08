@@ -15,6 +15,7 @@ from uuid import uuid7
 import pytest
 from django.core.cache import cache
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.context import (
     acting_context,
@@ -48,12 +49,21 @@ from saas_core.modules.shared.sites.models import (
     EntryScheduleState,
     Site,
 )
+from test_media_api import MemoryStorage
 from test_site_language_versions_api import _draft, _hero
-from test_sites_api import create_page, create_site, csrf_value, save_translation, sites_client
+from test_sites_api import (
+    create_media_asset,
+    create_page,
+    create_site,
+    csrf_value,
+    save_translation,
+    sites_client,
+)
 from test_sites_blog_languages import Blog, _feed, _get, _items, _menu
 from test_sites_collections import (
     _automation,
     _grant,
+    _verified_platform_domain,
     create_entry,
     publish,
     save_entry_draft,
@@ -562,6 +572,60 @@ def test_a_switched_off_type_answers_nothing_and_comes_back_whole() -> None:
             action__startswith="sites.content_type."
         ).order_by("occurred_at")
     ] == ["sites.content_type.switched_off", "sites.content_type.switched_on"]
+
+
+def test_a_switched_off_types_pictures_answer_no_more_than_its_entries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, organization, user = sites_client(slug="types-off-media", role_key="owner")
+    site_id = str(create_site(client).data["id"])
+    type_id = str(_new_type(client, site_id, "Blog", "blog").data["id"])
+    entry_id = str(
+        create_entry(client, type_id, slug="ze-zdjeciem", idempotency_key="m-entry").data["id"]
+    )
+    asset = create_media_asset(organization, user)
+    storage = MemoryStorage()
+    storage.objects[asset.object_key] = (b"\x89PNG\r\n\x1a\n", "image/png")
+    monkeypatch.setattr(
+        "saas_core.modules.shared.sites.public_media.get_object_storage", lambda: storage
+    )
+    saved = client.put(
+        f"/api/v1/sites/entries/{entry_id}/draft/",
+        {
+            "expected_version": 0,
+            "blocks": [
+                {
+                    "block_type": "core.hero",
+                    "schema_version": 3,
+                    "data": {
+                        "title": "Wpis ze zdjęciem",
+                        "image": {"asset_id": str(asset.id), "alt": "Zdjęcie"},
+                    },
+                }
+            ],
+            "media_asset_ids": [str(asset.id)],
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="m-draft",
+    )
+    assert saved.status_code == 201, saved.data
+    assert publish(client, entry_id, idempotency_key="m-publish").status_code == 201
+    host = _verified_platform_domain(site_id).hostname
+
+    def picture() -> int:
+        return (
+            APIClient()
+            .get(f"/api/v1/public/site/media/{asset.id}/", HTTP_HOST=host)
+            .status_code
+        )
+
+    assert picture() == 200
+    assert _switch(client, type_id, "off").status_code == 200
+    assert picture() == 404
+    assert _get(host, "/blog/ze-zdjeciem/").status_code == 404
+    assert _switch(client, type_id, "on").status_code == 200
+    assert picture() == 200
 
 
 @pytest.mark.usefixtures("content_types_offered")
