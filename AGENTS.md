@@ -124,6 +124,10 @@ repozytorium założone jako kopia Saas-Core, z Saas-Core jako `upstream`.
   ról, cechy planów), slot `apps/frontend/src/product/index.ts` (menu,
   tłumaczenia, treść stron marketingowych), słowa panelu zależne od typu
   organizacji w `apps/frontend/src/product/organization-messages.ts`,
+  własną publiczną stronę na hoście produktu (`public-site.ts`, `old-addresses.ts`,
+  `site-sitemap.ts`, `site-messages.ts` w tym samym slocie i pliki stron w
+  `apps/frontend/src/app/[locale]/product-site/` — kontrakt
+  `docs/architecture/product-public-site.md`, ADR-080),
   `product.json` (profile repozytorium),
   `.agents/evals/routing.product.json` (który skill obsługuje moduł wertykału —
   bez tego wpisu `pnpm ai:eval` zgłasza moduł bez pokrycia).

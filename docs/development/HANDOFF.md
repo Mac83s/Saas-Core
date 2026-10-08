@@ -87,6 +87,18 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   `convert_html` i funkcje fragmentów tekstu w `shared/sites/api.py`. Produkt
   Puppily stoi jeszcze na rdzeniu sprzed wycięcia i bierze ten rdzeń dopiero po
   własnym sprzątaniu.
+- **Publiczne strony produktu na jego hoście (PR1, 08.10, lokalnie, niewdrożone;
+  ADR-080, bez migracji):** produkt z `features.marketingSite: false` dostaje własną
+  stronę główną, działy nazwane per język, stare adresy (jedno 308 albo 410), linie
+  sitemapy i słowa per język treści — nowymi plikami i czterema plikami slotu
+  (`product/public-site.ts`, `old-addresses.ts`, `site-sitemap.ts`,
+  `site-messages.ts`), strony pod `app/[locale]/product-site/`; kontrakt
+  `docs/architecture/product-public-site.md`. Business, HoofCare i MedPlano bez
+  zmian — pilnują tego `proxy.golden.json` i `metadata.golden.json`. Otwarte po
+  tym pakiecie: odczyt opublikowanych wpisów systemu treści przez strony produktu
+  i `/media` na hoście platformy (ADR-079, pakiety CT2–CT3), własna strona 410
+  produktu (dziś mała strona rdzenia), przeniesienie widoków Puppily (repozytorium
+  produktu).
 - **Workspace platformy jako wydawca i jego panel (PB3b–PB3c, 07.10, lokalnie,
   niewdrożone; ADR-077 pkt 2 i 9, bez migracji) — zostaje na stałe (decyzja
   właściciela 08.10: własny blog produktu jest pisany w systemie treści rdzenia
