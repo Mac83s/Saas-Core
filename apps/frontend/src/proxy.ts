@@ -12,7 +12,11 @@ import {
   spellingAnswer,
   untouchedAnswer,
 } from "./lib/product-site/answers";
-import { absoluteUrl, normalizeRequestHostname } from "./proxy-host";
+import {
+  absoluteUrl,
+  isControlHostname,
+  normalizeRequestHostname,
+} from "./proxy-host";
 import { GUEST_SEGMENTS, PANEL_SEGMENTS } from "./proxy-segments";
 
 /**
@@ -97,6 +101,11 @@ export default function proxy(request: NextRequest) {
       308,
     );
   }
+  // A picture of the platform's own published content (ADR-079 pkt 30): the
+  // block renderers ask for it at `/media/…` on the host their page is on,
+  // and a product's pages are on this one. An app route, not a localized
+  // page; the backend decides whether a published entry shows the picture.
+  if (PLATFORM_MEDIA_PATH.test(pathname)) return NextResponse.next();
   // The product's own sitemap and robots are app routes, not localized pages.
   if (METADATA_PATHS.has(pathname)) return NextResponse.next();
   if (
@@ -179,6 +188,11 @@ function permanent(response: Response): Response {
 
 const METADATA_PATHS = new Set(["/sitemap.xml", "/robots.txt"]);
 
+/** `/media/<asset id>` and its two WebP copies — exactly the addresses
+ *  `publicImage` writes, and nothing else under `/media`. */
+const PLATFORM_MEDIA_PATH =
+  /^\/media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\/(?:thumbnail|preview))?$/i;
+
 function bookingPathDisabled(pathname: string): boolean {
   return (
     pathname.includes("/book/") ||
@@ -186,19 +200,6 @@ function bookingPathDisabled(pathname: string): boolean {
     pathname.endsWith("/panel/calendar") ||
     pathname.includes("/panel/calendar/")
   );
-}
-
-function isControlHostname(hostname: string): boolean {
-  const configured = (process.env.FRONTEND_CONTROL_HOSTS ?? "")
-    .split(",")
-    .map((value) => value.trim().toLowerCase().replace(/\.$/, ""))
-    .filter(Boolean);
-  return new Set([
-    "localhost",
-    "127.0.0.1",
-    deployment.product.platformDomain.toLowerCase(),
-    ...configured,
-  ]).has(hostname);
 }
 
 export const config = {

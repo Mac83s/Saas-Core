@@ -26,6 +26,8 @@ htmlcov/
 media/
 !apps/frontend/src/app/site-renderer/media/
 !apps/frontend/src/app/site-renderer/media/**
+!apps/frontend/src/app/media/
+!apps/frontend/src/app/media/**
 !apps/backend/src/saas_core/modules/shared/media/
 !apps/backend/src/saas_core/modules/shared/media/*.py
 !apps/frontend/src/modules/shared/media/

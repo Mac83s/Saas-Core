@@ -43,6 +43,7 @@ export {
   designTokenClassName,
   renderDraftPreview,
   renderNavigation,
+  renderPublishedBody,
   renderPublishedPage,
   validateDesignTokens,
 } from "./renderer";

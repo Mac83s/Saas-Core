@@ -1,3 +1,5 @@
+import { deployment } from "./generated/deployment";
+
 export function normalizeRequestHostname(authority: string | null): string {
   const normalizedAuthority = authority?.trim();
   if (!normalizedAuthority) return "";
@@ -23,4 +25,20 @@ export function absoluteUrl(
     path,
     `${scheme}://${request.headers.get("host") ?? request.nextUrl.host}`,
   );
+}
+
+/** Whether a normalized hostname is the platform's own — where the panel,
+ *  the guests' pages and a product's public pages are — and not a company's
+ *  site, which the proxy hands to the renderer. */
+export function isControlHostname(hostname: string): boolean {
+  const configured = (process.env.FRONTEND_CONTROL_HOSTS ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase().replace(/\.$/, ""))
+    .filter(Boolean);
+  return new Set([
+    "localhost",
+    "127.0.0.1",
+    deployment.product.platformDomain.toLowerCase(),
+    ...configured,
+  ]).has(hostname);
 }

@@ -4,6 +4,13 @@ export default defineConfig({
   esbuild: {
     jsx: "automatic",
   },
+  resolve: {
+    alias: {
+      // Next resolves this marker itself when it builds a server module;
+      // here a module that carries it is tested as the server would run it.
+      "server-only": "next/dist/compiled/server-only/empty.js",
+    },
+  },
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],

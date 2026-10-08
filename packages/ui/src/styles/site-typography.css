@@ -6,6 +6,16 @@
 .site-theme.site-theme--preview {
   min-height: 0;
 }
+/* A published body inside a page that is not a site's own — an entry of the
+   platform's content on a product's coded page (ADR-079): the page around it
+   owns the height, the background, the colour and the font. Its width is
+   `--site-content-width`, which that page's stylesheet may set. */
+.site-theme.site-theme--embedded {
+  min-height: 0;
+  color: inherit;
+  background: transparent;
+  font-family: inherit;
+}
 /* The gutter, or more: content centred at the section's inner width. `cqw`
    is the width of .site-theme. On a contained page it never exceeds the site
    width, so the second term is negative and the gutter is exactly what it

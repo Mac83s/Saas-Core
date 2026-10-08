@@ -846,6 +846,24 @@ export interface PublishedPageDocument {
   readonly live?: Readonly<Record<string, JsonObject>>;
 }
 
+/** A published body without the page around it: an entry of the platform's
+ *  own content, drawn inside a product's coded page (ADR-079 pkt 30). */
+export interface PublishedBodyDocument {
+  readonly blocks: readonly SiteBlock[];
+  readonly locale: string;
+  /** The text is a machine translation nobody has checked yet: the body
+   *  says so to its reader (ADR-071 pkt 17). The server decides it. */
+  readonly machineNotice?: boolean;
+  /** AI-generated images in the body; each gets the visible badge. */
+  readonly aiMediaIds?: readonly string[];
+  /** The stored size of the body's pictures, by media asset id. */
+  readonly imageSizes?: Readonly<Record<string, ImageSize>>;
+  /** The theme the blocks are drawn in; the default one when left out. */
+  readonly designTokens?: DesignTokensV1;
+  /** Added to the wrapper, for the page's own stylesheet. */
+  readonly className?: string;
+}
+
 export interface PageTemplateLabel {
   readonly name: string;
   readonly description: string;

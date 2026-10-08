@@ -39,6 +39,7 @@ import type {
   NavigationLink,
   IndexPagination,
   PaginationLabels,
+  PublishedBodyDocument,
   PublishedPageDocument,
   SiteBlock,
 } from "./types";
@@ -414,6 +415,91 @@ export function renderPublishedPage(
     renderBreadcrumbs(
       document.breadcrumbs,
       siteUiTexts(document.locale).breadcrumbs,
+    ),
+  );
+}
+
+/** The look a body is drawn in where its page says nothing else: the default
+ *  theme, as on a site nobody styled. */
+const BODY_DESIGN_TOKENS: DesignTokensV1 = {
+  schemaVersion: 1,
+  palette: "neutral",
+  typography: "sans",
+  radius: "medium",
+  spacing: "comfortable",
+};
+
+/** A form posts to the site its page was published on, and a block of live
+ *  records shows what the server answers for that site. A body drawn on a
+ *  page of another kind has neither behind it, so it leaves them out. */
+const SITE_ONLY_BLOCKS: ReadonlySet<string> = new Set(["core.contact_form"]);
+
+/**
+ * The blocks of a published body alone — an entry of the platform's own
+ * content inside a product's coded page (ADR-079 pkt 30) — with what a
+ * published page adds to them: template leftovers cleaned away, each
+ * picture's stored size, the AI badge, the first pictures loaded with the
+ * page. No header, menu, footer, `main` or article heading: the page around
+ * the body is its own. The wrapper carries the theme the blocks' styles are
+ * written under, marked `site-theme--embedded` so it takes its height,
+ * background, colour and font from the page it stands in.
+ */
+export function renderPublishedBody(
+  document: PublishedBodyDocument,
+  registry: BlockRegistry,
+): ReactElement {
+  const kept = withoutTemplateLeftovers(
+    document.blocks
+      .filter(
+        (block) =>
+          !SITE_ONLY_BLOCKS.has(block.block_type) &&
+          !registry.definitions.get(block.block_type)?.live,
+      )
+      .map((block) => ({ block, data: block.data })),
+    ({ block, data }) => {
+      try {
+        registry.validate({ ...block, data });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  );
+  const sizes = document.imageSizes ?? {};
+  const aiIds = new Set(document.aiMediaIds ?? []);
+  const known = new Set([...Object.keys(sizes), ...aiIds]);
+  const eager = leadingImages(
+    kept.map(({ data }) => picturesNamed(data, known).size),
+  );
+  const imageRenderer = publishedImageRenderer({
+    sizes,
+    aiIds,
+    locale: document.locale,
+  });
+  return createElement(
+    "div",
+    {
+      className: [
+        designTokenClassName(document.designTokens ?? BODY_DESIGN_TOKENS),
+        "site-theme--embedded",
+        document.className,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    },
+    renderMachineNotice(
+      document.machineNotice,
+      siteUiTexts(document.locale).machineNotice,
+    ),
+    ...kept.map(({ block, data }, index) =>
+      registry.render(
+        { ...block, data },
+        String(index),
+        undefined,
+        imageRenderer(eager[index] ?? 0),
+        undefined,
+        { preview: false, locale: document.locale },
+      ),
     ),
   );
 }
