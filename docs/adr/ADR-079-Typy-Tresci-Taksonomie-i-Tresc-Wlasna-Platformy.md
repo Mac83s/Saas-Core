@@ -204,21 +204,25 @@ przypisania wpis–kategoria; slugi tłumaczeń per język; tagi jako pole wpisu
       tego nie ma — klucz. Dzisiejszy tag nie ma żadnego wpisu w `locale_slugs`, więc
       odpowiada pod kluczem we wszystkich językach, dokładnie jak dziś.
     - Kto liczy: kod, z nazwy (`slug_from_title`, ADR-070 pkt 18), nigdy model.
-    - **Kiedy adres się ustala i zamyka: w `publish_entry`, raz, z zapisem.** Przy
-      publikacji wpisu w języku L, dla każdej jego pozycji bez `slug_locked_at[L]`:
-      (a) jeśli archiwum tej pozycji w L już odpowiada (nosi ją inny opublikowany wpis
-      w L) — zamyka się adres, pod którym odpowiada; tak zamkną się wszystkie dzisiejsze
-      tagi, na swoich kluczach; (b) inaczej, jeśli pozycja ma przyjętą nazwę w L — adres
-      liczy się z niej; (c) inaczej zostaje adres zastępczy (język strony albo klucz).
-      Wynik i chwila trafiają do `locale_slugs[L]` i `slug_locked_at[L]`, wzorem
-      `PageTranslation.slug_locked_at`. Zamknięcie jest zapisane, a nie wyliczane przy
-      żądaniu — wycofanie ostatniego wpisu niczego nie otwiera.
-    - **Żeby zwykły przebieg zamykał właściwą wartość:** nazwa pozycji jest oferowana do
-      tłumaczenia, gdy nosi ją opublikowany wpis źródłowy — a ten wychodzi przed swoimi
-      tłumaczeniami. Zlecenie tłumaczące wpis na L najpierw doprowadza do przyjęcia
-      nazwy jego pozycji w L, potem publikuje rodzeństwo; wtedy działa (b). Gdy osoba
-      publikuje wpis w L sama, podgląd publikacji wymienia pozycje bez nazwy w L i adres,
-      pod którym się zamkną.
+    - **Zamknięcie adresu jest zapisane** (`slug_locked_at[L]`, wzorem
+      `PageTranslation.slug_locked_at`), a nie wyliczane przy żądaniu — wycofanie
+      ostatniego wpisu niczego nie otwiera. Zamyka się tylko adres policzony z nazwy:
+      - **dzisiejsze tagi** dostają przy dodaniu kolumny znacznik „zamknięte we
+        wszystkich językach, na kluczu” (wartość domyślna dla istniejących wierszy), więc
+        żaden ich adres nie zmieni się sam, także gdy ktoś później przetłumaczy nazwę;
+      - **nowa pozycja w języku strony** ma nazwę od początku: adres liczy się z niej i
+        zamyka przy pierwszej publikacji wpisu, który ją nosi (`publish_entry`);
+      - **nowa pozycja w innym języku L**: dopóki nie ma przyjętej nazwy w L, archiwum
+        odpowiada pod adresem zastępczym (język strony albo klucz), niezamkniętym. Gdy
+        nazwa w L zostaje przyjęta, adres liczy się z niej i zamyka — przy pierwszej
+        publikacji wpisu w L albo od razu, jeśli archiwum w L już odpowiada; w tym drugim
+        przypadku adres zastępczy trafia do `former_slugs` i daje jedno 308.
+    - Reguła nie zależy od kolejności prac w zleceniu tłumaczenia (nazwę pozycji i wpis
+      tłumaczą dwa źródła, a nazwa jest oferowana dopiero po publikacji wpisu
+      źródłowego). Oddajemy: archiwum nowej pozycji w innym języku może **raz, samo**
+      zmienić adres — z zastępczego na właściwy, z przekierowaniem — jeśli pierwszy wpis
+      w tym języku wyszedł przed tłumaczeniem nazwy. Import ustawia nazwy i adresy przed
+      publikacją (pkt 34), więc jego to nie dotyczy.
     - Zmiana po zamknięciu: tylko osoba, z powodem, z podglądem; poprzedni adres trafia
       do `former_slugs` i odpowiada jednym 308 (pkt 13). Działa od zapisu.
 12. **Segment taksonomii w adresie.** Tagi: `tag` we wszystkich językach — bez zmiany
@@ -382,8 +386,10 @@ tylko, o co te trasy pytają.
     opublikowanym wpisem — bez tej reguły wpisy platformy miałyby drugi publiczny
     adres, z własnym canonical, sitemapą i kanałem RSS. Host strony workspace'u
     odpowiada więc 404 wszędzie: podstrony, wpisy, indeksy, kanały, sitemapa, media.
-    Podgląd w panelu z tego nie korzysta. (404, nie 308: rdzeń nie zna adresów
-    produktu.)
+    (404, nie 308: rdzeń nie zna adresów produktu.) Panel wpisów nie ma dziś podglądu
+    ani odnośnika do strony publicznej, więc operatorowi nic z panelu nie znika; ale
+    między CT3 a stronami produktu opublikowany wpis platformy widać tylko w edytorze i w
+    odczycie — dlatego reguła wchodzi razem z odczytem, nie wcześniej.
 30. **Odczyt po stronie serwera** — nowy moduł `shared/sites/content_reads.py`, czytający
     te same projekcje co publiczny router. **Zwraca części adresu, nigdy gotowe
     ścieżki:** adresy składa produkt, bo jego trasy mają własny kształt (na hoście
@@ -407,9 +413,13 @@ tylko, o co te trasy pytają.
       „przeniesione” z dzisiejszymi częściami adresu (resolver z pkt 13) — produkt robi
       z niej jedno 308;
     - **media:** opublikowane zdjęcia są dziś serwowane tylko na hoście strony, którego
-      workspace publicznie nie ma. Odczyt dostaje więc własną trasę zdjęć na hoście
-      platformy, z tą samą kontrolą co dziś: zdjęcie jest dostępne tylko wtedy, gdy
-      wymienia je bieżąca publikacja wpisu workspace'u.
+      workspace publicznie nie ma. Odczyt dostaje więc własną trasę zdjęć z tą samą
+      kontrolą co dziś: zdjęcie jest dostępne tylko wtedy, gdy wymienia je bieżąca
+      publikacja wpisu workspace'u. Renderery bloków budują adres zdjęcia jako
+      `/media/<id>` względem hosta, więc ta trasa musi odpowiadać pod `/media/…` na
+      hoście platformy — to reguła proxy po stronie pakietu tras produktu (PR1). Wpis
+      niesie też fakty o zdjęciach, których renderer potrzebuje obok bloków (rozmiary,
+      warianty, znacznik obrazu AI), jak odpowiedź strony firmy.
 31. **Publiczne API HTTP: tak technicznie, nie jako produkt — i jeden jawny wyjątek.**
     Strony produktu renderuje serwer Next.js, osobny proces, więc odczyt jest wystawiony
     jako `GET /api/v1/public/content/…` w OpenAPI i wołany po stronie serwera. Zwraca
@@ -492,7 +502,9 @@ tylko, o co te trasy pytają.
   z wartościami domyślnymi równymi dzisiejszemu zachowaniu. Żaden istniejący typ, wpis,
   tag, przypisanie, migawka ani tłumaczenie nie jest modyfikowane, a żadne ograniczenie
   bazy się nie zmienia (klucz pozycji zostaje unikalny w stronie, pkt 5) — kształt
-  danych na VPS nie ma więc znaczenia dla bezpieczeństwa migracji.
+  danych na VPS nie ma więc znaczenia dla bezpieczeństwa migracji. Istniejące tagi
+  dostają znacznik zamknięcia adresów (pkt 11) jako wartość domyślną nowej kolumny, bez
+  osobnego przejścia po danych.
 - **Do tego dwie migracje danych w `shared.billing`** (wzór `0025`, odwracalne):
   definicja limitu `sites.content_types.additional.max` — bez niej strażnik odmawia
   każdemu (pkt 22), więc wchodzi w tym samym wydaniu co on — oraz nowe wersje planów z
@@ -538,7 +550,7 @@ przeglądarce. Szacunki po przeglądzie są wyższe niż w pierwszej wersji.
 | Faza | Zakres | Szacunek | Co właściciel kliknie |
 | --- | --- | --- | --- |
 | CT1 | Typy treści: testy złotych adresów archiwów tagów, bramki i limit (z migracją danych billing), „Treści” w panelu, nowy typ, wyłączenie, kontrola podstrona–typ, resolver jednego 308 | 3–5 dni | zakłada „Realizacje”, dodaje wpis, otwiera `/realizacje/` i `/en/projects/`, wyłącza i włącza typ |
-| CT2 | Kategorie i tagi: taksonomia, drzewo, przypisanie, archiwa, adres per język zamykany przy publikacji, 308 | 4–6 dni | kategorie w blogu i „Realizacjach”, archiwa w trzech językach, zmiana adresu kategorii z przekierowaniem |
+| CT2 | Kategorie i tagi: taksonomia, drzewo, przypisanie, archiwa, adres per język z zapisanym zamknięciem, 308 | 4–6 dni | kategorie w blogu i „Realizacjach”, archiwa w trzech językach, zmiana adresu kategorii z przekierowaniem |
 | CT3 | Odczyt dla stron produktu: API z testami kontraktu, trasa zdjęć, strona workspace'u poza rendererem. Po pakiecie tras produktu (PR1) | 2–3 dni | nic w przeglądarce w samym rdzeniu — pierwszym kliknięciem jest strona produktu z pakietu Puppily |
 | CT4 | Adres wpisu i import: `former_slugs`, zmiana sluga, usługa importu | 3–4 dni | zmienia adres opublikowanego wpisu i widzi jedno 308; przykładowy import widoczny w panelu platformy |
 | CT5 | Polecenia asystenta, inwentarz SCR, `core:update` produktów, wersje planów, kolejka VPS | 2 dni | to samo w HoofCare i MedPlano; odmowa ponad limit planu |
@@ -559,16 +571,16 @@ Puppily po CT2, CT3, CT4 i PR1.
   `entry_tags`, pętla tagów w sitemapie; `_copy_tags` i `site_text_units` obejmują
   odtąd wszystkie pozycje. Jedno nazwane zapytanie „tagi strony” i test, że kategoria
   nigdy nie trafia do `tags` ani do archiwum tagu.
-- **Kolejność w zleceniu tłumaczenia** (pkt 11): gdy rodzeństwo wyjdzie przed
-  przyjęciem nazwy pozycji, adres zamknie się na wartości zastępczej. Zabezpieczenie:
-  test przebiegu automatu i raport zlecenia, który to wymienia.
+- **Jednorazowa zmiana adresu archiwum** nowej pozycji w innym języku (pkt 11): jest
+  zamierzona i daje 308, ale musi zdarzyć się najwyżej raz — test przebiegu „wpis przed
+  nazwą” i „nazwa przed wpisem”.
 - **Projekcja czyta wszystkie opublikowane wpisy strony przy każdym żądaniu.** CT2
   mierzy to na 1 000 wpisów i w razie potrzeby zawęża zapytanie do typu.
 - **Baza testowa omija RLS:** izolację nowej tabeli dowodzi uruchomiony stos.
 - **Drzwi sprzed tenanta na publicznej ścieżce** (pkt 31): wyjątek jest wąski i
   przypięty testem, ale jest wyjątkiem — przyjmuje go właściciel razem z ADR.
-- **Zależności:** CT3 czeka na PR1; pkt 29 trzeba uzgodnić z PR1, żeby reguła nie
-  powstała dwa razy.
+- **Zależności:** CT3 czeka na PR1; z PR1 trzeba uzgodnić pkt 29 (żeby reguła nie
+  powstała dwa razy) i trasę `/media/…` na hoście platformy (pkt 30).
 - **Subskrypcje na starych wersjach planów** nie mają limitu (pkt 21).
 - **Treść Puppily:** 71 z 91 wpisów jest tylko po polsku, więc większość archiwów
   kategorii w innych językach zostanie poniżej progu trzech wpisów i dostanie `noindex`,
@@ -589,6 +601,9 @@ Puppily po CT2, CT3, CT4 i PR1.
   wyszukanie tagu po kluczu dwuznacznym.
 - **Zamknięcie adresu pozycji wyliczane przy żądaniu** — zamykało wartość sprzed
   tłumaczenia nazwy i otwierało się po wycofaniu ostatniego wpisu.
+- **Zamknięcie adresu pozycji na tym, co jest w chwili pierwszej publikacji, z kolejnością
+  „najpierw nazwy” w zleceniu tłumaczenia** — nazwę i wpis tłumaczą dwa źródła, więc
+  reguła zależałaby od planowania silnika; wybrano regułę, która kolejności nie potrzebuje.
 - **Przestrzeń adresów pozycji osobna dla każdego języka** — reguła trudniejsza do
   sprawdzenia i wynik wpisanej nazwy zależny od języka wpisu.
 - **Zagnieżdżony adres kategorii** — przeniesienie kategorii ruszałoby adresy
@@ -613,7 +628,7 @@ Przegląd projektu z kodem zgłosił 14 uwag. Przyjęte i wprowadzone:
 | --- | --- | --- |
 | 1 | tenant odczytu z hosta nie działa | punkt końcowy bez hosta, strony i tenanta; jawny wyjątek drzwi (pkt 31) |
 | 2 | wpisy workspace'u miałyby drugi publiczny adres | strona workspace'u poza rendererem (pkt 29) |
-| 3 | adres pozycji zamykał się na złej wartości, bez zapisu | ustalenie w `publish_entry`, `slug_locked_at` (pkt 11) |
+| 3 | adres pozycji zamykał się na złej wartości, bez zapisu | zamknięcie zapisane w `slug_locked_at`; zamyka się tylko adres z nazwy — przy publikacji albo przyjęciu nazwy (pkt 11) |
 | 4 | niezdefiniowana unikalność adresów tagów | jedna przestrzeń nazw taksonomii, reguła wpisanej nazwy (pkt 6) |
 | 5 | „jedno 308” się nie składało; dawny adres do przejęcia po cichu | jeden resolver (pkt 13); automat omija dawne adresy, osoba przejmuje po podglądzie (pkt 14) |
 | 6 | usuwanie i drzewo czytały wiersze, archiwa — migawki | pkt 10 |
