@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from saas_core.modules.core.organizations.public_sources import page_source_segments
@@ -94,6 +94,23 @@ def page_slug_reserved(slug: str, *, default_locale: str, locale: str) -> bool:
     if locale == default_locale and _platform_first_segment(slug):
         return True
     return slug in page_source_segments()
+
+
+def page_slug_is_section(
+    slug: str, *, organization_id: Any, site_id: Any, default_locale: str, locale: str
+) -> bool:
+    """Whether a page's address in a language is a content type's name there
+    (ADR-079 pkt 15): a page at `/realizacje/` would stand in front of the
+    type's list and every entry under it, because pages are matched first. A
+    switched-off type's names count — switching it on brings its addresses
+    back. Asked of a new or changed slug only, like `page_slug_reserved`;
+    the other direction is `_assert_section_names_free`."""
+    return any(
+        section_segment(collection, default_locale=default_locale, locale=locale) == slug
+        for collection in ContentCollection.all_objects.filter(
+            organization_id=organization_id, site_id=site_id
+        )
+    )
 
 
 def localized_path(*, default_locale: str, locale: str, slug: str) -> str:

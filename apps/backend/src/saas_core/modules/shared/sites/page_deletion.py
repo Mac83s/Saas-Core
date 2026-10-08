@@ -37,7 +37,7 @@ from saas_core.modules.shared.billing.api import (
 
 from .block_decoration import stored_block_payload
 from .derived_publication import publish_derived
-from .localization import localized_path
+from .localization import localized_path, page_slug_is_section
 from .models import (
     NavigationItem,
     Page,
@@ -54,6 +54,7 @@ from .rich_content import block_links
 from .services import (
     DraftVersionConflict,
     PageNotFound,
+    SlugIsContentType,
     TranslationSlugConflict,
     _ensure_page_capacity,
     _idempotency_key,
@@ -431,6 +432,19 @@ def restore_page(
             .exists()
         ):
             raise (RestoreSlugTaken if slugs is None else TranslationSlugConflict)
+        # A content type made since may answer there (ADR-079 pkt 15).
+        if page_slug_is_section(
+            slug,
+            organization_id=context.organization_id,
+            site_id=site.id,
+            default_locale=site.default_locale,
+            locale=translation.locale,
+        ):
+            if slugs is None:
+                raise RestoreSlugTaken(
+                    "Adres tej podstrony zajął typ treści tej strony. Podaj nowy adres."
+                )
+            raise SlugIsContentType
         _lift_slug_lock(translation, slug)
         SiteRedirect.all_objects.filter(
             organization_id=context.organization_id,

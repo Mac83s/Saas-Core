@@ -6386,15 +6386,35 @@ export interface paths {
         };
         /**
          * List a site's sections of entries
-         * @description The blog, news and guide sections of one site, each with its name in the addresses per language (`base_path`, `locale_paths`) and where its index answers (`paths`). An integration sees the sections its grants name.
+         * @description The content types of one site — its blog and whatever the company made beside it — each with its name in the addresses per language (`base_path`, `locale_paths`), where its index answers (`paths`), what its entries are to search engines (`schema_type`), whether they are in the site's feeds (`in_site_feed`) and whether the type is switched off (`archived`). An integration sees the sections its grants name.
          */
         get: operations["sites_collections_list"];
         put?: never;
         /**
          * Create a section of entries
-         * @description Opens a blog, news or guide section on a site. `base_path` is its name in the addresses of the site's own language (`/blog/`); `locale_paths` may name it differently in other languages (`/de/ratgeber/`), and a language left out follows `base_path`. A name is refused when another section or a page has it in that language (`section_path_taken`) or when it is reserved (`slug_reserved`).
+         * @description Opens a blog, news or guide section on a site. `base_path` is its name in the addresses of the site's own language (`/blog/`); `locale_paths` may name it differently in other languages (`/de/ratgeber/`), and a language left out follows `base_path`. A name is refused when another section or a page has it in that language (`section_path_taken`) or when it is reserved (`slug_reserved`). A site's first section takes the site's own entitlement; a further one — a further content type — is refused where the platform offers none (`content_types_not_offered`), when the plan's limit of types beyond the first is used up (`quota_exceeded`) or the subscription does not allow adding now (`plan_access_denied`); the types the site has stay as they are. `GET /api/v1/sites/{site_id}/content-types/` says beforehand whether one more is allowed.
          */
         post: operations["sites_collections_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/content-types/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a site's content types and whether it may have one more
+         * @description The site's content types, the first made first — the blog leads — with how many entries each has and in which languages; switched-off types are listed and marked. `limit` is the platform's and the plan's word on making one more type: a site's first takes nothing but the site, a further one needs the platform's offer and room in the plan's limit of switched-on types beyond the first. `schema_types` lists what a type's entries may be to search engines. An integration sees the types its grants name.
+         */
+        get: operations["sites_content_types_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6813,6 +6833,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/collections/{collection_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a content type that has no entries
+         * @description Removes a type without a single entry — a draft counts (`content_type_not_empty`); a type with entries is switched off instead. Its names in addresses become free and its former names stop leading anywhere. A person's decision (`person_required`).
+         */
+        delete: operations["sites_content_type_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/collections/{collection_id}/entries/": {
         parameters: {
             query?: never;
@@ -6907,6 +6947,106 @@ export interface paths {
          */
         put: operations["sites_collection_policy_set"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/settings/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a content type's name, kind of content and place in the feeds
+         * @description `name` is the type's name — the heading of its list on the site; `schema_type` says what its entries are to search engines (`BlogPosting`, `NewsArticle`, `Article`, or `WebPage` for plain pages without an article node); `in_site_feed` whether they are in the site's RSS and Atom feeds. A field left out stays. All three are read when a page is asked for: the change is on the site at once and nothing is republished. The type's addresses are changed by `sites_collection_paths_set`. A switched-off type is refused (`content_type_archived`).
+         */
+        put: operations["sites_content_type_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/settings/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a change of a content type's name, kind of content and feeds
+         * @description Validates the values and answers with the type as it would be, without saving. `name` is the type's name — the heading of its list on the site; `schema_type` says what its entries are to search engines (`BlogPosting`, `NewsArticle`, `Article`, or `WebPage` for plain pages without an article node); `in_site_feed` whether they are in the site's RSS and Atom feeds. A field left out stays. All three are read when a page is asked for: the change is on the site at once and nothing is republished. The type's addresses are changed by `sites_collection_paths_set`. A switched-off type is refused (`content_type_archived`).
+         */
+        post: operations["sites_content_type_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/switch-off/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a content type off
+         * @description From the moment it is saved every address of the type — its list, entries, subjects' archives and their later pages — answers 404 and the type leaves the menu, the feeds, the sitemap and other pages' language links. Nothing is removed: entries stay as they are but are neither edited nor published while the type is off, publications planned for later are called off (`scheduled`), and the type's addresses stay taken, so switching it on brings everything back. A switched-off type does not count to the plan's limit and switching it on needs room in it: `restorable` says whether the plan as it is would let the type back. A person's decision: an integration and the assistant are refused (`person_required`).
+         */
+        post: operations["sites_content_type_switch_off"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/switch-off/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview switching a content type off
+         * @description Answers with what switching the type off would do — the addresses that stop answering, the entries behind them, the publications called off and whether the plan would let the type back — without saving. From the moment it is saved every address of the type — its list, entries, subjects' archives and their later pages — answers 404 and the type leaves the menu, the feeds, the sitemap and other pages' language links. Nothing is removed: entries stay as they are but are neither edited nor published while the type is off, publications planned for later are called off (`scheduled`), and the type's addresses stay taken, so switching it on brings everything back. A switched-off type does not count to the plan's limit and switching it on needs room in it: `restorable` says whether the plan as it is would let the type back. A person's decision: an integration and the assistant are refused (`person_required`).
+         */
+        post: operations["sites_content_type_switch_off_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/switch-on/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a content type back on
+         * @description The type's list and every entry that was out answer again at the addresses they had, at once; the type is back in the menu where it was set to be, in the feeds and the sitemap. Needs the platform's offer and room in the plan's limit, like making a type: `content_types_not_offered`, `quota_exceeded`, `plan_access_denied`. Publications called off when it was switched off stay called off. A person's decision (`person_required`).
+         */
+        post: operations["sites_content_type_switch_on"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10568,6 +10708,24 @@ export interface components {
             };
             automation_policy: string;
             show_in_navigation: boolean;
+            /**
+             * @description What an entry of this content type is to a search engine: the schema.org type of its node in the page's structured data. `WebPage` — the page alone, with no article node.
+             *
+             *     * `BlogPosting` - Wpis bloga
+             *     * `NewsArticle` - Aktualność
+             *     * `Article` - Artykuł
+             *     * `WebPage` - Strona
+             */
+            schema_type: components["schemas"]["SchemaTypeEnum"];
+            /** @description Whether the type's entries are in the site's RSS and Atom feeds. */
+            in_site_feed: boolean;
+            /** @description True for a content type that is switched off: nothing of it answers a visitor and its entries are neither edited nor published; its addresses stay taken and return when it is switched on. */
+            archived: boolean;
+            /**
+             * Format: date-time
+             * @description When the type was switched off; null while it is on.
+             */
+            archived_at: string | null;
         };
         ContentCollectionCreate: {
             key: string;
@@ -10580,6 +10738,18 @@ export interface components {
             locale_paths?: {
                 [key: string]: string;
             };
+            /**
+             * @description What the type's entries are to a search engine (see the type's `schema_type`). Default: `BlogPosting`.
+             *
+             *     * `BlogPosting` - Wpis bloga
+             *     * `NewsArticle` - Aktualność
+             *     * `Article` - Artykuł
+             *     * `WebPage` - Strona
+             * @default BlogPosting
+             */
+            schema_type: components["schemas"]["SchemaTypeEnum"];
+            /** @description Whether the type's entries are in the site's feeds. Left out: yes for an article-like type, no for `WebPage`. */
+            in_site_feed?: boolean | null;
         };
         /**
          * @description * `blog` - blog
@@ -10754,9 +10924,102 @@ export interface components {
             /** Format: date-time */
             review_expires_at: string;
         };
+        ContentSchemaTypeOption: {
+            /**
+             * @description The value a type's `schema_type` takes.
+             *
+             *     * `BlogPosting` - Wpis bloga
+             *     * `NewsArticle` - Aktualność
+             *     * `Article` - Artykuł
+             *     * `WebPage` - Strona
+             */
+            schema_type: components["schemas"]["SchemaTypeEnum"];
+            /** @description The choice's name, by panel language. */
+            title: {
+                [key: string]: string;
+            };
+            /** @description What it is for, by panel language. */
+            hint: {
+                [key: string]: string;
+            };
+            /** @description Whether a new type of this kind joins the site's feeds unless told otherwise. */
+            in_site_feed: boolean;
+        };
         ContentTag: {
             slug: string;
             name: string;
+        };
+        ContentTypeRow: {
+            collection: components["schemas"]["ContentCollection"];
+            /** @description The type's entries in every language, drafts included. */
+            entries: number;
+            /** @description Those of them a visitor can open while the type is on. */
+            published: number;
+            /** @description The languages the type has entries in, in the company's order. */
+            locales: string[];
+        };
+        ContentTypeSwitch: {
+            /** @description The type as saved — in a preview, as it is now. */
+            collection: components["schemas"]["ContentCollection"];
+            /** @description False when the type already is what was asked for. */
+            changed: boolean;
+            /** @description Entries visitors can open today that stop answering (switching off), or that answer again (switching on). */
+            published: number;
+            /** @description Publications planned for later that switching off calls off. */
+            scheduled: number;
+            /** @description Where the type's list answers per language: the addresses that, with everything under them, stop answering or answer again. */
+            paths: {
+                [key: string]: string;
+            };
+            /** @description Whether the type could be switched on again right after, on the plan as it is. A switched-off type does not count to the limit; switching it on needs room. */
+            restorable: boolean;
+            /** @description Why it could not, in Polish; empty when `restorable`. */
+            restore_problem: string;
+            /** @description The same as a code: `quota_exceeded`, `plan_access_denied` or `content_types_not_offered`; empty when `restorable`. */
+            restore_problem_code: string;
+        };
+        ContentTypeUpdate: {
+            /** @description The type's name: the heading of its list on the site and its name in the panel. 2–160 characters. */
+            name?: string;
+            /**
+             * @description What the type's entries are to a search engine.
+             *
+             *     * `BlogPosting` - Wpis bloga
+             *     * `NewsArticle` - Aktualność
+             *     * `Article` - Artykuł
+             *     * `WebPage` - Strona
+             */
+            schema_type?: components["schemas"]["SchemaTypeEnum"];
+            /** @description Whether the type's entries are in the site's feeds. */
+            in_site_feed?: boolean;
+        };
+        ContentTypeUpdateResult: {
+            /** @description The type as saved — or, in a preview, as it would be. */
+            collection: components["schemas"]["ContentCollection"];
+            /** @description False when the values sent are the ones the type already has. */
+            changed: boolean;
+        };
+        ContentTypes: {
+            /** @description The site's content types, the first made first; switched-off ones included. */
+            types: components["schemas"]["ContentTypeRow"][];
+            /** @description The platform's and the plan's word on making one more type. */
+            limit: components["schemas"]["ContentTypesLimit"];
+            /** @description What a type's `schema_type` may be, in the order to offer them. */
+            schema_types: components["schemas"]["ContentSchemaTypeOption"][];
+        };
+        ContentTypesLimit: {
+            /** @description Whether the site may have one more content type switched on now. */
+            allowed: boolean;
+            /** @description Why not: `content_types_not_offered` (the platform offers no further types), `quota_exceeded` (the plan's limit is used up) or `plan_access_denied` (the subscription does not allow adding now). Empty when allowed. */
+            code: string;
+            /** @description The same in words, in Polish. Empty when allowed. */
+            message: string;
+            /** @description Whether the platform offers content types beyond a site's first at all. */
+            offered: boolean;
+            /** @description Switched-on types beyond the first the plan allows on one site; null — the plan sets no limit, or it was not asked (nothing to add beside). */
+            additional_max: number | null;
+            /** @description Switched-on types beyond the first the site has. */
+            additional_used: number;
         };
         CopyYearInput: {
             /** @description Items starting in this year are copied. */
@@ -17698,6 +17961,14 @@ export interface components {
          * @enum {string}
          */
         ScheduleCreateKindEnum: "availability" | "time_off" | "service_staff" | "service_location" | "service_resource";
+        /**
+         * @description * `BlogPosting` - Wpis bloga
+         *     * `NewsArticle` - Aktualność
+         *     * `Article` - Artykuł
+         *     * `WebPage` - Strona
+         * @enum {string}
+         */
+        SchemaTypeEnum: "BlogPosting" | "NewsArticle" | "Article" | "WebPage";
         /**
          * @description * `system` - system
          *     * `organization` - organization
@@ -38502,6 +38773,43 @@ export interface operations {
             };
         };
     };
+    sites_content_types_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTypes"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_domains_list: {
         parameters: {
             query?: never;
@@ -39973,6 +40281,50 @@ export interface operations {
             };
         };
     };
+    sites_content_type_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_entries_list: {
         parameters: {
             query?: {
@@ -40259,6 +40611,243 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContentCollection"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_content_type_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentTypeUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["ContentTypeUpdate"];
+                "multipart/form-data": components["schemas"]["ContentTypeUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTypeUpdateResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_content_type_update_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentTypeUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["ContentTypeUpdate"];
+                "multipart/form-data": components["schemas"]["ContentTypeUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTypeUpdateResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_content_type_switch_off: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTypeSwitch"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_content_type_switch_off_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTypeSwitch"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_content_type_switch_on: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTypeSwitch"];
                 };
             };
             400: {

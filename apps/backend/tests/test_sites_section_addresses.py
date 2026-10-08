@@ -445,6 +445,7 @@ def test_a_renamed_section_answers_every_former_name_in_one_step() -> None:
     assert _moved(host, "/wiedza/wpis-trzy/") == (308, "/blog/wpis-trzy/")
 
 
+@pytest.mark.usefixtures("content_types_offered")
 def test_a_section_name_is_one_address_in_its_language() -> None:
     blog = _two_language_blog("section-unique")
     news = str(
@@ -674,6 +675,7 @@ def test_a_test_source_stands_whatever_the_composition_registered(
     assert set(public_sources._sources) == others | {"test.breeds"}
 
 
+@pytest.mark.usefixtures("content_types_offered")
 def test_a_record_answers_under_its_section_and_slug_in_each_language(
     breeds: PublicSource,
 ) -> None:

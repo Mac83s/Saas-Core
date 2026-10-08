@@ -17,6 +17,12 @@ CONTEXT = "https://schema.org"
 FAQ_BLOCK = "core.faq"
 
 
+#: What an entry is when its content type does not say otherwise, and the
+#: type whose entries are plain pages (`ContentSchemaType`).
+ARTICLE_TYPE = "BlogPosting"
+PAGE_TYPE = "WebPage"
+
+
 def organization_id(origin: str) -> str:
     """One identity per site, in every language; the catalogue card names the
     same node (`catalogCardJsonLd`)."""
@@ -104,11 +110,15 @@ def page_graph(
     machine_source_type: str | None = None,
     translation_of: str | None = None,
     thing: Mapping[str, Any] | None = None,
+    article_type: str = ARTICLE_TYPE,
 ) -> dict[str, Any]:
     """WebSite, the company, this page, its trail, and what the page is
-    besides: an article (`BlogPosting`), a page of questions (`FAQPage`) or
-    the page of one record of the company — a unit it lets (`thing`, named
-    by the record's source)."""
+    besides: an article (`BlogPosting`, or what its content type says —
+    `article_type`, ADR-079 pkt 20), a page of questions (`FAQPage`) or the
+    page of one record of the company — a unit it lets (`thing`, named by the
+    record's source). An entry of a type of plain pages (`WebPage`) is the
+    page alone: no article node, its dates on the page."""
+    entry, article = article, (article if article_type != PAGE_TYPE else None)
     organization = {"@id": organization_id(origin)}
     website = {"@id": website_id(origin)}
     page_id = f"{canonical_url}#webpage"
@@ -128,6 +138,11 @@ def page_graph(
         page["primaryImageOfPage"] = {"@type": "ImageObject", "url": image["url"]}
     if questions:
         page["mainEntity"] = questions
+    if entry is not None and article is None:
+        if entry.get("published_at"):
+            page["datePublished"] = str(entry["published_at"])
+        if entry.get("updated_at"):
+            page["dateModified"] = str(entry["updated_at"])
     graph: list[dict[str, Any]] = [
         {
             "@type": "WebSite",
@@ -183,7 +198,7 @@ def page_graph(
     if article is not None:
         author = str(article.get("author_name") or "").strip()
         posting: dict[str, Any] = {
-            "@type": "BlogPosting",
+            "@type": article_type,
             "@id": f"{canonical_url}#article",
             # The entry's own title where the payload carries it (K2's byline
             # shows that one); the page's title is the same text until then.

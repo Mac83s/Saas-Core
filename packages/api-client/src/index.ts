@@ -267,6 +267,15 @@ export type ContentProposalDetail =
   components["schemas"]["ContentProposalDetail"];
 export type PageUrlChangeInput = components["schemas"]["PageUrlChange"];
 export type ContentCollection = components["schemas"]["ContentCollection"];
+/** What a content type's entries are to a search engine (ADR-079). */
+export type ContentSchemaType = components["schemas"]["SchemaTypeEnum"];
+export type ContentTypes = components["schemas"]["ContentTypes"];
+export type ContentTypeRow = components["schemas"]["ContentTypeRow"];
+export type ContentTypesLimit = components["schemas"]["ContentTypesLimit"];
+export type ContentSchemaTypeOption =
+  components["schemas"]["ContentSchemaTypeOption"];
+export type ContentTypeSwitch = components["schemas"]["ContentTypeSwitch"];
+export type ContentTypeUpdateInput = components["schemas"]["ContentTypeUpdate"];
 export type ContentEntry = components["schemas"]["ContentEntry"];
 export type ContentEntryMetadataInput =
   components["schemas"]["PatchedContentEntryMetadata"];
@@ -4560,6 +4569,10 @@ export async function createContentCollection(
     /** The section's name in other languages' addresses; a language left
      *  out follows `base_path`. */
     locale_paths?: Record<string, string>;
+    /** What the type's entries are to a search engine; a blog when left out. */
+    schema_type?: ContentSchemaType;
+    /** Whether the entries are in the site's feeds; left out, the kind decides. */
+    in_site_feed?: boolean;
   },
   idempotencyKey: string,
 ): Promise<ContentCollection> {
@@ -4571,13 +4584,114 @@ export async function createContentCollection(
         header: { "Idempotency-Key": idempotencyKey },
         path: { site_id: siteId },
       },
-      body: input,
+      // A blog unless the caller says what else the type's entries are.
+      body: { ...input, schema_type: input.schema_type ?? "BlogPosting" },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },
   );
   if (error || !data) throwProblem(error, response);
   return data;
+}
+
+/** A site's content types, the first made first, and whether the platform
+ *  and the plan let it have one more (ADR-079). */
+export async function listContentTypes(siteId: string): Promise<ContentTypes> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/content-types/",
+    {
+      params: { path: { site_id: siteId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Changes a content type's name, what its entries are to search engines
+ *  and whether they are in the site's feeds; on the site at once. */
+export async function updateContentType(
+  collectionId: string,
+  input: ContentTypeUpdateInput,
+): Promise<ContentCollection> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/collections/{collection_id}/settings/",
+    {
+      params: { path: { collection_id: collectionId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.collection;
+}
+
+/** What switching a content type off would do, without doing it. */
+export async function previewContentTypeSwitchOff(
+  collectionId: string,
+): Promise<ContentTypeSwitch> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/collections/{collection_id}/switch-off/preview/",
+    {
+      params: { path: { collection_id: collectionId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Takes a content type off the site; nothing is removed. */
+export async function switchOffContentType(
+  collectionId: string,
+): Promise<ContentTypeSwitch> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/collections/{collection_id}/switch-off/",
+    {
+      params: { path: { collection_id: collectionId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Puts a switched-off content type back on the site, where it was. */
+export async function switchOnContentType(
+  collectionId: string,
+): Promise<ContentTypeSwitch> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/collections/{collection_id}/switch-on/",
+    {
+      params: { path: { collection_id: collectionId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Removes a content type that has no entries. */
+export async function deleteContentType(collectionId: string): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/sites/collections/{collection_id}/",
+    {
+      params: { path: { collection_id: collectionId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
 }
 
 export type AutomationPolicy = "manual" | "proposed" | "automated";

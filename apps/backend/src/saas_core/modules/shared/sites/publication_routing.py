@@ -42,7 +42,7 @@ from .models import (
     Publication,
     Site,
 )
-from .seo_graph import page_graph
+from .seo_graph import ARTICLE_TYPE, page_graph
 
 
 def tenant_is_servable(organization_id: Any) -> bool:
@@ -163,6 +163,7 @@ def site_host_company(host: str) -> Any | None:
             site_id=domain.site_id,
             state=ContentEntryState.PUBLISHED,
             current_publication__isnull=False,
+            collection__archived_at__isnull=True,
         ).exists()
     ):
         return None
@@ -518,6 +519,8 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
                 if machine and source_path and source_path != page.canonical_path
                 else None
             ),
+            # What an entry is to a search engine: its content type's word.
+            article_type=str(page.page.get("schema_type") or ARTICLE_TYPE),
             thing=(
                 page.publication.page.thing
                 if isinstance(page.publication, SourcePublication)
@@ -955,7 +958,12 @@ def _navigation_links(
             continue
         if entry.get("collection_id") is not None:
             collection_id = str(entry["collection_id"])
-            if locale != default_locale and collection_id not in indexes:
+            # In the site's own language `collections` names every section
+            # there is: one missing was switched off or removed since the
+            # publication (ADR-079 pkt 23), and the menu no longer names it.
+            if collection_id not in indexes and (
+                locale != default_locale or collections is not None
+            ):
                 continue
             link = {
                 "page_id": collection_id,
@@ -1013,6 +1021,8 @@ def _find_entry(
         site_id=site_id,
         state=ContentEntryState.PUBLISHED,
         current_publication__isnull=False,
+        # A switched-off type answers nothing (ADR-079 pkt 23).
+        collection__archived_at__isnull=True,
     )
     for entry in entries:
         publication = entry.current_publication
@@ -1078,6 +1088,9 @@ def _find_entry(
                 # otherwise the same first one — never each its own.
                 "x_default": siblings.get(default_locale) or siblings[min(siblings)],
                 "noindex": bool(snapshot.get("noindex", False)),
+                # The structured data's type of the entry (ADR-079 pkt 20);
+                # read here, never published: changing it republishes nothing.
+                "schema_type": str(entry.collection.schema_type),
                 # What a reader and a search engine both want to know about an
                 # article and never about a page: who wrote it and when.
                 "article": {
@@ -1159,6 +1172,9 @@ def published_entries(
         site_id=site_id,
         state=ContentEntryState.PUBLISHED,
         current_publication__isnull=False,
+        # A switched-off type is on no list (ADR-079 pkt 23): the same join,
+        # so one read says what is published and what is on the site.
+        collection__archived_at__isnull=True,
     )
     items: list[dict[str, Any]] = []
     for entry in rows:
@@ -1172,6 +1188,8 @@ def published_entries(
             continue
         items.append({
             "collection_id": str(entry.collection_id),
+            # Whether the type's entries are in the site's feeds (pkt 18).
+            "in_site_feed": bool(entry.collection.in_site_feed),
             "translation_group": str(entry.translation_group),
             "title": str(snapshot["title"]),
             "path": published_entry_path(entry, snapshot, str(entry.site.default_locale)),
@@ -1214,6 +1232,7 @@ def collections_with_entries(*, organization_id: Any, site_id: Any, locale: str)
             locale=locale,
             state=ContentEntryState.PUBLISHED,
             current_publication__isnull=False,
+            collection__archived_at__isnull=True,
         )
         .values_list("collection_id", flat=True)
         .distinct()
@@ -1239,7 +1258,7 @@ def collection_links(
             collection, default_locale=default_locale, locale=locale
         )
         for collection in ContentCollection.all_objects.filter(
-            organization_id=organization_id, site_id=site_id
+            organization_id=organization_id, site_id=site_id, archived_at__isnull=True
         )
         if listed is None or str(collection.id) in listed
     }
@@ -1367,7 +1386,7 @@ def _find_index(
     if first != default_locale and (available is None or first in available):
         locales.append(first)
     for candidate in ContentCollection.all_objects.filter(
-        organization_id=organization_id, site_id=site.id
+        organization_id=organization_id, site_id=site.id, archived_at__isnull=True
     ):
         for locale in locales:
             if (
@@ -1955,6 +1974,7 @@ def moved_section(
         site_id=site.id,
         state=ContentEntryState.PUBLISHED,
         current_publication__snapshot__path__in=[wanted, f"{wanted}/"],
+        collection__archived_at__isnull=True,
     ):
         assert entry.current_publication is not None
         try:
@@ -1971,7 +1991,7 @@ def moved_section(
         except PublicSiteNotFound:
             continue
     for collection in ContentCollection.all_objects.filter(
-        organization_id=organization_id, site_id=site.id
+        organization_id=organization_id, site_id=site.id, archived_at__isnull=True
     ):
         if not any(
             isinstance(item, dict)
@@ -2043,6 +2063,7 @@ def _published_translations(
         translation_group=entry.translation_group,
         state=ContentEntryState.PUBLISHED,
         current_publication__isnull=False,
+        collection__archived_at__isnull=True,
     ):
         publication = sibling.current_publication
         if publication is None:

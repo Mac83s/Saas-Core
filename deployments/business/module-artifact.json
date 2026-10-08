@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:5fe2ece7e087c999e7f0ae5d85dba7279e930ef49732d1bd4d24ef29a88b52d3",
+  "profileHash": "sha256:401e8f59350122806125bd9e2fb9053b81ce343f11fe4fe4ecc7ed33fff55657",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -15,7 +15,8 @@
   "features": {
     "customDomains": true,
     "publicBooking": true,
-    "customerRetention": true
+    "customerRetention": true,
+    "contentTypes": true
   },
   "organizationTypes": [
     {

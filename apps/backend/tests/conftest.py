@@ -76,6 +76,14 @@ def core_global_roles(settings: Any) -> None:
 
 
 @pytest.fixture
+def content_types_offered(settings: Any) -> None:
+    """A deployment that offers companies content types beyond a site's first
+    (`features.contentTypes`, ADR-079 pkt 21). Off unless a test asks: a test
+    that opens a second section on one site says that its platform offers one."""
+    settings.CONTENT_TYPES_OFFERED = True
+
+
+@pytest.fixture
 def register_test_source(monkeypatch: pytest.MonkeyPatch) -> Callable[[Any], Any]:
     """Registers a test's own `PublicSource`, whatever the composition
     registered at start.

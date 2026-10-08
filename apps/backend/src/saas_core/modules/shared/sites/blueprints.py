@@ -29,6 +29,7 @@ from .services import (
     SiteNotFound,
     SlugReserved,
     _idempotency_key,
+    assert_page_slug_free_of_sections,
     assert_within_grant,
     create_page,
     import_page_template,
@@ -239,6 +240,7 @@ def import_blueprint(*, site_id: UUID, document: dict[str, Any]) -> tuple[dict[s
         document["key"], default_locale=site.default_locale, locale=document["locale"]
     ):
         raise SlugReserved
+    assert_page_slug_free_of_sections(site, document["key"], document["locale"])
     if PageTranslation.all_objects.filter(
         organization_id=context.organization_id,
         site=site,

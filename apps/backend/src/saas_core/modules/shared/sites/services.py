@@ -75,6 +75,7 @@ from .localization import (
     build_localization_report,
     collection_index_path,
     localized_path,
+    page_slug_is_section,
     page_slug_reserved,
 )
 from .metrics import OUTBOX_EVENTS
@@ -259,6 +260,31 @@ class SlugReserved(APIException):
         "(na przykład stay) są strony tych rekordów."
     )
     default_code = "slug_reserved"
+
+
+class SlugIsContentType(APIException):
+    """A page's address that a content type of the site answers at."""
+
+    status_code = 400
+    default_detail = (
+        "Pod tym adresem odpowiada typ treści tej strony — jego lista wpisów. "
+        "Wybierz inny adres podstrony albo zmień adres typu treści."
+    )
+    default_code = "slug_is_content_type"
+    problem_field = "slug"
+
+
+def assert_page_slug_free_of_sections(site: Site, slug: str, locale: str) -> None:
+    """A page never takes a content type's name in its language (ADR-079 pkt
+    15), a switched-off type's included. For a new or changed slug."""
+    if page_slug_is_section(
+        slug,
+        organization_id=site.organization_id,
+        site_id=site.id,
+        default_locale=site.default_locale,
+        locale=locale,
+    ):
+        raise SlugIsContentType
 
 
 class TranslationNotFound(NotFound):
@@ -1776,10 +1802,12 @@ def save_page_translation(
     # Only a new or changed address, in whichever language: a page that
     # already had one before the rule keeps it until somebody moves it
     # (`sites_reserved_slugs` lists them).
-    if (translation is None or translation.slug != values["slug"]) and page_slug_reserved(
-        str(values["slug"]), default_locale=site.default_locale, locale=normalized_locale
-    ):
-        raise SlugReserved
+    if translation is None or translation.slug != values["slug"]:
+        if page_slug_reserved(
+            str(values["slug"]), default_locale=site.default_locale, locale=normalized_locale
+        ):
+            raise SlugReserved
+        assert_page_slug_free_of_sections(site, str(values["slug"]), normalized_locale)
     if translation is not None:
         receipt = PageTranslationMutation.all_objects.filter(
             organization_id=context.organization_id,
@@ -3155,6 +3183,7 @@ def change_page_url(
         normalized_slug, default_locale=site.default_locale, locale=normalized_locale
     ):
         raise SlugReserved
+    assert_page_slug_free_of_sections(site, normalized_slug, normalized_locale)
     if (
         PageTranslation.all_objects.filter(
             organization_id=context.organization_id,

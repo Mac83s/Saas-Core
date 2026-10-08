@@ -477,6 +477,7 @@ def test_api_key_reaches_the_blog_and_is_bounded_by_its_scopes() -> None:
     assert published.status_code == 401
 
 
+@pytest.mark.usefixtures("content_types_offered")
 def test_grant_bounds_the_credential_by_resource_expiry_and_revocation() -> None:
     """The grant is what stands between "we hold the key" and "a customer's
     whole site is reachable by an integration"."""
@@ -3290,6 +3291,7 @@ def _outside_the_grant(name: str, world: dict[str, Any]) -> Any:
     }[name]()
 
 
+@pytest.mark.usefixtures("content_types_offered")
 @pytest.mark.parametrize(
     "operation",
     [
@@ -3325,6 +3327,7 @@ def test_a_collection_grant_reaches_no_operation_outside_its_collection(
     assert news_entry.schedule_state == EntryScheduleState.PENDING
 
 
+@pytest.mark.usefixtures("content_types_offered")
 def test_a_granted_key_still_creates_where_its_grant_and_the_policy_allow() -> None:
     """The other half: the grant narrows the key, it does not switch it off.
     A new section needs a site-wide grant that may write, and it starts closed

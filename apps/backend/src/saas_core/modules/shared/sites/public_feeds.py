@@ -79,15 +79,22 @@ def _feed_language(domain: Any, locale: str | None, available: frozenset[str]) -
     return locale
 
 
-def _feed_entries(domain: Any, language: str, available: frozenset[str]) -> list[dict[str, Any]]:
+def _feed_entries(
+    domain: Any, language: str, available: frozenset[str], *, feed: bool = True
+) -> list[dict[str, Any]]:
     """The articles in one language: a reader subscribed to the Polish blog
-    gets the Polish texts, not the same article twice under two titles."""
+    gets the Polish texts, not the same article twice under two titles.
+
+    A feed (`feed`) leaves out the types the company keeps out of it
+    (ADR-079 pkt 18): projects do not land in the blog readers' reader.
+    `llms.txt` is a list of what the site says, not a subscription, and names
+    them all."""
     return [
         entry
         for entry in published_entries(
             organization_id=domain.organization_id, site_id=domain.site_id, available=available
         )
-        if entry["locale"] == language
+        if entry["locale"] == language and (entry["in_site_feed"] or not feed)
     ][:FEED_LIMIT]
 
 
@@ -233,7 +240,7 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
     )
     page_size = settings.SITES_ENTRY_INDEX_PAGE_SIZE
     for collection in ContentCollection.all_objects.filter(
-        organization_id=domain.organization_id, site_id=domain.site_id
+        organization_id=domain.organization_id, site_id=domain.site_id, archived_at__isnull=True
     ):
         grouped = entries_by_locale(entries, str(collection.id))
         languages = index_languages(site_locale, grouped)
@@ -447,7 +454,7 @@ def render_site_llms(*, host: str, locale: str | None = None) -> HttpResponse:
         ),
         None,
     )
-    entries = _feed_entries(domain, language, available)
+    entries = _feed_entries(domain, language, available, feed=False)
     if not versions and not entries:
         # A language the company serves but this site is not written in.
         raise PublicSiteNotFound

@@ -20,7 +20,7 @@ from saas_core.modules.core.organizations.api import CommandSpec, Effect, Previe
 
 from .blueprints import OWNER_FACT, read_blueprint_catalog
 from .language_versions import get_locale_body, save_locale_body
-from .localization import page_slug_reserved
+from .localization import page_slug_is_section, page_slug_reserved
 from .models import PageTranslation, Site, SitePurpose
 from .page_templates import page_template_catalog
 from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED
@@ -120,6 +120,17 @@ def _page_key(arguments: Mapping[str, Any], site: Site) -> str:
     key = str(arguments["key"]).strip().lower()
     if page_slug_reserved(key, default_locale=site.default_locale, locale=site.default_locale):
         raise ValidationError({"key": ["Ten adres jest zarezerwowany."]}, code="slug_reserved")
+    if page_slug_is_section(
+        key,
+        organization_id=site.organization_id,
+        site_id=site.id,
+        default_locale=site.default_locale,
+        locale=site.default_locale,
+    ):
+        raise ValidationError(
+            {"key": ["Pod tym adresem odpowiada typ treści tej strony."]},
+            code="slug_is_content_type",
+        )
     if PageTranslation.all_objects.filter(
         organization_id=site.organization_id, site=site, slug=key
     ).exists():

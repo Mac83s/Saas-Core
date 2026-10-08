@@ -74,6 +74,8 @@ QUOTA_KEYS = {
     "sites.templates.max",
     # Languages beyond the company's first (billing 0028): Profile 1, others none.
     "public_locales.additional.max",
+    # A site's content types beyond its first (billing 0029): Profile 0, Site 1, Pro 10.
+    "sites.content_types.additional.max",
 } | (
     # The image generator's attempt limit comes with its module's migration
     # (image_generation 0003), so only a profile composing the module has it.

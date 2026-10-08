@@ -35,6 +35,16 @@ from .collections import (
     update_entry_metadata,
     withdraw_entry,
 )
+from .content_type_limit import ContentTypesLimit
+from .content_types import (
+    SCHEMA_TYPES,
+    ContentTypeSwitch,
+    delete_content_type,
+    list_content_types,
+    switch_off_content_type,
+    switch_on_content_type,
+    update_content_type,
+)
 from .models import ContentCollection, ContentEntry, ContentEntryPublication
 from .serializers import (
     AutomationPolicySerializer,
@@ -52,6 +62,10 @@ from .serializers import (
     ContentEntrySerializer,
     ContentEntryTranslationCreateSerializer,
     ContentTagSerializer,
+    ContentTypesSerializer,
+    ContentTypeSwitchSerializer,
+    ContentTypeUpdateResultSerializer,
+    ContentTypeUpdateSerializer,
     CursorQuerySerializer,
     EntryScheduleSerializer,
     EntryScheduleStateSerializer,
@@ -81,6 +95,10 @@ def _collection_payload(collection: ContentCollection) -> dict[str, Any]:
         "paths": collection_paths(collection),
         "automation_policy": collection.automation_policy,
         "show_in_navigation": collection.show_in_navigation,
+        "schema_type": collection.schema_type,
+        "in_site_feed": collection.in_site_feed,
+        "archived": collection.archived_at is not None,
+        "archived_at": collection.archived_at,
     }
 
 
@@ -148,9 +166,12 @@ class ContentCollectionListCreateView(APIView):
     @extend_schema(
         operation_id="sites_collections_list",
         summary="List a site's sections of entries",
-        description="The blog, news and guide sections of one site, each with its name in "
-        "the addresses per language (`base_path`, `locale_paths`) and where its index answers "
-        "(`paths`). An integration sees the sections its grants name.",
+        description="The content types of one site — its blog and whatever the company made "
+        "beside it — each with its name in the addresses per language (`base_path`, "
+        "`locale_paths`), where its index answers (`paths`), what its entries are to search "
+        "engines (`schema_type`), whether they are in the site's feeds (`in_site_feed`) and "
+        "whether the type is switched off (`archived`). An integration sees the sections its "
+        "grants name.",
         tags=["sites"],
         responses={
             200: ContentCollectionSerializer(many=True),
@@ -170,7 +191,13 @@ class ContentCollectionListCreateView(APIView):
         "in the addresses of the site's own language (`/blog/`); `locale_paths` may name it "
         "differently in other languages (`/de/ratgeber/`), and a language left out follows "
         "`base_path`. A name is refused when another section or a page has it in that "
-        "language (`section_path_taken`) or when it is reserved (`slug_reserved`).",
+        "language (`section_path_taken`) or when it is reserved (`slug_reserved`). A site's "
+        "first section takes the site's own entitlement; a further one — a further content "
+        "type — is refused where the platform offers none (`content_types_not_offered`), "
+        "when the plan's limit of types beyond the first is used up (`quota_exceeded`) or the "
+        "subscription does not allow adding now (`plan_access_denied`); the types the site "
+        "has stay as they are. `GET /api/v1/sites/{site_id}/content-types/` says beforehand "
+        "whether one more is allowed.",
         tags=["sites"],
         parameters=[IDEMPOTENCY_PARAMETER],
         request=ContentCollectionCreateSerializer,
@@ -195,6 +222,260 @@ class ContentCollectionListCreateView(APIView):
             _collection_payload(collection),
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+
+def _limit_payload(limit: ContentTypesLimit) -> dict[str, Any]:
+    return {
+        "allowed": limit.allowed,
+        "code": limit.code,
+        "message": limit.message,
+        "offered": limit.offered,
+        "additional_max": limit.additional_max,
+        "additional_used": limit.additional_used,
+    }
+
+
+class ContentTypesView(APIView):
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_content_types_list",
+        summary="List a site's content types and whether it may have one more",
+        description="The site's content types, the first made first — the blog leads — with "
+        "how many entries each has and in which languages; switched-off types are listed and "
+        "marked. `limit` is the platform's and the plan's word on making one more type: a "
+        "site's first takes nothing but the site, a further one needs the platform's offer "
+        "and room in the plan's limit of switched-on types beyond the first. `schema_types` "
+        "lists what a type's entries may be to search engines. An integration sees the types "
+        "its grants name.",
+        tags=["sites"],
+        responses={
+            200: ContentTypesSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, site_id: UUID) -> Response:
+        found = list_content_types(site_id=site_id)
+        return Response({
+            "types": [
+                {
+                    "collection": _collection_payload(row.collection),
+                    "entries": row.entries,
+                    "published": row.published,
+                    "locales": list(row.locales),
+                }
+                for row in found.types
+            ],
+            "limit": _limit_payload(found.limit),
+            "schema_types": list(SCHEMA_TYPES),
+        })
+
+
+_SETTINGS_RULES = (
+    "`name` is the type's name — the heading of its list on the site; `schema_type` says "
+    "what its entries are to search engines (`BlogPosting`, `NewsArticle`, `Article`, or "
+    "`WebPage` for plain pages without an article node); `in_site_feed` whether they are in "
+    "the site's RSS and Atom feeds. A field left out stays. All three are read when a page "
+    "is asked for: the change is on the site at once and nothing is republished. The type's "
+    "addresses are changed by `sites_collection_paths_set`. A switched-off type is refused "
+    "(`content_type_archived`)."
+)
+
+
+class ContentTypeSettingsView(APIView):
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_content_type_update",
+        summary="Change a content type's name, kind of content and place in the feeds",
+        description=_SETTINGS_RULES,
+        tags=["sites"],
+        request=ContentTypeUpdateSerializer,
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "The values are sent as they should be: a repeat sets the "
+                "same values and changes nothing (`changed: false`).",
+            }
+        },
+        responses={
+            200: ContentTypeUpdateResultSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, collection_id: UUID) -> Response:
+        serializer = ContentTypeUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        collection, changed = update_content_type(
+            collection_id=collection_id, **serializer.validated_data
+        )
+        return Response({"collection": _collection_payload(collection), "changed": changed})
+
+
+class ContentTypeSettingsPreviewView(APIView):
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_content_type_update_preview",
+        summary="Preview a change of a content type's name, kind of content and feeds",
+        description="Validates the values and answers with the type as it would be, without "
+        "saving. " + _SETTINGS_RULES,
+        tags=["sites"],
+        request=ContentTypeUpdateSerializer,
+        extensions={"x-dry-run": True},
+        responses={
+            200: ContentTypeUpdateResultSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, collection_id: UUID) -> Response:
+        serializer = ContentTypeUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        collection, changed = update_content_type(
+            collection_id=collection_id, **serializer.validated_data, dry_run=True
+        )
+        return Response({"collection": _collection_payload(collection), "changed": changed})
+
+
+def _switch_payload(result: ContentTypeSwitch) -> dict[str, Any]:
+    return {
+        "collection": _collection_payload(result.collection),
+        "changed": result.changed,
+        "published": result.published,
+        "scheduled": result.scheduled,
+        "paths": result.paths,
+        "restorable": result.restorable,
+        "restore_problem": result.restore_problem,
+        "restore_problem_code": result.restore_problem_code,
+    }
+
+
+_SWITCH_OFF_RULES = (
+    "From the moment it is saved every address of the type — its list, entries, subjects' "
+    "archives and their later pages — answers 404 and the type leaves the menu, the feeds, "
+    "the sitemap and other pages' language links. Nothing is removed: entries stay as they "
+    "are but are neither edited nor published while the type is off, publications planned "
+    "for later are called off (`scheduled`), and the type's addresses stay taken, so "
+    "switching it on brings everything back. A switched-off type does not count to the "
+    "plan's limit and switching it on needs room in it: `restorable` says whether the plan "
+    "as it is would let the type back. A person's decision: an integration and the assistant "
+    "are refused (`person_required`)."
+)
+_SWITCH_ON_RULES = (
+    "The type's list and every entry that was out answer again at the addresses they had, "
+    "at once; the type is back in the menu where it was set to be, in the feeds and the "
+    "sitemap. Needs the platform's offer and room in the plan's limit, like making a type: "
+    "`content_types_not_offered`, `quota_exceeded`, `plan_access_denied`. Publications "
+    "called off when it was switched off stay called off. A person's decision "
+    "(`person_required`)."
+)
+_SWITCH_EXEMPT = {
+    "x-quality-exempt": {
+        "idempotency-key": "The call names a state, not a step: a repeat finds the type "
+        "already so and changes nothing (`changed: false`).",
+        "error-400": "The request has no body; a refusal is 403, 404 or — for switching on "
+        "without room in the plan — the documented 400 of the limit.",
+    }
+}
+
+
+class ContentTypeSwitchOffView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_content_type_switch_off",
+        summary="Switch a content type off",
+        description=_SWITCH_OFF_RULES,
+        tags=["sites"],
+        request=None,
+        extensions=_SWITCH_EXEMPT,
+        responses={
+            200: ContentTypeSwitchSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, _request: Request, collection_id: UUID) -> Response:
+        return Response(_switch_payload(switch_off_content_type(collection_id=collection_id)))
+
+
+class ContentTypeSwitchOffPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_content_type_switch_off_preview",
+        summary="Preview switching a content type off",
+        description="Answers with what switching the type off would do — the addresses that "
+        "stop answering, the entries behind them, the publications called off and whether "
+        "the plan would let the type back — without saving. " + _SWITCH_OFF_RULES,
+        tags=["sites"],
+        request=None,
+        extensions={"x-dry-run": True},
+        responses={
+            200: ContentTypeSwitchSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, _request: Request, collection_id: UUID) -> Response:
+        return Response(
+            _switch_payload(switch_off_content_type(collection_id=collection_id, dry_run=True))
+        )
+
+
+class ContentTypeSwitchOnView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_content_type_switch_on",
+        summary="Switch a content type back on",
+        description=_SWITCH_ON_RULES,
+        tags=["sites"],
+        request=None,
+        extensions=_SWITCH_EXEMPT,
+        responses={
+            200: ContentTypeSwitchSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, _request: Request, collection_id: UUID) -> Response:
+        return Response(_switch_payload(switch_on_content_type(collection_id=collection_id)))
+
+
+class ContentTypeDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_content_type_delete",
+        summary="Remove a content type that has no entries",
+        description="Removes a type without a single entry — a draft counts "
+        "(`content_type_not_empty`); a type with entries is switched off instead. Its names "
+        "in addresses become free and its former names stop leading anywhere. A person's "
+        "decision (`person_required`).",
+        tags=["sites"],
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "Nothing is removed twice: a repeat answers 404.",
+            }
+        },
+        responses={
+            204: None,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def delete(self, _request: Request, collection_id: UUID) -> Response:
+        delete_content_type(collection_id=collection_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ContentEntryListCreateView(APIView):

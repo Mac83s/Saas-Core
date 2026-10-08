@@ -93,6 +93,7 @@ from .collections import (
     record_entry_version,
     take_down_entry,
 )
+from .content_type_limit import ContentTypeArchived
 from .language_decisions import REVIEW_GATE
 from .language_publication import _translated
 from .language_versions import _texts, site_locales
@@ -163,7 +164,12 @@ class EntryTranslationSource:
             groups: dict[UUID, list[ContentEntry]] = {}
             for entry in (
                 ContentEntry.all_objects.select_related("site")
-                .filter(organization_id=context.organization_id)
+                # A switched-off type's entries are not offered for translation
+                # (ADR-079 pkt 23).
+                .filter(
+                    organization_id=context.organization_id,
+                    collection__archived_at__isnull=True,
+                )
                 .order_by("id")
             ):
                 groups.setdefault(entry.translation_group, []).append(entry)
@@ -370,6 +376,18 @@ def _authorize(context: ContentContext, action: SourceAction, object_ids: Sequen
         organization_id=context.organization_id, id__in=wanted
     ).count() != len(wanted):
         raise EntryNotFound
+    # Nobody orders a translation of an entry whose type is switched off: it
+    # could not be published (ADR-079 pkt 23).
+    if (
+        action == "translate"
+        and wanted
+        and ContentEntry.all_objects.filter(
+            organization_id=context.organization_id,
+            id__in=wanted,
+            collection__archived_at__isnull=False,
+        ).exists()
+    ):
+        raise ContentTypeArchived
 
 
 def _entry(context: ContentContext, object_id: UUID, *, lock: bool = False) -> ContentEntry:

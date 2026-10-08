@@ -199,6 +199,9 @@ except CompositionError as error:
 
 BOOKING_MODULE_ENABLED = "shared.booking" in ACTIVE_MODULES
 PUBLIC_BOOKING_ENABLED = bool(_deployment_features.get("publicBooking", False))
+#: Whether the platform offers companies content types beyond a site's first
+#: (ADR-079 pkt 21). The platform's own workspace is not asked.
+CONTENT_TYPES_OFFERED = bool(_deployment_features.get("contentTypes", False))
 #: Whether the profile offers the company a removal of its booking customers'
 #: data after a time (D1, 37a). Off where a visit hangs on another record of
 #: the same person (a farm's card): stripping the customer alone would leave

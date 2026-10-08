@@ -30,6 +30,10 @@ const collection: ContentCollection = {
   paths: { pl: "/blog/", en: "/en/blog/", de: "/de/blog/" },
   automation_policy: "manual",
   show_in_navigation: false,
+  schema_type: "BlogPosting",
+  in_site_feed: true,
+  archived: false,
+  archived_at: null,
 };
 
 const renamed: ContentCollection = {

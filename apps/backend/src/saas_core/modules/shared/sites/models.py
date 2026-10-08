@@ -1275,6 +1275,17 @@ class ContentCollectionKind(models.TextChoices):
     GUIDE = "guide", "Poradniki"
 
 
+class ContentSchemaType(models.TextChoices):
+    """What an entry of a content type is to a search engine: the schema.org
+    type of its node in the page's structured data (ADR-079 pkt 1, 20)."""
+
+    BLOG_POSTING = "BlogPosting", "Wpis bloga"
+    NEWS_ARTICLE = "NewsArticle", "Aktualność"
+    ARTICLE = "Article", "Artykuł"
+    #: The page alone, with no article node: a project, a product, a place.
+    WEB_PAGE = "WebPage", "Strona"
+
+
 class ContentEntryState(models.TextChoices):
     DRAFT = "draft", "Szkic"
     PUBLISHED = "published", "Opublikowany"
@@ -1282,7 +1293,9 @@ class ContentEntryState(models.TextChoices):
 
 
 class ContentCollection(TenantScopedModel):
-    """A repeatable surface — a blog, news, guides.
+    """A content type of a site — its blog first, then whatever the company
+    adds: projects, news, guides (ADR-079; „typ treści" in the panel, „dział"
+    in addresses).
 
     Separate from `Page` because entries publish one at a time (ADR-035 §1).
     Folding them into the site's atomic snapshot would make publishing the
@@ -1320,6 +1333,20 @@ class ContentCollection(TenantScopedModel):
         choices=PageAutomationPolicy.choices,
         default=PageAutomationPolicy.MANUAL,
     )
+    # Switched off when set (ADR-079 pkt 23): nothing of the type answers a
+    # visitor, its entries are not edited or published, and its names stay
+    # taken — switching it on brings every address back. Read at request
+    # time, like a language the company switched off; nothing is republished.
+    archived_at = models.DateTimeField(null=True, blank=True)
+    # The schema.org type of an entry's node in the structured data. Every
+    # section older than the field is a blog.
+    schema_type = models.CharField(
+        max_length=16,
+        choices=ContentSchemaType.choices,
+        default=ContentSchemaType.BLOG_POSTING,
+    )
+    # Whether the type's entries are in the site's RSS and Atom feeds.
+    in_site_feed = models.BooleanField(default=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

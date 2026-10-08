@@ -8,7 +8,7 @@ from rest_framework import serializers
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.core.organizations.locales import ContentLocaleField
 
-from .models import PublicationReason
+from .models import ContentSchemaType, PublicationReason
 
 
 class CursorQuerySerializer(serializers.Serializer[dict[str, Any]]):
@@ -343,6 +343,23 @@ class ContentCollectionSerializer(serializers.Serializer[dict[str, Any]]):
     )
     automation_policy = serializers.CharField()
     show_in_navigation = serializers.BooleanField()
+    schema_type = serializers.ChoiceField(
+        choices=ContentSchemaType.choices,
+        help_text="What an entry of this content type is to a search engine: the schema.org "
+        "type of its node in the page's structured data. `WebPage` — the page alone, with no "
+        "article node.",
+    )
+    in_site_feed = serializers.BooleanField(
+        help_text="Whether the type's entries are in the site's RSS and Atom feeds."
+    )
+    archived = serializers.BooleanField(
+        help_text="True for a content type that is switched off: nothing of it answers a "
+        "visitor and its entries are neither edited nor published; its addresses stay taken "
+        "and return when it is switched on."
+    )
+    archived_at = serializers.DateTimeField(
+        allow_null=True, help_text="When the type was switched off; null while it is on."
+    )
 
 
 class ContentCollectionCreateSerializer(serializers.Serializer[dict[str, Any]]):
@@ -356,6 +373,150 @@ class ContentCollectionCreateSerializer(serializers.Serializer[dict[str, Any]]):
         + SECTION_PATH_HELP,
     )
     locale_paths = _locale_paths_field(required=False)
+    schema_type = serializers.ChoiceField(
+        choices=ContentSchemaType.choices,
+        default=ContentSchemaType.BLOG_POSTING.value,
+        help_text="What the type's entries are to a search engine (see the type's "
+        "`schema_type`). Default: `BlogPosting`.",
+    )
+    in_site_feed = serializers.BooleanField(
+        required=False,
+        allow_null=True,
+        default=None,
+        help_text="Whether the type's entries are in the site's feeds. Left out: yes for an "
+        "article-like type, no for `WebPage`.",
+    )
+
+
+class ContentTypesLimitSerializer(serializers.Serializer[dict[str, Any]]):
+    allowed = serializers.BooleanField(
+        help_text="Whether the site may have one more content type switched on now."
+    )
+    code = serializers.CharField(
+        allow_blank=True,
+        help_text="Why not: `content_types_not_offered` (the platform offers no further "
+        "types), `quota_exceeded` (the plan's limit is used up) or `plan_access_denied` (the "
+        "subscription does not allow adding now). Empty when allowed.",
+    )
+    message = serializers.CharField(
+        allow_blank=True, help_text="The same in words, in Polish. Empty when allowed."
+    )
+    offered = serializers.BooleanField(
+        help_text="Whether the platform offers content types beyond a site's first at all."
+    )
+    additional_max = serializers.IntegerField(
+        allow_null=True,
+        min_value=0,
+        help_text="Switched-on types beyond the first the plan allows on one site; null — the "
+        "plan sets no limit, or it was not asked (nothing to add beside).",
+    )
+    additional_used = serializers.IntegerField(
+        min_value=0, help_text="Switched-on types beyond the first the site has."
+    )
+
+
+class ContentSchemaTypeOptionSerializer(serializers.Serializer[dict[str, Any]]):
+    schema_type = serializers.ChoiceField(
+        choices=ContentSchemaType.choices, help_text="The value a type's `schema_type` takes."
+    )
+    title = serializers.DictField(
+        child=serializers.CharField(), help_text="The choice's name, by panel language."
+    )
+    hint = serializers.DictField(
+        child=serializers.CharField(), help_text="What it is for, by panel language."
+    )
+    in_site_feed = serializers.BooleanField(
+        help_text="Whether a new type of this kind joins the site's feeds unless told otherwise."
+    )
+
+
+class ContentTypeRowSerializer(serializers.Serializer[dict[str, Any]]):
+    collection = ContentCollectionSerializer()
+    entries = serializers.IntegerField(
+        min_value=0, help_text="The type's entries in every language, drafts included."
+    )
+    published = serializers.IntegerField(
+        min_value=0, help_text="Those of them a visitor can open while the type is on."
+    )
+    locales = serializers.ListField(
+        child=ContentLocaleField(),
+        help_text="The languages the type has entries in, in the company's order.",
+    )
+
+
+class ContentTypesSerializer(serializers.Serializer[dict[str, Any]]):
+    types = ContentTypeRowSerializer(
+        many=True,
+        help_text="The site's content types, the first made first; switched-off ones included.",
+    )
+    limit = ContentTypesLimitSerializer(
+        help_text="The platform's and the plan's word on making one more type."
+    )
+    schema_types = ContentSchemaTypeOptionSerializer(
+        many=True, help_text="What a type's `schema_type` may be, in the order to offer them."
+    )
+
+
+class ContentTypeUpdateSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField(
+        max_length=160,
+        trim_whitespace=True,
+        required=False,
+        help_text="The type's name: the heading of its list on the site and its name in the "
+        "panel. 2–160 characters.",
+    )
+    schema_type = serializers.ChoiceField(
+        choices=ContentSchemaType.choices,
+        required=False,
+        help_text="What the type's entries are to a search engine.",
+    )
+    in_site_feed = serializers.BooleanField(
+        required=False, help_text="Whether the type's entries are in the site's feeds."
+    )
+
+
+class ContentTypeUpdateResultSerializer(serializers.Serializer[dict[str, Any]]):
+    collection = ContentCollectionSerializer(
+        help_text="The type as saved — or, in a preview, as it would be."
+    )
+    changed = serializers.BooleanField(
+        help_text="False when the values sent are the ones the type already has."
+    )
+
+
+class ContentTypeSwitchSerializer(serializers.Serializer[dict[str, Any]]):
+    collection = ContentCollectionSerializer(
+        help_text="The type as saved — in a preview, as it is now."
+    )
+    changed = serializers.BooleanField(
+        help_text="False when the type already is what was asked for."
+    )
+    published = serializers.IntegerField(
+        min_value=0,
+        help_text="Entries visitors can open today that stop answering (switching off), or "
+        "that answer again (switching on).",
+    )
+    scheduled = serializers.IntegerField(
+        min_value=0,
+        help_text="Publications planned for later that switching off calls off.",
+    )
+    paths = serializers.DictField(
+        child=serializers.CharField(),
+        help_text="Where the type's list answers per language: the addresses that, with "
+        "everything under them, stop answering or answer again.",
+    )
+    restorable = serializers.BooleanField(
+        help_text="Whether the type could be switched on again right after, on the plan as "
+        "it is. A switched-off type does not count to the limit; switching it on needs room."
+    )
+    restore_problem = serializers.CharField(
+        allow_blank=True, help_text="Why it could not, in Polish; empty when `restorable`."
+    )
+    restore_problem_code = serializers.CharField(
+        allow_blank=True,
+        help_text="The same as a code: `quota_exceeded`, `plan_access_denied` or "
+        "`content_types_not_offered`; empty when `restorable`.",
+    )
 
 
 class CollectionPathsSerializer(serializers.Serializer[dict[str, Any]]):

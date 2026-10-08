@@ -13,7 +13,7 @@ from .credits import (
     settle_credits,
     unit_cost,
 )
-from .decisions import FeatureOperation, decide_feature, decide_quota
+from .decisions import DecisionReason, FeatureOperation, decide_feature, decide_quota
 from .plan_offer import register_free_period
 from .quotas import (
     QuotaExceeded,
@@ -33,6 +33,7 @@ from .tenant_scope import billing_organization_ids
 __all__ = [
     "CreditPriceChanged",
     "CreditsExhausted",
+    "DecisionReason",
     "EntitlementRequired",
     "FeatureOperation",
     "QuotaExceeded",

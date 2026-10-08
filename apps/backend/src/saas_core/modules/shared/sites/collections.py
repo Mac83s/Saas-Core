@@ -43,6 +43,7 @@ from saas_core.observability import correlation_id
 
 from .block_contracts import validate_site_block
 from .block_decoration import normalize_block, validate_decoration, validate_presentation
+from .content_type_limit import ContentTypeArchived, ensure_content_type_capacity
 from .language_publication import _origin as translation_origin
 from .localization import (
     collection_index_path,
@@ -58,6 +59,7 @@ from .models import (
     ContentEntryState,
     ContentEntryTag,
     ContentEntryVersion,
+    ContentSchemaType,
     ContentTag,
     EntryScheduleState,
     PageAutomationPolicy,
@@ -182,16 +184,22 @@ def _assert_entry_writable(
     Without an entry (one about to be created) there is no lock to respect.
     """
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    if _is_automation(context):
+        assert_within_grant(
+            context,
+            site_id=collection.site_id,
+            collection_id=collection.id,
+            writing=True,
+            publishing=publishing,
+            payload_bytes=payload_bytes,
+        )
+    # A switched-off type's entries are neither edited nor published, by a
+    # person or a key alike (ADR-079 pkt 23) — said after the grant, so a key
+    # learns it only about a type it was hired for.
+    if collection.archived_at is not None:
+        raise ContentTypeArchived
     if not _is_automation(context):
         return
-    assert_within_grant(
-        context,
-        site_id=collection.site_id,
-        collection_id=collection.id,
-        writing=True,
-        publishing=publishing,
-        payload_bytes=payload_bytes,
-    )
     allowed = (
         {PageAutomationPolicy.AUTOMATED} if publishing else DRAFTABLE_POLICIES
     )
@@ -244,10 +252,21 @@ def create_collection(
     base_path: str,
     idempotency_key: str,
     locale_paths: Mapping[str, str] | None = None,
+    schema_type: str = ContentSchemaType.BLOG_POSTING,
+    in_site_feed: bool | None = None,
 ) -> tuple[ContentCollection, bool]:
     """`base_path` is the section's name in the addresses of the site's own
     language; `locale_paths` names it in other languages (`{"de":
-    "ratgeber"}`), and a language left out follows `base_path`."""
+    "ratgeber"}`), and a language left out follows `base_path`.
+
+    `schema_type` says what the type's entries are to search engines and
+    `in_site_feed` whether they are in the site's feeds; left out, an
+    article-like type is in the feed and a type of plain pages is not.
+
+    A site's first type takes the site's own entitlement only. A further one
+    needs the platform's offer and room in the plan's limit
+    (`content_type_limit`): `content_types_not_offered`, `quota_exceeded`,
+    `plan_access_denied`."""
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     # A new section of the site is the site's business: a grant for one
     # collection never opens another beside it. Checked before the replay, so
@@ -263,6 +282,8 @@ def create_collection(
         # Only when given: a request without names per language hashes as it
         # did before they existed, so its replay still finds itself.
         **({"locale_paths": dict(sorted(locale_paths.items()))} if locale_paths else {}),
+        **({"schema_type": schema_type} if schema_type != ContentSchemaType.BLOG_POSTING else {}),
+        **({"in_site_feed": in_site_feed} if in_site_feed is not None else {}),
     })
     existing = ContentCollection.all_objects.filter(
         organization_id=context.organization_id,
@@ -281,11 +302,17 @@ def create_collection(
     )
     if site is None:
         raise SiteNotFound
+    # Under the site's lock, after the replay: a request answered once is
+    # answered the same whatever the plan says today.
+    ensure_content_type_capacity(site)
     # The blog's address is unprefixed in the site's language, like a page's.
     if first_segment_reserved(base_path):
         raise SlugReserved
     names = _section_names(site, base_path=base_path, locale_paths=locale_paths or {})
     _assert_section_names_free(site, None, base_path, names)
+    # The table the panel's choices come from says the feed's default too.
+    from .content_types import default_in_site_feed
+
     collection = ContentCollection.all_objects.create(
         organization_id=context.organization_id,
         site_id=site_id,
@@ -294,6 +321,8 @@ def create_collection(
         kind=kind,
         base_path=base_path,
         locale_paths=names,
+        schema_type=schema_type,
+        in_site_feed=default_in_site_feed(schema_type) if in_site_feed is None else in_site_feed,
         created_by_id=context.actor_id,
         idempotency_key=normalized_key,
         request_hash=request_hash,
@@ -493,6 +522,8 @@ def set_collection_paths(
     )
     collection = ContentCollection.all_objects.select_for_update().get(pk=collection.id)
     collection.site = site
+    if collection.archived_at is not None:
+        raise ContentTypeArchived
     new_base = base_path.strip().lower()
     names = _section_names(site, base_path=new_base, locale_paths=locale_paths)
     _assert_section_names_free(site, collection, new_base, names)
@@ -1591,6 +1622,8 @@ def set_collection_automation_policy(
     )
     if collection is None:
         raise CollectionNotFound
+    if collection.archived_at is not None:
+        raise ContentTypeArchived
     collection.automation_policy = policy
     collection.save(update_fields=["automation_policy", "updated_at"])
     record_audit(
@@ -1625,6 +1658,8 @@ def set_collection_navigation(*, collection_id: UUID, show: bool) -> ContentColl
     )
     if collection is None:
         raise CollectionNotFound
+    if collection.archived_at is not None:
+        raise ContentTypeArchived
     if collection.show_in_navigation != show:
         collection.show_in_navigation = show
         collection.save(update_fields=["show_in_navigation", "updated_at"])

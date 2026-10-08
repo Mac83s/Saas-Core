@@ -215,9 +215,9 @@ def _compare(read: str) -> None:
     expected = GOLDEN.read_text(encoding="utf-8")
     if read != expected:
         got, want = read.splitlines(), expected.splitlines()
+        pairs = enumerate(zip(got, want, strict=False))
         line = next(
-            (index for index, pair in enumerate(zip(got, want, strict=False)) if pair[0] != pair[1]),
-            min(len(got), len(want)),
+            (index for index, pair in pairs if pair[0] != pair[1]), min(len(got), len(want))
         )
         pytest.fail(
             f"The blog answers differently from golden/sites_blog.json, first at line {line + 1}:\n"
@@ -226,7 +226,13 @@ def _compare(read: str) -> None:
         )
 
 
-def test_a_blog_answers_what_it_answered_before_content_types(settings: Any) -> None:
+@pytest.mark.parametrize("offered", [False, True], ids=["types-not-offered", "types-offered"])
+def test_a_blog_answers_what_it_answered_before_content_types(
+    settings: Any, offered: bool
+) -> None:
     # German is not every product's language; this site's company speaks it.
     settings.SITES_SUPPORTED_LOCALES = ("pl", "en", "de")
+    # One file for both: a platform that offers further content types changes
+    # nothing for a company that makes none.
+    settings.CONTENT_TYPES_OFFERED = offered
     _compare(_read(_blog()))
