@@ -468,7 +468,8 @@ function FooterBlock({ data, editor }: BlockComponentProps) {
  *  The items are a projection of what is published (ADR-035 §7), so the block
  *  renders whatever it is handed rather than reaching for data itself. On a
  *  section's own index and a subject's archive (`main`) the title is the
- *  page's heading: nothing else on that page is, with articles or without. */
+ *  page's heading — nothing else on that page is, with articles or without —
+ *  and each article one level under it, set as it is elsewhere. */
 function EntryListBlock({ data, editor }: BlockComponentProps) {
   const text = editor?.text ?? plainBlockText;
   const list = data as EntryListV1Data;
@@ -498,7 +499,7 @@ function EntryListBlock({ data, editor }: BlockComponentProps) {
                 editor ? "span" : "a",
                 { href: editor ? undefined : item.path },
                 createElement(
-                  "h3",
+                  list.main ? "h2" : "h3",
                   editor ? { role: "presentation" } : null,
                   text(["items", String(index), "title"], item.title),
                 ),

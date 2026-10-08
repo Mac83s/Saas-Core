@@ -613,12 +613,18 @@ describe("a section's index", () => {
       items: [{ title: "Pierwszy", path: "/poradnik/pierwszy/" }],
     });
     expect(listed.match(/<h1/g)).toHaveLength(1);
-    expect(listed).toContain("<h3>Pierwszy</h3>");
+    // One level under the page's heading, never two.
+    expect(listed).toContain("<h2>Pierwszy</h2>");
+    expect(listed).not.toContain("<h3");
   });
 
   it("stays a section's heading where somebody placed the list on a page", () => {
-    const placed = page({ title: "Najnowsze", items: [] });
+    const placed = page({
+      title: "Najnowsze",
+      items: [{ title: "Pierwszy", path: "/poradnik/pierwszy/" }],
+    });
     expect(placed).toContain("<h2>Najnowsze</h2>");
+    expect(placed).toContain("<h3>Pierwszy</h3>");
     expect(placed).not.toContain("<h1");
   });
 });

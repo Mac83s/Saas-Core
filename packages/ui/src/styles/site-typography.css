@@ -43,6 +43,15 @@
   font-size: clamp(1.0625rem, 0.98rem + 0.5cqw, 1.375rem);
   line-height: 1.4;
 }
+/* On a section's own index the list's name is the page's h1, so each article
+   is an h2 — set as the h3 it is where the list stands on a page. */
+.site-theme .site-block--entry-list li h2 {
+  font-size: clamp(1.0625rem, 0.98rem + 0.5cqw, 1.375rem);
+  font-weight: inherit;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+  text-wrap: wrap;
+}
 .site-theme .site-block :is(p, dd, li) {
   font-size: clamp(1rem, 0.96rem + 0.22cqw, 1.125rem);
   line-height: 1.75;

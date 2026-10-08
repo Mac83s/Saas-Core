@@ -333,7 +333,8 @@
   line-height: 1.04;
   hyphens: auto;
 }
-.site-theme.site-style--studio .site-block :is(h3, h4) {
+.site-theme.site-style--studio .site-block :is(h3, h4),
+.site-theme.site-style--studio .site-block--entry-list li h2 {
   letter-spacing: -0.02em;
   word-spacing: normal;
   line-height: 1.25;
@@ -582,7 +583,8 @@
   font-weight: 600;
   letter-spacing: -0.02em;
 }
-.site-theme.site-style--expert .site-block :is(h3, h4) {
+.site-theme.site-style--expert .site-block :is(h3, h4),
+.site-theme.site-style--expert .site-block--entry-list li h2 {
   letter-spacing: -0.01em;
 }
 .site-theme.site-style--expert
