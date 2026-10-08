@@ -17784,9 +17784,7 @@ paths:
         moved for good (another spelling, a deleted or renamed page, a language version
         without its own body); 307 while a language version is withheld because its
         source changed a fact (ADR-070 pkt 10). The Location is a path on the same
-        host, a full address on another one. 410 for an address of the site this one
-        replaced that is gone for good (ADR-077), said like a 404: in the address''s
-        language, with its home.'
+        host, a full address on another one.'
       summary: A published page of the site the host names
       parameters:
       - in: query
@@ -17821,45 +17819,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicSiteNotFound'
-          description: ''
-        '410':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicSiteNotFound'
-          description: ''
-  /api/v1/public/site/gone/:
-    get:
-      operationId: public_site_gone_retrieve
-      description: 'Asked by the renderer''s proxy before it hands a visit to the
-        page, because only the proxy can answer 410 (ADR-077). `rules`: the site has
-        an address gone for good at all; a host without one need not be asked again
-        for a while. `gone`: this address is one today — a live address wins over
-        a rule — with the language to say it in and that language''s home.'
-      summary: Whether an address of the site the host names is gone for good
-      parameters:
-      - in: query
-        name: path
-        schema:
-          type: string
-        description: The visitor's path as typed.
-        required: true
-      tags:
-      - public-sites
-      security:
-      - {}
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicSiteGoneVerdict'
-          description: ''
-        '400':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
           description: ''
   /api/v1/public/site/inquiries/:
     post:
@@ -44026,24 +43985,6 @@ components:
       - currency
       - paid_minor
       - refund_minor
-    PublicSiteGoneVerdict:
-      type: object
-      properties:
-        rules:
-          type: boolean
-          description: The site has an address gone for good at all (ADR-077).
-        gone:
-          type: boolean
-          description: This address is one, and nothing answers it.
-        locale:
-          type: string
-          description: The language to say it in.
-        home_path:
-          type: string
-          description: That language's home page on the site.
-      required:
-      - gone
-      - rules
     PublicSiteNotFound:
       type: object
       properties:

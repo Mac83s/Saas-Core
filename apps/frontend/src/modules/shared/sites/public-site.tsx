@@ -116,9 +116,6 @@ export const getPublicSite = cache(
           };
     }
     if (response.status === 404) return notFoundOf(response.body);
-    if (response.status === 410) {
-      return { ...notFoundOf(response.body), gone: true };
-    }
     if (response.status < 200 || response.status >= 300) {
       throw new Error(`Public Sites API zwróciło status ${response.status}`);
     }
@@ -126,9 +123,7 @@ export const getPublicSite = cache(
   },
 );
 
-function notFoundOf(
-  body: string,
-): Extract<PublicSiteResult, { kind: "not-found" }> {
+function notFoundOf(body: string): PublicSiteResult {
   try {
     const problem = JSON.parse(body) as {
       locale?: unknown;

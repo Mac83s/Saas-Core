@@ -208,7 +208,10 @@ class Domain(TenantScopedModel):
             ),
             models.UniqueConstraint(
                 fields=["site"],
-                condition=(models.Q(is_canonical=True) & ~models.Q(status=DomainStatus.RELEASED)),
+                condition=(
+                    models.Q(is_canonical=True)
+                    & ~models.Q(status=DomainStatus.RELEASED)
+                ),
                 name="sites_domain_active_canonical_uq",
             ),
             models.UniqueConstraint(
@@ -345,7 +348,10 @@ class SiteOnboardingDraft(TenantScopedModel):
             models.CheckConstraint(
                 condition=(
                     models.Q(step=SiteOnboardingStep.COMPLETED, site__isnull=False)
-                    | (~models.Q(step=SiteOnboardingStep.COMPLETED) & models.Q(site__isnull=True))
+                    | (
+                        ~models.Q(step=SiteOnboardingStep.COMPLETED)
+                        & models.Q(site__isnull=True)
+                    )
                 ),
                 name="sites_onboarding_completion_ck",
             ),
@@ -354,7 +360,11 @@ class SiteOnboardingDraft(TenantScopedModel):
     def clean(self) -> None:
         super().clean()
         site = self.site
-        if self.site_id and site is not None and site.organization_id != self.organization_id:
+        if (
+            self.site_id
+            and site is not None
+            and site.organization_id != self.organization_id
+        ):
             raise ValidationError({"site": "Onboarding wskazuje site innej organizacji."})
 
 
@@ -608,14 +618,18 @@ class PageTranslation(TenantScopedModel):
         if (
             self.site_id
             and self.locale == self.site.default_locale
-            and any((
-                self.allow_title_fallback,
-                self.allow_description_fallback,
-                self.allow_social_title_fallback,
-                self.allow_social_description_fallback,
-            ))
+            and any(
+                (
+                    self.allow_title_fallback,
+                    self.allow_description_fallback,
+                    self.allow_social_title_fallback,
+                    self.allow_social_description_fallback,
+                )
+            )
         ):
-            raise ValidationError({"locale": "Locale bazowe nie może korzystać z fallbacku."})
+            raise ValidationError(
+                {"locale": "Locale bazowe nie może korzystać z fallbacku."}
+            )
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         self.slug = self.slug.strip().lower()
@@ -674,10 +688,13 @@ class PageTranslationMutation(TenantScopedModel):
 
     def clean(self) -> None:
         super().clean()
-        if self.translation_id and self.translation.organization_id != self.organization_id:
-            raise ValidationError({
-                "translation": "Mutacja tłumaczenia należy do innej organizacji."
-            })
+        if (
+            self.translation_id
+            and self.translation.organization_id != self.organization_id
+        ):
+            raise ValidationError(
+                {"translation": "Mutacja tłumaczenia należy do innej organizacji."}
+            )
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         if not self._state.adding:
@@ -741,52 +758,6 @@ class SiteRedirect(TenantScopedModel):
 
     def __str__(self) -> str:
         return f"{self.from_path} -> {self.to_path}"
-
-
-class OldAddressOutcome(models.TextChoices):
-    MOVED = "moved", "Przeniesiony"
-    GONE = "gone", "Usunięty na stałe"
-
-
-class SiteOldAddress(TenantScopedModel):
-    """One address of the site this one replaced (ADR-077): where its content
-    answers today, or that it is gone for good.
-
-    Loaded in bulk by an operator; the site's own changes never write here —
-    those are `SiteRedirect` and a section's former names. `key` is the old
-    path as it is compared (`old_addresses.address_key`), `old_path` what the
-    file said. `to_path` is asked of the resolver at every visit, so the rule
-    leads to where that address answers today and never to another rule.
-    """
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
-    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="+")
-    key = models.CharField(max_length=600)
-    old_path = models.TextField()
-    outcome = models.CharField(max_length=10, choices=OldAddressOutcome.choices)
-    to_path = models.CharField(max_length=2048, blank=True, default="")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    all_objects = models.Manager()
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["organization", "site", "key"],
-                name="sites_oldaddress_org_site_key_uq",
-            ),
-            models.CheckConstraint(
-                condition=(
-                    models.Q(outcome="gone", to_path="")
-                    | (models.Q(outcome="moved") & ~models.Q(to_path=""))
-                ),
-                name="sites_oldaddress_outcome_target_ck",
-            ),
-        ]
-
-    def __str__(self) -> str:
-        return f"{self.key} -> {self.to_path or self.outcome}"
 
     def clean(self) -> None:
         super().clean()
@@ -891,7 +862,9 @@ class PageBlock(TenantScopedModel):
                 name="sites_block_schema_positive_ck",
             ),
             models.CheckConstraint(
-                condition=models.Q(block_type__regex=r"^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$"),
+                condition=models.Q(
+                    block_type__regex=r"^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$"
+                ),
                 name="sites_block_type_format_ck",
             ),
         ]
@@ -907,8 +880,13 @@ class PageBlock(TenantScopedModel):
 
     def clean(self) -> None:
         super().clean()
-        if self.page_version_id and self.page_version.organization_id != self.organization_id:
-            raise ValidationError({"page_version": "Blok należy do wersji innej organizacji."})
+        if (
+            self.page_version_id
+            and self.page_version.organization_id != self.organization_id
+        ):
+            raise ValidationError(
+                {"page_version": "Blok należy do wersji innej organizacji."}
+            )
         if not isinstance(self.data, dict):
             raise ValidationError({"data": "Dane bloku muszą być obiektem JSON."})
 
@@ -1237,8 +1215,12 @@ class NavigationItem(TenantScopedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
-    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="navigation_items")
-    page = models.ForeignKey(Page, on_delete=models.CASCADE, related_name="navigation_items")
+    site = models.ForeignKey(
+        Site, on_delete=models.PROTECT, related_name="navigation_items"
+    )
+    page = models.ForeignKey(
+        Page, on_delete=models.CASCADE, related_name="navigation_items"
+    )
     parent = models.ForeignKey(
         "self",
         on_delete=models.CASCADE,
@@ -1308,7 +1290,9 @@ class ContentCollection(TenantScopedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
-    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="content_collections")
+    site = models.ForeignKey(
+        Site, on_delete=models.PROTECT, related_name="content_collections"
+    )
     key = models.SlugField(max_length=80)
     name = models.CharField(max_length=160)
     kind = models.CharField(
@@ -1396,7 +1380,9 @@ class ContentTag(TenantScopedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
-    site = models.ForeignKey(Site, on_delete=models.CASCADE, related_name="content_tags")
+    site = models.ForeignKey(
+        Site, on_delete=models.CASCADE, related_name="content_tags"
+    )
     slug = models.SlugField(max_length=80)
     name = models.CharField(max_length=120)
     created_by = models.ForeignKey(
@@ -1441,8 +1427,12 @@ class ContentEntryTag(TenantScopedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
-    entry = models.ForeignKey("ContentEntry", on_delete=models.CASCADE, related_name="tag_links")
-    tag = models.ForeignKey(ContentTag, on_delete=models.CASCADE, related_name="entry_links")
+    entry = models.ForeignKey(
+        "ContentEntry", on_delete=models.CASCADE, related_name="tag_links"
+    )
+    tag = models.ForeignKey(
+        ContentTag, on_delete=models.CASCADE, related_name="entry_links"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     all_objects = models.Manager()
@@ -1515,8 +1505,7 @@ class ContentProposal(TenantScopedModel):
     metadata_after = models.JSONField(default=dict)
     metadata_pending = models.BooleanField(default=False)
     review_state = models.CharField(
-        max_length=16,
-        default="pending",
+        max_length=16, default="pending",
         choices=[("pending", "Pending"), ("accepted", "Accepted"), ("rejected", "Rejected")],
     )
     decision_version = models.PositiveBigIntegerField(null=True, blank=True)
@@ -1565,13 +1554,10 @@ class BlueprintImportReceipt(TenantScopedModel):
     all_objects = models.Manager()
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["organization", "site", "created_by", "credential_id", "idempotency_key"],
-                nulls_distinct=False,
-                name="sites_blueprint_delivery_uq",
-            )
-        ]
+        constraints = [models.UniqueConstraint(
+            fields=["organization", "site", "created_by", "credential_id", "idempotency_key"],
+            nulls_distinct=False, name="sites_blueprint_delivery_uq",
+        )]
 
 
 class EntryScheduleState(models.TextChoices):
@@ -1597,7 +1583,9 @@ class ContentEntry(TenantScopedModel):
     collection = models.ForeignKey(
         ContentCollection, on_delete=models.PROTECT, related_name="entries"
     )
-    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="content_entries")
+    site = models.ForeignKey(
+        Site, on_delete=models.PROTECT, related_name="content_entries"
+    )
     slug = models.SlugField(max_length=140)
     locale = models.CharField(max_length=10)
     # Entries sharing this are the same article in different languages. A new
@@ -1763,7 +1751,10 @@ class ContentEntry(TenantScopedModel):
 
     def clean(self) -> None:
         super().clean()
-        if self.collection_id and self.collection.organization_id != self.organization_id:
+        if (
+            self.collection_id
+            and self.collection.organization_id != self.organization_id
+        ):
             raise ValidationError({"collection": "Wpis należy do innej organizacji."})
         if self.collection_id and self.collection.site_id != self.site_id:
             raise ValidationError({"collection": "Wpis należy do innego serwisu."})
@@ -1777,7 +1768,9 @@ class ContentEntryVersion(TenantScopedModel):
     """Immutable draft content, exactly as `PageVersion` is for pages."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
-    entry = models.ForeignKey(ContentEntry, on_delete=models.PROTECT, related_name="versions")
+    entry = models.ForeignKey(
+        ContentEntry, on_delete=models.PROTECT, related_name="versions"
+    )
     number = models.PositiveBigIntegerField()
     blocks = models.JSONField(default=list)
     content_hash = models.CharField(max_length=64)
@@ -1831,7 +1824,9 @@ class ContentEntryPublication(TenantScopedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
-    entry = models.ForeignKey(ContentEntry, on_delete=models.PROTECT, related_name="publications")
+    entry = models.ForeignKey(
+        ContentEntry, on_delete=models.PROTECT, related_name="publications"
+    )
     sequence = models.PositiveBigIntegerField()
     snapshot = models.JSONField(default=dict)
     snapshot_hash = models.CharField(max_length=64)
@@ -1980,7 +1975,10 @@ class ContentAutomationGrant(TenantScopedModel):
         if site is not None and site.organization_id != self.organization_id:
             raise ValidationError({"site": "Grant należy do innej organizacji."})
         collection = self.collection if self.collection_id else None
-        if collection is not None and collection.organization_id != self.organization_id:
+        if (
+            collection is not None
+            and collection.organization_id != self.organization_id
+        ):
             raise ValidationError({"collection": "Grant należy do innej organizacji."})
 
     @property
@@ -2050,7 +2048,8 @@ class SiteOutboxEvent(TenantScopedModel):
             # row cannot be deleted out from under an event that names it.
             models.CheckConstraint(
                 condition=(
-                    models.Q(publication__isnull=True) | models.Q(entry_publication__isnull=True)
+                    models.Q(publication__isnull=True)
+                    | models.Q(entry_publication__isnull=True)
                 ),
                 name="sites_outbox_at_most_one_subject_ck",
             ),
@@ -2081,7 +2080,9 @@ class SiteOutboxEvent(TenantScopedModel):
             and self.entry_publication.organization_id != self.organization_id
         ):
             raise ValidationError({
-                "entry_publication": ("Zdarzenie wskazuje publikację wpisu innej organizacji.")
+                "entry_publication": (
+                    "Zdarzenie wskazuje publikację wpisu innej organizacji."
+                )
             })
         if not isinstance(self.payload, dict):
             raise ValidationError({"payload": "Payload zdarzenia musi być obiektem JSON."})

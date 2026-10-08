@@ -4,7 +4,7 @@ vi.mock("../modules/shared/profiles/catalog-server", () => ({
   readCatalogLocalesOnServer: vi.fn(),
   readCatalogSitemapOnServer: vi.fn(),
 }));
-// A product whose public site answers on its own domain (ADR-077).
+// A deployment that shows no marketing of the core on its platform host.
 vi.mock("../marketing/enabled", () => ({ marketingSiteEnabled: false }));
 
 import { productHasCatalog } from "../marketing/content";

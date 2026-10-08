@@ -140,11 +140,6 @@ export interface SiteUiTexts {
     readonly body: string;
     readonly home: string;
   };
-  /** An address gone for good (410, ADR-077); the way home is `notFound.home`. */
-  readonly gone: {
-    readonly title: string;
-    readonly body: string;
-  };
   readonly stay: StayTexts;
   readonly document: DocumentTexts;
 }
@@ -195,10 +190,6 @@ const TEXTS = {
       title: "Nie ma takiej strony",
       body: "Adres mógł się zmienić albo strona została usunięta.",
       home: "Przejdź na stronę główną",
-    },
-    gone: {
-      title: "Tej strony już nie ma",
-      body: "Została usunięta na stałe i nie wróci pod tym adresem.",
     },
     stay: {
       approxNote: (date, bank, currency) =>
@@ -316,10 +307,6 @@ const TEXTS = {
       body: "The address may have changed, or the page was removed.",
       home: "Go to the home page",
     },
-    gone: {
-      title: "This page is gone",
-      body: "It was removed for good and will not return at this address.",
-    },
     stay: {
       approxNote: (date, bank, currency) =>
         `Amounts after ≈ are indicative: the ${bank} rate of ${date}. You book and pay in ${currency}.`,
@@ -433,10 +420,6 @@ const TEXTS = {
       body: "Die Adresse hat sich vielleicht geändert, oder die Seite wurde entfernt.",
       home: "Zur Startseite",
     },
-    gone: {
-      title: "Diese Seite gibt es nicht mehr",
-      body: "Sie wurde dauerhaft entfernt und kommt unter dieser Adresse nicht zurück.",
-    },
     stay: {
       approxNote: (date, bank, currency) =>
         `Beträge nach ≈ sind Richtwerte: ${bank}-Kurs vom ${date}. Gebucht und bezahlt wird in ${currency}.`,
@@ -549,10 +532,6 @@ const TEXTS = {
       body: "Es posible que la dirección haya cambiado o que la página se haya eliminado.",
       home: "Ir a la página de inicio",
     },
-    gone: {
-      title: "Esta página ya no existe",
-      body: "Se eliminó de forma definitiva y no volverá a esta dirección.",
-    },
     stay: {
       approxNote: (date, bank, currency) =>
         `Los importes tras ≈ son orientativos: tipo de cambio del ${bank} del ${date}. La reserva y el pago son en ${currency}.`,
@@ -663,10 +642,6 @@ const TEXTS = {
       title: "Страница не найдена",
       body: "Возможно, адрес изменился или страница была удалена.",
       home: "На главную страницу",
-    },
-    gone: {
-      title: "Этой страницы больше нет",
-      body: "Она удалена навсегда и не вернётся по этому адресу.",
     },
     stay: {
       approxNote: (date, bank, currency) =>

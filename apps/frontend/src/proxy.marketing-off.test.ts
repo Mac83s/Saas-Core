@@ -4,10 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("next-intl/middleware", () => ({
   default: () => () => new Response(null, { status: 200 }),
 }));
-vi.mock("./modules/shared/sites/gone-check", () => ({
-  goneVerdict: async () => ({ gone: false }),
-}));
-// A product whose public site answers on its own domain (ADR-077).
+// A deployment that shows no marketing of the core on its platform host.
 vi.mock("./marketing/enabled", () => ({ marketingSiteEnabled: false }));
 
 import proxy from "./proxy";

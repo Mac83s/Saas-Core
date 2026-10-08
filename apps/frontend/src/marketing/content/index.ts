@@ -19,7 +19,7 @@ export const productName = deployment.product.name;
 
 /** The company catalogue (ADR-053) is part of every product that composes
  *  profiles — unless the deployment shows no marketing on its platform host
- *  at all (`features.marketingSite`, ADR-077). */
+ *  at all (`features.marketingSite`). */
 export const productHasCatalog =
   marketingSiteEnabled &&
   (deployment.modules as readonly string[]).includes("shared.profiles");

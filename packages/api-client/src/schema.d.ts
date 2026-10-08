@@ -6038,29 +6038,9 @@ export interface paths {
         };
         /**
          * A published page of the site the host names
-         * @description What the renderer shows at `path` on this host: the page in that address's language, with its own blocks, head and menu. 308 when the address moved for good (another spelling, a deleted or renamed page, a language version without its own body); 307 while a language version is withheld because its source changed a fact (ADR-070 pkt 10). The Location is a path on the same host, a full address on another one. 410 for an address of the site this one replaced that is gone for good (ADR-077), said like a 404: in the address's language, with its home.
+         * @description What the renderer shows at `path` on this host: the page in that address's language, with its own blocks, head and menu. 308 when the address moved for good (another spelling, a deleted or renamed page, a language version without its own body); 307 while a language version is withheld because its source changed a fact (ADR-070 pkt 10). The Location is a path on the same host, a full address on another one.
          */
         get: operations["public_site_page_retrieve"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/site/gone/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Whether an address of the site the host names is gone for good
-         * @description Asked by the renderer's proxy before it hands a visit to the page, because only the proxy can answer 410 (ADR-077). `rules`: the site has an address gone for good at all; a host without one need not be asked again for a while. `gone`: this address is one today — a live address wins over a rule — with the language to say it in and that language's home.
-         */
-        get: operations["public_site_gone_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16663,16 +16643,6 @@ export interface components {
             paid_minor: number;
             /** @description Of a booking not canceled: what giving it up now would give back, by the thresholds it was booked under. Of a canceled one: what the company is still to give back. */
             refund_minor: number;
-        };
-        PublicSiteGoneVerdict: {
-            /** @description The site has an address gone for good at all (ADR-077). */
-            rules: boolean;
-            /** @description This address is one, and nothing answers it. */
-            gone: boolean;
-            /** @description The language to say it in. */
-            locale?: string;
-            /** @description That language's home page on the site. */
-            home_path?: string;
         };
         PublicSiteNotFound: {
             /** @description Always `about:blank`; `code` names the problem. */
@@ -37453,44 +37423,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicSiteNotFound"];
-                };
-            };
-            410: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicSiteNotFound"];
-                };
-            };
-        };
-    };
-    public_site_gone_retrieve: {
-        parameters: {
-            query: {
-                /** @description The visitor's path as typed. */
-                path: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicSiteGoneVerdict"];
-                };
-            };
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

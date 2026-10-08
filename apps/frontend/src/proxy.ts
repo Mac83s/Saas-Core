@@ -5,11 +5,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { isPanelLocale, panelLocales, routing } from "#i18n/routing";
 import { deployment } from "./generated/deployment";
 import { marketingSiteEnabled } from "./marketing/enabled";
-import { goneVerdict } from "./modules/shared/sites/gone-check";
-import {
-  GONE_HOME_HEADER,
-  GONE_LOCALE_HEADER,
-} from "./modules/shared/sites/gone-headers";
 import { PUBLIC_SITE_METHOD_HEADER } from "./modules/shared/sites/page-view";
 import { normalizeRequestHostname } from "./proxy-host";
 
@@ -54,9 +49,6 @@ const PANEL_SEGMENTS = new Set([
  *  the profile switches the marketing off (`features.marketingSite`). */
 const GUEST_SEGMENTS = new Set(["book", "booking", "documents"]);
 
-/** The 410 page (ADR-077). Reached only through the rewrite below. */
-const GONE_ROUTE = "/site-gone";
-
 /** Carries the visitor-facing path across the rewrite into `/site-renderer`,
  *  so the public layout can set `<html lang>` from the published page. */
 export const PUBLIC_SITE_PATH_HEADER = "x-saas-core-site-path";
@@ -66,7 +58,7 @@ export const PUBLIC_SITE_PATH_HEADER = "x-saas-core-site-path";
 export const PUBLIC_SITE_TRAILING_SLASH_HEADER =
   "x-saas-core-site-trailing-slash";
 
-export default async function proxy(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   // The renderer is reachable only through the rewrite below, which sets the
   // headers it trusts. Asked for directly, with headers of the visitor's own
@@ -76,30 +68,6 @@ export default async function proxy(request: NextRequest) {
   }
   const hostname = normalizeRequestHostname(request.headers.get("host"));
   if (!isControlHostname(hostname)) {
-    // An address of the site this one replaced, gone for good: the page
-    // behind the rewrite can say 404 but not 410, so it is answered here
-    // (ADR-077). Addresses with a dot are files and feeds, never rules.
-    if (
-      (request.method === "GET" || request.method === "HEAD") &&
-      !pathname.includes(".")
-    ) {
-      const verdict = await goneVerdict(
-        request.headers.get("host") ?? "",
-        decodedPath(pathname),
-      );
-      if (verdict.gone) {
-        // Built anew: a clone of the visitor's address keeps its trailing
-        // slash and its query on whatever path it is given.
-        const gone = new URL(GONE_ROUTE, request.nextUrl.href);
-        const said = new Headers(request.headers);
-        // Set or removed, never left as the visitor sent them.
-        said.delete(GONE_LOCALE_HEADER);
-        said.delete(GONE_HOME_HEADER);
-        if (verdict.locale) said.set(GONE_LOCALE_HEADER, verdict.locale);
-        if (verdict.homePath) said.set(GONE_HOME_HEADER, verdict.homePath);
-        return NextResponse.rewrite(gone, { request: { headers: said } });
-      }
-    }
     const rewritten = request.nextUrl.clone();
     rewritten.pathname = `/site-renderer${request.nextUrl.pathname}`;
     // The rewritten path is what the layout sees, and a layout cannot read the
@@ -131,9 +99,6 @@ export default async function proxy(request: NextRequest) {
       308,
     );
   }
-  // The 410 page belongs to customer sites and is theirs through the rewrite
-  // above; here nobody asks for it.
-  if (pathname === GONE_ROUTE) return new NextResponse(null, { status: 404 });
   // The product's own sitemap and robots are app routes, not localized pages.
   if (METADATA_PATHS.has(pathname)) return NextResponse.next();
   if (
@@ -143,9 +108,9 @@ export default async function proxy(request: NextRequest) {
     return new NextResponse(null, { status: 404 });
   }
   if (!marketingSiteEnabled) {
-    // A product whose public site answers on its own domain (ADR-077): this
-    // host is the panel. Its front door is sign-in, and the core's marketing
-    // pages and catalogue are not here.
+    // A deployment that shows no marketing of the core on its platform host
+    // (`features.marketingSite: false`): the front door is sign-in, and the
+    // core's marketing pages and catalogue are not here.
     const [first = "", ...rest] = pathname.split("/").slice(1);
     const prefixed = (routing.locales as readonly string[]).includes(first);
     const segment = prefixed ? (rest[0] ?? "") : first;
@@ -167,20 +132,6 @@ export default async function proxy(request: NextRequest) {
 function signInPath(prefix: string | undefined): string {
   if (!prefix || prefix === PANEL_DEFAULT_LOCALE) return "/login";
   return isPanelLocale(prefix) ? `/${prefix}/login` : "/en/login";
-}
-
-/** The path as the page's route params spell it: each segment decoded. */
-function decodedPath(pathname: string): string {
-  return pathname
-    .split("/")
-    .map((segment) => {
-      try {
-        return decodeURIComponent(segment);
-      } catch {
-        return segment;
-      }
-    })
-    .join("/");
 }
 
 /**
