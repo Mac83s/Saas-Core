@@ -60,6 +60,7 @@ from .origin import (
 )
 from .person_gate import PersonRequired, assert_person_required
 from .platform_settings import platform_setting
+from .platform_workspace import PlatformWorkspaceMissing, in_platform_workspace
 from .public_locales import (
     LocaleRedirect,
     PublicLocalesLimit,
@@ -185,6 +186,7 @@ __all__ = [
     "Invocation",
     "Preview",
     "PersonRequired",
+    "PlatformWorkspaceMissing",
     "PublicLocalesLimit",
     "PageAddress",
     "PublicSource",
@@ -201,6 +203,7 @@ __all__ = [
     "command_for_tool",
     "command_tools",
     "copy_resource_references",
+    "in_platform_workspace",
     "include_site_source_locale",
     "execute_plan",
     "offer_plan",

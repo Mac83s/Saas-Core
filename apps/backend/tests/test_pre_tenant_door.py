@@ -19,6 +19,8 @@ from pathlib import Path
 
 from django.conf import settings
 
+from saas_core.modules.core.organizations import api as organizations_api
+
 SOURCE = Path(settings.BASE_DIR) / "src" / "saas_core"
 
 #: Where the door may be used, and how many times, with the reason each one
@@ -72,7 +74,8 @@ DECLARED_DOOR: dict[str, tuple[int, str]] = {
         "workspace platformy: czy ten deployment ma już swojego wydawcę — pytanie "
         "o rejestr, zadawane zanim istnieje organizacja, której mogłoby dotyczyć; "
         "oraz sam identyfikator wydawcy (`platform_workspace_id`: stałe zapytanie, "
-        "jedna kolumna) dla odczytów z listy DECLARED_WORKSPACE_LOOKUPS",
+        "jedna kolumna) dla odczytów z listy DECLARED_WORKSPACE_LOOKUPS i dla bloku "
+        "`in_platform_workspace`, który pyta tą samą linią",
     ),
     "modules/core/organizations/management/commands/purge_test_tenants.py": (
         4,
@@ -105,13 +108,31 @@ DEFINITION = "modules/core/organizations/pre_tenant.py"
 #: stays where it is, in the module that defines them, however many places
 #: start calling it.
 WORKSPACE_LOOKUPS = frozenset({"platform_workspace", "platform_workspace_id"})
+#: The block that runs inside that workspace (ADR-080, „Uzupełnienie PR1c").
+#: It asks the lookup itself, so whoever calls it reads before a tenant is
+#: known just the same — it is counted with them.
+WORKSPACE_BLOCK = "in_platform_workspace"
+WORKSPACE_NAMES = WORKSPACE_LOOKUPS | {WORKSPACE_BLOCK}
 WORKSPACE_LOOKUP_DEFINITION = "modules/core/organizations/platform_workspace.py"
 
-#: Who may ask, which of the two, and why. A module is on this list when it
-#: names a lookup at all — imports it, reaches it as an attribute, or spells
-#: its name in a string — so a new caller fails the test until somebody
-#: writes down here what it does with the answer.
+#: A product's own modules. Its public pages stand on the platform's host,
+#: which is no site's domain, and its operator's commands have no request at
+#: all: "the platform's workspace, without a host" is the designed answer
+#: there and nowhere else. So the block is theirs to call without a line in
+#: this file — a product may not edit a file of the core (ADR-049) — and the
+#: lookups are never theirs to name, in a view or in a command.
+PRODUCT_MODULES = "modules/vertical/"
+
+#: Who of the core may ask, by which name, and why. A module is on this list
+#: when it names a lookup or the block at all — imports it, reaches it as an
+#: attribute, or spells its name in a string — so a new caller fails the test
+#: until somebody writes down here what it does with the answer.
 DECLARED_WORKSPACE_LOOKUPS: dict[str, tuple[frozenset[str], str]] = {
+    "modules/core/organizations/api.py": (
+        frozenset({"in_platform_workspace"}),
+        "podaje blok dalej i niczego nie odczytuje: publiczna powierzchnia modułu, "
+        "z której bierze go moduł produktu (ADR-080, „Uzupełnienie PR1c”)",
+    ),
     "modules/shared/model_port/service.py": (
         frozenset({"platform_workspace"}),
         "port modeli: czy żądanie do modelu składa workspace platformy — porównanie "
@@ -143,16 +164,18 @@ def _door_usage() -> dict[str, int]:
     return found
 
 
-def _lookups_named(source: str) -> set[str]:
-    """The workspace lookups a module names, however it gets at them.
+def _workspace_names(source: str) -> set[str]:
+    """The workspace lookups and the block a module names, however it gets at
+    them.
 
     - `from … import platform_workspace_id`, from the defining module or from
       one that passes it on;
     - the defining module taken whole (`import ….platform_workspace`,
       `from …organizations import platform_workspace`): everything in it is
-      then one attribute away, so that counts as both;
-    - an attribute of either name on anything (`module.platform_workspace()`);
-    - either name spelled in a string, which is how `getattr` reaches it.
+      then one attribute away, so that counts as both lookups;
+    - an attribute of any of the names on anything
+      (`module.platform_workspace()`);
+    - a name spelled in a string, which is how `getattr` reaches it.
 
     A local variable that merely happens to be called `platform_workspace` is
     none of these.
@@ -162,39 +185,78 @@ def _lookups_named(source: str) -> set[str]:
         if isinstance(node, ast.ImportFrom):
             module = (node.module or "").rsplit(".", 1)[-1]
             for alias in node.names:
-                if alias.name in WORKSPACE_LOOKUPS and module != "platform_workspace":
+                if module == "platform_workspace":
+                    if alias.name == "*":
+                        found |= WORKSPACE_NAMES
+                    elif alias.name in WORKSPACE_NAMES:
+                        found.add(alias.name)
+                elif alias.name == "platform_workspace":
                     # The defining module itself, imported from its package.
-                    found |= (
-                        WORKSPACE_LOOKUPS if alias.name == "platform_workspace" else {alias.name}
-                    )
-                elif module == "platform_workspace" and alias.name in WORKSPACE_LOOKUPS:
-                    found.add(alias.name)
-                elif module == "platform_workspace" and alias.name == "*":
                     found |= WORKSPACE_LOOKUPS
+                elif alias.name in WORKSPACE_NAMES:
+                    found.add(alias.name)
         elif isinstance(node, ast.Import):
             if any(alias.name.rsplit(".", 1)[-1] == "platform_workspace" for alias in node.names):
                 found |= WORKSPACE_LOOKUPS
-        elif isinstance(node, ast.Attribute) and node.attr in WORKSPACE_LOOKUPS:
+        elif isinstance(node, ast.Attribute) and node.attr in WORKSPACE_NAMES:
             found.add(node.attr)
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
             found |= {
                 name
-                for name in WORKSPACE_LOOKUPS
+                for name in WORKSPACE_NAMES
                 if node.value == name or node.value.endswith(f".{name}")
             }
     return found
 
 
-def _workspace_lookup_usage() -> dict[str, frozenset[str]]:
+def _workspace_usage(root: Path = SOURCE) -> dict[str, frozenset[str]]:
     found: dict[str, frozenset[str]] = {}
-    for path in sorted(SOURCE.rglob("*.py")):
-        relative = path.relative_to(SOURCE).as_posix()
+    for path in sorted(root.rglob("*.py")):
+        relative = path.relative_to(root).as_posix()
         if relative == WORKSPACE_LOOKUP_DEFINITION:
             continue
-        names = _lookups_named(path.read_text(encoding="utf-8"))
+        names = _workspace_names(path.read_text(encoding="utf-8"))
         if names:
             found[relative] = frozenset(names)
     return found
+
+
+def _workspace_problems(
+    usage: dict[str, frozenset[str]], declared: dict[str, frozenset[str]]
+) -> list[str]:
+    """What is wrong with who reaches the platform's workspace, one line per
+    module — each line says what its author is to do."""
+    problems: list[str] = []
+    for path, names in sorted(usage.items()):
+        if path.startswith(PRODUCT_MODULES):
+            # The block is a product's module's by design; a lookup never is.
+            named = sorted(names & WORKSPACE_LOOKUPS)
+            if named:
+                problems.append(
+                    f"{path}: moduł produktu nazywa odnalezienie workspace'u platformy "
+                    f"wprost ({', '.join(named)}). Moduł wertykału nie nazywa go nigdy, "
+                    "także w komendzie operatora — użyj bloku: "
+                    "`from saas_core.modules.core.organizations.api import "
+                    f"{WORKSPACE_BLOCK}` i `with {WORKSPACE_BLOCK}() as organization_id:` "
+                    "(ADR-080, „Uzupełnienie PR1c”; docs/architecture/product-public-site.md §13)."
+                )
+        elif path not in declared:
+            problems.append(
+                f"{path}: nowy moduł rdzenia sięga po workspace platformy bez hosta "
+                f"({', '.join(sorted(names))}). Dopisz go do DECLARED_WORKSPACE_LOOKUPS "
+                "razem z powodem (ADR-041, ADR-079 pkt 31) — albo nie sięgaj."
+            )
+        elif names != declared[path]:
+            problems.append(
+                f"{path}: nazywa {', '.join(sorted(names))}, a deklaracja mówi "
+                f"{', '.join(sorted(declared[path]))} — popraw wpis w DECLARED_WORKSPACE_LOOKUPS."
+            )
+    problems.extend(
+        f"{path}: zadeklarowany w DECLARED_WORKSPACE_LOOKUPS, a niczego już nie nazywa — "
+        "usuń wpis."
+        for path in sorted(set(declared) - set(usage))
+    )
+    return problems
 
 
 def test_only_the_declared_places_read_before_a_tenant() -> None:
@@ -215,23 +277,108 @@ def test_every_declared_place_says_why() -> None:
 
 
 def test_only_the_declared_places_look_the_platform_workspace_up() -> None:
-    """ADR-079 pkt 31. The product's own pages read the platform's published
-    content with no host to name a tenant, so that read finds the workspace
-    through the door — the one public path that does. What keeps it one is
-    this list: the count of `PRE_TENANT_DB` lines does not move when another
-    module starts calling the lookup, and this fails when one does."""
-    actual = _workspace_lookup_usage()
-    expected = {path: names for path, (names, _reason) in DECLARED_WORKSPACE_LOOKUPS.items()}
+    """ADR-079 pkt 31, ADR-080 „Uzupełnienie PR1c". The product's own pages
+    read and write with no host to name a tenant, so they find the workspace
+    through the door — the public paths that do. What keeps them few is this
+    list: the count of `PRE_TENANT_DB` lines does not move when another
+    module starts calling a lookup or the block, and this fails when one of
+    the core does. A product's own module calls the block without a line
+    here and fails for naming a lookup — with what to write instead."""
+    declared = {path: names for path, (names, _reason) in DECLARED_WORKSPACE_LOOKUPS.items()}
+    problems = _workspace_problems(_workspace_usage(), declared)
 
-    assert actual == expected, (
-        "Ktoś nowy odnajduje workspace platformy przez drzwi sprzed tenanta albo "
-        "zadeklarowane miejsce już tego nie robi. Dopisz je do "
-        "DECLARED_WORKSPACE_LOOKUPS razem z powodem albo usuń wpis (ADR-041, "
-        f"ADR-079 pkt 31): {actual}"
+    assert not problems, (
+        "Kto sięga po workspace platformy bez hosta, rozjechał się z regułą "
+        "(ADR-041, ADR-079 pkt 31, ADR-080 „Uzupełnienie PR1c”):\n" + "\n".join(problems)
     )
     for path, (names, reason) in DECLARED_WORKSPACE_LOOKUPS.items():
-        assert names and names <= WORKSPACE_LOOKUPS, path
+        assert names and names <= WORKSPACE_NAMES, path
         assert len(reason) > 20, f"{path}: powód jest zbyt ogólny, żeby coś znaczył"
+        # A product's module needs no line, and may not buy a lookup with one.
+        assert not path.startswith(PRODUCT_MODULES), path
+
+
+def test_a_products_module_runs_the_block_and_never_names_the_lookup(tmp_path: Path) -> None:
+    """The rule as a product's tree meets it, on a module no product has.
+
+    A product takes this file with the core and may not edit it (ADR-049):
+    its vertical module passes with the block and without a declaration, in
+    a view and in a command alike; where it names a lookup, the failure
+    tells its author what to write. The core stays closed — a shared or core
+    module that starts using either fails until it is declared here."""
+    block = (
+        "from saas_core.modules.core.organizations.api import in_platform_workspace\n\n\n"
+        "def rows():\n"
+        "    with in_platform_workspace() as organization_id:\n"
+        "        return organization_id\n"
+    )
+    lookup = "from saas_core.modules.core.organizations.platform_workspace import {name}\n"
+    tree = {
+        # What a product writes: a visitor's form, a public read, a command.
+        "modules/vertical/kennel/site_forms.py": block,
+        "modules/vertical/kennel/management/commands/kennel_import.py": block,
+        # What it wrote before: the lookup, in a view and in a command.
+        "modules/vertical/kennel/breeds.py": lookup.format(name="platform_workspace_id"),
+        "modules/vertical/kennel/management/commands/kennel_seed.py": lookup.format(
+            name="platform_workspace"
+        ),
+        # The core, quietly: the block and a lookup, undeclared.
+        "modules/shared/somebody/reads.py": block,
+        "modules/core/somebody/reads.py": lookup.format(name="platform_workspace_id"),
+        # Nothing to do with any of it.
+        "modules/vertical/kennel/models.py": "platform_workspace = None\n",
+    }
+    for relative, source in tree.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source, encoding="utf-8")
+
+    problems = _workspace_problems(_workspace_usage(tmp_path), {})
+
+    told = {problem.split(": ", 1)[0]: problem for problem in problems}
+    assert sorted(told) == [
+        "modules/core/somebody/reads.py",
+        "modules/shared/somebody/reads.py",
+        "modules/vertical/kennel/breeds.py",
+        "modules/vertical/kennel/management/commands/kennel_seed.py",
+    ]
+    for path, named in (
+        ("modules/vertical/kennel/breeds.py", "platform_workspace_id"),
+        ("modules/vertical/kennel/management/commands/kennel_seed.py", "platform_workspace"),
+    ):
+        # Names what it found, and the block with where it is imported from.
+        assert f"({named})" in told[path]
+        assert "from saas_core.modules.core.organizations.api import in_platform_workspace" in (
+            told[path]
+        )
+        assert "with in_platform_workspace() as organization_id:" in told[path]
+        assert "DECLARED_WORKSPACE_LOOKUPS" not in told[path]
+    for path in ("modules/shared/somebody/reads.py", "modules/core/somebody/reads.py"):
+        assert "DECLARED_WORKSPACE_LOOKUPS" in told[path]
+    # A declaration opens the core's module, and only for the name it gives.
+    declared = {"modules/shared/somebody/reads.py": frozenset({"in_platform_workspace"})}
+    assert "modules/shared/somebody/reads.py" not in {
+        problem.split(": ", 1)[0]
+        for problem in _workspace_problems(_workspace_usage(tmp_path), declared)
+    }
+    declared = {"modules/shared/somebody/reads.py": frozenset({"platform_workspace_id"})}
+    assert any(
+        problem.startswith("modules/shared/somebody/reads.py: nazywa in_platform_workspace")
+        for problem in _workspace_problems(_workspace_usage(tmp_path), declared)
+    )
+
+
+def test_the_block_is_what_the_modules_surface_offers_and_the_lookups_are_not() -> None:
+    """A product imports from `core.organizations.api`. The block is there;
+    a lookup passed on from there would be one import away from every
+    vertical module — the detector would still name it, and it is simply
+    not offered."""
+    assert WORKSPACE_BLOCK in organizations_api.__all__
+    assert callable(getattr(organizations_api, WORKSPACE_BLOCK))
+    assert "PlatformWorkspaceMissing" in organizations_api.__all__
+    for name in WORKSPACE_LOOKUPS:
+        assert name not in organizations_api.__all__
+        assert not hasattr(organizations_api, name)
 
 
 def test_a_new_caller_of_the_workspace_lookup_is_noticed_however_it_is_written() -> None:
@@ -241,11 +388,19 @@ def test_a_new_caller_of_the_workspace_lookup_is_noticed_however_it_is_written()
     package = "saas_core.modules.core.organizations"
     module = f"{package}.platform_workspace"
     both, one, by_id = set(WORKSPACE_LOOKUPS), {"platform_workspace"}, {"platform_workspace_id"}
+    block = {WORKSPACE_BLOCK}
     for source, expected in (
+        # The block, from the module's surface, from where it is defined, as
+        # an attribute and by its name.
+        (f"from {package}.api import in_platform_workspace\n", block),
+        (f"from {module} import in_platform_workspace as publisher\n", block),
+        ("with organizations.in_platform_workspace() as found:\n    pass\n", block),
+        ("enter = getattr(api, 'in_platform_workspace')\n", block),
+        (f"from {module} import in_platform_workspace, platform_workspace_id\n", block | by_id),
         (f"from {module} import platform_workspace_id\n", by_id),
         (f"from {module} import platform_workspace as find\n", one),
         ("def read():\n    from .platform_workspace import platform_workspace_id\n", by_id),
-        (f"from {module} import *\n", both),
+        (f"from {module} import *\n", both | block),
         # Passed on by another module, and taken from there.
         (f"from {package}.api import platform_workspace_id\n", by_id),
         # The defining module taken whole: everything in it is within reach.
@@ -255,7 +410,7 @@ def test_a_new_caller_of_the_workspace_lookup_is_noticed_however_it_is_written()
         ("found = getattr(module, 'platform_workspace_id')()\n", by_id),
         (f"module = import_module('{module}')\n", one),
     ):
-        assert _lookups_named(source) == expected, source
+        assert _workspace_names(source) == expected, source
     for source in (
         # Another function of that module, and a name that only resembles one.
         f"from {package}.platform_workspace import is_platform_workspace\n",
@@ -263,8 +418,10 @@ def test_a_new_caller_of_the_workspace_lookup_is_noticed_however_it_is_written()
         "def test(platform_workspace_slug):\n    return ensure_platform_workspace()\n",
         "dependencies = [('organizations', '0021_platform_workspace')]\n",
         "default_code = 'platform_workspace_forbidden'\n",
+        "raise PlatformWorkspaceMissing\n",
+        "def in_platform_workspace_demo():\n    return in_platform()\n",
     ):
-        assert _lookups_named(source) == set(), source
+        assert _workspace_names(source) == set(), source
 
 
 def test_the_public_renderer_never_reads_through_the_door() -> None:
@@ -285,8 +442,9 @@ def test_the_public_renderer_never_reads_through_the_door() -> None:
         "modules/shared/sites/tls.py",
     }
     assert public & set(_door_usage()) == set()
-    # Nor by asking somebody else to: the workspace lookups read through it.
-    assert public & set(_workspace_lookup_usage()) == set()
+    # Nor by asking somebody else to: the workspace lookups read through it,
+    # and so does the block — a host named this tenant, and no other is its.
+    assert public & set(_workspace_usage()) == set()
 
 
 def test_the_door_is_configured_as_its_own_identity_outside_tests() -> None:

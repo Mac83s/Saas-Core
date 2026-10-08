@@ -16,19 +16,32 @@ renderer serves its builder site at no host (`serving_locales`), and one
 public read — `shared.sites.content_reads` — finds it without a host to name
 it, through `platform_workspace_id` below. Who may look it up that way is a
 counted list (`tests/test_pre_tenant_door.py`).
+
+A product's own module is the other reader without a host (ADR-080): its
+public pages stand on the platform's host too, and its operator's commands
+have no request at all. It names no lookup — it runs its block inside
+`in_platform_workspace` below, which the same test lets a vertical module
+call by design and anybody else only by declaration.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 from uuid import UUID
 
 from django.conf import settings
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from rest_framework.exceptions import APIException
 
 from .audit import record_audit
-from .context import set_local_organization_id
+from .context import (
+    local_organization_setting,
+    only_tenant_context_of,
+    restore_local_organization_setting,
+    set_local_organization_id,
+)
 from .models import (
     Organization,
     OrganizationAuditAction,
@@ -48,6 +61,16 @@ class PlatformWorkspaceConflict(APIException):
     status_code = 409
     default_detail = "Deployment ma już workspace platformy."
     default_code = "platform_workspace_conflict"
+
+
+class PlatformWorkspaceMissing(APIException):
+    """`in_platform_workspace` on a deployment nobody provisioned one for."""
+
+    status_code = 503
+    default_detail = (
+        "Ten deployment nie ma workspace'u platformy: najpierw provision_platform_workspace."
+    )
+    default_code = "platform_workspace_missing"
 
 
 def platform_workspace_slug() -> str:
@@ -88,6 +111,49 @@ def platform_workspace_id() -> UUID | None:
         .first()
     )
     return found
+
+
+@contextmanager
+def in_platform_workspace() -> Iterator[UUID]:
+    """A block inside the deployment's own workspace; gives its identifier.
+
+    For a product's own module (ADR-080, „Uzupełnienie PR1c"): its public
+    pages stand on the platform's host, which is no site's domain, so what
+    they read and write for a visitor — a sign-up, a breed — belongs to the
+    one workspace no host names. And for an operator's command, which has no
+    request at all. Instead of naming the lookup above, such code writes
+
+        with in_platform_workspace() as organization_id:
+            Row.all_objects.filter(organization_id=organization_id)…
+
+    - The block is one transaction with the workspace's tenant set, so the
+      tables that force row-level security answer in it — and only with the
+      workspace's rows.
+    - A deployment without a workspace says so: `PlatformWorkspaceMissing`.
+    - Run inside somebody's open transaction, the block is a savepoint of it,
+      and a tenant setting outlives the release of a savepoint: the setting
+      found on the way in is put back on the way out, so the caller's next
+      statement does not run as the platform. (A block that fails is rolled
+      back to its savepoint, and the setting with it.)
+    - A visitor signed in to the panel is still a visitor here: their own
+      company's context is hidden inside the block.
+    - The identifier may leave the block — a command reads the workspace's
+      row here and then runs its own transactions, each setting its tenant.
+
+    Who may call this is pinned in `tests/test_pre_tenant_door.py`: a
+    product's vertical modules by design, the core's own only by declaration.
+    """
+    organization_id = platform_workspace_id()
+    if organization_id is None:
+        raise PlatformWorkspaceMissing
+    # Only asked where there is a transaction to leave changed.
+    found = local_organization_setting() if connection.in_atomic_block else None
+    with only_tenant_context_of(organization_id):
+        with transaction.atomic():
+            set_local_organization_id(organization_id)
+            yield organization_id
+        if found is not None:
+            restore_local_organization_setting(found)
 
 
 def is_platform_workspace(organization: Organization | Any) -> bool:

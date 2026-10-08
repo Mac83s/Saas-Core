@@ -170,6 +170,27 @@ def activate_tenant_context(context: TenantContext) -> Iterator[TenantContext]:
         _active_tenant.reset(token)
 
 
+@contextmanager
+def only_tenant_context_of(organization_id: UUID) -> Iterator[None]:
+    """Nobody's membership of another organization is in force in the block.
+
+    A visitor signed in to the panel carries their own company's context on
+    every request of that origin. Where a block works in another tenant, a
+    service in it that asked for the context would act as that company while
+    the database is set to the other — so the context is hidden, and such a
+    service refuses exactly as it does for a visitor nobody knows.
+    """
+    active = _active_tenant.get()
+    if active is None or active.organization_id == organization_id:
+        yield
+        return
+    token = _active_tenant.set(None)
+    try:
+        yield
+    finally:
+        _active_tenant.reset(token)
+
+
 def set_local_organization_id(organization_id: UUID) -> None:
     if not connection.in_atomic_block:
         raise TenantContextTransactionRequired(
@@ -177,3 +198,18 @@ def set_local_organization_id(organization_id: UUID) -> None:
         )
     with connection.cursor() as cursor:
         cursor.execute("SET LOCAL app.organization_id = %s", [str(organization_id)])
+
+
+def local_organization_setting() -> str:
+    """What `app.organization_id` is set to now; "" when nothing set it."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT current_setting('app.organization_id', true)")
+        row = cursor.fetchone()
+    return str(row[0] or "") if row else ""
+
+
+def restore_local_organization_setting(value: str) -> None:
+    """Puts back what `local_organization_setting` read, for the rest of the
+    transaction: a setting made inside a savepoint outlives its release."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT set_config('app.organization_id', %s, true)", [value])
