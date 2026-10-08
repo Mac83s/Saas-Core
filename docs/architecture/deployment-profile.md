@@ -57,6 +57,14 @@ logowania, ich adresy odpowiadają 404, a `sitemap.xml` nie wymienia żadnego. T
 ustawienie produktu, który zamiast marketingu rdzenia przynosi własne publiczne
 strony; panel, logowanie i strony gości firm działają bez zmian.
 
+`features.contentTypes` (domyślnie wyłączone; ADR-079 pkt 21): `true` znaczy, że
+platforma oferuje firmom typy treści poza pierwszym na stronie — w panelu pozycja
+„Treści” zamiast „Blog”, a API pozwala założyć i przywrócić kolejny typ w granicach
+limitu planu `sites.content_types.additional.max`. Wyłączenie niczego nie zdejmuje: typy
+już założone działają dalej, nie da się tylko dodać kolejnego. Workspace platformy
+przełącznika nie pyta. Plany produktu dostają liczbę limitu, **zanim** profil włączy
+przełącznik — plan bez liczby nie ma limitu.
+
 Profil `deployments/core-only/deployment.json` zawiera wyłącznie moduły Core i
 służy do udowodnienia, że Core działa bez żadnego modułu Shared. Produkty
 branżowe (HoofCare, MedPlano) mają profile we własnych repozytoriach

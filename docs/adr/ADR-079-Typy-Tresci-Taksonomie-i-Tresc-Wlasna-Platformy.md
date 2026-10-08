@@ -564,8 +564,8 @@ przeglądarce. Szacunki po przeglądzie są wyższe niż w pierwszej wersji.
 
 | Faza | Zakres | Szacunek | Co właściciel kliknie |
 | --- | --- | --- | --- |
-| CT1 | Typy treści: testy złotych adresów archiwów tagów, bramki i limit (z migracją danych billing), „Treści” w panelu, nowy typ, wyłączenie, kontrola podstrona–typ, resolver jednego 308 | 3–5 dni | zakłada „Realizacje”, dodaje wpis, otwiera `/realizacje/` i `/en/projects/`, wyłącza i włącza typ |
-| CT2 | Kategorie i tagi: taksonomia, drzewo, przypisanie, archiwa, adres per język z zapisanym zamknięciem, 308 | 4–6 dni | kategorie w blogu i „Realizacjach”, archiwa w trzech językach, zmiana adresu kategorii z przekierowaniem |
+| CT1 | Typy treści: testy złotych adresów archiwów tagów, bramki i limit (z migracją danych billing), „Treści” w panelu, nowy typ, wyłączenie, kontrola podstrona–typ (resolver jednego 308 — przeniesiony do CT2, „Uzupełnienie CT1”) | 3–5 dni | zakłada „Realizacje”, dodaje wpis, otwiera `/realizacje/` i `/en/projects/`, wyłącza i włącza typ |
+| CT2 | Kategorie i tagi: taksonomia, drzewo, przypisanie, archiwa, adres per język z zapisanym zamknięciem, resolver jednego 308 (pkt 13) | 4–6 dni | kategorie w blogu i „Realizacjach”, archiwa w trzech językach, zmiana adresu kategorii z przekierowaniem |
 | CT3 | Odczyt dla stron produktu: API z testami kontraktu, trasa zdjęć, strona workspace'u poza rendererem. Po pakiecie tras produktu (PR1) | 2–3 dni | nic w przeglądarce w samym rdzeniu — pierwszym kliknięciem jest strona produktu z pakietu Puppily |
 | CT4 | Adres wpisu i import: `former_slugs`, zmiana sluga, usługa importu | 3–4 dni | zmienia adres opublikowanego wpisu i widzi jedno 308; przykładowy import widoczny w panelu platformy |
 | CT5 | Polecenia asystenta, inwentarz SCR, `core:update` produktów, wersje planów, kolejka VPS | 2 dni | to samo w HoofCare i MedPlano; odmowa ponad limit planu |
@@ -580,7 +580,70 @@ Puppily po CT2, CT3, CT4 i PR1.
 
 | Faza | Stan | Gdzie |
 | --- | --- | --- |
-| CT1 | w budowie | gałąź `pkg-ct1` |
+| CT1 | zbudowana 2026-10-08 | pakiet `pkg-ct1`; migracje `sites` 0053 (schemat) i `billing` 0029 (dane) |
+| CT2–CT6 | czekają | — |
+
+### Uzupełnienie CT1 (2026-10-08): co kod pokazał inaczej niż projekt
+
+Zbudowane zgodnie z punktami 1, 15, 18–25 i 28. Odstępstwa i doprecyzowania — żadne
+nie zmienia tego, co firma widzi wbrew temu, co właścicielowi powiedziano:
+
+1. **Resolver jednego 308 (pkt 13) przechodzi do CT2.** W CT1 nie powstaje żaden nowy
+   rodzaj dawnego adresu (slug wpisu zmienia CT4, adres pozycji — CT2), a dzisiejszy
+   `moved_section` odpowiada na każdą kombinację, która może dziś zaistnieć (dawna
+   nazwa działu × adres z migawki × archiwum × dalsza strona × wyłączony język) i ma na
+   to test (`test_a_renamed_section_answers_every_former_name_in_one_step`). Przepisanie
+   publicznego routingu bez nowej potrzeby byłoby ryzykiem dla istniejących adresów bez
+   żadnej korzyści. Jedyna zmiana: żadne przekierowanie nie prowadzi pod wyłączony typ.
+2. **Kody odmów** (ADR nazywał tylko dwa pierwsze): `quota_exceeded` i
+   `plan_access_denied` — 400 z listą `errors`, jak przy językach;
+   `content_types_not_offered` — 400, przełącznik platformy wyłączony;
+   `content_type_archived` — 409, każdy zapis do wyłączonego typu (wpis, publikacja,
+   wycofanie, tagi, harmonogram, nazwa, adres, menu, polityka automatyzacji);
+   `content_type_not_empty` — 409, usuwanie typu z wpisami; `slug_is_content_type` —
+   400 z polem `slug`, podstrona pod nazwą typu.
+3. **Kolejność w strażniku** (`content_type_limit.py`): workspace platformy → pierwszy
+   typ strony → przełącznik → limit planu. „Pierwszy typ” znaczy „żaden inny nie jest
+   włączony”, więc jedyny wyłączony typ strony zawsze da się przywrócić. Strażnik liczy
+   pod blokadą wiersza strony, po sprawdzeniu powtórki idempotentnej.
+4. **Kanał a `llms.txt`.** `in_site_feed` dotyczy RSS i Atom. `llms.txt` to spis tego, co
+   strona mówi, nie subskrypcja — wymienia wpisy wszystkich włączonych typów.
+5. **`schema_type = WebPage`:** wpis nie ma węzła artykułu; jego daty (`datePublished`,
+   `dateModified`) trafiają do węzła strony. Typ czyta się przy żądaniu z wiersza typu,
+   nigdy z migawki — zmiana niczego nie publikuje ponownie.
+6. **Kontrola podstrona ↔ typ** (pkt 15) obejmuje wszystkie drogi, którymi osoba albo
+   polecenie nadaje adres podstronie: zapis wersji językowej, zmianę adresu, szablon z
+   blueprintu, polecenie asystenta i **przywrócenie usuniętej podstrony** (typ mógł
+   zająć jej adres w międzyczasie — wtedy panel prosi o nowy adres). Adresy liczone
+   kodem (`free_slug`) omijały nazwy działów już wcześniej.
+7. **Menu.** Wpis menu wskazujący typ wyłączony albo usunięty jest pomijany przy żądaniu
+   we wszystkich językach, bez publikacji strony; po włączeniu typu wraca sam.
+8. **Tłumaczenia.** Źródło `sites.entry` nie wystawia wpisów wyłączonego typu i odmawia
+   zamówienia ich tłumaczenia. Wynik zlecenia rozpoczętego przed wyłączeniem zapisuje
+   się normalnie — gość go nie zobaczy, dopóki typ jest wyłączony.
+9. **Workspace platformy** widzi w menu „Treści” zawsze (pkt 28), także na swojej
+   stronie startowej panelu; jego menu nie zależy od przełącznika.
+10. **API typu** (wszystko jako serwisy z podglądem i audytem; polecenia asystenta —
+    CT5): `GET /sites/{site}/content-types/` (typy z licznikami, słowo bramek o
+    kolejnym typie, dozwolone rodzaje treści z etykietami pl/en),
+    `PUT /sites/collections/{id}/settings/` (+ `preview/`),
+    `POST …/switch-off/` (+ `preview/`), `POST …/switch-on/`, `DELETE …/{id}/`.
+    Zakładanie zostaje pod `POST /sites/{site}/collections/` z nowymi polami
+    `schema_type` i `in_site_feed`. Typ założony w panelu „Treści” dostaje `kind=blog`
+    — etykieta zostaje nietknięta (pkt 1).
+11. **Przełącznik w profilach rdzenia:** `business` — włączony (lokalny stos `:8080`);
+    `agro`, `core-only`, `vps-dev` — wyłączone. Włączenie na VPS i w produktach to
+    faza CT5 i decyzja właściciela.
+
+**Kto musi czytać `archived_at`** (lista dla następnych faz — nowy odczyt publiczny
+dopisuje się tutaj): `published_entries`, `_find_entry`, `_find_index`,
+`collections_with_entries`, `collection_links`, `moved_section`,
+`_published_translations`, `site_host_company` (wszystkie w `publication_routing.py`),
+pętla typów w sitemapie (`public_feeds.py`), lista źródła `sites.entry`, strażnik
+zapisu `_assert_entry_writable`. Zawsze jako złączenie w tym samym zapytaniu
+tenantowym, nigdy osobny odczyt przed nim. Nazwy typu wyłączonego zostają zajęte:
+`_assert_section_names_free`, `page_slug_is_section` i `free_slug` czytają wszystkie
+typy.
 
 ## Ryzyka
 
