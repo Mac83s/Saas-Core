@@ -288,6 +288,7 @@ class PublicContentEntryQuerySerializer(serializers.Serializer[dict[str, Any]]):
         required=False,
         default="",
         max_length=2048,
-        help_text="The address the product gives the entry. Asks for `structured_data`, "
+        help_text="The address the product gives the entry: a plain http(s) address on the "
+        "platform's own host, without a query or a fragment. Asks for `structured_data`, "
         "whose identifiers are composed from it; it is not fetched or stored.",
     )

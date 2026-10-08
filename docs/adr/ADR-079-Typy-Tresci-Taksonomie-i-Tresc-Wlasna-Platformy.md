@@ -735,7 +735,9 @@ Odstępstwa i doprecyzowania:
    wyda **nowego** certyfikatu dla takiego hosta (decyzja sprzed zmiany żyje do końca
    swojej pamięci podręcznej), a bramka hostów nie przepuści tam odczytów formularza
    rezerwacji. Panel wydawcy dalej podgląda swoje strony (`publisher=True` w podglądzie
-   SEO) — reguła dotyczy hostów, nie panelu.
+   SEO) — reguła dotyczy hostów, nie panelu. `publisher=True` ma dwóch wywołujących
+   (odczyt i ten podgląd), policzonych testem: trzeci serwowałby workspace gdzieś, gdzie
+   nikt tego nie sprawdził.
 6. **Strona workspace'u z opublikowanymi podstronami.** Wiersze zostają nietknięte
    (publikacje, podstrony, domeny); przestają być serwowane od wdrożenia. Lokalny stos
    Puppily ma taką stronę — jej adresy `<etykieta>.<platformDomain>` odpowiedzą 404.
@@ -766,12 +768,15 @@ Odstępstwa i doprecyzowania:
    (`canonical_url`), a odczyt oddaje z niego węzły wpisu: `WebPage` (także `FAQPage`,
    gdy treść ma pytania — sam węzeł artykułu zgubiłby je) i artykuł. `WebSite`
    i `Organization` pisze produkt pod identyfikatorami, które te węzły wskazują.
-   `canonical_url` przechodzi kontrolę kształtu (pełny `http(s)`, bez danych logowania,
-   zapytania i fragmentu) i służy tylko do złożenia identyfikatorów. Bez
+   `canonical_url` przechodzi kontrolę kształtu (pełny `http(s)` **na hoście
+   platformy**, bez danych logowania, zapytania, fragmentu i znaków zamykających
+   cudzysłów albo znacznik; adres, którego parser nie czyta, to 400, nie 500) i służy
+   tylko do złożenia identyfikatorów. Bez
    `translationOfWork` — rdzeń nie zna adresu wersji źródłowej u produktu.
 10. **Zdjęcia.** `GET /api/v1/public/content/media/<id>/[<wariant>/]` oddaje zdjęcie
     tylko wtedy, gdy wymienia je bieżąca publikacja wpisu workspace'u we włączonym
-    typie — nie zdjęcia podstron kreatora workspace'u (nikt ich nie pokazuje) ani
+    typie i w języku, który workspace ma włączony (zdjęcie odpowiada tam, gdzie jego
+    wpis) — nie zdjęcia podstron kreatora workspace'u (nikt ich nie pokazuje) ani
     źródeł rekordów na żywo. Frontend odpowiada pod `/media/<id>` i dwoma kopiami WebP
     na hoście platformy (reguła w `proxy.ts`, trasa `app/media/…`); to origin panelu,
     więc trasa oddaje wyłącznie JPEG, PNG i WebP, z `nosniff` i CSP `default-src 'none';
@@ -780,7 +785,9 @@ Odstępstwa i doprecyzowania:
 11. **Punkt końcowy tylko na hostach platformy.** Trasy `/api/v1/public/content/…` nie
     ma na liście tras czytanych przez host strony firmy (`http/hosts.py`), więc pod
     hostem spoza `ALLOWED_HOSTS` — także strony firmy — odpowiada 400, jak API panelu.
-12. **Listy bez treści.** Lista, liczniki i sitemapa czytają z migawek same fakty
+12. **Listy bez treści.** Nazwy pozycji w innym języku pyta się raz na odpowiedź, nie
+    raz na wpis: koszt strony listy nie rośnie z liczbą wpisów na niej (ma test).
+    Lista, liczniki i sitemapa czytają z migawek same fakty
     (tytuł, slug, pozycje, daty) wszystkich opublikowanych wpisów strony; treść czyta
     się tylko dla wpisów bieżącej strony listy (pierwsze zdjęcie). Test trzyma tę
     projekcję przy projekcji routera (`published_entries`): te same wpisy, ta sama

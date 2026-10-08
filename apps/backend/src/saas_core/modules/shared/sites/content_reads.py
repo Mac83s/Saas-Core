@@ -76,6 +76,8 @@ TAG_TAXONOMY = "tag"
 MAX_PAGE_SIZE = 100
 
 _CANONICAL_URL_MAX = 2048
+#: What closes a quote, a tag or an escape wherever the address is printed.
+_CANONICAL_URL_REFUSED = frozenset("<>\"\\'`")
 
 
 class ContentNotFound(NotFound):
@@ -274,13 +276,21 @@ def _tag_ids(workspace: _Workspace, slugs: Iterable[str]) -> dict[str, str]:
         }
 
 
+def _named_tags(
+    workspace: _Workspace, names: Mapping[str, str], slugs: Iterable[str]
+) -> dict[str, str]:
+    """The identifiers the accepted names are kept under, for every tag an
+    answer names — asked once per answer, however many entries it lists.
+    Nothing to ask where the language has no accepted names."""
+    return _tag_ids(workspace, slugs) if names else {}
+
+
 def _terms(
-    workspace: _Workspace, locale: str, tags: Iterable[tuple[str, str]], names: Mapping[str, str]
+    tags: Iterable[tuple[str, str]], names: Mapping[str, str], ids: Mapping[str, str]
 ) -> list[dict[str, Any]]:
     """Tags as the read names them: by taxonomy and slug, under the name in
     the reader's language where one is accepted, else as published."""
     tags = sorted(dict(tags).items())
-    ids = _tag_ids(workspace, (slug for slug, _name in tags)) if names else {}
     return [
         {
             "taxonomy": TAG_TAXONOMY,
@@ -326,9 +336,9 @@ def _pictures(workspace: _Workspace, entry_ids: list[UUID]) -> dict[UUID, dict[s
 
 
 def _item(
-    workspace: _Workspace,
     item: _Listed,
     names: Mapping[str, str],
+    ids: Mapping[str, str],
     picture: dict[str, str] | None,
 ) -> dict[str, Any]:
     return {
@@ -340,7 +350,7 @@ def _item(
         "published_at": item.published_at,
         "updated_at": item.changed_at,
         "image": picture,
-        "terms": _terms(workspace, item.locale, item.tags, names),
+        "terms": _terms(item.tags, names, ids),
     }
 
 
@@ -426,7 +436,9 @@ def read_terms(*, type_key: str, locale: str) -> dict[str, Any]:
                         # Tags are flat; a category names the one above it.
                         "parent_slug": None,
                     }
-                    for term in _terms(workspace, locale, published.items(), names)
+                    for term in _terms(
+                        published.items(), names, _named_tags(workspace, names, published)
+                    )
                 ],
             }
         ],
@@ -476,12 +488,17 @@ def read_entries(
     window = entries[(page - 1) * size : page * size]
     names = _names(workspace, locale)
     pictures = _pictures(workspace, [item.entry_id for item in window])
+    # One question for the whole page's tags, not one per entry.
+    ids = _named_tags(
+        workspace,
+        names,
+        [*(slug for item in window for slug, _name in item.tags), *([term] if term else [])],
+    )
     named = (
         _terms(
-            workspace,
-            locale,
             [next((slug, name) for item in entries for slug, name in item.tags if slug == term)],
             names,
+            ids,
         )[0]
         if term
         else None
@@ -491,7 +508,7 @@ def read_entries(
         "locale": locale,
         "name": names.get(f"collection/{collection.id}") or collection.name,
         "term": named,
-        "items": [_item(workspace, item, names, pictures.get(item.entry_id)) for item in window],
+        "items": [_item(item, names, ids, pictures.get(item.entry_id)) for item in window],
         "page": page,
         "pages": pages,
         "total": len(entries),
@@ -524,27 +541,40 @@ def _versions(workspace: _Workspace, group: UUID) -> list[dict[str, str]]:
 
 def _canonical_url(value: str) -> str:
     """The address the product gives the entry, as its structured data will
-    name it. Composed into identifiers only — never fetched, stored or
-    answered with a redirect."""
-
-    def refuse(code: str, message: str) -> ValidationError:
-        return ValidationError({"canonical_url": [ErrorDetail(message, code=code)]})
-
-    if len(value) > _CANONICAL_URL_MAX or any(ord(char) <= 32 for char in value):
-        raise refuse("canonical_url_invalid", "Adres kanoniczny ma nieprawidłowy format.")
-    parts = urlsplit(value)
+    name it: a plain http(s) address on the platform's own host — where a
+    product's pages stand (ADR-080) — and nobody else's. Composed into
+    identifiers only — never fetched, stored or answered with a redirect —
+    and still a value an anonymous caller chooses, so nothing that could
+    close a quote or a tag is let into it."""
+    refused = ValidationError({
+        "canonical_url": [
+            ErrorDetail(
+                "Adres kanoniczny to pełny adres http(s) na hoście platformy, "
+                "bez zapytania i fragmentu.",
+                code="canonical_url_invalid",
+            )
+        ]
+    })
+    if len(value) > _CANONICAL_URL_MAX or any(
+        ord(char) <= 32 or char in _CANONICAL_URL_REFUSED for char in value
+    ):
+        raise refused
+    try:
+        parts = urlsplit(value)
+        hostname, _port = parts.hostname, parts.port
+    except ValueError as error:
+        # An address no parser reads — an unclosed `[`, a port that is no
+        # number — is a wrong value, not a failure of ours.
+        raise refused from error
     if (
         parts.scheme not in ("http", "https")
-        or not parts.hostname
+        or (hostname or "").rstrip(".") != settings.SITES_PLATFORM_DOMAIN
         or parts.username is not None
         or parts.password is not None
         or parts.query
         or parts.fragment
     ):
-        raise refuse(
-            "canonical_url_invalid",
-            "Adres kanoniczny to pełny adres http(s) bez zapytania i fragmentu.",
-        )
+        raise refused
     return value
 
 
@@ -651,7 +681,7 @@ def read_entry(
         )
     machine = machine_text(snapshot.get("origin"))
     names = _names(workspace, locale)
-    terms = _terms(workspace, locale, tags, names)
+    terms = _terms(tags, names, _named_tags(workspace, names, (slug for slug, _name in tags)))
     updated_at = str(snapshot.get("changed_at") or publication.created_at.isoformat())
     published_at = entry.published_at.isoformat() if entry.published_at is not None else None
     schema_type = str(entry.collection.schema_type)
@@ -797,12 +827,16 @@ def serve_content_media(*, asset_id: UUID, variant: str = "") -> HttpResponse:
 
     Only what an entry's current publication names — never a picture of the
     workspace's builder pages, which no host shows (pkt 29), nor one of a
-    draft, a withdrawn entry or a switched-off type. The same answer whether
-    the asset is somebody else's or nobody's."""
+    draft, a withdrawn entry, a switched-off type or an entry in a language
+    the workspace switched off: a picture answers where its entry does. The
+    same answer whether the asset is somebody else's or nobody's."""
     workspace = _workspace()
     if (
         not _published(workspace)
-        .filter(current_publication__snapshot__media_asset_ids__contains=[str(asset_id)])
+        .filter(
+            current_publication__snapshot__locale__in=sorted(workspace.available),
+            current_publication__snapshot__media_asset_ids__contains=[str(asset_id)],
+        )
         .exists()
     ):
         raise ContentNotFound

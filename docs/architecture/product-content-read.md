@@ -294,7 +294,8 @@ export default async function Page({ params }) {
 | cokolwiek innego pod `/media` | jak dotąd (404) |
 
 - Odpowiada **tylko zdjęcie, które pokazuje bieżąca publikacja wpisu workspace'u
-  platformy** we włączonym typie. Zdjęcie ze szkicu, z wycofanego wpisu, ze strony
+  platformy** we włączonym typie i w języku, który workspace ma włączony — zdjęcie
+  odpowiada tam, gdzie jego wpis. Zdjęcie ze szkicu, z wycofanego wpisu, ze strony
   kreatora workspace'u, cudze i nieistniejące dają to samo 404.
 - Adresy pisze `SiteEntryBody`. Własną miniaturę na liście napisz z `image.asset_id`:
   `<img src={`/media/${image.asset_id}/thumbnail`} alt={image.alt} />`.
@@ -323,9 +324,11 @@ const graph = (nodes: object[]) => ({
 ```
 
 Drukuj przez `<JsonLd>` (`#components/json-ld`), który zabezpiecza teksty.
-`canonical_url` to pełny adres `http(s)` bez zapytania i fragmentu; inny daje 400.
-Służy tylko do złożenia identyfikatorów — nie jest pobierany ani zapisywany. Węzeł nie
-niesie `translationOfWork` (rdzeń nie zna adresu wersji źródłowej u produktu).
+`canonical_url` to pełny adres `http(s)` **na hoście platformy** (`platformDomain`
+profilu — tym, pod którym `siteAlternates` pisze adres kanoniczny), bez zapytania,
+fragmentu i znaków `<`, `>`, `"`, `'`, `` ` `` i `\`; każdy inny daje 400. Służy tylko
+do złożenia identyfikatorów — nie jest pobierany ani zapisywany. Węzeł nie niesie
+`translationOfWork` (rdzeń nie zna adresu wersji źródłowej u produktu).
 
 ## 9. „Przeniesione”
 

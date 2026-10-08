@@ -37989,7 +37989,7 @@ export interface operations {
     public_content_entry_retrieve: {
         parameters: {
             query?: {
-                /** @description The address the product gives the entry. Asks for `structured_data`, whose identifiers are composed from it; it is not fetched or stored. */
+                /** @description The address the product gives the entry: a plain http(s) address on the platform's own host, without a query or a fragment. Asks for `structured_data`, whose identifiers are composed from it; it is not fetched or stored. */
                 canonical_url?: string;
             };
             header?: never;

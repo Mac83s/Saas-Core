@@ -7,8 +7,15 @@ they belong in an organization rather than in a second CMS.
 
 What they must not have is the customer machinery around it. This workspace is
 never signed up for, never invited into, and never billed: the operator
-provisions it, and everything else about it stays an ordinary tenant so no
-renderer, no service and no query needs to know it is special.
+provisions it, and its content is stored, edited, translated and published
+exactly as a company's — no editor, service or publication knows it is special.
+
+Reading it is where it differs (ADR-079 pkt 29, 31). What it publishes is
+shown by the product's own pages on the platform's host, so the public
+renderer serves its builder site at no host (`serving_locales`), and one
+public read — `shared.sites.content_reads` — finds it without a host to name
+it, through `platform_workspace_id` below. Who may look it up that way is a
+counted list (`tests/test_pre_tenant_door.py`).
 """
 
 from __future__ import annotations

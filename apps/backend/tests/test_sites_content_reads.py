@@ -21,6 +21,7 @@ import json
 from typing import Any
 
 import pytest
+from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
 from django.test import override_settings
@@ -289,7 +290,9 @@ def test_the_entrys_own_structured_data_is_built_from_the_address_the_product_gi
     guide = Publisher("read-jsonld")
     guide.entry("zywienie", tags=["Porady"])
     guide.enter()
-    address = "https://serwis.example.test/poradnik/zywienie"
+    # On the platform's own host: that is where a product's pages stand.
+    origin = f"https://{settings.SITES_PLATFORM_DOMAIN}"
+    address = f"{origin}/poradnik/zywienie"
 
     entry = _read("types/poradnik/entries/pl/zywienie/", canonical_url=address).data["entry"]
 
@@ -300,8 +303,11 @@ def test_the_entrys_own_structured_data_is_built_from_the_address_the_product_gi
     assert article["keywords"] == ["Porady"]
     assert article["mainEntityOfPage"] == {"@id": f"{address}#webpage"}
     # The site around the entry is the product's to state, under these names.
-    assert article["isPartOf"] == {"@id": "https://serwis.example.test/#website"}
-    assert article["publisher"] == {"@id": "https://serwis.example.test/#organization"}
+    assert article["isPartOf"] == {"@id": f"{origin}/#website"}
+    assert article["publisher"] == {"@id": f"{origin}/#organization"}
+    # A port and the other scheme are the same host still.
+    local = f"http://{settings.SITES_PLATFORM_DOMAIN}:8083/poradnik/zywienie"
+    assert _read("types/poradnik/entries/pl/zywienie/", canonical_url=local).status_code == 200
     assert {node["@type"] for node in entry["structured_data"]} == {"WebPage", "BlogPosting"}
 
 
@@ -310,19 +316,38 @@ def test_the_entrys_own_structured_data_is_built_from_the_address_the_product_gi
     [
         "/poradnik/zywienie",
         "javascript:alert(1)",
-        "https://user:secret@serwis.example.test/x",
-        "https://serwis.example.test/x?next=1",
-        "https://serwis.example.test/x#frag",
-        "https://serwis.example.test/a b",
+        "https://user:secret@{host}/x",
+        "https://{host}/x?next=1",
+        "https://{host}/x#frag",
+        "https://{host}/a b",
         "https:///x",
+        # Somebody else's host, and one that only starts or ends like ours.
+        "https://serwis.example.test/poradnik/zywienie",
+        "https://{host}.example.test/x",
+        "https://evil-{host}/x",
+        # What would close a quote or a tag where the address is printed.
+        "https://{host}/x<script>",
+        "https://{host}/x>",
+        'https://{host}/x"onload=',
+        "https://{host}/x\\y",
+        "https://{host}/x'y",
+        # What no parser reads: once an anonymous 500.
+        "http://[::1",
+        "https://{host}:port/x",
+        "https://{host}:99999999/x",
     ],
 )
-def test_an_address_that_is_no_plain_http_address_is_refused(address: str) -> None:
+def test_an_address_that_is_no_plain_address_of_the_platforms_host_is_refused(
+    address: str,
+) -> None:
     guide = Publisher("read-jsonld-refused")
     guide.entry("zywienie")
     guide.enter()
 
-    refused = _read("types/poradnik/entries/pl/zywienie/", canonical_url=address)
+    refused = _read(
+        "types/poradnik/entries/pl/zywienie/",
+        canonical_url=address.format(host=settings.SITES_PLATFORM_DOMAIN),
+    )
 
     assert refused.status_code == 400
     assert [(error["field"], error["code"]) for error in refused.json()["errors"]] == [
@@ -494,6 +519,31 @@ def test_lists_page_filter_by_term_and_say_when_a_term_is_too_thin_to_index() ->
         {},
     ):
         assert _read("types/poradnik/entries/", **query).status_code == 400, query
+
+
+def test_a_longer_list_asks_the_database_no_more_often() -> None:
+    """Anonymous and uncached: what a page of a list costs must not grow
+    with how many entries are on it. Names in another language once took one
+    transaction and one question per entry."""
+    guide = Publisher("read-list-cost")
+    for number in range(1, 5):
+        polish = guide.entry(f"wpis-{number}", tags=["Porady", f"Temat {number}"])
+        guide.english(polish, f"entry-{number}", f"Entry {number}", tags=["Porady"])
+    guide.english_names({f"tag/{guide.tag('porady')}": "Tips"})
+    guide.enter()
+
+    def asked(page_size: int) -> tuple[int, list[str]]:
+        with CaptureQueriesContext(connection) as captured:
+            answer = _read("types/poradnik/entries/", locale="en", page_size=page_size)
+        assert answer.status_code == 200
+        return len(captured.captured_queries), [
+            term["name"] for item in answer.data["list"]["items"] for term in item["terms"]
+        ]
+
+    one, four = asked(1), asked(4)
+
+    assert (one[1], four[1]) == (["Tips"], ["Tips"] * 4)
+    assert one[0] == four[0]
 
 
 def test_the_read_lists_exactly_what_a_companys_own_list_would() -> None:
@@ -833,6 +883,30 @@ def test_a_second_site_in_the_workspace_reads_nothing_rather_than_guessing() -> 
     assert _read("types/poradnik/entries/pl/pierwszy/").status_code == 404
 
 
+def test_asking_about_the_publisher_all_the_same_has_its_two_callers() -> None:
+    """`serving_locales(…, publisher=True)` is how the rule „the workspace's
+    site answers at no host" is stepped around on purpose: by the read of
+    its published content, and by the panel's own preview. A third caller
+    would serve the workspace somewhere, so the callers are counted."""
+    import ast
+    from pathlib import Path
+
+    source = Path(settings.BASE_DIR) / "src" / "saas_core"
+    callers = {
+        path.relative_to(source).as_posix()
+        for path in sorted(source.rglob("*.py"))
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+        if isinstance(node, ast.Call)
+        and any(keyword.arg == "publisher" or keyword.arg is None for keyword in node.keywords)
+        and getattr(node.func, "id", getattr(node.func, "attr", "")) == "serving_locales"
+    }
+
+    assert callers == {
+        "modules/shared/sites/content_reads.py",
+        "modules/shared/sites/seo_preview.py",
+    }
+
+
 def test_the_read_is_called_from_its_own_routes_and_nowhere_else() -> None:
     """The read finds its tenant without a host. What makes that safe is
     where it is mounted: under addresses the host gate answers on the
@@ -842,8 +916,6 @@ def test_the_read_is_called_from_its_own_routes_and_nowhere_else() -> None:
     the modules that import the read are counted here, like the door's."""
     import ast
     from pathlib import Path
-
-    from django.conf import settings
 
     from saas_core.http.hosts import PUBLIC_MEDIA_PREFIX, PUBLIC_SITE_ROUTES
 
@@ -953,6 +1025,30 @@ def test_a_picture_answers_only_while_a_published_entry_shows_it(
     guide.enter()
     # A switched-off type's pictures answer no more than its entries do.
     assert media(shown).status_code == 404
+
+
+def test_a_picture_answers_where_its_entry_does_and_in_no_switched_off_language(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    guide = Publisher("read-media-language")
+    polish = guide.entry("pierwszy")
+    asset = guide.picture()
+    english = guide.english(polish, "first", "First")
+    guide.draft(english, 1, blocks=_hero(asset), media=[str(asset.id)])
+    guide.publish(english, "again")
+    storage = MemoryStorage()
+    storage.objects[asset.object_key] = (PNG, "image/png")
+    monkeypatch.setattr(
+        "saas_core.modules.shared.sites.public_media.get_object_storage", lambda: storage
+    )
+    guide.enter()
+
+    assert _read(f"media/{asset.id}/").status_code == 200
+    Organization.objects.filter(pk=guide.organization.pk).update(public_locales=["pl"])
+
+    # The entry answers „moved" now, so its picture is nobody's to see.
+    assert _read("types/poradnik/entries/en/first/").json()["entry"] is None
+    assert _read(f"media/{asset.id}/").status_code == 404
 
 
 # --- the workspace's own builder site ----------------------------------------
