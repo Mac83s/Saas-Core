@@ -598,8 +598,8 @@ nie zmienia tego, co firma widzi wbrew temu, co właścicielowi powiedziano:
 2. **Kody odmów** (ADR nazywał tylko dwa pierwsze): `quota_exceeded` i
    `plan_access_denied` — 400 z listą `errors`, jak przy językach;
    `content_types_not_offered` — 400, przełącznik platformy wyłączony;
-   `content_type_archived` — 409, każdy zapis do wyłączonego typu (wpis, publikacja,
-   wycofanie, tagi, harmonogram, nazwa, adres, menu, polityka automatyzacji);
+   `content_type_archived` — 409, każdy zapis do wyłączonego typu poza wycofaniem wpisu
+   (wpis, publikacja, tagi, harmonogram, nazwa, adres, menu, polityka automatyzacji);
    `content_type_not_empty` — 409, usuwanie typu z wpisami; `slug_is_content_type` —
    400 z polem `slug`, podstrona pod nazwą typu.
 3. **Kolejność w strażniku** (`content_type_limit.py`): workspace platformy → pierwszy
@@ -619,8 +619,14 @@ nie zmienia tego, co firma widzi wbrew temu, co właścicielowi powiedziano:
 7. **Menu.** Wpis menu wskazujący typ wyłączony albo usunięty jest pomijany przy żądaniu
    we wszystkich językach, bez publikacji strony; po włączeniu typu wraca sam.
 8. **Tłumaczenia.** Źródło `sites.entry` nie wystawia wpisów wyłączonego typu i odmawia
-   zamówienia ich tłumaczenia. Wynik zlecenia rozpoczętego przed wyłączeniem zapisuje
-   się normalnie — gość go nie zobaczy, dopóki typ jest wyłączony.
+   zamówienia ich tłumaczenia; element zlecenia, którego typ wyłączono, zanim poszedł
+   do modelu, kończy się jako nieudany z kodem `content_type_archived` i nic nie
+   kosztuje. To, co zlecenie już przetłumaczyło, zapisuje się normalnie, ale **nie jest
+   publikowane**: krok publikacji pomija wpis wyłączonego typu (jak pomija wycofany),
+   więc tłumaczenie zostaje szkicem wersji językowej, zlecenie rozlicza się i zamyka, a
+   po włączeniu typu publikuje je osoba. Krok publikacji nigdy nie odmawia — działa w
+   tej samej transakcji, która rozlicza kredyty zlecenia (uwaga z przeglądu:
+   odmowa zatrzymywała całe zlecenie razem z jego tłumaczeniami dla innych typów).
 9. **Workspace platformy** widzi w menu „Treści” zawsze (pkt 28), także na swojej
    stronie startowej panelu; jego menu nie zależy od przełącznika.
 10. **API typu** (wszystko jako serwisy z podglądem i audytem; polecenia asystenta —
@@ -635,11 +641,51 @@ nie zmienia tego, co firma widzi wbrew temu, co właścicielowi powiedziano:
     `agro`, `core-only`, `vps-dev` — wyłączone. Włączenie na VPS i w produktach to
     faza CT5 i decyzja właściciela.
 
+12. **Wpis wyłączonego typu można wycofać** (uwaga z przeglądu) — osoba, w panelu na
+    ekranie wpisów typu albo przez API; edycja i publikacja zostają odmówione. Wycofany
+    wpis nie wraca z typem. **Usuwania wpisu nie ma** — nie ma go dziś dla żadnego typu,
+    włączonego ani wyłączonego — więc typu, który miał choć jeden wpis, nie da się
+    opróżnić i usunąć, a jego nazwy w adresach zostają zajęte. Usuwanie wpisu to nowa,
+    nieodwracalna operacja z własnymi pytaniami (historia publikacji, wersje językowe,
+    adres po usunięciu) — do zaprojektowania w CT2 albo osobno.
+13. **Automatyzacja nie widzi wyłączonego typu.** Inwentarz i lista działów czytane
+    kluczem integracji pomijają typ wyłączony; po włączeniu wraca pod tym samym
+    identyfikatorem, więc żaden identyfikator trzymany przez SeoContentRank się nie
+    starzeje (dlatego pominięcie, a nie dodatkowe pole `archived`). Change set dla wpisu
+    wyłączonego typu jest odmawiany już przy planowaniu (`content_type_archived`), nie
+    dopiero przy zapisie. Kontrakt `content-change-set.v1` bez zmian. Panel osoby dalej
+    pokazuje typ, oznaczony.
+14. **Zdjęcia.** Zdjęcie wymienione przez opublikowany wpis wyłączonego typu przestaje
+    odpowiadać razem z wpisem i wraca razem z nim.
+15. **Nazwa typu a menu.** Zmiana nazwy działa od razu w nagłówku listy wpisów; menu
+    strony nosi nazwę z ostatniej publikacji strony, więc nową pokaże po kolejnej
+    publikacji — jak każda zmiana menu. Ekran ustawień i opis operacji mówią to wprost.
+
+**Zmiany zachowania, które trzeba znać przed wdrożeniem** (przyjęte w przeglądzie):
+
+- **Drugi dział przez API tam, gdzie przełącznik jest wyłączony** (`agro`, `core-only`,
+  `vps-dev`, produkty do czasu CT5): `POST /sites/{site}/collections/` na stronie, która
+  ma już włączony dział, odpowiada odtąd 400 `content_types_not_offered` — także kluczowi
+  integracji z grantem na całą stronę; do dziś przechodziło. Drugie działy już założone
+  działają bez zmian.
+- **Przeniesienie subskrypcji na nową wersję planu** (`billing/plan_versions.py`, kod
+  starszy): limit, którego stara wersja nie ma, a nowa ma, liczy się jako „podniesiony”,
+  więc zbiorcze przeniesienie w tej samej cenie przeniosłoby firmę z „bez limitu” na
+  Profile 0 bez kroku akceptacji obniżenia. Nic nie znika — typy działają dalej — ale
+  typu wyłączonego potem nie dałoby się włączyć. To zadanie fazy CT5 (wersje planów):
+  taki limit ma być traktowany jak obniżenie.
+- **Wycofanie migracji `sites` 0053** kasuje `archived_at`, więc każdy wyłączony typ
+  wróciłby na strony. Między migracją a restartem stary kod nie założy działu (nowe
+  kolumny są `NOT NULL` bez wartości domyślnej w bazie) — backend i frontend
+  restartują się razem z migracją; mówi o tym wpis w kolejce wdrożeń.
+
 **Kto musi czytać `archived_at`** (lista dla następnych faz — nowy odczyt publiczny
 dopisuje się tutaj): `published_entries`, `_find_entry`, `_find_index`,
 `collections_with_entries`, `collection_links`, `moved_section`,
 `_published_translations`, `site_host_company` (wszystkie w `publication_routing.py`),
-pętla typów w sitemapie (`public_feeds.py`), lista źródła `sites.entry`, strażnik
+pętla typów w sitemapie (`public_feeds.py`), opublikowane zdjęcia
+(`public_media._published_asset_ids`), lista i krok publikacji źródła `sites.entry`,
+inwentarz i lista działów dla klucza integracji, planowanie change setu, strażnik
 zapisu `_assert_entry_writable`. Zawsze jako złączenie w tym samym zapytaniu
 tenantowym, nigdy osobny odczyt przed nim. Nazwy typu wyłączonego zostają zajęte:
 `_assert_section_names_free`, `page_slug_is_section` i `free_slug` czytają wszystkie
