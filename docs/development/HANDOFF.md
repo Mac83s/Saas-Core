@@ -99,9 +99,16 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   `docs/architecture/product-public-site.md`. Business, HoofCare i MedPlano bez
   zmian — pilnują tego `proxy.golden.json` i `metadata.golden.json`. Odczyt
   opublikowanych wpisów systemu treści i `/media` na hoście platformy dał pakiet CT3
-  (`docs/architecture/product-content-read.md`). Otwarte: własna strona 410
-  produktu (dziś mała strona rdzenia), przeniesienie widoków Puppily (repozytorium
-  produktu).
+  (`docs/architecture/product-content-read.md`). Pakiet PR1c (09.10, lokalnie,
+  niewdrożony, bez migracji; ADR-080 „Uzupełnienie PR1c”, kontrakt §13): własny
+  moduł produktu sięga po workspace platformy wyłącznie blokiem
+  `in_platform_workspace()` (także w komendach — test `test_pre_tenant_door.py`
+  pada za nazwanie odnalezienia i podaje import), a host platformy serwuje pod
+  `/media/<id>/thumbnail|preview` kopie zdjęć, które zadeklarowało źródło publiczne
+  workspace'u; poprawki kontraktu (otoczka w stronie, język 404, logowanie,
+  `siteHas`). Otwarte: własna strona 410 produktu (dziś mała strona rdzenia),
+  lżejszy arkusz stylów dla stron produktu (dziś cały `globals.css`, 322 kB),
+  przeniesienie widoków Puppily (repozytorium produktu).
 - **Workspace platformy jako wydawca i jego panel (PB3b–PB3c, 07.10, lokalnie,
   niewdrożone; ADR-077 pkt 2 i 9, bez migracji) — zostaje na stałe (decyzja
   właściciela 08.10: własny blog produktu jest pisany w systemie treści rdzenia

@@ -728,6 +728,9 @@ Odstępstwa i doprecyzowania:
    moduły importujące sam odczyt (`content_reads`): tylko jego widoki i ich
    serializery — drugi wywołujący przeniósłby wyjątek tam, gdzie nikt go nie sprawdził.
    Czego wykrywacz nie zobaczy: nazwy złożonej dopiero w czasie działania.
+   **Od PR1c** (ADR-080, „Uzupełnienie PR1c” pkt 2) ta sama lista liczy też blok
+   `in_platform_workspace()`: moduł wertykału produktu woła go bez wpisu i nigdy nie
+   nazywa odnalezienia, moduł rdzenia potrzebuje wpisu za jedno i za drugie.
 5. **Reguła pkt 29 stoi w jednym miejscu: `serving_locales`.** Przez nią przechodzą
    wszystkie odczyty hosta — strony i wpisy, podpowiedź 404, kanały, sitemapa,
    `robots.txt`, `llms.txt`, media, formularz kontaktowy — więc host strony workspace'u
@@ -782,6 +785,9 @@ Odstępstwa i doprecyzowania:
     więc trasa oddaje wyłącznie JPEG, PNG i WebP, z `nosniff` i CSP `default-src 'none';
     sandbox`, i odmawia hostom innym niż platformy. Strony firm i ich `/media/…` — bez
     zmian (`proxy.golden.json`, `metadata.golden.json` nietknięte).
+    **Zmienione przez ADR-080, „Uzupełnienie PR1c” pkt 1:** kopię — nigdy oryginał —
+    zdjęcia rekordu na żywo, które zadeklarowało źródło publiczne workspace'u, ta
+    trasa oddaje (jak strona firmy od ADR-074).
 11. **Punkt końcowy tylko na hostach platformy.** Trasy `/api/v1/public/content/…` nie
     ma na liście tras czytanych przez host strony firmy (`http/hosts.py`), więc pod
     hostem spoza `ALLOWED_HOSTS` — także strony firmy — odpowiada 400, jak API panelu.
