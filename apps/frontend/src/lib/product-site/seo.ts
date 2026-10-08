@@ -96,6 +96,13 @@ export function siteSitemapLines(
   entries: readonly SiteSitemapEntry[],
 ): MetadataRoute.Sitemap {
   return entries.flatMap((entry) => {
+    if (!site.routes.includes(entry.route)) {
+      // One wrong line must not cost the whole sitemap its answer.
+      console.error(
+        `product public site: the sitemap names "${entry.route}", which is no page of the table`,
+      );
+      return [];
+    }
     const versions = site
       .versions(entry.route, entry.params)
       .filter((version) => !rules?.lookup(version.path));

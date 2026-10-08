@@ -40,6 +40,10 @@ function compile(): { site: CompiledSite | null; problem: Error | null } {
 
 export const { site: productSite, problem: productSiteProblem } = compile();
 
+/** Whether the product declares a table at all — served by this profile or
+ *  not, the folder of its page files is then no address (`answers.ts`). */
+export const productSiteDeclared = publicSite !== null;
+
 /**
  * The address of one of the product's public pages in a language — the only
  * way a link to it is written. Throws for a page or a language the table has

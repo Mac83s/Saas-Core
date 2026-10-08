@@ -33,6 +33,8 @@ export const fixtureOldAddresses: ProductOldAddresses = {
     // own address pattern, which is the point.
     "/rasy-psow/owczarek": "/rasy-psow/owczarek-niemiecki",
     "/Poradnik/Żywienie szczeniaka": "/poradnik/zywienie",
+    // Written percent-encoded, as lists exported from other tools come.
+    "/blog/%C5%BBywienie-psa": "/poradnik/zywienie",
   },
   gone: ["/sklep", "/en/shop/old-offer", "/de/laden"],
 };
@@ -54,6 +56,8 @@ export const fixtureSitemap: SiteSitemapEntry[] = [
   // Still listed by the product, but redirected since: must not be a line.
   { route: "/breeds/[slug]", params: { pl: { slug: "owczarek" } } },
   { route: "/guide/[chapter]", params: { chapter: "zywienie" } },
+  // A page the table has not: left out, and the rest still answers.
+  { route: "/shop" },
 ];
 
 /** The profile the fixture is served by: five languages, no core marketing. */

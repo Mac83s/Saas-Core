@@ -211,8 +211,21 @@ describe("a product's public pages on its host (ADR-080)", () => {
       } as ReturnType<typeof fixtureDeployment>,
     });
 
-    // The table and its rules are declared, and nothing answers differently.
-    expect(await walk(proxy)).toEqual(golden["pl-en-de"]);
+    // The table and its rules are declared, and nothing answers differently
+    // — but the folder of the product's page files, which is in the build
+    // all the same and must not open as an address of its own.
+    const before = golden["pl-en-de"]!;
+    const now = await walk(proxy);
+    const folder = (key: string) =>
+      / \/(?:[a-z]{2}\/)?product-site(?:\/|$)/.test(key);
+    for (const key of Object.keys(before)) {
+      if (folder(key) && !key.startsWith("studio.example.test")) {
+        expect(now[key], key).toBe("404");
+      } else {
+        expect(now[key], key).toBe(before[key]);
+      }
+    }
+    expect(Object.keys(before).filter(folder).length).toBeGreaterThan(0);
   });
 
   it("stays off, with the panel alive, when the table cannot be served", async () => {
@@ -260,6 +273,9 @@ describe("a product's old addresses on its host (ADR-080)", () => {
       "/Poradnik/%C5%BBywienie%20szczeniaka/",
       // z + a combining dot above, as some systems send the same letter.
       "/poradnik/z%CC%87ywienie%20szczeniaka",
+      // A rule written percent-encoded, visited encoded and not.
+      "/blog/%C5%BBywienie-psa",
+      "/blog/%C5%BCywienie-psa/",
     ]) {
       const moved = await visit(address);
       expect(moved.status, address).toBe(308);

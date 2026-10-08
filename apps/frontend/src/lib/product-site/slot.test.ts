@@ -122,7 +122,8 @@ const { publicSite } = await vi.importActual<
 const { oldAddresses } = await vi.importActual<
   typeof import("../../product/old-addresses")
 >("../../product/old-addresses");
-const { fixtureOldAddresses, fixtureSite } = await import("./fixture");
+const { fixtureDeployment, fixtureOldAddresses, fixtureSite } =
+  await import("./fixture");
 
 hold("the product's own table", publicSite, oldAddresses, profileLocales);
 hold("the test-only table", fixtureSite, fixtureOldAddresses, [
@@ -133,66 +134,112 @@ hold("the test-only table", fixtureSite, fixtureOldAddresses, [
   "ru",
 ]);
 
-describe("the product's own table, through the proxy", () => {
-  it("is served as declared: nothing switched the pages or the rules off", async () => {
-    const site = await import("./site");
-    const old = await import("./old-addresses");
+/** A compared source, written the way a browser sends it. */
+const asVisited = (source: string) =>
+  `/${source.slice(1).split("/").map(encodeURIComponent).join("/")}`;
 
-    expect(site.productSiteProblem).toBeNull();
-    expect(old.productOldAddressesProblem).toBeNull();
-    expect(Boolean(site.productSite)).toBe(Boolean(publicSite));
-  });
-
-  it("answers every old address with one redirect, and its target with a page", async () => {
-    const { default: proxy } = await import("../../proxy");
-    const visit = (address: string) =>
-      proxy(
-        new NextRequest(`http://localhost${address}`, {
-          headers: { host: "localhost" },
-        }),
-      );
-
-    for (const [source, target] of Object.entries(oldAddresses.moved ?? {})) {
-      const moved = await visit(encodeURI(source));
-      expect(moved.status, source).toBe(308);
-      const location = new URL(moved.headers.get("location") ?? "");
-      expect(location.pathname, source).toBe(target);
-      // The proxy's own corrections — a trailing slash, the default
-      // language's prefix, a disabled feature — must not stand in the way.
-      const arrived = await visit(location.pathname);
-      expect(arrived.status, target).toBe(200);
-      expect(arrived.headers.get("x-middleware-rewrite"), target).toMatch(
-        /\/product-site(\/(?!_unclaimed)|$)/,
-      );
-    }
-    for (const source of oldAddresses.gone ?? []) {
-      expect((await visit(encodeURI(source))).status, source).toBe(410);
-    }
-  });
-
-  it("answers every address of the table with its page", async () => {
-    const { default: proxy } = await import("../../proxy");
-    const { productSite } = await import("./site");
-    if (!productSite) return;
-
-    for (const route of productSite.routes) {
-      const versions = productSite.versions(route, sampleParams(route));
-      for (const { locale, path: address } of versions) {
-        const response = await proxy(
+function walkThroughTheProxy(
+  name: string,
+  prepare: () => void,
+  rulesAtLeast: number,
+) {
+  describe(`${name}, through the proxy`, () => {
+    async function load() {
+      vi.resetModules();
+      prepare();
+      const { default: proxy } = await import("../../proxy");
+      const visit = (address: string) =>
+        proxy(
           new NextRequest(`http://localhost${address}`, {
             headers: { host: "localhost" },
           }),
         );
-        // A page of the table must not look like something the proxy
-        // refuses first (a disabled feature's address, an old address).
-        expect(response.status, address).toBe(200);
-        expect(response.headers.get("x-middleware-rewrite"), address).toMatch(
-          new RegExp(`/${locale}/product-site(/(?!_unclaimed)|$)`),
+      return {
+        visit,
+        site: await import("./site"),
+        old: await import("./old-addresses"),
+      };
+    }
+
+    it("is served as declared: nothing switched the pages or the rules off", async () => {
+      const { site, old } = await load();
+
+      expect(site.productSiteProblem).toBeNull();
+      expect(old.productOldAddressesProblem).toBeNull();
+      expect(Boolean(site.productSite)).toBe(site.productSiteDeclared);
+    });
+
+    it("answers every old address with one redirect, and its target with a page", async () => {
+      const { visit, old } = await load();
+      const rules = old.productOldAddresses;
+      expect(rules?.size ?? 0).toBeGreaterThanOrEqual(rulesAtLeast);
+
+      // Each source as it is compared, sent as a browser would send it —
+      // however the product wrote it down.
+      for (const source of rules?.sources() ?? []) {
+        const rule = rules?.lookup(source);
+        const answered = await visit(asVisited(source));
+        if (rule?.kind !== "moved") {
+          expect(answered.status, source).toBe(410);
+          continue;
+        }
+        expect(answered.status, source).toBe(308);
+        const location = new URL(answered.headers.get("location") ?? "");
+        expect(location.pathname, source).toBe(rule.to);
+        // The proxy's own corrections — a trailing slash, the default
+        // language's prefix, a disabled feature — must not stand in the way.
+        const arrived = await visit(location.pathname);
+        expect(arrived.status, rule.to).toBe(200);
+        expect(arrived.headers.get("x-middleware-rewrite"), rule.to).toMatch(
+          /\/product-site(\/(?!_unclaimed)|$)/,
         );
       }
-    }
+    });
+
+    it("answers every address of the table with its page", async () => {
+      const { visit, site } = await load();
+      const { productSite } = site;
+      if (!productSite) return;
+
+      for (const route of productSite.routes) {
+        const versions = productSite.versions(route, sampleParams(route));
+        for (const { locale, path: address } of versions) {
+          const response = await visit(address);
+          // A page of the table must not look like something the proxy
+          // refuses first (a disabled feature's address, an old address).
+          expect(response.status, address).toBe(200);
+          expect(response.headers.get("x-middleware-rewrite"), address).toMatch(
+            new RegExp(`/${locale}/product-site(/(?!_unclaimed)|$)`),
+          );
+        }
+      }
+    });
   });
-});
+}
+
+// The repository's own slot, in its own profile (marketing off, above).
+walkThroughTheProxy(
+  "the product's own table",
+  () => {
+    vi.doUnmock("../../product/public-site");
+    vi.doUnmock("../../product/old-addresses");
+  },
+  0,
+);
+// The same walk over the test-only table, so it is not empty where the slot is.
+walkThroughTheProxy(
+  "the test-only table",
+  () => {
+    vi.doMock("../../generated/deployment", () => ({
+      deployment: fixtureDeployment(),
+    }));
+    vi.doMock("../../product/public-site", () => ({ publicSite: fixtureSite }));
+    vi.doMock("../../product/old-addresses", () => ({
+      oldAddresses: fixtureOldAddresses,
+    }));
+  },
+  8,
+);
 
 describe("the page of a gone address", () => {
   it("has its words in every language of the registry", () => {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   fixtureDeployment,
@@ -30,7 +30,13 @@ async function load(deployment = fixtureDeployment()) {
   return { sitemap, robots, proxy, seo: await import("./seo") };
 }
 
+beforeEach(() => {
+  // The fixture names one page the table has not; the sitemap says so.
+  vi.spyOn(console, "error").mockImplementation(() => {});
+});
+
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const mocked of [
     "../../generated/deployment",
     "../../product",
@@ -95,6 +101,18 @@ describe("a product's public pages in the sitemap (ADR-080)", () => {
     ]) {
       expect(urls, source).not.toContain(`${origin}${source}`);
     }
+  });
+
+  it("leaves out a page the table has not, and still answers", async () => {
+    const { sitemap } = await load();
+
+    const urls = (await sitemap()).map((line) => line.url);
+
+    expect(urls.some((url) => url.includes("shop"))).toBe(false);
+    expect(urls.length).toBe(17);
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining('the sitemap names "/shop"'),
+    );
   });
 
   it("lists only addresses the proxy answers with a page", async () => {

@@ -29,7 +29,8 @@ paczki strony w przeglądarce.
   i jego stare adresy nigdy jej nie dotykają.
 - Tylko w profilu, który wyłącza marketing rdzenia: `"features": { "marketingSite":
   false }` (ADR-077 pkt 4). Host ma jedną stronę główną; w profilu z marketingiem
-  rdzenia tabela produktu jest nieczynna i wszystko odpowiada jak bez niej.
+  rdzenia tabela produktu jest nieczynna i wszystko odpowiada jak bez niej — poza
+  folderem plików stron, który nie jest adresem w żadnym profilu (404).
 - W językach treści profilu (`product.supportedLocales`). Język wymieniony w tabeli,
   którego profil nie oferuje, jest pomijany (tabela jest jedna na repozytorium, profili
   bywa kilka), ale jest sprawdzany tak samo jak pozostałe. Panel zostaje pl/en.
@@ -78,7 +79,7 @@ Co odpowiada na hoście platformy, gdy tabela jest czynna:
 | adres tabeli z prefiksem języka domyślnego (`/pl/rasy-psow/labrador`) | jedno 308 do adresu bez prefiksu, z zachowanym zapytaniem |
 | adres z końcowym ukośnikiem | jedno 308 do adresu bez ukośnika (reguła hosta platformy, bez zmian) |
 | nazwa działu z innego języka (`/en/rasy-psow/…`), inna pisownia, adres spoza tabeli | 404 — własna strona 404 produktu, w języku z prefiksu adresu |
-| folder plików stron wprost (`/product-site/…`) | 404 |
+| folder plików stron wprost (`/product-site/…`) | 404 — także w profilu, w którym tabela jest zadeklarowana, ale nieczynna |
 | `/`, gdy tabela nie ma strony `/` | 307 do logowania, jak dotąd |
 | strony zespołu i gości (`/panel`, `/login`, `/book`, …), `/sitemap.xml`, `/robots.txt` | bez zmian |
 
@@ -196,7 +197,8 @@ export async function siteSitemap(): Promise<SiteSitemapEntry[]> {
 - Adres, na który dziś odpowiada reguła starych adresów, jest pomijany — w sitemapie
   nie ma niczego, co odpowiada 308 albo 410.
 - Funkcja jest wołana przy każdym żądaniu `/sitemap.xml`, po stronie serwera, tylko
-  gdy tabela jest czynna; może pytać backend.
+  gdy tabela jest czynna; może pytać backend. Linia z kluczem, którego tabela nie ma,
+  jest pomijana z wpisem w logu — reszta sitemapy odpowiada.
 - `robots.txt` hosta platformy zostaje bez zmian: wskazuje `/sitemap.xml`, zamyka
   `/panel`, `/settings` (w każdym języku) i `/api/`.
 

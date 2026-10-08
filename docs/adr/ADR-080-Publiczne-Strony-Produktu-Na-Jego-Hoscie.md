@@ -63,7 +63,8 @@ każde żądanie każdego produktu i każdej strony firmy.
 
 4. **Strony produktu odpowiadają tylko tam, gdzie profil wyłącza marketing rdzenia**
    (`features.marketingSite: false`) i tylko na hoście platformy. W profilu
-   z marketingiem rdzenia zadeklarowana tabela jest nieczynna. Dzięki temu produkt,
+   z marketingiem rdzenia zadeklarowana tabela jest nieczynna (folder plików stron
+   odpowiada tam 404 — pliki są w buildzie niezależnie od profilu). Dzięki temu produkt,
    który tabeli nie ma, i profil, który marketingu nie wyłącza, są chronione dwa razy,
    a repozytorium produktu może trzymać obok siebie profile wzorcowe rdzenia.
 

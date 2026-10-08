@@ -9,7 +9,7 @@ import { absoluteUrl } from "../../proxy-host";
 import { RESERVED_SEGMENTS } from "../../proxy-segments";
 import { goneDocument } from "./gone-page";
 import { productOldAddresses } from "./old-addresses";
-import { productSite } from "./site";
+import { productSite, productSiteDeclared } from "./site";
 
 /**
  * What the proxy answers for a product's public pages on the platform host
@@ -57,15 +57,25 @@ export function oldAddressAnswer(request: NextRequest): Response | null {
 /**
  * The product's page for an address, or its own 404 for one nobody claims.
  * `null` for the team's, a guest's and the platform's own addresses, and for
- * `/` while the product has no home page (the front door stays sign-in).
+ * `/` while the product has no home page (the front door stays sign-in) —
+ * and for everything but the folder of its page files where the product
+ * declares a table this profile does not serve.
  */
 export function sitePageAnswer(request: NextRequest): Response | null {
-  const site = productSite;
-  if (!site) return null;
+  if (!productSiteDeclared) return null;
   const { pathname } = request.nextUrl;
   const [first = "", second = ""] = pathname.split("/").slice(1);
   const prefixed = (routing.locales as readonly string[]).includes(first);
   const segment = prefixed ? second : first;
+  // The folder of the product's page files is never an address — also where
+  // this profile does not serve the table (the core's marketing is on): the
+  // files are in the build all the same, and the locale middleware would
+  // hand a visitor straight to them.
+  if (segment === SITE_PAGES_SEGMENT) {
+    return new NextResponse(null, { status: 404 });
+  }
+  const site = productSite;
+  if (!site) return null;
   if (RESERVED_SEGMENTS.exact.has(segment)) return null;
 
   const match = site.match(pathname);

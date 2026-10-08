@@ -305,7 +305,7 @@ describe("a product's old addresses (ADR-080)", () => {
       expect(site.match(rule.to)?.kind, rule.to).toBe("page");
       expect(compiled.lookup(rule.to), rule.to).toBeNull();
     }
-    expect(compiled.size).toBe(7);
+    expect(compiled.size).toBe(8);
   });
 
   it.each([
