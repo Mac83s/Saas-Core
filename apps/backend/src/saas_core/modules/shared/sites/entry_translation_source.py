@@ -150,6 +150,21 @@ class EntryTranslationSource:
     ) -> None:
         with _tenant(context):
             _authorize(context, action, object_ids)
+            # Nobody orders a translation of an entry whose type is switched
+            # off (ADR-079 pkt 23), and the worker asks again before it sends
+            # an item to a model — that item ends failed with this code and
+            # costs nothing. Asked here only: what a job already translated is
+            # still written (`write`), or the job could never be settled.
+            if (
+                action == "translate"
+                and object_ids
+                and ContentEntry.all_objects.filter(
+                    organization_id=context.organization_id,
+                    id__in=set(object_ids),
+                    collection__archived_at__isnull=False,
+                ).exists()
+            ):
+                raise ContentTypeArchived
 
     def list_objects(
         self,
@@ -237,6 +252,14 @@ class EntryTranslationSource:
             first: str | None = None
             for entry_id, locale in live:
                 entry = _entry(context, entry_id)
+                # A type switched off since the job wrote (ADR-079 pkt 23):
+                # nothing of it is published, so the translation stays the
+                # draft the job made — a person's to publish once the type is
+                # back. Skipped, never raised: this runs in the transaction
+                # that settles the job's credits, and one refusal would hold
+                # the whole job — and its other translations — open for good.
+                if entry.collection.archived_at is not None:
+                    continue
                 sibling = _sibling(entry, locale)
                 if (
                     sibling is None
@@ -376,18 +399,6 @@ def _authorize(context: ContentContext, action: SourceAction, object_ids: Sequen
         organization_id=context.organization_id, id__in=wanted
     ).count() != len(wanted):
         raise EntryNotFound
-    # Nobody orders a translation of an entry whose type is switched off: it
-    # could not be published (ADR-079 pkt 23).
-    if (
-        action == "translate"
-        and wanted
-        and ContentEntry.all_objects.filter(
-            organization_id=context.organization_id,
-            id__in=wanted,
-            collection__archived_at__isnull=False,
-        ).exists()
-    ):
-        raise ContentTypeArchived
 
 
 def _entry(context: ContentContext, object_id: UUID, *, lock: bool = False) -> ContentEntry:

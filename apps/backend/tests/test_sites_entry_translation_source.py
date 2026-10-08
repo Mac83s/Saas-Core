@@ -54,6 +54,10 @@ from saas_core.modules.shared.sites.collections import (
     update_entry_metadata,
     withdraw_entry,
 )
+from saas_core.modules.shared.sites.content_types import (
+    switch_off_content_type,
+    switch_on_content_type,
+)
 from saas_core.modules.shared.sites.entry_translation_source import (
     ENTRY_SOURCE,
     EXCLUDED_HUMAN_VERSION,
@@ -377,6 +381,51 @@ def test_a_job_makes_the_article_in_the_language_with_its_title_tags_and_date():
         "reviewed": False,
     }
     assert driver.public_texts(article, "de") == ["[de] Jak dbać o kopyta"]
+
+
+def test_a_type_switched_off_before_a_job_settles_does_not_hold_the_job(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The job wrote the translation „live”, the company switched the type off,
+    and only then the part is settled (ADR-079 pkt 23). The publication step
+    runs in the transaction that settles the credits: it leaves the article
+    out instead of refusing, and the translation stays a draft."""
+    driver = SitesEntryDriver()
+    article = driver.create(["Alfa"])
+    driver.publish(article)
+    write = type(ENTRY_SOURCE).write
+
+    def write_then_the_type_goes_off(self: Any, *, context: Any, batch: Any) -> Any:
+        outcomes = write(self, context=context, batch=batch)
+        with _as(driver.publisher):
+            assert driver.collection_id is not None
+            switch_off_content_type(collection_id=driver.collection_id)
+        return outcomes
+
+    monkeypatch.setattr(type(ENTRY_SOURCE), "write", write_then_the_type_goes_off)
+
+    result = _job(driver, article)
+
+    assert result.decisions == [("live", None)]
+    sibling = driver.sibling(article, "de")
+    assert sibling is not None
+    assert (sibling.state, sibling.current_publication_id) == (ContentEntryState.DRAFT, None)
+    assert sibling.current_draft is not None
+    # A job in flight still writes what it translated for a type that is off…
+    monkeypatch.setattr(type(ENTRY_SOURCE), "write", write)
+    with _as(driver.publisher):
+        switch_on_content_type(collection_id=driver.collection_id)
+    second = driver.create(["Beta"])
+    driver.publish(second)
+    with _as(driver.publisher):
+        switch_off_content_type(collection_id=driver.collection_id)
+    assert _job(driver, second).decisions == [("live", None)]
+    assert driver.sibling(second, "de").state == ContentEntryState.DRAFT
+    # …and once the type is back the translation is a person's to publish.
+    with _as(driver.publisher):
+        switch_on_content_type(collection_id=driver.collection_id)
+        publish_entry(entry_id=sibling.id, idempotency_key=_key())
+    assert driver.public_texts(article, "de") == ["[de] Alfa"]
 
 
 def test_a_machine_translation_is_never_a_source():
