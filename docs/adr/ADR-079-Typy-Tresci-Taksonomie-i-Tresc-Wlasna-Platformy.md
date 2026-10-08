@@ -1,13 +1,15 @@
 # ADR-079 — typy treści na stronach firm i treść własna platformy: typ to dział, taksonomie i pozycje, odczyt dla stron produktu
 
-**Status:** Proposed — do decyzji właściciela. Zamówienie właściciela z 2026-10-08
+**Status:** Accepted — przyjęty przez właściciela 2026-10-08, punkt po punkcie (sekcja
+„Odpowiedzi właściciela”). Zamówienie właściciela z 2026-10-08
 (typy treści „jak custom posts w WordPressie”, taksonomie, kategorie, tagi,
 wielojęzyczność, slugi; blog zawsze, typy niestandardowe per platforma i per plan) oraz
 jego odpowiedź z tego samego dnia: blog własny produktu (91 wpisów Puppily, potem
 HoofCare i MedPlano) żyje w tym samym systemie treści. Rozstrzygnięcia techniczne:
 agent, pakiet CT0; plan memex `saas-core-typy-tresci`. Druga wersja dokumentu, po
 przeglądzie projektu z kodem (14 uwag — sekcja „Po przeglądzie”) i po scaleniu pakietu
-PC1 (`main` b97403ae). Nic z tego dokumentu nie jest zbudowane.
+PC1 (`main` b97403ae). Zbudowana jest faza CT1 (sekcja „Stan budowy”); reszta czeka na
+swoje pakiety.
 **Data:** 2026-10-08
 
 **Zmienia częściowo** ADR-071 pkt 14 i „Uzupełnienie 2026-10-07” (adresy pozycji per
@@ -336,6 +338,19 @@ niczego nie zasłania (tak samo jest dziś z `tag`). Kanału per typ wersja 1 ni
       jego wpisów nie da się edytować ani publikować (zaplanowane publikacje są
       anulowane z powodem). Nazwy działu zostają zajęte, więc **włączenie przywraca
       wszystko pod tymi samymi adresami od razu**.
+    - **Dlaczego 404, a nie 410** (odpowiedź 2 właściciela, sprawdzone w kodzie
+      2026-10-08). Stronę klienta rysuje strona Next.js za przepisaniem adresu w proxy;
+      taka strona umie odpowiedzieć 404 (`notFound()`) i przekierowaniem, a kodu 410
+      nie umie. 410 musiałoby więc paść w proxy, które — żeby wiedzieć, że adres leży
+      pod wyłączonym typem — pytałoby backend przed **każdą** wizytą **każdej** strony
+      klienta. Dokładnie takie pytanie zdjął pakiet PC1 razem z mapą starych adresów
+      (ADR-077 pkt 5). Zostaje 404 i wszystko, co każe wyszukiwarce zapomnieć adres
+      równie skutecznie: adresy typu znikają w tej samej chwili z sitemapy, z kanałów
+      RSS/Atom, z `llms.txt`, z menu, z `hreflang` i `x-default` pozostałych stron, a
+      żadne przekierowanie (dawna nazwa działu, adres z migawki) nie prowadzi pod
+      wyłączony typ. Dla Google 404 i 410 kończą się tym samym — strona wypada z
+      indeksu; 410 bywa szybsze o dni. Włączenie typu przywraca te same adresy, więc
+      „nie ma na stałe” (410) byłoby też mniej prawdziwe niż „nie ma” (404).
     - Wyłączony typ nie liczy się do limitu, a przywrócenie wymaga wolnego miejsca —
       zwolnienie przywracania z limitu pozwalałoby obejść go na przemian wyłączając i
       zakładając typy. Dlatego **podgląd wyłączenia mówi, czy typ da się potem
@@ -555,10 +570,17 @@ przeglądarce. Szacunki po przeglądzie są wyższe niż w pierwszej wersji.
 | CT4 | Adres wpisu i import: `former_slugs`, zmiana sluga, usługa importu | 3–4 dni | zmienia adres opublikowanego wpisu i widzi jedno 308; przykładowy import widoczny w panelu platformy |
 | CT5 | Polecenia asystenta, inwentarz SCR, `core:update` produktów, wersje planów, kolejka VPS | 2 dni | to samo w HoofCare i MedPlano; odmowa ponad limit planu |
 
-Razem 14–20 dni (było 11–15). Poza wersją 1: CT6 wygląd typu i blok „Lista wpisów”
-2–3 dni, pola własne 4–6 dni, szablony strony wpisu 5–8 dni, własne taksonomie 1–2 dni,
+Razem 14–20 dni (było 11–15). Po odpowiedzi 4 właściciela dochodzi do serii **CT6 —
+wygląd typu i blok „Lista wpisów”** (2–3 dni, własny pakiet po CT2). Poza wersją 1:
+pola własne 4–6 dni, szablony strony wpisu 5–8 dni, własne taksonomie 1–2 dni,
 relacje 2–3 dni. Przeniesienie 91 wpisów Puppily i jej strony publiczne to pakiet
 Puppily po CT2, CT3, CT4 i PR1.
+
+## Stan budowy
+
+| Faza | Stan | Gdzie |
+| --- | --- | --- |
+| CT1 | w budowie | gałąź `pkg-ct1` |
 
 ## Ryzyka
 
@@ -647,7 +669,39 @@ kanału RSS bloga. Jedna uwaga nie potwierdziła się w danych: żadna strona lo
 stosu nie ma trzech działów — trzy strony mają po jednym (policzone ponownie po
 wszystkich 24 organizacjach).
 
+## Odpowiedzi właściciela (2026-10-08)
+
+Właściciel przeczytał projekt i odpowiedział na pytania z następnej sekcji:
+
+1. **Menu panelu: (a)** — jedna pozycja „Treści” z listą typów, blog pierwszy.
+2. **Obniżenie planu: (a)** — typy ponad limit działają dalej; odmowa dotyczy tylko
+   założenia kolejnego i przywrócenia wyłączonego. Dodał: „jednocześnie opublikowane
+   stają się nieopublikowane, a dla wyszukiwarek informacja jest usuwana (chyba kod
+   410, o ile dobrze pamiętam)”. Odczytane jako zdanie o **typie wyłączonym**, nie o
+   obniżeniu planu: wpisy wyłączonego typu przestają być publiczne, a wyszukiwarki mają
+   się dowiedzieć, że treści nie ma. Jak to jest zbudowane i dlaczego odpowiedzią jest
+   404, nie 410 — pkt 23.
+3. **Własne taksonomie firmy: (a)** — po wersji 1; „na pierwsze miesiące powinno
+   wystarczyć”.
+4. **Wygląd typu i blok „Lista wpisów”: „zróbmy to od razu”** — dodatek CT6 jest częścią
+   tej serii pakietów (własny, późniejszy pakiet), nie odłożoną opcją.
+5. **RSS: (a)** — typy artykułowe wchodzą do kanału strony, firma może to przełączyć
+   dla każdego typu.
+6. **Liczby planów** (Profile 0, Site 1, Pro 10) zostają jako wartości domyślne; zmienia
+   je właściciel.
+
+Przyjęte razem z ADR, bez wariantów: wyjątek drzwi sprzed tenanta (pkt 31) i strona
+workspace'u platformy poza rendererem kreatora (pkt 29).
+
+**Zasada dla całej funkcji** (jego słowa): „zakoduj to tak, żeby użytkownik mógł zmieniać
+ustawienia — z rozsądkiem, tylko przydatne opcje”. Czym typ **jest** — nazwa, adres w
+każdym języku, czy trafia do kanału RSS, czym jest dla wyszukiwarek — firma ustawia w
+panelu, z sensownymi wartościami domyślnymi; panel nie pokazuje niczego, czego właściciel
+firmy by nie zrozumiał albo nie potrzebował.
+
 ## Pytania do właściciela
+
+Stan sprzed odpowiedzi, zostawiony dla wariantów, które odpadły.
 
 1. **Gdzie typy w menu panelu.** (a) jedna pozycja „Treści” z listą typów (blog
    pierwszy); (b) osobna pozycja menu na każdy typ, jak w WordPressie. Rekomendacja: (a)
