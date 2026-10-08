@@ -91,8 +91,10 @@ główny i nie dziedziczą dokumentu panelu. Powód jest mierzalny (§8): pod `[
 każda strona niesie cały katalog komunikatów języka.
 
 - `layout.tsx` — **układ główny** produktu. `page.tsx` — strona główna.
-  `not-found.tsx` i `[...rest]/page.tsx` (wywołuje `notFound()`) — własna strona 404;
-  bez nich adres spoza tabeli dostaje 404 bez układu produktu.
+  `not-found.tsx` i `[...rest]/page.tsx` (wywołuje `notFound()`) — własna strona 404
+  dla adresu spoza tabeli. `layout.tsx`, `not-found.tsx` i `[...rest]/page.tsx` są
+  **wymagane**, gdy produkt deklaruje tabelę: proxy oddaje im wizyty, a test z §10
+  (`slot.test.ts`) nie przechodzi bez nich.
 
 ```tsx
 // app/product-site/[locale]/layout.tsx

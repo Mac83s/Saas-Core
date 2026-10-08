@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { NextRequest } from "next/server";
@@ -240,6 +240,20 @@ walkThroughTheProxy(
   },
   8,
 );
+
+describe("the product's own page files", () => {
+  // The proxy hands a visit to these; a table without them answers nothing
+  // a visitor could read. The core has no table and ships none of them.
+  it.each(["layout.tsx", "not-found.tsx", "[...rest]/page.tsx"])(
+    "has %s under app/product-site/[locale] when a table is declared",
+    (file) => {
+      if (!publicSite) return;
+      const folder = path.resolve(__dirname, "../../app/product-site/[locale]");
+
+      expect(existsSync(path.join(folder, file)), file).toBe(true);
+    },
+  );
+});
 
 describe("the page of a gone address", () => {
   it("has its words in every language of the registry", () => {
