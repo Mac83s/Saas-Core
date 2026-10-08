@@ -13,6 +13,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
 import { ApiProblemError } from "@saas-core/api-client";
+import { PanelAccessProvider } from "#components/panel/panel-access";
 import { SitesPanel, type SitesSection } from "./sites-panel";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
@@ -382,6 +383,66 @@ test("pokazuje adres opublikowanej witryny dopiero dla aktywnej publikacji", asy
     "http://przychodnia.core.localhost:3000",
   );
   expect(link).toHaveAttribute("target", "_blank");
+});
+
+test("w workspace platformy panel nie pokazuje adresu witryny kreatora i nigdzie do niej nie prowadzi (ADR-079 pkt 29)", async () => {
+  listSites.mockResolvedValue({
+    items: [{ ...site, current_publication_id: "publication-1" }],
+    next_cursor: null,
+  });
+  listSiteDomains.mockResolvedValue({
+    items: [
+      platformDomain,
+      {
+        ...platformDomain,
+        id: "019ff20d-a000-7000-8000-000000000011",
+        hostname: "www.example.test",
+        kind: "custom",
+        is_canonical: false,
+      },
+    ],
+  });
+  const hosts = ["przychodnia.core.localhost", "www.example.test"];
+
+  for (const section of ["pages", "blog", "content", "translations"] as const) {
+    const { container, unmount } = render(
+      <PanelAccessProvider
+        access={{
+          modules: ["core.organizations", "shared.sites", "shared.media"],
+          permissions: ["site.content.edit", "site.publish"],
+          isOwner: true,
+          limited: false,
+          publisher: true,
+        }}
+      >
+        <NextIntlClientProvider
+          locale="pl"
+          timeZone="Europe/Warsaw"
+          messages={polishMessages}
+        >
+          <SitesPanel section={section} />
+        </NextIntlClientProvider>
+      </PanelAccessProvider>,
+    );
+
+    await screen.findByRole("heading", { level: 1 });
+    await waitFor(() => expect(listSiteDomains).toHaveBeenCalled());
+    // The site is published, and a company's panel would offer to open it.
+    expect(
+      screen.queryByRole("link", { name: "Otwórz opublikowaną stronę" }),
+    ).not.toBeInTheDocument();
+    for (const host of hosts) {
+      expect(container, `${section}: ${host}`).not.toHaveTextContent(host);
+      expect(
+        [...container.querySelectorAll("a")].filter((link) =>
+          (link.getAttribute("href") ?? "").includes(host),
+        ),
+        `${section}: ${host}`,
+      ).toEqual([]);
+    }
+    unmount();
+    listSiteDomains.mockClear();
+  }
 });
 
 test("zastępuje techniczny formularz kreatorem pierwszej strony po angielsku", async () => {

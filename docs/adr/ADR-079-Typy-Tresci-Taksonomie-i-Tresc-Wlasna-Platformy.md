@@ -739,8 +739,17 @@ Odstępstwa i doprecyzowania:
 6. **Strona workspace'u z opublikowanymi podstronami.** Wiersze zostają nietknięte
    (publikacje, podstrony, domeny); przestają być serwowane od wdrożenia. Lokalny stos
    Puppily ma taką stronę — jej adresy `<etykieta>.<platformDomain>` odpowiedzą 404.
-   Panel nadal pozwala edytować i publikować podstrony kreatora w workspace, choć nikt
-   ich nie zobaczy; ukrycie tych ekranów dla wydawcy to osobna, niezrobiona rzecz.
+   **Panel wydawcy nie pokazuje adresu tej witryny i nigdzie do niej nie prowadzi**
+   (uwaga właściciela z 08.10, po wejściu do panelu na stosie Puppily): karta strony
+   na ekranie startowym nie ma adresu ani „Otwórz opublikowaną stronę” i mówi, że
+   wpisy pokazuje serwis pod hostem produktu (albo — gdy produkt nie ma własnych stron
+   — że witryna nie ma własnego adresu); ekrany „Strona internetowa” nie piszą hosta
+   przed adresem typu i nie linkują opublikowanych podstron ani wersji językowych
+   (`usePublisher` w `sites-panel.tsx`); „Widoczność w wyszukiwarkach” nie dostaje od
+   API żadnego adresu (`read_search_visibility`). Panel firmy bez zmian — pilnują tego
+   jego dotychczasowe testy. Zostaje na osobny pakiet: ekrany kreatora u wydawcy
+   („Podstrony”, „Menu”, „Wygląd”, „Adres i domeny”, publikacja witryny) nadal
+   działają, choć nikt tych podstron nie zobaczy.
 7. **Nazwy w innych językach zawsze wprost (rozszerzenie pkt 33).** Punkt mówił
    o stronie bez publikacji kreatora; po pkt 29 publikacja strony workspace'u niczego
    już nie wydaje, więc odczyt bierze przyjęte tłumaczenia nazw typów i pozycji wprost

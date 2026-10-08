@@ -34,3 +34,14 @@ export function useAsksModule(module: string): boolean {
   const access = useContext(AccessContext);
   return !access?.publisher || access.modules.includes(module);
 }
+
+/**
+ * Whether this is the panel of the platform's own workspace (ADR-077 pkt 9).
+ * Its builder site answers at no host — what it publishes is shown by the
+ * product's own pages (ADR-079 pkt 29) — so a screen that would name or open
+ * the site's address asks here first. False in every company's panel, and
+ * outside the panel.
+ */
+export function usePublisher(): boolean {
+  return useContext(AccessContext)?.publisher === true;
+}

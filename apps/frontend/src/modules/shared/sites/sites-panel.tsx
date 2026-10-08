@@ -73,6 +73,7 @@ import {
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 
+import { usePublisher } from "#components/panel/panel-access";
 import { PanelPage } from "#components/panel/panel-page";
 
 import { sitesErrorMessage } from "./problem";
@@ -214,6 +215,14 @@ export function SitesPanel({
   const [selectedPageId, setSelectedPageId] = useState(pageId);
   const [report, setReport] = useState<SiteLocalizationReport>();
   const [domains, setDomains] = useState<SiteDomain[]>([]);
+  // Where the site answers for its readers — what these screens write in
+  // front of an address and open in a new tab. The platform's own workspace
+  // has no such place (ADR-079 pkt 29): its builder site answers at no host
+  // and its entries are shown by the product's own pages, so the publisher's
+  // panel names no address of the site and links to none.
+  const publisher = usePublisher();
+  const siteAddress =
+    !publisher && domains.length ? publicSiteUrl(domains) : null;
   const [publications, setPublications] = useState<SitePublication[]>([]);
   // The API pages publications by cursor; null once the oldest one is loaded.
   const [publicationsCursor, setPublicationsCursor] = useState<string | null>(
@@ -536,7 +545,7 @@ export function SitesPanel({
           ) : null}
           {section === "content" && selectedSiteId ? (
             <CreateContentTypeDialog
-              address={domains.length ? publicSiteUrl(domains) : null}
+              address={siteAddress}
               defaultLocale={selectedSite?.default_locale}
               key={selectedSiteId}
               onCreated={(created) => {
@@ -608,10 +617,9 @@ export function SitesPanel({
     />
   );
 
-  const publishedSiteUrl =
-    selectedSite?.current_publication_id && domains.length > 0
-      ? publicSiteUrl(domains)
-      : null;
+  const publishedSiteUrl = selectedSite?.current_publication_id
+    ? siteAddress
+    : null;
 
   if (requiresPlan) {
     return (
@@ -924,7 +932,7 @@ export function SitesPanel({
 
       {section === "blog" && selectedSiteId ? (
         <BlogPanel
-          address={domains.length ? publicSiteUrl(domains) : null}
+          address={siteAddress}
           defaultLocale={selectedSite?.default_locale}
           key={selectedSiteId}
           siteId={selectedSiteId}
@@ -941,7 +949,7 @@ export function SitesPanel({
 
       {section === "contentType" && selectedSiteId && typeId ? (
         <BlogPanel
-          address={domains.length ? publicSiteUrl(domains) : null}
+          address={siteAddress}
           defaultLocale={selectedSite?.default_locale}
           key={`${selectedSiteId}-${typeId}`}
           onLoaded={setContentType}
@@ -952,7 +960,7 @@ export function SitesPanel({
 
       {section === "contentTypeSettings" && selectedSiteId && typeId ? (
         <ContentTypeSettings
-          address={domains.length ? publicSiteUrl(domains) : null}
+          address={siteAddress}
           key={`${selectedSiteId}-${typeId}`}
           onLoaded={setContentType}
           onSwitchedOff={() => router.push(contentTypesHref(selectedSiteId))}
@@ -967,7 +975,7 @@ export function SitesPanel({
           onReviewChanged={() => setTranslationsDecided((value) => value + 1)}
           // An article is public by itself, so the address does not wait for
           // the site's own publication.
-          publicBaseUrl={domains.length ? publicSiteUrl(domains) : null}
+          publicBaseUrl={siteAddress}
           reloadKey={translationsReload}
           siteId={selectedSiteId}
         />

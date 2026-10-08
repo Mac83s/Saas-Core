@@ -1083,6 +1083,44 @@ def _rows(site_id: str) -> tuple[Any, ...]:
     )
 
 
+def test_the_publishers_panel_is_given_no_address_of_the_builder_site() -> None:
+    """„Widoczność w wyszukiwarkach” lists addresses that answer now. For the
+    workspace none does, so the read lists none — the panel has nothing of
+    that host to show or open. A company's answer is what it was."""
+    from saas_core.modules.core.organizations.context import (
+        activate_tenant_context,
+        context_from_membership,
+    )
+    from saas_core.modules.core.organizations.models import Membership
+    from saas_core.modules.shared.sites.search_visibility import read_search_visibility
+    from test_sites_blog_languages import Blog
+
+    blog = Blog("visibility-site")
+    membership = Membership.objects.get(organization__slug="visibility-site")
+
+    def read() -> dict[str, Any]:
+        with activate_tenant_context(context_from_membership(membership)):
+            return read_search_visibility()["sites"][0]
+
+    company = read()
+    Organization.objects.filter(slug="visibility-site").update(
+        workspace_kind=WorkspaceKind.PLATFORM, slug=platform_workspace_slug()
+    )
+    publisher = read()
+
+    assert company["origin"].endswith(f"://{blog.host}")
+    assert company["sitemap_url"] and company["robots_url"] and company["languages"]
+    assert publisher == {
+        "site_id": company["site_id"],
+        "name": company["name"],
+        "origin": None,
+        "sitemap_url": None,
+        "robots_url": None,
+        "languages": [],
+    }
+    assert blog.host not in str(publisher)
+
+
 def test_the_panels_preview_of_the_workspaces_pages_is_what_it_was() -> None:
     """The rule is about hosts. The publisher's panel still previews its
     pages in every language, as a company's does."""

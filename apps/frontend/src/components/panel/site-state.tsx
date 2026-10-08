@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
-import { ArrowRightIcon, ExternalLinkIcon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
 
 import {
   getPublicLocales,
@@ -19,6 +19,7 @@ import {
 } from "@saas-core/api-client";
 import { Link } from "#i18n/navigation";
 import { companyLocales, type CompanyLocale } from "#lib/company-locales";
+import { productSite } from "#lib/product-site/site";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button, buttonVariants } from "@saas-core/ui/components/button";
 import {
@@ -28,14 +29,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@saas-core/ui/components/card";
-import { publicSiteUrl } from "../../modules/shared/sites/public-site-url";
 
 /**
- * The start page of a platform workspace (ADR-077 pkt 9): where its site is
- * and what state it is in, before anything else. Read from what the site's
- * own screens read — the pages, the publications, the domains, the blog, the
+ * The start page of a platform workspace (ADR-077 pkt 9): what state its
+ * site is in, before anything else. Read from what the site's own screens
+ * read — the pages, the publications, the domains, the blog, the
  * workspace's languages — and said in their words, so the first screen and
  * „Podstrony” never disagree. It asks for nothing a publisher is refused.
+ *
+ * The site has no address of its own to show or open (ADR-079 pkt 29): no
+ * host serves the workspace's builder site, and what it publishes is shown
+ * by the product's own pages — on the host this panel is on, where the
+ * product has such pages.
  */
 type Loaded =
   | { site: null }
@@ -143,7 +148,8 @@ export function SiteState() {
     );
 
   const { site, pages, domains, published, collections, languages } = state;
-  const address = publicSiteUrl(domains);
+  // The product's own host: the panel stands on it, port included.
+  const host = productSite ? window.location.host : "";
   const waiting = pages.filter(waits).length;
   // Never published — in the words of the site's own line on „Podstrony” —
   // then, as its pages are named there: changes waiting, or what readers see.
@@ -167,8 +173,8 @@ export function SiteState() {
           <h2 className="min-w-0 break-words">{site.name}</h2>
           <Badge variant={status[0]}>{sites(status[1])}</Badge>
         </CardTitle>
-        <CardDescription className="break-all">
-          {address ? address.replace(/^https?:\/\//, "") : t("noAddress")}
+        <CardDescription>
+          {host ? t("shownAt", { host }) : t("noOwnAddress")}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -211,23 +217,6 @@ export function SiteState() {
               {t("domainAction")}
             </Link>
           </p>
-        ) : null}
-        {/* Under the facts, not beside the name: the name keeps the card's
-            whole width on a phone. */}
-        {address && site.current_publication_id ? (
-          <a
-            className={buttonVariants({
-              className: "mt-5",
-              size: "sm",
-              variant: "outline",
-            })}
-            href={address}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {sites("openPublishedSite")}
-            <ExternalLinkIcon aria-hidden="true" />
-          </a>
         ) : null}
       </CardContent>
     </Card>

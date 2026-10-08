@@ -377,7 +377,8 @@ nie zna, nie wymaga zmiany.
   obraz.
 - **Że strona workspace'u platformy z kreatora gdziekolwiek odpowiada.** Jej host
   (`<etykieta>.<platformDomain>` i domeny własne) odpowiada 404 na wszystkim — strony,
-  wpisy, listy, kanały, sitemapa, media (ADR-079 pkt 29). Wiersze zostają w bazie.
+  wpisy, listy, kanały, sitemapa, media (ADR-079 pkt 29). Wiersze zostają w bazie,
+  a panel wydawcy nie pokazuje adresu tej witryny i do niej nie prowadzi.
 
 ## 12. Kto czego pilnuje
 

@@ -4,6 +4,10 @@ One read for the panel's „Widoczność w wyszukiwarkach i AI”: per site its
 sitemap and `robots.txt`, and per language the site answers in now its home
 and its `llms.txt`. The addresses come from the same rules the public routes
 answer by (`public_feeds.search_addresses`), so nothing listed here gives 404.
+
+The platform's own workspace has nothing to list: its builder site answers at
+no host (ADR-079 pkt 29) — what it publishes is shown by the product's own
+pages — so its panel is given no address of that site to open.
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ from django.conf import settings
 
 from saas_core.modules.core.organizations.locales import organization_content_locales
 from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.core.organizations.platform_workspace import is_platform_workspace
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .models import Domain, DomainStatus, Site
@@ -32,8 +37,11 @@ def read_search_visibility() -> dict[str, Any]:
         SITES_ENABLED,
         operation=FeatureOperation.READ,
     )
-    organization = Organization.objects.only("id", "public_locales").get(pk=context.organization_id)
+    organization = Organization.objects.only("id", "public_locales", "workspace_kind").get(
+        pk=context.organization_id
+    )
     languages = tuple(organization_content_locales(organization))
+    served = not is_platform_workspace(organization)
     canonical = dict(
         Domain.all_objects.filter(
             organization_id=context.organization_id,
@@ -47,7 +55,7 @@ def read_search_visibility() -> dict[str, Any]:
         .filter(organization_id=context.organization_id)
         .order_by("created_at", "id")
     ):
-        hostname = canonical.get(site.id)
+        hostname = canonical.get(site.id) if served else None
         origin = f"{settings.PUBLIC_SITE_SCHEME}://{hostname}" if hostname else None
         addresses = (
             search_addresses(site=site, origin=origin, languages=languages)
