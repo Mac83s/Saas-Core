@@ -1282,7 +1282,7 @@ def test_a_types_former_name_is_never_taken_quietly() -> None:
     # An entry's own first address still leads to it (ADR-071) — until the
     # new type publishes something there.
     _one_hop(host, "/realizacje/dom-a/", "/prace/dom-a/")
-    assert ContentTaxonomy.all_objects.count() == 0
+    assert not ContentTaxonomy.all_objects.filter(organization_id=world.organization_id).exists()
 
     # Renaming says beforehand which redirects would stop, in every language
     # the name served, and saves only on the person's word.

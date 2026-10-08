@@ -478,6 +478,31 @@ def test_an_entry_removed_under_a_running_job_does_not_hold_the_job(
         ENTRY_SOURCE.authorize(context=driver.publisher, action="translate", object_ids=[second])
     assert getattr(refused.value, "status_code", None) == 404
 
+    # The hardest case: between the job's read and its write the entry is
+    # removed and erased with its whole type. The row is gone; the write
+    # still answers.
+    from saas_core.modules.shared.sites.content_types import delete_content_type
+    from saas_core.modules.shared.sites.models import ContentCollection
+
+    erased = SitesEntryDriver()
+    third = erased.create(["Gamma"])
+    erased.publish(third)
+    assert erased.collection_id is not None
+
+    def erased_then_written(self: Any, *, context: Any, batch: Any) -> Any:
+        with _as(erased.publisher):
+            remove_entry(entry_id=batch.items[0].object_id)
+            name = ContentCollection.all_objects.get(pk=erased.collection_id).name
+            delete_content_type(collection_id=erased.collection_id, confirm_name=name)
+        return write(self, context=context, batch=batch)
+
+    monkeypatch.setattr(type(ENTRY_SOURCE), "write", erased_then_written)
+
+    result = _job(erased, third)
+
+    assert result.decisions == [("refused", "withdrawn")]
+    assert not ContentEntry.with_removed.filter(pk=third).exists()
+
 
 def test_a_machine_translation_is_never_a_source():
     driver = SitesEntryDriver()

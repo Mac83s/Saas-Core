@@ -84,3 +84,71 @@ def test_discarding_keeps_the_translation_online(django_capture_on_commit_callba
         )
     assert driver.public_texts(article, "de") == ["[de] Alfa"]
     assert open_items(driver) == []
+
+
+def test_removing_an_article_asks_the_same_and_its_translation_can_follow(
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    """A removed article has left its translation group; what a job
+    translated from it still names it, which is how the person's answer
+    reaches the translation (ADR-079, „Uzupełnienie CT2")."""
+    from saas_core.modules.shared.sites.entry_removal import remove_entry
+    from saas_core.modules.shared.sites.models import ContentEntry
+
+    driver = SitesEntryDriver()
+    article = driver.create(["Alfa"])
+    driver.publish(article)
+    _job(driver, article)
+    with django_capture_on_commit_callbacks(execute=True), _as(driver.publisher):
+        remove_entry(entry_id=article)
+
+    (item,) = open_items(driver)
+    assert (item.object_id, item.locale, item.reason) == (article, "de", SOURCE_WITHDRAWN)
+    german = ContentEntry.all_objects.get(translation_of_id=article)
+    assert german.state == ContentEntryState.PUBLISHED
+    with _as(driver.publisher):
+        decide_review(
+            action="accept",
+            choices=[ReviewChoice(id=item.id, version=item.version)],
+            idempotency_key="ct2-removed-accept",
+        )
+    german.refresh_from_db()
+    assert german.state == ContentEntryState.WITHDRAWN
+    assert open_items(driver) == []
+
+
+def test_a_question_about_an_erased_article_closes_instead_of_failing(
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    """The article and its translation were removed and erased with their
+    type while the queue still asked about them. The person's decision gets
+    an answer and the item closes — it cannot wait for good on rows that are
+    gone."""
+    from saas_core.modules.shared.sites.content_types import delete_content_type
+    from saas_core.modules.shared.sites.entry_removal import remove_entry
+    from saas_core.modules.shared.sites.models import ContentCollection, ContentEntry
+
+    driver = SitesEntryDriver()
+    article = driver.create(["Alfa"])
+    driver.publish(article)
+    _job(driver, article)
+    german = ContentEntry.all_objects.get(translation_of_id=article)
+    assert driver.collection_id is not None
+    with django_capture_on_commit_callbacks(execute=True), _as(driver.publisher):
+        remove_entry(entry_id=article)
+    (item,) = open_items(driver)
+    assert item.reason == SOURCE_WITHDRAWN
+    with django_capture_on_commit_callbacks(execute=True), _as(driver.publisher):
+        remove_entry(entry_id=german.id)
+        name = ContentCollection.all_objects.get(pk=driver.collection_id).name
+        delete_content_type(collection_id=driver.collection_id, confirm_name=name)
+    assert not ContentEntry.with_removed.filter(pk__in=[article, german.id]).exists()
+    assert [found.id for found in open_items(driver)] == [item.id]
+
+    with _as(driver.publisher):
+        decide_review(
+            action="accept",
+            choices=[ReviewChoice(id=item.id, version=item.version)],
+            idempotency_key="ct2-erased-accept",
+        )
+    assert open_items(driver) == []

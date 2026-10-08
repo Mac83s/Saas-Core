@@ -820,6 +820,22 @@ składa; słownik strony czytany w tenancie), `taxonomies.py` (serwisy),
     tag założony dziś: angielskie archiwum pod angielską nazwą i jedno 308 ze starego adresu.
 16. **Ręczne dodanie wersji językowej wpisu** nie kopiuje pozycji — jak dotąd; kopiuje je
     zlecenie tłumaczenia (wszystkie taksonomie, bez zmiany kodu).
+17. **Nazwa pozycji wpisana w panelu jest publikowana od razu**, jeśli osoba ma prawo
+    publikacji — inaczej niż w „Tekstach strony”, gdzie zapis i publikacja są osobne.
+    Powód: adres z tej nazwy działa od zapisu (pkt 11), więc tytuł archiwum pod nowym
+    adresem nie powinien czekać na osobny krok. Publikowany jest tylko ten jeden tekst i
+    tylko dla pozycji, którą niesie jakaś publikacja; bez prawa publikacji nazwa wychodzi
+    z następną publikacją strony.
+18. **Kolejka przeglądu tłumaczeń po usunięciu wpisu.** Usunięcie wpisu zamyka w kolejce to,
+    co na niego czekało do akceptacji (`review_decided`); pytanie „czy zdjąć też
+    tłumaczenia” po usunięciu opublikowanego oryginału zostaje i działa — tłumaczenia są
+    odnajdywane po `translation_of`, bo usunięty wpis opuścił grupę. Decyzja w sprawie
+    wpisu skasowanego razem z typem dostaje odpowiedź „konflikt” i pozycja kolejki się
+    zamyka; zapis zlecenia dla takiego wpisu dostaje odmowę, nie wyjątek.
+19. **Nazwa „Blog” w menu a strony kategorii.** Tam, gdzie platforma nie oferuje typów
+    poza pierwszym, „Kategorie” i „Tagi” bloga stoją pod `/panel/sites/content/<blog>/…`
+    i należą do pozycji „Blog” (pole `under` w `PANEL_SECTIONS`) — kategorie ma każdy
+    blog na każdej platformie (pkt 9).
 
 **Kto musi o tym pamiętać** (lista dla następnych faz):
 

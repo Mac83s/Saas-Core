@@ -240,10 +240,31 @@ class EntryTranslationSource:
         if batch.source_key != self.key:
             raise ValueError("The batch is for another source.")
         with _tenant(context):
-            _authorize(context, "translate", [item.object_id for item in batch.items])
+            _authorize(context, "translate", ())
+            # An entry that is no longer there — erased with its type since
+            # the job read it — gets an answer like any other item, never an
+            # error: the job settles its credits in the transaction that
+            # writes (ADR-079, „Uzupełnienie CT2").
+            there = set(
+                ContentEntry.with_removed.filter(
+                    organization_id=context.organization_id,
+                    id__in=[item.object_id for item in batch.items],
+                ).values_list("id", flat=True)
+            )
             published_now = set(batch.published_in_job)
             outcomes: list[WriteOutcome] = []
             for item in batch.items:
+                if item.object_id not in there:
+                    outcomes.append(
+                        WriteOutcome(
+                            object_id=item.object_id,
+                            locale=item.locale,
+                            state="refused",
+                            keys=tuple(sorted(item.texts)),
+                            reason=EXCLUDED_WITHDRAWN,
+                        )
+                    )
+                    continue
                 outcomes.extend(_write_item(context, batch, item, published_now))
             return tuple(outcomes)
 
@@ -342,8 +363,24 @@ class EntryTranslationSource:
                 SITE_CONTENT_EDIT if action == "discard" else SITE_PUBLISH, SITES_ENABLED
             )
             assert_person_required(_tenant_context(context), REVIEW_GATE)
+            # An entry erased with its type since the item was queued: the
+            # decision answers a conflict and the queue's item closes.
+            there = set(
+                ContentEntry.with_removed.filter(
+                    organization_id=context.organization_id,
+                    id__in=[item.object_id for item in items],
+                ).values_list("id", flat=True)
+            )
             return tuple(
                 _decide(context, action, item, f"{idempotency_key}:{item.object_id}:{item.locale}")
+                if item.object_id in there
+                else WriteOutcome(
+                    object_id=item.object_id,
+                    locale=item.locale,
+                    state="conflict",
+                    keys=(),
+                    reason=CONFLICT_TARGET_CHANGED,
+                )
                 for item in items
             )
 
@@ -448,6 +485,13 @@ def _sibling(entry: ContentEntry, locale: str, *, lock: bool = False) -> Content
         translation_group=entry.translation_group,
         locale=locale,
     ).exclude(pk=entry.pk)
+    if entry.state == ContentEntryState.REMOVED:
+        # A removed entry has left its group; what a job translated from it
+        # still names it. That is how a person takes its translations down
+        # after it (`review`, „withdraw”).
+        siblings = ContentEntry.all_objects.filter(
+            organization_id=entry.organization_id, translation_of_id=entry.pk, locale=locale
+        )
     if lock:
         siblings = siblings.select_for_update(of=("self",))
     return siblings.select_related(

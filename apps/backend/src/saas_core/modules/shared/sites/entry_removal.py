@@ -28,6 +28,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ErrorDetail, ValidationError
 
+from saas_core.content_protocol import registry
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.models import Organization
@@ -38,6 +39,7 @@ from .collections import (
     is_translation_source,
     take_down_entry,
 )
+from .language_versions import site_locales
 from .models import (
     ContentCollection,
     ContentEntry,
@@ -53,7 +55,7 @@ from .models import (
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED
 from .publication_routing import published_entry_path
 from .services import assert_person_required
-from .source_changes import notify_entry_withdrawn
+from .source_changes import ENTRY_SOURCE_KEY, notify_entry_withdrawn
 
 ENTRY_REMOVED = "sites.entry.removed"
 ENTRY_REMOVE_GATE = "Usunięcie wpisu"
@@ -161,6 +163,19 @@ def remove_entry(*, entry_id: UUID, dry_run: bool = False) -> EntryRemoval:
         take_down_entry(context, entry, reason="removed")
         if source:
             notify_entry_withdrawn(context=context, entry_id=entry.id)
+    # A translation of it that waited for a person waits for nothing now:
+    # the review queue's item for the pair is moot (nothing without the
+    # engine). A removed original's are its languages'; a removed
+    # translation's is its own language under the entry it translated.
+    waiting = (
+        [(entry.translation_of_id, str(entry.locale))]
+        if entry.translation_of_id is not None
+        else [(entry.id, locale) for locale in site_locales(entry.site)]
+    )
+    for object_id, locale in waiting:
+        registry.review_decided(
+            context=context, source_key=ENTRY_SOURCE_KEY, object_id=object_id, locale=locale
+        )
     if entry.schedule_state == EntryScheduleState.PENDING:
         entry.schedule_state = EntryScheduleState.CANCELLED
         entry.schedule_error = SCHEDULE_CALLED_OFF
