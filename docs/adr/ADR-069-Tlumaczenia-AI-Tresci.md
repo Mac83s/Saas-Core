@@ -476,7 +476,7 @@ fakty treści są od TL8a w neutralnym pakiecie `saas_core/content_protocol/`.
 - **ADR-068** — port, sufity i zadania; **ADR-070** — treść podstron, pamięć,
   publikowalność, pochodna publikacja, 307 po zmianie faktu, rollback; **ADR-071** —
   języki firmy, brak cechy planu, SEO/GEO i znacznik tekstu AI; **ADR-076** — rejestr
-  poleceń i „w imieniu”; **ADR-077** — Puppily jako źródło tłumaczeń.
+  poleceń i „w imieniu”.
 
 ## Uzupełnienie 2026-10-03: wartości silnika jako ustawienia platformy (TL22b, pkt 30)
 

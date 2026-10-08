@@ -1,46 +1,74 @@
-# ADR-077 — Strona treści produktu w kreatorze: workspace platformy jako wydawca, mapa starych adresów, host produktu bez marketingu
+# ADR-077 — Strona treści produktu w kreatorze: droga wycofana; co po niej zostało
 
-**Status:** Accepted — decyzja właściciela z 2026-10-07 (memex, projekt `puppily`:
-`puppily-s-first-stage-runs-on-the-site-builder-w`); rozstrzygnięcia techniczne
-agenta w pakietach PB3b, PB3a (pkt 8) i PB3c (pkt 9) planu memex
-`saas-core-wielojezycznosc-i-tlumaczenia-ai`.
-**Data:** 2026-10-07
+**Status:** Wycofany w części, która otwierała kreator stron dla publicznej strony
+produktu — decyzja właściciela z 2026-10-08 (memex, projekt `puppily`:
+`puppily-s-public-site-is-dedicated-coded-views-o`). **Pkt 2, 4, 6 i 9 obowiązują.**
+Pkt 2 i 9 zostają na stałe z osobnej decyzji właściciela z tego samego dnia: własny
+blog produktu jest pisany w systemie treści rdzenia, w workspace platformy,
+a pokazują go kodowane widoki produktu. Numeracja punktów jest zachowana, bo kod
+i inne dokumenty wskazują je po numerze.
+**Data:** 2026-10-07; wycofanie 2026-10-08 (pakiet PC1 planu memex
+`saas-core-wielojezycznosc-i-tlumaczenia-ai`).
 
-**Zmienia:** ADR-048 pkt 1 i 4 — wyjątek opisany w pkt 1; dla produktów, które z niego
-nie korzystają, ADR-048 obowiązuje bez zmian. Kontrakt modułów §6 (ADR-049): typy
-bloków stron przestają należeć wyłącznie do rdzenia (pkt 8).
-**Rozszerza:** ADR-035 §1–2 (workspace platformy znów jest wydawcą — tam, gdzie
-profil tak stanowi), ADR-028 (publiczny routing: odpowiedź 410), ADR-071
-„Uzupełnienie 2026-10-07” pkt 6 (jedno 308 obejmuje też mapę starych adresów) i jego
-„Świadome granice” (odnośnik do działu w treści), ADR-057 pkt 5 (menu panelu ma drugi
-skład — wydawcy, pkt 9).
+**Nie zmienia:** ADR-048 — obowiązuje bez wyjątku: publiczna strona produktu to
+dedykowane, kodowane widoki w aplikacji produktu, na hoście produktu; kreator stron
+służy stronom klientów. Kontrakt modułów §6 (ADR-049) — bloki stron należą do rdzenia.
+**Rozszerza (w części, która została):** ADR-035 §1–2 (workspace platformy jest
+wydawcą, pkt 2), ADR-057 pkt 5 (menu panelu ma drugi skład — wydawcy, pkt 9),
+ADR-071 „Świadome granice” (odnośnik do działu w treści, pkt 6), ADR-049
+(przełącznik profilu `features.marketingSite`, pkt 4).
 
-## Kontekst
+## Co było próbowane
 
 ADR-048 rozstrzygnął, że strony marketingowe produktów to dedykowane trasy Next.js, a
-kreator stron służy klientom. Powodem były bloki projektowane pod stronę małej firmy
-i workspace platformy, którego nigdy nie uruchomiono (`provision_platform_workspace`
-nadawał `sites.enabled` bez `sites.max`, więc `create_site` kończył się
-`QuotaUnavailable`).
+kreator stron służy klientom. Puppily wyglądało na inny przypadek: nie strona
+sprzedażowa, tylko serwis treści — 374 strony ras i 91 wpisów w pięciu językach — czyli
+to, co kreator umie (podstrony, działy z wpisami, wersje językowe z własnymi adresami,
+hreflang, sitemapa, tłumaczenia). Właściciel zdecydował 2026-10-07, na rekomendację
+agenta, że pierwszy etap Puppily powstaje w kreatorze jako strona workspace'u platformy
+(memex `puppily-s-first-stage-runs-on-the-site-builder-w`).
 
-Puppily jest innym przypadkiem: nie stroną sprzedażową produktu, tylko serwisem treści
-— 374 strony ras i 91 wpisów w pięciu językach (pl, en, de, es, ru). To dokładnie to,
-co kreator umie: podstrony, działy z wpisami, wersje językowe z własnymi adresami,
-hreflang, sitemapa, kanały, tłumaczenia. Właściciel zdecydował 2026-10-07, że pierwszy
-etap Puppily powstaje w kreatorze, bez próby, a ruch z wyszukiwarek jest na tyle mały,
-że każdy stary adres może się zmienić, o ile przekierowuje. Stary serwis ma 2197
-adresów; część funkcji (ogłoszenia, konta) znika.
+W dniach 07–08.10 siedem pakietów (PB3a–PB3e, PB1, PB2) dołożyło do rdzenia dwie grupy
+zmian: takie, z których korzystają strony klientów, oraz punkty rozszerzenia istniejące
+tylko po to, żeby produkt mógł zbudować kreatorem własną stronę — własne typy bloków
+modułu, mapę starych adresów z odpowiedzią 410, podstronę w korzeniu działu źródła
+rekordów i eksport serwisów stron dla komendy, która stawia witrynę z plików produktu.
+Nic z tego nie zostało wypchnięte ani wdrożone.
 
-## Decyzja
+## Dlaczego droga została wycofana
 
-### 1. Wyjątek od ADR-048: serwis treści produktu może powstać w kreatorze
+Po obejrzeniu wyniku na lokalnym stacku właściciel odrzucił ją 2026-10-08:
 
-Produkt, którego publiczna strona jest serwisem treści, buduje ją w `shared.sites`
-jako stronę **workspace'u platformy** swojego deploymentu. Strony sprzedażowe produktów
-(Business, HoofCare, MedPlano) zostają przy ADR-048. Wyboru dokonuje profil
-deploymentu (pkt 4), nie kod: rdzeń nie zna żadnego produktu z nazwy.
+- strony produktu mają dedykowane, jednorazowe moduły (quiz doboru rasy), własny
+  nagłówek i własną stopkę — to kod produktu, nie sekcje biblioteki;
+- panel użytkownika produktu jest tym samym panelem rdzenia na tym samym hoście, co
+  w HoofCare i MedPlano, a nie panelem na subdomenie obok strony z kreatora;
+- przekierowania własnych podstron produktu nie należą do kreatora stron klientów:
+  kreator ma być dla klientów dokładnie tym, czym był.
 
-### 2. Workspace platformy jako wydawca
+Widoki Puppily powstają od nowa jako kodowane strony w aplikacji produktu (ADR-048).
+Z rdzenia wycięto to, co służyło wyłącznie odrzuconej drodze (pakiet PC1); zostało to,
+z czego korzystają strony klientów, i to, o co właściciel prosił sam.
+
+Tego samego dnia właściciel rozstrzygnął pytanie, które po wycofaniu zostało otwarte:
+własna treść platformy — blog produktu — jest redagowana w systemie treści rdzenia,
+w workspace platformy, a czytelnikowi pokazują ją kodowane widoki produktu. Dlatego
+workspace platformy jako wydawca (pkt 2) i jego panel (pkt 9) zostają w rdzeniu na
+stałe: to tam operator redaguje treść platformy. Rodzaje tej treści i sposób, w jaki
+widoki produktu ją czytają, opisze osobny ADR o typach treści (w przygotowaniu
+w innym pakiecie); będzie wskazywał pkt 2 i 9 tego dokumentu.
+
+## Punkty decyzji i ich stan
+
+### 1. Wyjątek od ADR-048 — wycofany
+
+Nie ma wyjątku: produkt nie buduje swojej publicznej strony w `shared.sites`.
+
+### 2. Workspace platformy jako wydawca — obowiązuje
+
+W workspace platformy operator redaguje własną treść platformy (blog produktu); to,
+co poniżej, daje mu do tego stronę, miejsce na pliki i domenę bez planu. Publiczną
+stroną produktu ta treść nie jest — pokazują ją kodowane widoki produktu (pkt 1).
 
 `provision_platform_workspace` nadaje teraz to, o co kod naprawdę pyta:
 
@@ -70,24 +98,17 @@ deploymentu (pkt 4), nie kod: rdzeń nie zna żadnego produktu z nazwy.
   (`_refuse_platform_workspace`), a wejście wymaga MFA operatora. Kolejny redaktor to
   kolejny operator dopisany tą samą komendą. Reguły klientów się nie zmieniają.
 
-### 3. Domeny: strona na domenie produktu, panel na domenie platformy
+### 3. Strona na domenie produktu, panel na subdomenie platformy — wycofany
 
-Strona wydawcy odpowiada na **własnej domenie produktu** (`puppily.pl`), dopiętej do
-strony jak domena własna klienta i ustawionej jako kanoniczna. `platformDomain`
-deploymentu jest subdomeną (`app.puppily.pl`): tam odpowiadają panel, logowanie i
-formularze gości, a subdomeny platformy stron (`<etykieta>.app.puppily.pl`)
-przekierowują jednym 308 na domenę kanoniczną. Sprawdzone w kodzie:
+Układ zakładał stronę z kreatora na domenie produktu i panel na subdomenie
+(`app.<domena>`). Odpadł razem z pkt 1: panel produktu stoi na hoście produktu, obok
+jego kodowanych widoków. Kodu własnego ten punkt nie miał; opisane w nim zachowanie
+domen własnych klientów (ADR-028) nie zmieniło się ani wtedy, ani teraz.
 
-- proxy frontendu traktuje jako host aplikacji wyłącznie `platformDomain` (i
-  `FRONTEND_CONTROL_HOSTS`); każdy inny host idzie do renderera stron;
-- `_validated_custom_hostname` odmawia tylko domeny platformy i jej subdomen, więc
-  domena nadrzędna jest dozwolona; weryfikacja to rekord TXT, więc działa na apeksie;
-- certyfikat wydaje Caddy na żądanie po zgodzie `authorize_tls_hostname`.
+### 4. Host platformy bez marketingu: `features.marketingSite` — obowiązuje
 
-Układ odwrotny (strona na `platformDomain`, panel gdzie indziej) wymagałby wyjątku w
-proxy i w bramce hostów API — odrzucony.
-
-### 4. Host platformy bez marketingu: `features.marketingSite`
+Przełącznik nie zależy od tego, czym produkt zastępuje marketing rdzenia: wyłącza go
+produkt, który przynosi własne publiczne strony.
 
 Profil deploymentu może wyłączyć strony marketingowe rdzenia i katalog firm na hoście
 platformy: `"features": { "marketingSite": false }`. Brak klucza znaczy „włączone”,
@@ -106,137 +127,52 @@ Rozstrzyga proxy (`apps/frontend/src/proxy.ts`); układ grupy `(marketing)` trzy
 samą linię dla żądania, które by je ominęło. Przełącznik żyje w jednym pliku
 (`marketing/enabled.ts`), bo czyta go też proxy. Backend go nie potrzebuje.
 
-### 5. Mapa starych adresów strony
+### 5. Mapa starych adresów strony i odpowiedź 410 — wycofane, kod usunięty
 
-Strona, która zastępuje inną, dostaje mapę jej adresów: `SiteOldAddress`
-(`sites_siteoldaddress`, wymuszone RLS) — stary adres → nowy adres na tej stronie
-(`moved`) albo „usunięty na stałe” (`gone`).
+Usunięte w PC1: model `SiteOldAddress` z migracją `sites` 0053 (nigdy niewypchniętą
+i niewdrożoną — na lokalnym stacku cofniętą, zanim plik zniknął), moduł
+`old_addresses.py`, komenda `load_old_addresses`, adres
+`GET /api/v1/public/site/gone/`, strona `app/site-gone/` i pytanie proxy frontendu
+przed każdą wizytą strony klienta. Proxy jest znów synchroniczne i nie pyta backendu
+o nic przed przekazaniem wizyty rendererowi; nieistniejący adres strony klienta
+odpowiada 404 jak przed 07.10. Przekierowania własnych adresów strony — `SiteRedirect`
+po zmianie adresu podstrony i dawne nazwy działów (ADR-071) — nie były częścią mapy
+i działają bez zmian.
 
-**Kto buduje adres.** Tylko strona. Reguła nazywa ścieżkę, nigdy host ani pełny URL,
-a odpowiedź podaje adres, pod którym ta ścieżka odpowiada **dziś**: cel reguły jest
-przy każdej wizycie pytany w resolverze (`resolve_public_page(old_addresses=False)`).
-Stąd:
+Stare adresy serwisu, który produkt zastępuje, obsługuje kod produktu albo serwer
+przed nim, nie kreator.
 
-- **jedno 308, nigdy łańcuch** — podstrona przemianowana po wczytaniu mapy, dział pod
-  nową nazwą, wyłączony język: stary adres prowadzi od razu pod adres końcowy (dla
-  wersji językowej wstrzymanej — 307, jak wszędzie);
-- reguła nie prowadzi do innej reguły: cel jest pytany bez mapy, więc pętla i łańcuch
-  są niemożliwe z konstrukcji;
-- **reguła jest przekierowaniem tylko tam, gdzie jej cel dziś odpowiada**; inaczej
-  stary adres to 404 (ADR-071, uzupełnienie 2026-10-07, pkt 6).
+### 6. Odnośnik do działu w treści idzie za językiem czytelnika — obowiązuje
 
-**Żywy adres wygrywa.** Resolver pyta mapę na końcu — po podstronach, wpisach,
-indeksach, archiwach, stronach rekordów, po `SiteRedirect` i po dawnych nazwach
-działów. Reguła dla adresu, który odpowiada, czeka za nim i zaczyna działać, gdy on
-zniknie.
-
-**Jak porównywany jest stary adres** (`old_addresses.address_key`, tak samo dla
-pliku i dla żądania):
-
-| Co przychodzi | Jak jest dopasowane |
-| --- | --- |
-| brak albo obecność końcowego `/`, podwojone `/` | bez znaczenia |
-| wielkie i małe litery (`/Rasy-Psow/`) | bez znaczenia — małe litery (`lower`, nie `casefold`: `straße` i `strasse` to dwa adresy); żywe adresy strony zostają wrażliwe na wielkość liter jak dotąd |
-| cyrylica zakodowana procentami (`%D0%BF…`) albo wpisana wprost | ten sam adres: dekodowanie do skutku (do trzech razy), potem NFC |
-| prefiks języka, którego strona już nie używa (`/pl/…`) | część adresu jak każdy inny segment: `/pl/kontakt` to osobna reguła i nie pasuje do `/kontakt` |
-| query string i fragment | ucinane przy porównaniu; przy 308 query gościa jedzie dalej, jak przy każdym przekierowaniu renderera |
-| pełny URL w pliku (`https://stary.example/…`) | brana jest jego ścieżka |
-
-**410.** Adres `gone`, pod którym nic nie odpowiada, dostaje status 410 i małą stronę
-w języku czytelnika: język to pierwszy segment adresu, jeśli jest językiem strony
-dostępnym dziś, inaczej język strony; na stronie jest odnośnik do strony głównej tego
-języka i `noindex`. Adresy z mapy nie są stronami, więc nie ma ich w sitemapie ani w
-hreflang.
-
-Strona Next.js umie odpowiedzieć 404, ale nie 410, dlatego 410 daje proxy: przed
-przekazaniem wizyty rendererowi pyta backend (`GET /api/v1/public/site/gone/`) i dla
-adresu usuniętego przepisuje żądanie na `app/site-gone/route.ts`. Żeby strony bez
-mapy nie płaciły za funkcję, której nie używają, odpowiedź mówi też, czy strona ma
-jakikolwiek adres `gone` (`rules`); host bez nich nie jest pytany ponownie przez
-minutę. Gdy backend nie odpowie w 2 s albo host dopiero dostał pierwszą regułę,
-strona mówi te same słowa ze statusem 404 — do następnego pytania.
-
-**Wczytywanie.** `manage.py load_old_addresses --host <host> --csv <plik> --operator
-<e-mail> [--dry-run] [--replace]`: plik `stary adres,nowy adres` albo `stary
-adres,gone`. `--dry-run` niczego nie zapisuje i pokazuje to samo podsumowanie; bez
-`--replace` plik dopisuje i poprawia, z nim jest całą mapą. Odrzucony wiersz (cel
-poza stroną, cel ze znakami `?`/`#`, ten sam stary adres z dwoma celami, brak celu)
-zatrzymuje cały zapis. Raport wymienia też wiersze prawdziwe, ale warte obejrzenia:
-cel, który dziś nie odpowiada; stary adres, który odpowiada na stronie; cel, który
-sam przekierowuje; adres z kropką (pkt „Granice”). Jeden wiersz historii na
-wczytanie, z licznikami i skrótem pliku. Górna granica to 20 000 reguł na plik —
-ochronna, nie planowa.
-
-### 6. Odnośnik do działu w treści idzie za językiem czytelnika
-
-Domknięcie granicy zostawionej przez PB1: odnośnik w treści strony albo w wyglądzie
+Domknięcie granicy zostawionej przez PB1 (ADR-071 pkt 14): odnośnik w treści strony albo w wyglądzie
 (stopka) prowadzący do działu w języku strony (`/blog/`) w wersji językowej prowadzi
 pod nazwę działu w języku czytelnika (`/en/journal/`), jeśli dział ma tam choć jeden
 wpis na liście; inaczej zostaje, jak go napisano. Adres składa wyłącznie
 `collection_index_path` (`section_link_targets`).
 
-### 7. Czcionki z cyrylicą
+### 7. Czcionki z cyrylicą — stwierdzenie, bez kodu
 
-Bez zmiany w kodzie — sprawdzone: `packages/ui/src/styles/site-fonts.css` ma dla
-Inter, Manrope, Nunito, Lora i Playfair Display osobny plik `cyrillic` pobierany
-tylko przez stronę z cyrylicą (`unicode-range` z U+0400–045F, czyli pełny rosyjski z
-`Ё`); DM Sans cyrylicy nie ma i jego zestawy schodzą do Inter; zestawy systemowe mają
-ją same. Strona 410 używa czcionki systemowej.
+Sprawdzone przy okazji i nadal prawdziwe: `packages/ui/src/styles/site-fonts.css` ma
+dla Inter, Manrope, Nunito, Lora i Playfair Display osobny plik `cyrillic` pobierany
+tylko przez stronę z cyrylicą; DM Sans cyrylicy nie ma i jego zestawy schodzą do
+Inter; zestawy systemowe mają ją same.
 
-### 8. Typy bloków produktu
+### 8. Typy bloków produktu — wycofane, kod usunięty
 
-Moduł `shared` albo `vertical` — w praktyce wertykał produktu — wnosi własne typy
-bloków stron z własnych plików. Rdzeń nie zna ich z nazwy i żaden plik rdzenia się przy
-tym nie zmienia (ADR-049). Kontrakt wykonywalny: `docs/architecture/site-block-types.md`.
+Usunięte w PC1: manifest modułu w `packages/contracts/site-blocks/modules/`
+i jego schemat, `defineModuleSiteBlocks`, slot `apps/frontend/src/product/site-blocks.ts`,
+wspólny rejestr bloków deploymentu we frontendzie, czytanie manifestów modułów
+w backendzie z kontrolami `sites.E011`–`E013`, `validate_built_site_block`, testowy
+wertykał `vertical.sample` i kontrakt `docs/architecture/site-block-types.md`.
+Zdanie kontraktu modułów (§6) obowiązuje znów w całości: szablony stron i bloki stron
+należą do rdzenia, a produkt, który potrzebuje nowego bloku **dla stron klientów**,
+dodaje go w Saas-Core. Rekordy modułu w blokach rdzenia i własne strony rekordów
+na stronie klienta idą jak dotąd protokołem źródeł publicznych (ADR-074 pkt 7).
 
-**Nazwa.** `<id modułu>.<nazwa>`, np. `vertical.puppily.breed_index`; myślnik w
-identyfikatorze modułu zapisuje się podkreśleniem. `core.*` zostaje rdzenia.
+### 9. Panel workspace'u platformy jest panelem wydawcy — obowiązuje
 
-**Gdzie typ istnieje.** Tam, gdzie profil składa moduł. Backend czyta
-`packages/contracts/site-blocks/modules/<id modułu>/manifest.json` wyłącznie dla
-modułów z `ACTIVE_MODULES`; frontend bierze zestawy ze slotu
-`apps/frontend/src/product/site-blocks.ts` i pomija te, których modułu nie ma w
-`deployment.modules`. W składzie bez modułu zapis z takim typem dostaje `400
-unknown_site_block_type`, `capabilities` go nie wymienia, a studio i strona publiczna
-nie mają go w rejestrze — także wtedy, gdy pliki modułu leżą w tym samym repozytorium.
-Bramką jest skład deploymentu, nie typ organizacji ani plan: czy firma ma co pokazać,
-mówi źródło modułu.
-
-**Jedna deklaracja, dwie połowy.** Manifest w kontraktach (typy, wersje, `serverBuilt`,
-wyjątki tłumaczeń, sekcje biblioteki) czytają obie strony. Kod — komponent, formularz
-studia, migratory — dokłada frontend przez `defineModuleSiteBlocks`, które odmawia, gdy
-manifest i kod się rozchodzą. Manifest zepsuty zatrzymuje `manage.py check`
-(`sites.E011`–`E013`), nie stronę gościa.
-
-**Dwa rodzaje bloków.** Stawiany przez osobę — formularz z pól katalogu, sekcja
-w bibliotece po rodzinach rdzenia, a gdy pokazuje rekordy, `live` z odpowiedzią źródła
-publicznego. Budowany przez moduł dla własnej strony rekordu — `serverBuilt`, jak
-`core.document`: w żadnej bibliotece i w żadnym zapisie; moduł sprawdza jego kształt
-sam (`validate_built_site_block`). Rekordy i strony rekordów idą protokołem źródeł
-publicznych (ADR-074 pkt 7 z uzupełnieniem 2026-10-07).
-
-**Tłumaczenia.** Reguła rdzenia bez zmian: wolny string schematu jest fragmentem do
-tłumaczenia. Czego schemat nie wyrazi — nazwa własna kopiowana do każdego języka, dana,
-tekst o prawdziwych osobach — moduł podaje w manifeście (`translation`); tabela
-wyjątków w `shared/sites/localized_bodies.py` zostaje tabelą rdzenia. Słowa bloku
-budowanego przez moduł są słowami rekordu i tłumaczy je źródło tłumaczeń modułu.
-
-**Wersje.** Jak w rdzeniu: linia od 1, schemat opublikowanej wersji się nie zmienia,
-nowa wersja przychodzi z migratorem.
-
-**Co to zmienia.** Zdanie kontraktu modułów (§6) „bloki stron należą do rdzenia”
-przestaje dotyczyć typów bloków. Do rdzenia nadal należą szablony całych stron,
-konwersje między typami sekcji i rodzaje pól formularza studia. Kontrakt
-z SeoContentRank (ADR-035, ADR-046) zostaje, jaki był: blueprinty stron używają typów
-rdzenia, a automatyzacja zmienia teksty bloku modułu tak jak każdego innego.
-
-Dowód: testowy wertykał `vertical.sample`, którego nie składa żaden profil — blok
-stawiany w dwóch wersjach i blok strony rekordu, zapisane, przetłumaczone jako
-fragmenty, opublikowane, narysowane w studiu i na stronie, nieobecne w składzie bez
-modułu (`apps/backend/tests/test_sites_module_blocks.py`,
-`apps/frontend/src/modules/shared/sites/module-blocks*.test.tsx`).
-
-### 9. Panel workspace'u platformy jest panelem wydawcy
+Panel, w którym operator redaguje treść platformy (pkt 2). Dla firm nic się nie
+zmieniło — patrz „Firmy” niżej.
 
 Workspace platformy dostawał panel zwykłej firmy: baner „Nie wybrano planu”, listę „Na
 start” z krokami nie do wykonania, kalendarz, magazyn i abonament w menu oraz ekrany,
@@ -309,7 +245,36 @@ i slotu produktu, więc po `core:update` sprawdza to samo w składzie produktu),
 z modułem produktu, zgodne z kodem sprzed zmiany) i
 `app/[locale]/panel/page.test.tsx` (ekran „Dziś” firmy).
 
+## Co jeszcze zostało z tych pakietów, a co z nimi odeszło
+
+Zostało, bo służy stronom klientów albo właściciel prosił o to sam:
+
+- nazwa działu w adresach per język i jej zmiana, także segment i slug per język dla
+  źródeł rekordów (PB1, `sites` 0052; ADR-071 i ADR-074, uzupełnienia 2026-10-07);
+- jedna reguła sluga podstrony we wszystkich językach: nazwa działu źródła rekordów
+  jest zamknięta dla podstron w każdym języku (ADR-074 pkt 7);
+- blok tabeli i konwerter HTML → bloki (PB2);
+- pierwsza sekcja na pustej stronie rysowana od razu; nagłówek strony na indeksie
+  działu; początek okruszków strony rekordu w języku czytelnika;
+- brak rejestracji tam, gdzie żaden typ organizacji nie ma `selfSignup`; kontrola
+  tekstów gości liczona ze składu profilu; testy rdzenia niezależne od składu;
+- z `shared.sites.api`: `convert_html` oraz funkcje fragmentów tekstu
+  (`extract_units`, `assemble`, `texts_against` z ich typami i odmowami) — moduł
+  tłumaczy nimi rekord, którego treść jest listą bloków rdzenia.
+
+Odeszło razem z pkt 1, 5 i 8:
+
+- `PublicSource.root_page` — podstrona kreatora w korzeniu działu źródła rekordów,
+  z okruszkami prowadzącymi przez nią i podpowiedzią w odmowie `slug_reserved`, która
+  istniała tylko dla takiego źródła (ADR-074, „Korzeń działu” — wycofane);
+- eksport z `shared.sites.api` serwisów, którymi kod produktu stawiał całą witrynę
+  (wygląd, menu, działy, teksty witryny, treść wersji językowej, `set_page_type`,
+  `delete_page` z ich odmowami) oraz `source_page_base`. Serwisy istnieją jak dotąd
+  i woła je panel; nie są publicznym API modułu dla innych modułów.
+
 ## Granice i dług
+
+Dotyczą punktów, które stoją (2, 4, 9):
 
 - **Słowa firmy w panelu wydawcy.** Grupa menu nazywa się „Firma”, a strona danych
   „Dane firmy”, także w workspace platformy; nakładka słów zależna od rodzaju
@@ -319,28 +284,13 @@ z modułem produktu, zgodne z kodem sprzed zmiany) i
   dopisać w rdzeniu i nadać workspace'owi właściwy entitlement.
 - **„Twoje konto” nadal pozwala założyć firmę.** To operacja konta, nie workspace'u:
   operator może mieć własną firmę obok workspace'u platformy.
-- **Adres z kropką nie dociera do strony.** Proxy przepuszcza pliki statyczne bez
-  rozstrzygania (`matcher`), więc stary adres typu `/strona.html` nie dostanie ani
-  308, ani 410. Wczytanie go wypisuje; zmiana matchera to osobna decyzja.
-- **Mapa nie ma ekranu ani polecenia asystenta.** To narzędzie operatora na czas
-  przenosin; logika jest w `old_addresses.py` (`read_rows`, `check_against_site`,
-  `apply_rows`), więc drzwi w API są do dopisania, gdy mapy zechce klient.
-- **Mapa należy do strony, nie do domeny.** Zmiana domeny kanonicznej jej nie rusza;
-  całą mapę usuwa `--replace` z pustym plikiem.
 - **`robots.txt` hosta platformy** przy wyłączonym marketingu zostaje, jaki był:
   wskazuje (pustą) sitemapę i nie zamyka hosta przed robotami.
-- **Formularz bloku modułu składa się z rodzajów pól rdzenia.** Własnej kontrolki —
-  wyboru jednego rekordu modułu — moduł nie wniesie; nowy rodzaj pola dodaje rdzeń.
-- **Bramką typów bloków jest skład deploymentu.** W deploymencie z kilkoma typami
-  organizacji biblioteka pokaże sekcje modułu także firmie, której typ tego modułu nie
-  ma; jej strona nic nie narysuje, bo źródło modułu nie odpowie.
-- **Blok budowany przez moduł nie jest walidowany przy odczycie strony.** Strona podaje
-  go rendererowi tak, jak go dostała; kształtu pilnują testy modułu.
-- **Sekcje modułu w bibliotece** nie mają zdjęć przykładowych ani filtra branży,
-  a styl bloku to klasy Tailwind w komponencie — import własnego pliku CSS nie jest
-  objęty testami rdzenia.
+- **Treść platformy nie ma jeszcze opisanych typów.** Pkt 2 i 9 dają workspace
+  i panel; czym jest wpis bloga produktu i jak czytają go widoki produktu,
+  rozstrzyga ADR o typach treści, a nie ten dokument.
 
-## Odrzucone
+## Odrzucone (dla pkt 9)
 
 - **Wydawca jako osobny typ organizacji.** Typ wybiera profil produktu i idą za nim
   plany, role i rejestracja; workspace platformy jest bytem operatora, a rodzaj
@@ -353,37 +303,15 @@ z modułem produktu, zgodne z kodem sprzed zmiany) i
   dla jednego ekranu; reguła „co panel oferuje” zostaje w panelu, obok menu.
 - **Przekierowanie `/panel` → `/panel/sites`.** Pierwszy ekran ma powiedzieć, gdzie
   jest strona i w jakim jest stanie; „Podstrony” mówią o podstronach.
-- **Mapa w `SiteRedirect`.** Tamte wiersze wchodzą do migawki publikacji i każda
-  publikacja niosłaby kilka tysięcy reguł w JSON-ie czytanym przy każdej wizycie;
-  nie mają też wyniku „usunięty”.
-- **Cel reguły zapisany jako adres końcowy i przepisywany przy każdej zmianie
-  adresu.** Wymaga, żeby każda operacja zmieniająca adres znała mapę; pytanie
-  resolvera przy wizycie daje to samo bez tej zależności.
-- **410 jako strona 404 z innym tekstem.** Wyszukiwarka traktuje 404 jako „może
-  wróci”; przy przenosinach chodzi o to, żeby adres zniknął z indeksu.
-- **Pytanie backendu o 410 przy każdej wizycie każdej strony** — stąd `rules` i
-  minuta ciszy; **lista adresów `gone` trzymana w proxy** — dublowałaby w TypeScripcie
-  reguły porównywania adresów.
-- **Przekierowanie do celu, który nie odpowiada** — 308 prowadzące do 404 jest gorsze
-  od 404.
-- **Typy produktu dopisywane do manifestu rdzenia** (jak `core.stay_*`). Rdzeń znałby
-  produkt z nazwy, a typ istniałby w każdym deploymencie.
-- **Rejestracja typów bloków w `AppConfig.ready`.** Frontend i test kontraktów nie mają
-  jak jej przeczytać, a schematy i tak muszą być plikami wspólnymi dla obu stron.
-- **Pole z blokami w deskryptorze modułu.** Deskryptor opisuje skład (aplikacja,
-  uprawnienia, cechy planu); bloki mają własny katalog kontraktów, własne wersje
-  i własny test, a katalog nazwany identyfikatorem modułu wystarcza za powiązanie.
-- **Wykrywanie zestawów frontendu po konwencji plików.** Zależy od bundlera (Turbopack
-  i Vitest robią to inaczej); slot produktu jest wzorcem już sprawdzonym na pulpicie
-  i kalendarzu.
+
+Alternatywy rozważane dla punktów wycofanych (mapa adresów, 410, typy bloków modułu)
+zostały w historii repozytorium razem z ich kodem (commity z 2026-10-07).
 
 ## Relacje
 
-ADR-048 (wyjątek), ADR-035 (workspace platformy, operacje tylko dla człowieka),
-ADR-028 (routing hostów i domeny), ADR-039/041 (RLS nowej tabeli; renderer czyta ją
-w tenancie nazwanym przez host), ADR-049 (profil produktu, punkty rozszerzenia),
-ADR-070 pkt 15 i ADR-071 pkt 9, 12, 14 z uzupełnieniem 2026-10-07 (adresy i odnośniki
-per język), ADR-074 uzupełnienie 2026-10-07 (kto składa adres strony rekordu; źródła
-publiczne wypełniają bloki modułów), ADR-031 (kategorie sekcji i formularz studia),
-ADR-070 (fragmenty tłumaczeń z danych bloków), ADR-057 (szablon strony i menu panelu),
-ADR-050 (typ organizacji a rodzaj workspace'u), ADR-078 (rejestr ustawień).
+ADR-048 (obowiązuje bez wyjątku), ADR-035 (workspace platformy, operacje tylko dla
+człowieka), ADR-028 (routing hostów i domeny — bez zmian), ADR-049 (profil produktu,
+punkty rozszerzenia), ADR-070 pkt 15 i ADR-071 pkt 9, 12, 14 z uzupełnieniem
+2026-10-07 (adresy i odnośniki per język), ADR-074 uzupełnienie 2026-10-07 (kto składa
+adres strony rekordu), ADR-057 (szablon strony i menu panelu), ADR-050 (typ
+organizacji a rodzaj workspace'u), ADR-078 (rejestr ustawień).

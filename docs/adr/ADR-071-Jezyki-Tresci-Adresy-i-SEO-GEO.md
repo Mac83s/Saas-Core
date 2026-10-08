@@ -224,7 +224,7 @@ korzeniem. Strony firm nie mają JSON-LD.
 - **ADR-028** — domena i host nazywają tenanta; reguły adresów dotyczą ścieżek.
 - **ADR-039, ADR-041** — `PublicLocalesChange` z wymuszonym RLS; dostępność czytana
   w tenancie nazwanym przez host, bez drzwi przed tenantem.
-- **ADR-048, ADR-077** — strony produktu na hoście platformy i ich `localePrefix`.
+- **ADR-048** — strony produktu na hoście platformy i ich `localePrefix`.
 - **ADR-053, ADR-064** — wizytówka i katalog per język.
 - **ADR-069** — tłumaczenia, zgody i koszty; **ADR-070** — treść podstron per język,
   `live_locales`, wstrzymanie i zdjęcie wersji.
@@ -405,9 +405,8 @@ Rozstrzygnięcia techniczne (agent, plan memex
    zmieniają: dział, jak podstrona, zachowuje adres starszy niż reguła. Slug wersji
    językowej podstrony liczony kodem (ADR-070 pkt 18) omija nazwy działów ze
    wszystkich języków. Segmenty stron rekordów wiążą też slug podstrony w każdym
-   języku, nie tylko w języku strony firmy; jedyny wyjątek — podstrona w korzeniu
-   działu źródła, które na to pozwala — opisuje ADR-074, „Korzeń działu jest
-   podstroną” (PB3d).
+   języku, nie tylko w języku strony firmy (ADR-074, „Jedna reguła sluga podstrony
+   w każdym języku”).
 8. **Inwentarz dla automatyzacji treści** dostaje obok `base_path` pole
    `collections[].paths` (`{język: ścieżka indeksu}`). To pole odpowiedzi, addytywne;
    kontrakt `packages/contracts/content-operations` się nie zmienia i nadal nie ma

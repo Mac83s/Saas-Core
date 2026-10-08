@@ -125,15 +125,18 @@ rdzenia poza slotami; pilnuje tego `pnpm core:check`, a rdzeń przychodzi przez
 | okres bezpłatny konta danego typu organizacji | `register_free_period` z `billing/api.py` w `AppConfig.ready`: karta planu podaje `free_until` (deklaracja, bez egzekwowania) |
 | menu, zakładki „Ustawień” (`settingsSections`), dolny pasek na telefonie (`mobileTabs`: adresy pozycji menu; bez pola — trzy pierwsze pozycje pracy), tłumaczenia, treść marketingowa | `apps/frontend/src/product/index.ts` |
 | strony panelu | nowe pliki w `apps/frontend/src/app/` |
-| typ bloku stron klienta (sekcja kreatora, blok strony rekordu) | manifest i schematy w `packages/contracts/site-blocks/modules/<id modułu>/`, zestaw z `defineModuleSiteBlocks` we własnym pliku modułu, lista zestawów w slocie `apps/frontend/src/product/site-blocks.ts` — kontrakt: [`site-block-types.md`](site-block-types.md) (ADR-077) |
 | rekordy modułu w blokach stron i własne strony rekordów | `register_public_source` z `core/organizations/api.py` w `AppConfig.ready` (protokół: notatka w `core/organizations/public_sources.py`) |
 | profil, obrazy, testy, kontrakt | `deployments/<produkt>/`, `product.json` |
 
-Typy bloków stron moduł wnosi sam (ADR-077): nazwa typu niesie identyfikator
-modułu (`vertical.<moduł>.<nazwa>`), a typ istnieje tylko tam, gdzie profil
-składa moduł. Do rdzenia nadal należą bloki `core.*`, szablony całych stron
-(recepty), konwersje między typami sekcji i rodzaje pól formularza studia:
-są częścią kontraktu z SeoContentRank (ADR-035, ADR-046) i renderera stron
-klientów, więc produkt, który potrzebuje nowego, dodaje go w Saas-Core. Tak
-samo zależności npm i Python — manifesty pakietów są plikami rdzenia. Brakuje
+Szablony stron i bloki stron należą do rdzenia: produkt, który potrzebuje
+własnego, dodaje go w Saas-Core, bo szablony i bloki są częścią kontraktu
+z SeoContentRank (ADR-035, ADR-046) i renderera stron klientów. Tak samo
+zależności npm i Python — manifesty pakietów są plikami rdzenia. Brakuje
 innego punktu rozszerzenia? Dodaj go w Saas-Core, nie w kopii produktu.
+
+Publiczna strona samego produktu nie powstaje w kreatorze (ADR-048; ADR-077
+zapisuje wycofaną próbę): to kodowane widoki w aplikacji produktu. Moduł,
+którego rekord ma treść z bloków rdzenia, tłumaczy ją funkcjami fragmentów
+tekstu z `shared/sites/api.py` (`extract_units`, `assemble`, `texts_against`
+— czyste, bez bazy i bez tenanta), a HTML zamienia na bloki rdzenia przez
+`convert_html` z tego samego `api`.

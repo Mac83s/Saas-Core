@@ -397,7 +397,7 @@ zachowuje dotychczasowe adresy:
   w fazie 9.
 - **Rezerwacja segmentów.** Każdy segment każdego źródła, w każdym języku, jest
   zarezerwowany dla nowych podstron i działów (`slug_reserved`, ADR-071 pkt 12) —
-  w każdym języku strony, z jednym wyjątkiem opisanym niżej („Korzeń działu”);
+  w każdym języku strony, bez wyjątków (niżej, „Jedna reguła sluga”);
   rejestr odmawia źródła, którego segment należy już do innego, jest dwuliterowy
   albo nie jest słowem z małych liter łacińskich, cyfr i łączników.
 - **Slug.** Rekord ze slugiem per język podaje je w `SourcePage.slugs` i
@@ -417,14 +417,11 @@ zachowuje dotychczasowe adresy:
   prowadzi pod segment w języku czytelnika; slug zostaje, jak go napisano, i gdy
   rekord ma w tym języku inny, odpowiada jedno 308.
 
-### Korzeń działu jest podstroną, gdy źródło tak powie (PB3d, tego samego dnia)
+### Jedna reguła sluga podstrony w każdym języku (PB3d, tego samego dnia)
 
-Pierwszy moduł na tym protokole (rasy psów w Puppily) potrzebował listy rekordów
-pod adresem samego działu: `/rasy-psow/`, `/en/dog-breeds/`. Lista jest blokiem,
-który osoba stawia na podstronie kreatora — ze wstępem i polami SEO — a podstrona
-nie mogła wziąć segmentu źródła. Przy okazji wyszło, że kod pytał o segmenty
-źródeł tylko slug w języku strony firmy: wersja językowa mogła zająć
-`/en/dog-breeds/` bez pytania, wbrew zdaniu wyżej. Rozstrzygnięcia (agent):
+Przy pierwszym module na tym protokole wyszło, że kod pytał o segmenty źródeł
+tylko slug w języku strony firmy: wersja językowa mogła zająć `/en/stay/` bez
+pytania, wbrew zdaniu wyżej. Rozstrzygnięcia (agent):
 
 - **Jedna reguła dla sluga podstrony w każdym języku** (`page_slug_reserved` w
   `shared/sites/localization.py`). Prefiks języka i ścieżki platformy (ADR-071
@@ -434,32 +431,21 @@ nie mogła wziąć segmentu źródła. Przy okazji wyszło, że kod pytał o seg
   działu (obce jednym 308), więc każda z nich należy tam do źródła. Reguła
   obejmuje slug wpisany (`PUT …/translations/<język>/`, zmiana adresu, szablon,
   komenda asystenta) i slug liczony z tytułu wersji językowej (`free_slug` omija
-  takie nazwy numerem, jak nazwy działów).
-- **Opt-in źródła: `PublicSource.root_page = True`** — „pod adresem działu stoi
-  podstrona, którą buduje człowiek”. Podstrona może wtedy wziąć segment tego
-  źródła jako slug w tym języku, w którym segment jest nazwą działu
-  (`source.segment(język)`: `rasy-psow` po polsku, `dog-breeds` po angielsku;
-  język bez własnej nazwy — `page_segment`). Nazwa z innego języka zostaje
-  odmówiona, a dział (kolekcja) nie dostaje żadnej, bo jego wpisy stanęłyby pod
-  adresami rekordów. Źródło bez tej flagi (`stay`, `documents`) zostaje zamknięte
-  jak dotąd. Flaga bez `page_segment` zatrzymuje start.
-- **Wersja językowa idzie za działem.** Wersja podstrony, która w języku strony
-  firmy stoi w korzeniu działu, dostaje z kodu nazwę działu w swoim języku
-  niezależnie od przetłumaczonego tytułu (o ile żadna inna podstrona jej tam nie
-  ma) — produkt ustawia podstronę w korzeniu raz, w języku strony.
+  takie nazwy numerem, jak nazwy działów). Dział (kolekcja) nie dostaje żadnej
+  z tych nazw, bo jego wpisy stanęłyby pod adresami rekordów.
 - **Adresy sprzed reguły zostają.** Reguła pyta tylko o slug nowy albo zmieniany
   (jak pkt 12): zapisana wersja językowa pod segmentem źródła dalej odpowiada,
   publikuje się i zapisuje ze swoim slugiem; odmowa przychodzi dopiero przy
   zmianie na inną zarezerwowaną nazwę, a po zmianie na wolną nie ma powrotu.
-  `sites_reserved_slugs` wypisuje teraz takie adresy we wszystkich językach.
+  `sites_reserved_slugs` wypisuje takie adresy we wszystkich językach.
 - **Routing bez zmian.** Slug podstrony to jeden segment, strona rekordu — dwa;
   podstrony są rozstrzygane przed źródłami, a źródło pod samym adresem działu
-  nie odpowiada nigdy. Okruszki strony rekordu prowadzą przez podstronę
-  opublikowaną pod adresem działu w tym języku (firma → dział → rekord), gdy
-  taka jest. Link w treści do samego adresu działu jest linkiem do podstrony:
-  prowadzi do jej wersji w języku czytelnika, a gdy jej nie ma — zostaje, jak
-  go napisano (wcześniej był przepisywany na adres, pod którym nic nie stało).
-- **Odrzucone:** strona indeksu budowana przez źródło (bez edytowalnego wstępu
-  i SEO, drugi rodzaj strony do utrzymania) oraz reguła tylko „per język”
-  (podstrona pod nazwą działu z innego języka stałaby u korzenia adresów, które
-  wszystkie przekierowują gdzie indziej).
+  (`/stay/`) nie odpowiada nigdy. Listę rekordów stawia się blokiem na podstronie
+  o innym adresie.
+- **Wycofane 2026-10-08 (ADR-077, pakiet PC1):** opt-in `PublicSource.root_page`,
+  który oddawał adres działu podstronie kreatora (z okruszkami strony rekordu
+  prowadzącymi przez nią, nazwą działu nadawaną wersji językowej z kodu
+  i podpowiedzią w odmowie `slug_reserved`). Istniał wyłącznie dla publicznej
+  strony produktu budowanej w kreatorze; żadne źródło rdzenia go nie używało.
+- **Odrzucone:** reguła tylko „per język” (podstrona pod nazwą działu z innego
+  języka stałaby u korzenia adresów, które wszystkie przekierowują gdzie indziej).

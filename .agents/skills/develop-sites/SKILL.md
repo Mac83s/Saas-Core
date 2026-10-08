@@ -62,16 +62,15 @@ company that has an offer booked from–to (`stay-offers.ts`), nobody else. A
 library section of a block without layouts (the widget, the calendar, the
 map) is its one `classic` section and its seed carries no `layout`.
 
-**A module brings its own block types** from its own files (ADR-077,
-`docs/architecture/site-block-types.md`): `vertical.<module>.<name>`, known
-only where the profile composes the module. A product's block never goes into
-the core manifest.
+**Block types are the core's** (`core.*`): a product that needs one for
+customers' sites adds it here. A product's own public site is never built
+in the builder (ADR-048; ADR-077 records the withdrawn attempt).
 
 A source's record may also have **a page nobody publishes** (slice 5e, a
 unit's `/stay/<slug>/`): `resolve_public_page` asks the source last, after
 pages, entries, indexes and archives (`_find_source_page`,
 `PublicSource.site_page`). Its segment and slug are the source's, per
-language where it says so (ADR-074), reserved but for `root_page`
+language where it says so (ADR-074), reserved in every language
 (`page_slug_reserved`); another language has it only where the record
 has words there, else one 308. The sitemap lists such pages
 (`site_pages`); their views are not counted. The source names the page's

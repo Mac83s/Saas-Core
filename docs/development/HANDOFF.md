@@ -73,19 +73,27 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   `docs/operations/billing.md`) nie obejmuje subskrypcji w Stripe: wymaga
   wywołania, które zmienia cenę trwającej subskrypcji bez proporcjonalnego
   rozliczenia — do zrobienia razem z W9.5.2S.
-- **Strona treści produktu w kreatorze (PB3b, 07.10, lokalnie, niewdrożone;
-  ADR-077, migracja `sites.0053`):** workspace platformy jest wydawcą —
-  `provision_platform_workspace` nadaje `custom_domain.enabled`, `sites.max = 1` i
-  `storage.bytes` (`--storage-gib`, domyślnie 20), więc strona, pliki i własna
-  domena działają bez planu; mapa starych adresów strony (`load_old_addresses`,
-  jedno 308 do adresu, który odpowiada dziś, albo 410 z proxy); przełącznik profilu
-  `features.marketingSite: false` (host platformy = panel, `/` → logowanie);
-  odnośnik do działu w treści idzie za językiem czytelnika. Otwarte: adres z kropką
-  nie dociera do renderera (matcher proxy), więc reguła dla niego nie zadziała; mapa
-  nie ma ekranu ani polecenia asystenta; `develop-sites` jest przy limicie 16 kB
-  i nie opisuje mapy — opis jest w ADR-077 i w `shared/sites/old_addresses.py`.
-- **Panel workspace'u platformy jest panelem wydawcy (PB3c, 07.10, lokalnie,
-  niewdrożone; ADR-077 pkt 9, bez migracji i bez zmian w backendzie):** powłoka
+- **Droga „publiczna strona produktu w kreatorze” wycofana (PC1, 08.10, lokalnie,
+  niewdrożone; ADR-077, ADR-048 bez wyjątku):** z rdzenia wycięte punkty
+  rozszerzenia, które istniały tylko dla niej — własne typy bloków modułu, mapa
+  starych adresów strony z odpowiedzią 410 (jej migracja nigdy nie została
+  wypchnięta: ostatnia migracja `sites` to 0052), podstrona w korzeniu działu
+  źródła rekordów i eksport serwisów stron dla kodu produktu; lista i powody
+  w ADR-077. Zostało z tych pakietów: przełącznik profilu
+  `features.marketingSite: false` (host platformy bez marketingu rdzenia,
+  `/` → logowanie), odnośnik do działu w treści w języku czytelnika, jedna reguła
+  sluga podstrony w każdym języku (nazwy działów źródeł rekordów zamknięte dla
+  podstron), pierwsza sekcja na pustej stronie rysowana od razu oraz
+  `convert_html` i funkcje fragmentów tekstu w `shared/sites/api.py`. Produkt
+  Puppily stoi jeszcze na rdzeniu sprzed wycięcia i bierze ten rdzeń dopiero po
+  własnym sprzątaniu.
+- **Workspace platformy jako wydawca i jego panel (PB3b–PB3c, 07.10, lokalnie,
+  niewdrożone; ADR-077 pkt 2 i 9, bez migracji) — zostaje na stałe (decyzja
+  właściciela 08.10: własny blog produktu jest pisany w systemie treści rdzenia
+  w workspace platformy, pokazują go kodowane widoki produktu; typy treści opisze
+  osobny ADR):** `provision_platform_workspace` nadaje `custom_domain.enabled`,
+  `sites.max = 1` i `storage.bytes` (`--storage-gib`, domyślnie 20), więc strona,
+  pliki i własna domena działają tam bez planu. Powłoka
   poznaje rodzaj workspace'u (`workspace_kind`), oferuje z modułów wspólnych tylko
   `PUBLISHER_MODULES`, ma własne menu (strona pod „Pracą”, „Wiadomości”
   i „Ustawienia” pod „Firmą”, bez zespołu, abonamentu, kalendarza i magazynu),
@@ -99,21 +107,6 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   wymaga od profilu tylko tekstów stron, które profil składa, a deployment bez
   typu z `selfSignup` nie proponuje rejestracji i nie podaje `/register` — poza
   drogą z zaproszenia (ADR-050, uzupełnienie 2026-10-07).
-- **Własne typy bloków modułu w kreatorze (PB3a, 07.10, lokalnie, niewdrożone;
-  ADR-077 pkt 8, bez migracji):** moduł `shared`/`vertical` wnosi typy bloków
-  stron z własnych plików — manifest i schematy w
-  `packages/contracts/site-blocks/modules/<id modułu>/`, zestaw z
-  `defineModuleSiteBlocks`, lista zestawów w slocie
-  `apps/frontend/src/product/site-blocks.ts`; typ istnieje tylko w deploymencie,
-  który składa moduł (zapis gdzie indziej: `unknown_site_block_type`). Blok
-  stawiany ma formularz i sekcję w bibliotece, blok strony rekordu jest
-  `serverBuilt`. Kontrakt: `docs/architecture/site-block-types.md`; dowód na
-  testowym wertykale `vertical.sample`, którego nie składa żaden profil. Przy
-  okazji: pierwsza sekcja dodana do pustej strony rysuje się od razu (Chromium
-  gubił układ podglądu). Otwarte: formularz bloku modułu składa się z rodzajów pól
-  rdzenia (bez własnej kontrolki, np. wyboru rekordu); bramką jest skład
-  deploymentu, nie typ organizacji; pierwszym użytkownikiem będzie moduł ras
-  Puppily (PB4).
 - **Operacje treści per język (TL13, 04.10, lokalnie, niewdrożone; ops
   mac-20261004-24, SCR mac-20261004-25):** `content-change-set.v1` przyjmuje
   język jako wzorzec, a podstrona w języku innym niż źródłowy ma własną bazę i
