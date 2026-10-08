@@ -128,6 +128,33 @@ adresy, które wcześniej odpowiadały 404 albo prowadziły do logowania; tabela
 zadeklarowana w profilu z marketingiem rdzenia nie zmienia żadnej odpowiedzi; adresy
 strony firmy odpowiadają identycznie także wtedy, gdy są regułą albo stroną produktu.
 
+## Sprawdzone na zbudowanej aplikacji
+
+Testy jednostkowe widzą tylko odpowiedź proxy, nie to, co Next z nią zrobi. Dlatego
+2026-10-08 gałąź została zbudowana (`next build`) z jednorazowym, niezacommitowanym
+produktem — tabela z działem w trzech językach, 3007 reguł starych adresów, strony
+serwerowe i klienckie, własny układ z czcionką z cyrylicą, profil z pięcioma językami
+bez marketingu rdzenia — i uruchomiona tak jak w obrazie (serwer `standalone`):
+
+- strona główna i strony działu odpowiadają 200 w języku adresu (`<html lang>`, słowa,
+  tytuł z `generateMetadata` bez `setRequestLocale`), także gdy gość przysyła własny
+  nagłówek języka i ciasteczko; brak słowa po niemiecku i hiszpańsku daje angielskie;
+- `canonical`, `hreflang` i `sitemap.xml` niosą adresy z tabeli, z własną nazwą wpisu
+  w każdym języku; wpis objęty regułą nie jest w sitemapie;
+- stary adres w każdej pisowni to jedno 308 i strona 200; `gone` to 410 z małą stroną
+  w języku adresu; nazwa działu z innego języka i adres spoza tabeli to 404 z nagłówkiem
+  i stopką produktu, w języku z prefiksu;
+- w prawdziwej przeglądarce: przejścia między stronami produktu są przejściami po
+  stronie klienta (bez żądania dokumentu), strona kliencka się hydratyzuje, plik
+  czcionki z cyrylicą ładuje się dla rosyjskich słów.
+
+Strony zespołu i gości nie były częścią tego przebiegu (wymagają backendu): ich
+odpowiedzi proxy pilnują pliki `*.golden.json`. Skrypty przebiegu:
+`~/DEVELOPMENT/.local-dev/resume/package-pr1/`. Uwaga dla powtarzających: serwer
+`standalone` uruchomiony z `HOSTNAME=127.0.0.1` wykonuje każde przepisanie proxy jako
+zewnętrzne (drugie przejście przez proxy) — także przepisania next-intl; lokalnie
+`HOSTNAME=localhost`, w obrazie `0.0.0.0`, jak dotąd.
+
 ## Konsekwencje
 
 - Slot frontendu ma cztery nowe pliki; istniejące produkty dostają je puste przez

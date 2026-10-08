@@ -45,7 +45,12 @@ type Messages = Record<string, Record<string, unknown>>;
 /**
  * What a product plugs into the core frontend (ADR-049), all from the one file
  * it owns: `src/product/index.ts`. Its pages are files of its own under
- * `src/app`, so they need no entry here.
+ * `src/app`, so they need no entry here. Its public site on the product's
+ * host — a home page of its own, sections named per language, old addresses,
+ * sitemap lines, words in every content language — is declared in slot files
+ * of their own, next to this one (ADR-080,
+ * `docs/architecture/product-public-site.md`), not here: the proxy reads
+ * them, and `product` is imported by the menu on the client.
  */
 export type ProductExtension = {
   /**
@@ -66,7 +71,9 @@ export type ProductExtension = {
   mobileTabs?: readonly string[];
   /** Tabs of "Ustawienia", appended after core's own (Company … Advanced). */
   settingsSections?: ProductSettingsSection[];
-  /** Merged into core messages namespace by namespace. */
+  /** Merged into core messages namespace by namespace. The panel's two
+   *  languages; the public pages' words in every content language live in
+   *  `src/product/site-messages.ts`. */
   messages?: Partial<Record<"pl" | "en", Messages>>;
   /** Copy for the marketing pages; without it they show the generic product. */
   marketing?: ProductContent;

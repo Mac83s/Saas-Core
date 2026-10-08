@@ -20,7 +20,7 @@ import { productSite } from "./site";
 
 /** next-intl reads a request's language from this header; its own
  *  middleware sets it, and so does the rewrite below, which stands in for
- *  it (`answers.test.ts` next to this file holds the name against the real middleware). */
+ *  it. `answers.test.ts` holds the name against the real middleware. */
 export const LOCALE_HEADER = "X-NEXT-INTL-LOCALE";
 
 /**
