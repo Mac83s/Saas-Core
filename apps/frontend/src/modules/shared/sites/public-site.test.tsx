@@ -220,6 +220,40 @@ test("prowadzi czytelnika do dalszych stron indeksu", async () => {
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 });
 
+test("a section's index with no articles still has the page's one heading", async () => {
+  const index = (main: boolean) => ({
+    ...page,
+    blocks: [
+      {
+        block_type: "core.entry_list",
+        schema_version: 1,
+        data: {
+          title: "Poradnik",
+          ...(main ? { main } : {}),
+          empty_text: "Nie ma jeszcze artykułów.",
+          items: [],
+        },
+      },
+    ],
+  });
+  const headingOne = async () =>
+    (await axe.run(document, { runOnly: ["page-has-heading-one"] })).violations
+      .length;
+
+  // As the server builds the index: its name is the page's heading.
+  render(<PublicSiteRenderer page={index(true)} />);
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+    "Poradnik",
+  );
+  expect(await headingOne()).toBe(0);
+
+  // The same list placed on a page by somebody is a section of that page.
+  cleanup();
+  render(<PublicSiteRenderer page={index(false)} />);
+  expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+  expect(await headingOne()).toBe(1);
+});
+
 test("nie pokazuje stronicowania, gdy strona jest tylko jedna", () => {
   render(
     <PublicSiteRenderer
