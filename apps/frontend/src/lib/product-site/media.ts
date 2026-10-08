@@ -21,8 +21,11 @@ const notFound = () => new Response(null, { status: 404 });
  * block renderers write that address relative to the host their page is on,
  * and a product's own pages are on this one.
  *
- * The backend answers only for a picture a published entry of the platform
- * workspace shows; everything else is the same 404. A company's site keeps
+ * The backend answers for a picture a published entry of the platform
+ * workspace shows, and — as a copy only, never the original — for one a
+ * live record of that workspace shows a visitor, on the word of the module
+ * that owns it (a breed's picture on a product's own page; ADR-080,
+ * „Uzupełnienie PR1c"). Everything else is the same 404. A company's site keeps
  * its own `/media/…`, behind its own host: the proxy hands every address of
  * a company's host to the renderer, and this refuses any host that is not
  * the platform's as well.

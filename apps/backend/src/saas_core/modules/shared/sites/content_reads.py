@@ -46,6 +46,7 @@ from rest_framework.exceptions import ErrorDetail, NotFound, ValidationError
 from saas_core.modules.core.organizations.context import set_local_organization_id
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.platform_workspace import platform_workspace_id
+from saas_core.modules.core.organizations.public_sources import served_media_ids
 from saas_core.modules.shared.media.api import shown_image_facts
 from saas_core.modules.shared.media.models import MediaAsset, MediaAssetState
 
@@ -821,27 +822,43 @@ def read_sitemap() -> dict[str, Any]:
 
 
 def serve_content_media(*, asset_id: UUID, variant: str = "") -> HttpResponse:
-    """A picture a published entry of the workspace shows: the original or
-    one of the pipeline's WebP copies. The platform's host answers it at
-    `/media/…`, where the block renderers look for pictures.
+    """A picture the platform's host may show: at `/media/…` there, where the
+    block renderers and a product's own pages look for pictures.
 
-    Only what an entry's current publication names — never a picture of the
-    workspace's builder pages, which no host shows (pkt 29), nor one of a
-    draft, a withdrawn entry, a switched-off type or an entry in a language
-    the workspace switched off: a picture answers where its entry does. The
-    same answer whether the asset is somebody else's or nobody's."""
+    Two rules, as on a company's site (`public_media`):
+
+    - what a published entry of the workspace shows — the original or one of
+      the pipeline's WebP copies. Only what an entry's current publication
+      names: never a picture of the workspace's builder pages, which no host
+      shows (pkt 29), nor one of a draft, a withdrawn entry, a switched-off
+      type or an entry in a language the workspace switched off — a picture
+      answers where its entry does;
+    - what a live record of the workspace shows a visitor, on the word of the
+      module that owns it (the registry of public sources, `served_media`) —
+      a breed's picture on a product's own page (ADR-080, „Uzupełnienie
+      PR1c"). One of our copies, never the original.
+
+    The same answer whether the asset is somebody else's, nobody's, or the
+    workspace's own that neither rule names."""
     workspace = _workspace()
-    if (
-        not _published(workspace)
-        .filter(
-            current_publication__snapshot__locale__in=sorted(workspace.available),
-            current_publication__snapshot__media_asset_ids__contains=[str(asset_id)],
-        )
-        .exists()
-    ):
-        raise ContentNotFound
     with transaction.atomic():
+        # A source reads its own tables, and they force row-level security
+        # as media does: asked before the tenant is set, the application's
+        # role sees no row there and every such picture would answer 404.
         set_local_organization_id(workspace.organization_id)
+        if not (
+            # A copy asks the sources first: a list page's dozens of
+            # thumbnails are then answered by one small read each, and never
+            # wait for the search of every published snapshot.
+            (variant and asset_id in served_media_ids(workspace.organization_id))
+            or _published(workspace)
+            .filter(
+                current_publication__snapshot__locale__in=sorted(workspace.available),
+                current_publication__snapshot__media_asset_ids__contains=[str(asset_id)],
+            )
+            .exists()
+        ):
+            raise ContentNotFound
         asset = MediaAsset.all_objects.filter(
             pk=asset_id,
             organization_id=workspace.organization_id,
