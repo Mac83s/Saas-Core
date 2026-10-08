@@ -101,6 +101,14 @@ def _booking_routes() -> list[Route]:
 
 
 def _sites_routes() -> list[Route]:
+    from saas_core.modules.shared.sites.content_read_views import (  # noqa: PLC0415
+        PublicContentEntriesView,
+        PublicContentEntryView,
+        PublicContentMediaView,
+        PublicContentSitemapView,
+        PublicContentTermsView,
+        PublicContentTypesView,
+    )
     from saas_core.modules.shared.sites.inquiry_views import PublicSiteInquiryView  # noqa: PLC0415
     from saas_core.modules.shared.sites.public_views import (  # noqa: PLC0415
         CaddyDomainAuthorizationView,
@@ -163,6 +171,43 @@ def _sites_routes() -> list[Route]:
             "api/v1/public/site/media/<uuid:asset_id>/<str:variant>/",
             PublicSiteMediaView.as_view(),
             name="public-site-media-variant",
+        ),
+        # The platform's own published content, read by the product's own
+        # pages (ADR-079 pkt 31): no host names a site here.
+        path(
+            "api/v1/public/content/types/",
+            PublicContentTypesView.as_view(),
+            name="public-content-types",
+        ),
+        path(
+            "api/v1/public/content/types/<slug:type_key>/terms/",
+            PublicContentTermsView.as_view(),
+            name="public-content-terms",
+        ),
+        path(
+            "api/v1/public/content/types/<slug:type_key>/entries/",
+            PublicContentEntriesView.as_view(),
+            name="public-content-entries",
+        ),
+        path(
+            "api/v1/public/content/types/<slug:type_key>/entries/<str:locale>/<slug:slug>/",
+            PublicContentEntryView.as_view(),
+            name="public-content-entry",
+        ),
+        path(
+            "api/v1/public/content/sitemap/",
+            PublicContentSitemapView.as_view(),
+            name="public-content-sitemap",
+        ),
+        path(
+            "api/v1/public/content/media/<uuid:asset_id>/",
+            PublicContentMediaView.as_view(),
+            name="public-content-media",
+        ),
+        path(
+            "api/v1/public/content/media/<uuid:asset_id>/<str:variant>/",
+            PublicContentMediaView.as_view(),
+            name="public-content-media-variant",
         ),
     ]
 

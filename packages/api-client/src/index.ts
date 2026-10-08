@@ -299,6 +299,22 @@ export type SiteOnboardingSaveInput =
 export type SubdomainAvailability =
   components["schemas"]["SubdomainAvailability"];
 export type PublicSitePage = components["schemas"]["PublicSitePage"];
+/** The platform's own published content, as a product's pages read it
+ *  (ADR-079 pkt 30): address parts, never paths. */
+export type PublicContentEntry = components["schemas"]["PublicContentEntry"];
+export type PublicContentEntryAnswer =
+  components["schemas"]["PublicContentEntryAnswer"];
+export type PublicContentImage = components["schemas"]["PublicContentImage"];
+export type PublicContentList = components["schemas"]["PublicContentList"];
+export type PublicContentListAnswer =
+  components["schemas"]["PublicContentListAnswer"];
+export type PublicContentListItem =
+  components["schemas"]["PublicContentListItem"];
+export type PublicContentSitemap =
+  components["schemas"]["PublicContentSitemap"];
+export type PublicContentTerm = components["schemas"]["PublicContentTerm"];
+export type PublicContentTerms = components["schemas"]["PublicContentTerms"];
+export type PublicContentType = components["schemas"]["PublicContentType"];
 export type MediaAsset = components["schemas"]["MediaAsset"];
 export type MediaAssetList = components["schemas"]["MediaAssetList"];
 export type MediaUploadInput = components["schemas"]["MediaUploadCreate"];

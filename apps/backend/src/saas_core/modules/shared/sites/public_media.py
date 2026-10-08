@@ -99,6 +99,13 @@ def serve_public_media(*, host: str, asset_id: UUID, variant: str = "") -> HttpR
             organization_id=domain.organization_id,
             state=MediaAssetState.READY,
         ).first()
+    return media_response(asset, variant)
+
+
+def media_response(asset: MediaAsset | None, variant: str = "") -> HttpResponse:
+    """The bytes of a picture its caller found to be published: the original,
+    or one of the pipeline's WebP copies. The caller decides whose picture it
+    is and whether a visitor may see it; this only reads it from storage."""
     if asset is None:
         raise PublicSiteNotFound
     object_key, content_type = asset.object_key, asset.detected_mime or asset.declared_mime

@@ -17739,6 +17739,235 @@ paths:
           description: ''
       x-quality-exempt:
         error-400: A page that is not a number is the first page, never refused.
+  /api/v1/public/content/sitemap/:
+    get:
+      operationId: public_content_sitemap_retrieve
+      description: 'Listed entries by group of language versions, each type''s list
+        per language, and the lists of terms worth indexing, each with when it last
+        changed. The product writes the addresses from its own table. Reads the deployment''s
+        platform workspace and nothing else; takes no host, site or tenant. Only what
+        is published: a draft, a withdrawn entry, a switched-off type and an address
+        nobody has all answer the same 404.'
+      summary: Everything of the platform's content a sitemap lists, as address parts
+      tags:
+      - public-content
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicContentSitemap'
+          description: ''
+  /api/v1/public/content/types/:
+    get:
+      operationId: public_content_types_list
+      description: 'Each type with its name and the name of its section per language
+        it has a listed entry in. A type with nothing listed is not here. Reads the
+        deployment''s platform workspace and nothing else; takes no host, site or
+        tenant. Only what is published: a draft, a withdrawn entry, a switched-off
+        type and an address nobody has all answer the same 404.'
+      summary: The platform's content types that have something published
+      tags:
+      - public-content
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicContentType'
+          description: ''
+  /api/v1/public/content/types/{type_key}/entries/:
+    get:
+      operationId: public_content_entries_list
+      description: 'Newest first; all of the type, or those under one term (`taxonomy`
+        and `term`). Entries that ask not to be indexed are on no list. `list.indexable`
+        is the core''s rule for thin term lists; the product applies it. Reads the
+        deployment''s platform workspace and nothing else; takes no host, site or
+        tenant. Only what is published: a draft, a withdrawn entry, a switched-off
+        type and an address nobody has all answer the same 404.'
+      summary: A page of a content type's published entries in one language
+      parameters:
+      - in: query
+        name: locale
+        schema:
+          type: string
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        description: The language of the list.
+        required: true
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+        description: Entries per page; the deployment's own index size when left out.
+      - in: query
+        name: taxonomy
+        schema:
+          type: string
+          default: ''
+          maxLength: 80
+          minLength: 1
+        description: 'With `term`: its taxonomy.'
+      - in: query
+        name: term
+        schema:
+          type: string
+          default: ''
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+          minLength: 1
+        description: 'With `taxonomy`: the term''s slug in the language of the list.'
+      - in: path
+        name: type_key
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-content
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicContentListAnswer'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/public/content/types/{type_key}/entries/{locale}/{slug}/:
+    get:
+      operationId: public_content_entry_retrieve
+      description: 'The entry as its current publication froze it: title, body as
+        blocks, terms, its other language versions as (language, slug), and the facts
+        the block renderers need beside the blocks. `moved` instead of `entry` when
+        the address answers elsewhere now — the product answers one 308 from it. With
+        `canonical_url` the entry''s own JSON-LD nodes come too. Reads the deployment''s
+        platform workspace and nothing else; takes no host, site or tenant. Only what
+        is published: a draft, a withdrawn entry, a switched-off type and an address
+        nobody has all answer the same 404.'
+      summary: A published entry by type, language and slug
+      parameters:
+      - in: query
+        name: canonical_url
+        schema:
+          type: string
+          default: ''
+          maxLength: 2048
+          minLength: 1
+        description: The address the product gives the entry. Asks for `structured_data`,
+          whose identifiers are composed from it; it is not fetched or stored.
+      - in: path
+        name: locale
+        schema:
+          type: string
+        description: 'The entry''s language: a two-letter code.'
+        required: true
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: type_key
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-content
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicContentEntryAnswer'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/public/content/types/{type_key}/terms/:
+    get:
+      operationId: public_content_terms_retrieve
+      description: 'Counted and named from published entries that ask to be indexed,
+        and from nothing else: a term only a draft or a hidden entry carries does
+        not exist here. Reads the deployment''s platform workspace and nothing else;
+        takes no host, site or tenant. Only what is published: a draft, a withdrawn
+        entry, a switched-off type and an address nobody has all answer the same 404.'
+      summary: The terms of a content type in one language, with their counts
+      parameters:
+      - in: query
+        name: locale
+        schema:
+          type: string
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        description: The language read.
+        required: true
+      - in: path
+        name: type_key
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-content
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicContentTerms'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/public/documents/{public_id}/:
     get:
       operationId: public_customer_document
@@ -43955,6 +44184,527 @@ components:
             gave (`marketing.statement`): a line of its own in the consent journal.
             Optional and never ticked for the customer; ignored when the company does
             not ask for it or the customer left no e-mail.'
+    PublicContentEntry:
+      type: object
+      properties:
+        type:
+          type: string
+          description: The key of the entry's content type.
+        locale:
+          type: string
+          description: 'A content language: a two-letter code of the platform''s language
+            registry.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        slug:
+          type: string
+        title:
+          type: string
+        excerpt:
+          type: string
+        author_name:
+          type: string
+        published_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          description: When the text last changed; publishing the same text again
+            does not move it.
+        timezone:
+          type: string
+          description: 'The publisher''s time zone (IANA): the day a reader sees is
+            the day it was there.'
+        blocks:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          description: 'The body as published, in the core''s block contract (`@saas-core/site-blocks`).
+            Links inside are as their author wrote them. The publisher''s texts are
+            untrusted: draw them with the core''s block components.'
+        image:
+          oneOf:
+          - $ref: '#/components/schemas/PublicContentImage'
+          - type: 'null'
+          description: The first picture the body shows, or null.
+        image_sizes:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/PublicImageSize'
+          description: The stored size of the body's pictures, by media asset id;
+            one of unknown size is left out.
+        ai_media_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: The body's pictures a model made; empty when the operator hid
+            the badge.
+        terms:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicContentTerm'
+          description: The entry's terms that have a list in this language — those
+            a published entry asking to be indexed carries.
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicContentVersion'
+          description: 'The entry''s published versions as (language, slug), this
+            one included, the site''s own language first: what hreflang and a language
+            switch are built from.'
+        noindex:
+          type: boolean
+          description: The entry asks search engines not to index it; it is on no
+            list.
+        machine_text:
+          oneOf:
+          - $ref: '#/components/schemas/PublicMachineText'
+          - type: 'null'
+          description: Set on a version with text an AI model wrote; null for a person's
+            text.
+        schema_type:
+          type: string
+          description: 'What an entry of this type is to a search engine: `BlogPosting`,
+            `NewsArticle`, `Article` or `WebPage`.'
+        structured_data:
+          type:
+          - array
+          - 'null'
+          items:
+            type: object
+            additionalProperties: {}
+          description: 'With `canonical_url`: the entry''s own schema.org nodes —
+            its WebPage (a FAQPage too where the body asks questions) and, unless
+            the type is a plain page, its article — for the product''s own JSON-LD
+            graph. They point at `<origin>/#website` and `<origin>/#organization`,
+            which the product states. The publisher''s texts inside are untrusted:
+            print them only inside a JSON-LD script element, escaped. Null without
+            `canonical_url`.'
+      required:
+      - ai_media_ids
+      - author_name
+      - blocks
+      - excerpt
+      - image
+      - image_sizes
+      - locale
+      - machine_text
+      - noindex
+      - published_at
+      - schema_type
+      - slug
+      - structured_data
+      - terms
+      - timezone
+      - title
+      - type
+      - updated_at
+      - versions
+    PublicContentEntryAnswer:
+      type: object
+      properties:
+        entry:
+          oneOf:
+          - $ref: '#/components/schemas/PublicContentEntry'
+          - type: 'null'
+          description: The entry, or null when it answers elsewhere (`moved`).
+        moved:
+          oneOf:
+          - $ref: '#/components/schemas/PublicContentEntryMoved'
+          - type: 'null'
+          description: 'Where the entry answers now, in address parts: the product
+            answers one 308 to the address its own table makes of them.'
+      required:
+      - entry
+      - moved
+    PublicContentEntryMoved:
+      type: object
+      properties:
+        type:
+          type: string
+        locale:
+          type: string
+          description: 'A content language: a two-letter code of the platform''s language
+            registry.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        slug:
+          type: string
+      required:
+      - locale
+      - slug
+      - type
+    PublicContentImage:
+      type: object
+      properties:
+        asset_id:
+          type: string
+          format: uuid
+          description: The picture answers at `/media/<asset_id>` on the platform's
+            host, its WebP copies at `/media/<asset_id>/thumbnail` (320 px) and `/preview`
+            (1280 px).
+        alt:
+          type: string
+      required:
+      - alt
+      - asset_id
+    PublicContentList:
+      type: object
+      properties:
+        type:
+          type: string
+        locale:
+          type: string
+          description: 'A content language: a two-letter code of the platform''s language
+            registry.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        name:
+          type: string
+          description: The type's name in the language read.
+        term:
+          oneOf:
+          - $ref: '#/components/schemas/PublicContentTerm'
+          - type: 'null'
+          description: 'The term the list is of, or null: all of the type.'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicContentListItem'
+        page:
+          type: integer
+          minimum: 1
+        pages:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+          description: Entries on the whole list in this language.
+        languages:
+          type: array
+          items:
+            type: string
+            description: 'A content language: a two-letter code of the platform''s
+              language registry.'
+            maxLength: 2
+            minLength: 2
+            pattern: ^[a-z]{2}$
+          description: The languages this list answers in, the site's own first.
+        indexable:
+          type: boolean
+          description: 'False for a term''s list too short to be a page of its own
+            (fewer than three entries): the product marks it noindex and leaves it
+            out of its sitemap.'
+      required:
+      - indexable
+      - items
+      - languages
+      - locale
+      - name
+      - page
+      - pages
+      - term
+      - total
+      - type
+    PublicContentListAnswer:
+      type: object
+      properties:
+        list:
+          oneOf:
+          - $ref: '#/components/schemas/PublicContentList'
+          - type: 'null'
+          description: The page of the list, or null when it answers elsewhere.
+        moved:
+          oneOf:
+          - $ref: '#/components/schemas/PublicContentListMoved'
+          - type: 'null'
+          description: Where the list answers now, in address parts — a term asked
+            for by an address it used to have. Always null until terms can change
+            address.
+      required:
+      - list
+      - moved
+    PublicContentListItem:
+      type: object
+      properties:
+        locale:
+          type: string
+          description: 'A content language: a two-letter code of the platform''s language
+            registry.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        slug:
+          type: string
+        title:
+          type: string
+        excerpt:
+          type: string
+        author_name:
+          type: string
+        published_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        image:
+          oneOf:
+          - $ref: '#/components/schemas/PublicContentImage'
+          - type: 'null'
+        terms:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicContentTerm'
+      required:
+      - author_name
+      - excerpt
+      - image
+      - locale
+      - published_at
+      - slug
+      - terms
+      - title
+      - updated_at
+    PublicContentListMoved:
+      type: object
+      properties:
+        type:
+          type: string
+        locale:
+          type: string
+          description: 'A content language: a two-letter code of the platform''s language
+            registry.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        taxonomy:
+          type:
+          - string
+          - 'null'
+        term:
+          type:
+          - string
+          - 'null'
+      required:
+      - locale
+      - taxonomy
+      - term
+      - type
+    PublicContentSitemap:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicContentSitemapItem'
+          description: Every listed entry, one item per group of language versions.
+        lists:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicContentSitemapItem'
+          description: Each type's own list, per language it has an entry in.
+        terms:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicContentSitemapItem'
+          description: The lists of terms worth indexing, per language where they
+            are.
+      required:
+      - entries
+      - lists
+      - terms
+    PublicContentSitemapItem:
+      type: object
+      properties:
+        type:
+          type: string
+        taxonomy:
+          type: string
+          description: 'For a term''s list: the taxonomy of the term.'
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicContentSitemapVersion'
+      required:
+      - type
+      - versions
+    PublicContentSitemapVersion:
+      type: object
+      properties:
+        locale:
+          type: string
+          description: 'A content language: a two-letter code of the platform''s language
+            registry.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        slug:
+          type: string
+          description: The entry's or the term's slug; absent for a type's list.
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - locale
+      - updated_at
+    PublicContentTaxonomy:
+      type: object
+      properties:
+        key:
+          type: string
+        hierarchical:
+          type: boolean
+        segment:
+          type: string
+          description: The taxonomy's word in addresses in this language. Information
+            only.
+        terms:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicContentTreeTerm'
+      required:
+      - hierarchical
+      - key
+      - segment
+      - terms
+    PublicContentTerm:
+      type: object
+      properties:
+        taxonomy:
+          type: string
+          description: 'The taxonomy the term belongs to: `tag` — the site''s tags,
+            shared by its types. Categories of a type come as further taxonomies.'
+        slug:
+          type: string
+          description: The term's part of an address in the language read; ask a list
+            by it.
+        name:
+          type: string
+          description: 'The term''s name in the language read: its accepted translation,
+            else the name it was published under.'
+      required:
+      - name
+      - slug
+      - taxonomy
+    PublicContentTerms:
+      type: object
+      properties:
+        type:
+          type: string
+        locale:
+          type: string
+          description: 'A content language: a two-letter code of the platform''s language
+            registry.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        taxonomies:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicContentTaxonomy'
+      required:
+      - locale
+      - taxonomies
+      - type
+    PublicContentTreeTerm:
+      type: object
+      properties:
+        taxonomy:
+          type: string
+          description: 'The taxonomy the term belongs to: `tag` — the site''s tags,
+            shared by its types. Categories of a type come as further taxonomies.'
+        slug:
+          type: string
+          description: The term's part of an address in the language read; ask a list
+            by it.
+        name:
+          type: string
+          description: 'The term''s name in the language read: its accepted translation,
+            else the name it was published under.'
+        count:
+          type: integer
+          minimum: 1
+          description: Listed entries of the type under the term in this language.
+        indexable:
+          type: boolean
+          description: Whether the term's list is a page worth indexing (three entries
+            or more).
+        parent:
+          type:
+          - string
+          - 'null'
+          description: The slug of the term above it in a hierarchical taxonomy; null
+            at the top and for every tag.
+      required:
+      - count
+      - indexable
+      - name
+      - parent
+      - slug
+      - taxonomy
+    PublicContentType:
+      type: object
+      properties:
+        key:
+          type: string
+          description: 'The type''s stable key: every read asks by it.'
+        schema_type:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+            description: 'A content language: a two-letter code of the platform''s
+              language registry.'
+            maxLength: 2
+            minLength: 2
+            pattern: ^[a-z]{2}$
+          description: The languages the type has a listed entry in, the site's own
+            first.
+        names:
+          type: object
+          additionalProperties:
+            type: string
+          description: The type's name, by language.
+        segments:
+          type: object
+          additionalProperties:
+            type: string
+          description: 'What the type''s section is called in addresses in the panel,
+            by language. Information only: the product''s own table names its sections.'
+      required:
+      - key
+      - languages
+      - names
+      - schema_type
+      - segments
+    PublicContentVersion:
+      type: object
+      properties:
+        locale:
+          type: string
+          description: 'A content language: a two-letter code of the platform''s language
+            registry.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        slug:
+          type: string
+      required:
+      - locale
+      - slug
     PublicCustomerDocument:
       type: object
       properties:

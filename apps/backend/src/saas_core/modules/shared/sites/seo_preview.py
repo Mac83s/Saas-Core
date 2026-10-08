@@ -215,7 +215,11 @@ def read_seo_preview(*, site_id: UUID, page_id: UUID, locale: str) -> dict[str, 
     snapshot = next_snapshot(context=context, site=site)
     # Never saved: it only carries the snapshot through the public route's code.
     publication = Publication(organization_id=context.organization_id, site=site, snapshot=snapshot)
-    available = (serving_locales(context.organization_id) or frozenset()) | {site.default_locale}
+    # The panel's own read: the publisher's workspace previews its pages like
+    # any company, although no host serves them (ADR-079 pkt 29).
+    available = (serving_locales(context.organization_id, publisher=True) or frozenset()) | {
+        site.default_locale
+    }
     visible = visible_snapshot(publication, available)
     found = next(
         (

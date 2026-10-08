@@ -14,6 +14,7 @@ renderer, no service and no query needs to know it is special.
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
@@ -60,6 +61,26 @@ def platform_workspace() -> Organization | None:
         .filter(workspace_kind=WorkspaceKind.PLATFORM)
         .first()
     )
+
+
+def platform_workspace_id() -> UUID | None:
+    """The publisher's identifier, and nothing else of it.
+
+    For the one public read no host can name a tenant for: a product's own
+    pages reading what its workspace published (ADR-079 pkt 31) — they stand
+    on the platform's host, which is no site's domain. The query is a
+    constant: nothing a visitor sends reaches it, and the name it asks by is
+    derived from the deployment. One identifier comes back, so no row loaded
+    past the policies enters a public path; everything after it is read
+    inside that tenant. Who may ask is pinned in `tests/test_pre_tenant_door.py`.
+    """
+    found: UUID | None = (
+        Organization.objects.using(PRE_TENANT_DB)
+        .filter(workspace_kind=WorkspaceKind.PLATFORM, slug=platform_workspace_slug())
+        .values_list("id", flat=True)
+        .first()
+    )
+    return found
 
 
 def is_platform_workspace(organization: Organization | Any) -> bool:

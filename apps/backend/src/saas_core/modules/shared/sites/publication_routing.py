@@ -19,6 +19,7 @@ from saas_core.modules.core.organizations.locales import organization_content_lo
 from saas_core.modules.core.organizations.models import (
     WORKING_ORGANIZATION_STATUSES,
     Organization,
+    WorkspaceKind,
 )
 from saas_core.modules.core.organizations.public_sources import (
     PublicSource,
@@ -61,20 +62,29 @@ def tenant_is_servable(organization_id: Any) -> bool:
     return serving_locales(organization_id) is not None
 
 
-def serving_locales(organization_id: Any) -> frozenset[str] | None:
+def serving_locales(organization_id: Any, *, publisher: bool = False) -> frozenset[str] | None:
     """The company's languages this deployment serves, read together with
     whether it may be served at all (None: it may not). Read on every request:
-    a language switched off is off at once (ADR-071 pkt 8)."""
+    a language switched off is off at once (ADR-071 pkt 8).
+
+    The platform's own workspace is served at no host (ADR-079 pkt 29): what
+    it publishes is shown by the product's own pages, which read it through
+    `content_reads`, and a site of its own here would give every entry a
+    second public address. So every host of its site answers as an unknown
+    one — pages, entries, lists, feeds, the sitemap, media, a certificate.
+    `publisher` asks about it all the same: that read, and the panel."""
     with transaction.atomic():
         set_local_organization_id(organization_id)
         organization = (
             Organization.objects.filter(
                 pk=organization_id, status__in=WORKING_ORGANIZATION_STATUSES
             )
-            .only("id", "public_locales")
+            .only("id", "public_locales", "workspace_kind")
             .first()
         )
     if organization is None:
+        return None
+    if organization.workspace_kind == WorkspaceKind.PLATFORM and not publisher:
         return None
     return frozenset(organization_content_locales(organization))
 

@@ -6009,6 +6009,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/content/sitemap/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Everything of the platform's content a sitemap lists, as address parts
+         * @description Listed entries by group of language versions, each type's list per language, and the lists of terms worth indexing, each with when it last changed. The product writes the addresses from its own table. Reads the deployment's platform workspace and nothing else; takes no host, site or tenant. Only what is published: a draft, a withdrawn entry, a switched-off type and an address nobody has all answer the same 404.
+         */
+        get: operations["public_content_sitemap_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/content/types/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The platform's content types that have something published
+         * @description Each type with its name and the name of its section per language it has a listed entry in. A type with nothing listed is not here. Reads the deployment's platform workspace and nothing else; takes no host, site or tenant. Only what is published: a draft, a withdrawn entry, a switched-off type and an address nobody has all answer the same 404.
+         */
+        get: operations["public_content_types_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/content/types/{type_key}/entries/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A page of a content type's published entries in one language
+         * @description Newest first; all of the type, or those under one term (`taxonomy` and `term`). Entries that ask not to be indexed are on no list. `list.indexable` is the core's rule for thin term lists; the product applies it. Reads the deployment's platform workspace and nothing else; takes no host, site or tenant. Only what is published: a draft, a withdrawn entry, a switched-off type and an address nobody has all answer the same 404.
+         */
+        get: operations["public_content_entries_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/content/types/{type_key}/entries/{locale}/{slug}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A published entry by type, language and slug
+         * @description The entry as its current publication froze it: title, body as blocks, terms, its other language versions as (language, slug), and the facts the block renderers need beside the blocks. `moved` instead of `entry` when the address answers elsewhere now — the product answers one 308 from it. With `canonical_url` the entry's own JSON-LD nodes come too. Reads the deployment's platform workspace and nothing else; takes no host, site or tenant. Only what is published: a draft, a withdrawn entry, a switched-off type and an address nobody has all answer the same 404.
+         */
+        get: operations["public_content_entry_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/content/types/{type_key}/terms/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The terms of a content type in one language, with their counts
+         * @description Counted and named from published entries that ask to be indexed, and from nothing else: a term only a draft or a hidden entry carries does not exist here. Reads the deployment's platform workspace and nothing else; takes no host, site or tenant. Only what is published: a draft, a withdrawn entry, a switched-off type and an address nobody has all answer the same 404.
+         */
+        get: operations["public_content_terms_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/documents/{public_id}/": {
         parameters: {
             query?: never;
@@ -16581,6 +16681,193 @@ export interface components {
             documents?: string[];
             /** @description The customer ticked the marketing consent `GET …/consents/` gave (`marketing.statement`): a line of its own in the consent journal. Optional and never ticked for the customer; ignored when the company does not ask for it or the customer left no e-mail. */
             marketing?: boolean;
+        };
+        PublicContentEntry: {
+            /** @description The key of the entry's content type. */
+            type: string;
+            /** @description A content language: a two-letter code of the platform's language registry. */
+            locale: string;
+            slug: string;
+            title: string;
+            excerpt: string;
+            author_name: string;
+            /** Format: date-time */
+            published_at: string | null;
+            /**
+             * Format: date-time
+             * @description When the text last changed; publishing the same text again does not move it.
+             */
+            updated_at: string;
+            /** @description The publisher's time zone (IANA): the day a reader sees is the day it was there. */
+            timezone: string;
+            /** @description The body as published, in the core's block contract (`@saas-core/site-blocks`). Links inside are as their author wrote them. The publisher's texts are untrusted: draw them with the core's block components. */
+            blocks: {
+                [key: string]: unknown;
+            }[];
+            /** @description The first picture the body shows, or null. */
+            image: components["schemas"]["PublicContentImage"] | null;
+            /** @description The stored size of the body's pictures, by media asset id; one of unknown size is left out. */
+            image_sizes: {
+                [key: string]: components["schemas"]["PublicImageSize"];
+            };
+            /** @description The body's pictures a model made; empty when the operator hid the badge. */
+            ai_media_ids: string[];
+            /** @description The entry's terms that have a list in this language — those a published entry asking to be indexed carries. */
+            terms: components["schemas"]["PublicContentTerm"][];
+            /** @description The entry's published versions as (language, slug), this one included, the site's own language first: what hreflang and a language switch are built from. */
+            versions: components["schemas"]["PublicContentVersion"][];
+            /** @description The entry asks search engines not to index it; it is on no list. */
+            noindex: boolean;
+            /** @description Set on a version with text an AI model wrote; null for a person's text. */
+            machine_text: components["schemas"]["PublicMachineText"] | null;
+            /** @description What an entry of this type is to a search engine: `BlogPosting`, `NewsArticle`, `Article` or `WebPage`. */
+            schema_type: string;
+            /** @description With `canonical_url`: the entry's own schema.org nodes — its WebPage (a FAQPage too where the body asks questions) and, unless the type is a plain page, its article — for the product's own JSON-LD graph. They point at `<origin>/#website` and `<origin>/#organization`, which the product states. The publisher's texts inside are untrusted: print them only inside a JSON-LD script element, escaped. Null without `canonical_url`. */
+            structured_data: {
+                [key: string]: unknown;
+            }[] | null;
+        };
+        PublicContentEntryAnswer: {
+            /** @description The entry, or null when it answers elsewhere (`moved`). */
+            entry: components["schemas"]["PublicContentEntry"] | null;
+            /** @description Where the entry answers now, in address parts: the product answers one 308 to the address its own table makes of them. */
+            moved: components["schemas"]["PublicContentEntryMoved"] | null;
+        };
+        PublicContentEntryMoved: {
+            type: string;
+            /** @description A content language: a two-letter code of the platform's language registry. */
+            locale: string;
+            slug: string;
+        };
+        PublicContentImage: {
+            /**
+             * Format: uuid
+             * @description The picture answers at `/media/<asset_id>` on the platform's host, its WebP copies at `/media/<asset_id>/thumbnail` (320 px) and `/preview` (1280 px).
+             */
+            asset_id: string;
+            alt: string;
+        };
+        PublicContentList: {
+            type: string;
+            /** @description A content language: a two-letter code of the platform's language registry. */
+            locale: string;
+            /** @description The type's name in the language read. */
+            name: string;
+            /** @description The term the list is of, or null: all of the type. */
+            term: components["schemas"]["PublicContentTerm"] | null;
+            items: components["schemas"]["PublicContentListItem"][];
+            page: number;
+            pages: number;
+            /** @description Entries on the whole list in this language. */
+            total: number;
+            /** @description The languages this list answers in, the site's own first. */
+            languages: string[];
+            /** @description False for a term's list too short to be a page of its own (fewer than three entries): the product marks it noindex and leaves it out of its sitemap. */
+            indexable: boolean;
+        };
+        PublicContentListAnswer: {
+            /** @description The page of the list, or null when it answers elsewhere. */
+            list: components["schemas"]["PublicContentList"] | null;
+            /** @description Where the list answers now, in address parts — a term asked for by an address it used to have. Always null until terms can change address. */
+            moved: components["schemas"]["PublicContentListMoved"] | null;
+        };
+        PublicContentListItem: {
+            /** @description A content language: a two-letter code of the platform's language registry. */
+            locale: string;
+            slug: string;
+            title: string;
+            excerpt: string;
+            author_name: string;
+            /** Format: date-time */
+            published_at: string | null;
+            /** Format: date-time */
+            updated_at: string;
+            image: components["schemas"]["PublicContentImage"] | null;
+            terms: components["schemas"]["PublicContentTerm"][];
+        };
+        PublicContentListMoved: {
+            type: string;
+            /** @description A content language: a two-letter code of the platform's language registry. */
+            locale: string;
+            taxonomy: string | null;
+            term: string | null;
+        };
+        PublicContentSitemap: {
+            /** @description Every listed entry, one item per group of language versions. */
+            entries: components["schemas"]["PublicContentSitemapItem"][];
+            /** @description Each type's own list, per language it has an entry in. */
+            lists: components["schemas"]["PublicContentSitemapItem"][];
+            /** @description The lists of terms worth indexing, per language where they are. */
+            terms: components["schemas"]["PublicContentSitemapItem"][];
+        };
+        PublicContentSitemapItem: {
+            type: string;
+            /** @description For a term's list: the taxonomy of the term. */
+            taxonomy?: string;
+            versions: components["schemas"]["PublicContentSitemapVersion"][];
+        };
+        PublicContentSitemapVersion: {
+            /** @description A content language: a two-letter code of the platform's language registry. */
+            locale: string;
+            /** @description The entry's or the term's slug; absent for a type's list. */
+            slug?: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        PublicContentTaxonomy: {
+            key: string;
+            hierarchical: boolean;
+            /** @description The taxonomy's word in addresses in this language. Information only. */
+            segment: string;
+            terms: components["schemas"]["PublicContentTreeTerm"][];
+        };
+        PublicContentTerm: {
+            /** @description The taxonomy the term belongs to: `tag` — the site's tags, shared by its types. Categories of a type come as further taxonomies. */
+            taxonomy: string;
+            /** @description The term's part of an address in the language read; ask a list by it. */
+            slug: string;
+            /** @description The term's name in the language read: its accepted translation, else the name it was published under. */
+            name: string;
+        };
+        PublicContentTerms: {
+            type: string;
+            /** @description A content language: a two-letter code of the platform's language registry. */
+            locale: string;
+            taxonomies: components["schemas"]["PublicContentTaxonomy"][];
+        };
+        PublicContentTreeTerm: {
+            /** @description The taxonomy the term belongs to: `tag` — the site's tags, shared by its types. Categories of a type come as further taxonomies. */
+            taxonomy: string;
+            /** @description The term's part of an address in the language read; ask a list by it. */
+            slug: string;
+            /** @description The term's name in the language read: its accepted translation, else the name it was published under. */
+            name: string;
+            /** @description Listed entries of the type under the term in this language. */
+            count: number;
+            /** @description Whether the term's list is a page worth indexing (three entries or more). */
+            indexable: boolean;
+            /** @description The slug of the term above it in a hierarchical taxonomy; null at the top and for every tag. */
+            parent: string | null;
+        };
+        PublicContentType: {
+            /** @description The type's stable key: every read asks by it. */
+            key: string;
+            schema_type: string;
+            /** @description The languages the type has a listed entry in, the site's own first. */
+            languages: string[];
+            /** @description The type's name, by language. */
+            names: {
+                [key: string]: string;
+            };
+            /** @description What the type's section is called in addresses in the panel, by language. Information only: the product's own table names its sections. */
+            segments: {
+                [key: string]: string;
+            };
+        };
+        PublicContentVersion: {
+            /** @description A content language: a two-letter code of the platform's language registry. */
+            locale: string;
+            slug: string;
         };
         PublicCustomerDocument: {
             kind: components["schemas"]["CustomerDocumentKindEnum"];
@@ -37610,6 +37897,174 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogSitemapPage"];
+                };
+            };
+        };
+    };
+    public_content_sitemap_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicContentSitemap"];
+                };
+            };
+        };
+    };
+    public_content_types_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicContentType"][];
+                };
+            };
+        };
+    };
+    public_content_entries_list: {
+        parameters: {
+            query: {
+                /** @description The language of the list. */
+                locale: string;
+                page?: number;
+                /** @description Entries per page; the deployment's own index size when left out. */
+                page_size?: number;
+                /** @description With `term`: its taxonomy. */
+                taxonomy?: string;
+                /** @description With `taxonomy`: the term's slug in the language of the list. */
+                term?: string;
+            };
+            header?: never;
+            path: {
+                type_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicContentListAnswer"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    public_content_entry_retrieve: {
+        parameters: {
+            query?: {
+                /** @description The address the product gives the entry. Asks for `structured_data`, whose identifiers are composed from it; it is not fetched or stored. */
+                canonical_url?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The entry's language: a two-letter code. */
+                locale: string;
+                slug: string;
+                type_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicContentEntryAnswer"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    public_content_terms_retrieve: {
+        parameters: {
+            query: {
+                /** @description The language read. */
+                locale: string;
+            };
+            header?: never;
+            path: {
+                type_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicContentTerms"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
