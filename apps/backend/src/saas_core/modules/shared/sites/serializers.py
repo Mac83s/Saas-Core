@@ -386,6 +386,11 @@ class ContentCollectionCreateSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="Whether the type's entries are in the site's feeds. Left out: yes for an "
         "article-like type, no for `WebPage`.",
     )
+    take_over_former = serializers.BooleanField(
+        default=False,
+        help_text="Confirms that redirects to another section may stop: a name sent is one "
+        "that section used to have (`section_path_former` names it).",
+    )
 
 
 class ContentTypesLimitSerializer(serializers.Serializer[dict[str, Any]]):
@@ -537,6 +542,20 @@ class CollectionPathsSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="Why the address moves. Required when the change moves an address "
         "visitors can open today (`moved` of the preview is not empty); kept in the history.",
     )
+    take_over_former = serializers.BooleanField(
+        default=False,
+        help_text="Confirms that redirects to another section may stop (`takes_over` of the "
+        "preview): a name sent is one that section used to have.",
+    )
+
+
+class CollectionTakenOverSerializer(serializers.Serializer[dict[str, Any]]):
+    locale = ContentLocaleField(help_text="The language of the address.")
+    path = serializers.CharField(
+        help_text="An address that today leads, with everything under it, to another section."
+    )
+    collection_id = serializers.UUIDField(help_text="The section it leads to.")
+    name = serializers.CharField(help_text="That section's name.")
 
 
 class CollectionMovedPathSerializer(serializers.Serializer[dict[str, Any]]):
@@ -559,6 +578,11 @@ class CollectionPathsResultSerializer(serializers.Serializer[dict[str, Any]]):
     )
     changed = serializers.BooleanField(
         help_text="False when the names sent are the ones the section already has."
+    )
+    takes_over = CollectionTakenOverSerializer(
+        many=True,
+        help_text="Redirects to other sections that stop, because a name sent is one such a "
+        "section used to have. Not empty: saving needs `take_over_former`.",
     )
 
 

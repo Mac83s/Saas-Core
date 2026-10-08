@@ -212,7 +212,10 @@ class ContentCollectionListCreateView(APIView):
         "when the plan's limit of types beyond the first is used up (`quota_exceeded`) or the "
         "subscription does not allow adding now (`plan_access_denied`); the types the site "
         "has stay as they are. `GET /api/v1/sites/{site_id}/content-types/` says beforehand "
-        "whether one more is allowed.",
+        "whether one more is allowed. A name that today only redirects to another section — "
+        "that section was called so once — is refused (`section_path_former`, with the address "
+        "and the section in the message): an integration never takes it, a person does by "
+        "sending `take_over_former`, and that redirect stops.",
         tags=["sites"],
         parameters=[IDEMPOTENCY_PARAMETER],
         request=ContentCollectionCreateSerializer,
@@ -900,6 +903,7 @@ def _paths_result(result: SectionPaths) -> dict[str, Any]:
         "collection": {**_collection_payload(result.collection), "paths": result.paths},
         "moved": list(result.moved),
         "changed": result.changed,
+        "takes_over": list(result.takes_over),
     }
 
 
@@ -911,8 +915,10 @@ _PATHS_RULES = (
     "nothing is republished and articles keep their slugs. Refused per field: "
     "`section_path_taken` (another section or a page has the name in that language), "
     "`slug_reserved`, `section_path_invalid`, `section_path_source_locale`, "
-    "`locale_not_enabled`. A person's decision: an integration and the assistant are refused "
-    "(`person_required`)."
+    "`locale_not_enabled`. A name that today only redirects to another section is taken only "
+    "knowingly: `takes_over` of the preview lists the redirects that stop, and saving needs "
+    "`take_over_former` (`section_path_former` without it). A person's decision: an "
+    "integration and the assistant are refused (`person_required`)."
 )
 
 

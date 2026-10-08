@@ -19063,18 +19063,21 @@ paths:
           description: ''
     post:
       operationId: sites_collections_create
-      description: Opens a blog, news or guide section on a site. `base_path` is its
-        name in the addresses of the site's own language (`/blog/`); `locale_paths`
+      description: 'Opens a blog, news or guide section on a site. `base_path` is
+        its name in the addresses of the site''s own language (`/blog/`); `locale_paths`
         may name it differently in other languages (`/de/ratgeber/`), and a language
         left out follows `base_path`. A name is refused when another section or a
         page has it in that language (`section_path_taken`) or when it is reserved
-        (`slug_reserved`). A site's first section takes the site's own entitlement;
+        (`slug_reserved`). A site''s first section takes the site''s own entitlement;
         a further one — a further content type — is refused where the platform offers
-        none (`content_types_not_offered`), when the plan's limit of types beyond
+        none (`content_types_not_offered`), when the plan''s limit of types beyond
         the first is used up (`quota_exceeded`) or the subscription does not allow
         adding now (`plan_access_denied`); the types the site has stay as they are.
         `GET /api/v1/sites/{site_id}/content-types/` says beforehand whether one more
-        is allowed.
+        is allowed. A name that today only redirects to another section — that section
+        was called so once — is refused (`section_path_former`, with the address and
+        the section in the message): an integration never takes it, a person does
+        by sending `take_over_former`, and that redirect stops.'
       summary: Create a section of entries
       parameters:
       - in: header
@@ -21070,10 +21073,13 @@ paths:
         later pages — answers one 308 to today''s; nothing is republished and articles
         keep their slugs. Refused per field: `section_path_taken` (another section
         or a page has the name in that language), `slug_reserved`, `section_path_invalid`,
-        `section_path_source_locale`, `locale_not_enabled`. A person''s decision:
-        an integration and the assistant are refused (`person_required`). When the
-        change moves an address visitors can open today (`moved` of the preview is
-        not empty) a `reason` is required (`redirect_reason_required`).'
+        `section_path_source_locale`, `locale_not_enabled`. A name that today only
+        redirects to another section is taken only knowingly: `takes_over` of the
+        preview lists the redirects that stop, and saving needs `take_over_former`
+        (`section_path_former` without it). A person''s decision: an integration and
+        the assistant are refused (`person_required`). When the change moves an address
+        visitors can open today (`moved` of the preview is not empty) a `reason` is
+        required (`redirect_reason_required`).'
       summary: Rename a section in the site's addresses
       parameters:
       - in: path
@@ -21138,8 +21144,10 @@ paths:
         308 to today''s; nothing is republished and articles keep their slugs. Refused
         per field: `section_path_taken` (another section or a page has the name in
         that language), `slug_reserved`, `section_path_invalid`, `section_path_source_locale`,
-        `locale_not_enabled`. A person''s decision: an integration and the assistant
-        are refused (`person_required`).'
+        `locale_not_enabled`. A name that today only redirects to another section
+        is taken only knowingly: `takes_over` of the preview lists the redirects that
+        stop, and saving needs `take_over_former` (`section_path_former` without it).
+        A person''s decision: an integration and the assistant are refused (`person_required`).'
       summary: Preview renaming a section in the site's addresses
       parameters:
       - in: path
@@ -31595,6 +31603,11 @@ components:
             visitors can open today (`moved` of the preview is not empty); kept in
             the history.
           maxLength: 500
+        take_over_former:
+          type: boolean
+          default: false
+          description: 'Confirms that redirects to another section may stop (`takes_over`
+            of the preview): a name sent is one that section used to have.'
       required:
       - base_path
     CollectionPathsResult:
@@ -31615,10 +31628,42 @@ components:
           type: boolean
           description: False when the names sent are the ones the section already
             has.
+        takes_over:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionTakenOver'
+          description: 'Redirects to other sections that stop, because a name sent
+            is one such a section used to have. Not empty: saving needs `take_over_former`.'
       required:
       - changed
       - collection
       - moved
+      - takes_over
+    CollectionTakenOver:
+      type: object
+      properties:
+        locale:
+          type: string
+          description: The language of the address.
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        path:
+          type: string
+          description: An address that today leads, with everything under it, to another
+            section.
+        collection_id:
+          type: string
+          format: uuid
+          description: The section it leads to.
+        name:
+          type: string
+          description: That section's name.
+      required:
+      - collection_id
+      - locale
+      - name
+      - path
     CommandConsent:
       type: object
       description: What the person is asked to agree to, exactly as the server previewed
@@ -32277,6 +32322,11 @@ components:
           - 'null'
           description: 'Whether the type''s entries are in the site''s feeds. Left
             out: yes for an article-like type, no for `WebPage`.'
+        take_over_former:
+          type: boolean
+          default: false
+          description: 'Confirms that redirects to another section may stop: a name
+            sent is one that section used to have (`section_path_former` names it).'
       required:
       - base_path
       - key

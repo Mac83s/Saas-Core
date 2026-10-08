@@ -122,6 +122,7 @@ SECTION_PATH_INVALID = "section_path_invalid"
 SECTION_PATH_TAKEN = "section_path_taken"
 SECTION_PATH_RESERVED = "slug_reserved"
 SECTION_PATH_SOURCE_LOCALE = "section_path_source_locale"
+SECTION_PATH_FORMER = "section_path_former"
 SECTION_REASON_REQUIRED = "redirect_reason_required"
 ENTRY_VERSION_REFERENCE_OWNER = "sites.content_entry_version"
 ENTRY_SNAPSHOT_SCHEMA_VERSION = 1
@@ -265,6 +266,7 @@ def create_collection(
     locale_paths: Mapping[str, str] | None = None,
     schema_type: str = ContentSchemaType.BLOG_POSTING,
     in_site_feed: bool | None = None,
+    take_over_former: bool = False,
 ) -> tuple[ContentCollection, bool]:
     """`base_path` is the section's name in the addresses of the site's own
     language; `locale_paths` names it in other languages (`{"de":
@@ -277,7 +279,12 @@ def create_collection(
     A site's first type takes the site's own entitlement only. A further one
     needs the platform's offer and room in the plan's limit
     (`content_type_limit`): `content_types_not_offered`, `quota_exceeded`,
-    `plan_access_denied`."""
+    `plan_access_denied`.
+
+    A name that today only redirects to another type — that type was called
+    so once — is refused (`section_path_former`): an integration never takes
+    it, a person does by sending `take_over_former`, and that redirect, with
+    everything under it, stops."""
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     # A new section of the site is the site's business: a grant for one
     # collection never opens another beside it. Checked before the replay, so
@@ -321,6 +328,7 @@ def create_collection(
         raise SlugReserved
     names = _section_names(site, base_path=base_path, locale_paths=locale_paths or {})
     _assert_section_names_free(site, None, base_path, names)
+    _take_over_former_names(context, site, None, base_path, names, confirmed=take_over_former)
     # The table the panel's choices come from says the feed's default too.
     from .content_types import default_in_site_feed
 
@@ -360,6 +368,9 @@ class SectionPaths:
     #: where each leads from then on (one 308, with everything under it).
     moved: tuple[dict[str, str], ...] = ()
     changed: bool = False
+    #: Redirects of other sections that stop, because this one takes the name
+    #: they start from: [{"locale", "path", "collection_id", "name"}].
+    takes_over: tuple[dict[str, str], ...] = ()
 
 
 def _path_error(field: str, locale: str | None, message: str, code: str) -> ValidationError:
@@ -476,6 +487,92 @@ def _assert_section_names_free(
             )
 
 
+def _former_names_taken(
+    site: Site, collection: ContentCollection | None, base_path: str, names: Mapping[str, str]
+) -> list[tuple[ContentCollection, dict[str, Any]]]:
+    """The former names of other sections that these names would take
+    (ADR-079 pkt 14), each with the section it leads to. A former name of the
+    site's own language counts in every language, as it does for the redirect
+    (`moved_address`)."""
+    organization = Organization.objects.only("id", "public_locales").get(pk=site.organization_id)
+    default = site.default_locale
+    locales = dict.fromkeys((default, *organization_content_locales(organization), *names))
+    wanted = {
+        locale: base_path if locale == default else names.get(locale) or base_path
+        for locale in locales
+    }
+    taken: list[tuple[ContentCollection, dict[str, Any]]] = []
+    for other in ContentCollection.all_objects.filter(
+        organization_id=site.organization_id, site_id=site.id
+    ).exclude(pk__in=[collection.id] if collection is not None else []):
+        for item in other.former_paths or []:
+            if isinstance(item, dict) and any(
+                item.get("path") == name and item.get("locale") in (locale, default)
+                for locale, name in wanted.items()
+            ):
+                taken.append((other, item))
+    return taken
+
+
+def _stopping_redirects(
+    site: Site, taken: list[tuple[ContentCollection, dict[str, Any]]]
+) -> list[dict[str, str]]:
+    """What a person is told before taking a former name: every address that
+    leads, with everything under it, to another section today and would stop.
+    A former name is one thing — taken in one language it stops in all it
+    served."""
+    organization = Organization.objects.only("id", "public_locales").get(pk=site.organization_id)
+    default = site.default_locale
+    every = list(dict.fromkeys((default, *organization_content_locales(organization))))
+    stops: list[dict[str, str]] = []
+    for other, item in taken:
+        name = str(item.get("path"))
+        for locale in every if item.get("locale") == default else [str(item.get("locale"))]:
+            stops.append({
+                "locale": locale,
+                "path": f"/{name}/" if locale == default else f"/{locale}/{name}/",
+                "collection_id": str(other.id),
+                "name": other.name,
+            })
+    return stops
+
+
+def _take_over_former_names(
+    context: Any,
+    site: Site,
+    collection: ContentCollection | None,
+    base_path: str,
+    names: Mapping[str, str],
+    *,
+    confirmed: bool,
+) -> None:
+    """A former name is never taken quietly (ADR-079 pkt 14): by code — an
+    integration, the assistant — never; by a person only having been told
+    which redirects stop (`confirmed`: the preview's `takes_over`, read).
+    Taken, it stops being a former name of the section it led to."""
+    taken = _former_names_taken(site, collection, base_path, names)
+    if not taken:
+        return
+    person = context.principal_kind == "membership" and not context.acting_via
+    if not person or not confirmed:
+        first = _stopping_redirects(site, taken)[0]
+        raise _path_error(
+            "base_path",
+            None,
+            f"Adres {first['path']} przekierowuje dziś do „{first['name']}”. "
+            + (
+                "Potwierdź, że to przekierowanie ma przestać działać."
+                if person
+                else "Taki adres może przejąć tylko osoba."
+            ),
+            SECTION_PATH_FORMER,
+        )
+    for other, item in taken:
+        locked = ContentCollection.all_objects.select_for_update().get(pk=other.pk)
+        locked.former_paths = [kept for kept in locked.former_paths or [] if kept != item]
+        locked.save(update_fields=["former_paths", "updated_at"])
+
+
 def _index_paths(site: Site, collection: ContentCollection) -> dict[str, str]:
     organization = Organization.objects.only("id", "public_locales").get(pk=site.organization_id)
     locales = dict.fromkeys((site.default_locale, *organization_content_locales(organization)))
@@ -501,6 +598,7 @@ def set_collection_paths(
     locale_paths: Mapping[str, str],
     reason: str = "",
     dry_run: bool = False,
+    take_over_former: bool = False,
 ) -> SectionPaths:
     """Renames a section in the site's addresses: `base_path` in the site's
     own language, `locale_paths` in others (a language left out, or given an
@@ -513,6 +611,10 @@ def set_collection_paths(
     visitors can open today costs what it earned, so it takes a person and a
     stated `reason`, like moving a page's (`change_page_url`); naming a
     language nobody can read the section in yet takes neither.
+
+    A name that today only redirects to another section is taken only
+    knowingly: the preview's `takes_over` names the redirect that stops, and
+    saving needs `take_over_former` (`section_path_former` without it).
 
     `dry_run` validates and answers with the addresses as they would be and
     what would move, and writes nothing.
@@ -568,10 +670,21 @@ def set_collection_paths(
         if locale in changed and locale in answering
     )
     stored = previous_base != new_base or previous_names != names
-    result = SectionPaths(collection=collection, paths=after, moved=moved, changed=stored)
+    result = SectionPaths(
+        collection=collection,
+        paths=after,
+        moved=moved,
+        changed=stored,
+        takes_over=tuple(
+            _stopping_redirects(site, _former_names_taken(site, collection, new_base, names))
+        ),
+    )
     if dry_run or not stored:
         # A preview answers with the section as it would be; nothing is saved.
         return result
+    _take_over_former_names(
+        context, site, collection, new_base, names, confirmed=take_over_former
+    )
     normalized_reason = reason.strip()
     if moved and not normalized_reason:
         raise ValidationError({

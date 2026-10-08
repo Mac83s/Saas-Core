@@ -6492,7 +6492,7 @@ export interface paths {
         put?: never;
         /**
          * Create a section of entries
-         * @description Opens a blog, news or guide section on a site. `base_path` is its name in the addresses of the site's own language (`/blog/`); `locale_paths` may name it differently in other languages (`/de/ratgeber/`), and a language left out follows `base_path`. A name is refused when another section or a page has it in that language (`section_path_taken`) or when it is reserved (`slug_reserved`). A site's first section takes the site's own entitlement; a further one — a further content type — is refused where the platform offers none (`content_types_not_offered`), when the plan's limit of types beyond the first is used up (`quota_exceeded`) or the subscription does not allow adding now (`plan_access_denied`); the types the site has stay as they are. `GET /api/v1/sites/{site_id}/content-types/` says beforehand whether one more is allowed.
+         * @description Opens a blog, news or guide section on a site. `base_path` is its name in the addresses of the site's own language (`/blog/`); `locale_paths` may name it differently in other languages (`/de/ratgeber/`), and a language left out follows `base_path`. A name is refused when another section or a page has it in that language (`section_path_taken`) or when it is reserved (`slug_reserved`). A site's first section takes the site's own entitlement; a further one — a further content type — is refused where the platform offers none (`content_types_not_offered`), when the plan's limit of types beyond the first is used up (`quota_exceeded`) or the subscription does not allow adding now (`plan_access_denied`); the types the site has stay as they are. `GET /api/v1/sites/{site_id}/content-types/` says beforehand whether one more is allowed. A name that today only redirects to another section — that section was called so once — is refused (`section_path_former`, with the address and the section in the message): an integration never takes it, a person does by sending `take_over_former`, and that redirect stops.
          */
         post: operations["sites_collections_create"];
         delete?: never;
@@ -7043,7 +7043,7 @@ export interface paths {
         get?: never;
         /**
          * Rename a section in the site's addresses
-         * @description `base_path` names the section in the addresses of the site's own language, `locale_paths` in others; the whole set is sent each time and a language left out follows `base_path`. Every address under a name that stops being the section's — the index, articles, subjects' archives and their later pages — answers one 308 to today's; nothing is republished and articles keep their slugs. Refused per field: `section_path_taken` (another section or a page has the name in that language), `slug_reserved`, `section_path_invalid`, `section_path_source_locale`, `locale_not_enabled`. A person's decision: an integration and the assistant are refused (`person_required`). When the change moves an address visitors can open today (`moved` of the preview is not empty) a `reason` is required (`redirect_reason_required`).
+         * @description `base_path` names the section in the addresses of the site's own language, `locale_paths` in others; the whole set is sent each time and a language left out follows `base_path`. Every address under a name that stops being the section's — the index, articles, subjects' archives and their later pages — answers one 308 to today's; nothing is republished and articles keep their slugs. Refused per field: `section_path_taken` (another section or a page has the name in that language), `slug_reserved`, `section_path_invalid`, `section_path_source_locale`, `locale_not_enabled`. A name that today only redirects to another section is taken only knowingly: `takes_over` of the preview lists the redirects that stop, and saving needs `take_over_former` (`section_path_former` without it). A person's decision: an integration and the assistant are refused (`person_required`). When the change moves an address visitors can open today (`moved` of the preview is not empty) a `reason` is required (`redirect_reason_required`).
          */
         put: operations["sites_collection_paths_set"];
         post?: never;
@@ -7064,7 +7064,7 @@ export interface paths {
         put?: never;
         /**
          * Preview renaming a section in the site's addresses
-         * @description Validates the names and answers with the section's addresses as they would be and the addresses that would move, without saving. `base_path` names the section in the addresses of the site's own language, `locale_paths` in others; the whole set is sent each time and a language left out follows `base_path`. Every address under a name that stops being the section's — the index, articles, subjects' archives and their later pages — answers one 308 to today's; nothing is republished and articles keep their slugs. Refused per field: `section_path_taken` (another section or a page has the name in that language), `slug_reserved`, `section_path_invalid`, `section_path_source_locale`, `locale_not_enabled`. A person's decision: an integration and the assistant are refused (`person_required`).
+         * @description Validates the names and answers with the section's addresses as they would be and the addresses that would move, without saving. `base_path` names the section in the addresses of the site's own language, `locale_paths` in others; the whole set is sent each time and a language left out follows `base_path`. Every address under a name that stops being the section's — the index, articles, subjects' archives and their later pages — answers one 308 to today's; nothing is republished and articles keep their slugs. Refused per field: `section_path_taken` (another section or a page has the name in that language), `slug_reserved`, `section_path_invalid`, `section_path_source_locale`, `locale_not_enabled`. A name that today only redirects to another section is taken only knowingly: `takes_over` of the preview lists the redirects that stop, and saving needs `take_over_former` (`section_path_former` without it). A person's decision: an integration and the assistant are refused (`person_required`).
          */
         post: operations["sites_collection_paths_preview"];
         delete?: never;
@@ -10824,6 +10824,11 @@ export interface components {
              * @default
              */
             reason: string;
+            /**
+             * @description Confirms that redirects to another section may stop (`takes_over` of the preview): a name sent is one that section used to have.
+             * @default false
+             */
+            take_over_former: boolean;
         };
         CollectionPathsResult: {
             /** @description The section with the names as saved — or, in a preview, as they would be. */
@@ -10832,6 +10837,21 @@ export interface components {
             moved: components["schemas"]["CollectionMovedPath"][];
             /** @description False when the names sent are the ones the section already has. */
             changed: boolean;
+            /** @description Redirects to other sections that stop, because a name sent is one such a section used to have. Not empty: saving needs `take_over_former`. */
+            takes_over: components["schemas"]["CollectionTakenOver"][];
+        };
+        CollectionTakenOver: {
+            /** @description The language of the address. */
+            locale: string;
+            /** @description An address that today leads, with everything under it, to another section. */
+            path: string;
+            /**
+             * Format: uuid
+             * @description The section it leads to.
+             */
+            collection_id: string;
+            /** @description That section's name. */
+            name: string;
         };
         /** @description What the person is asked to agree to, exactly as the server previewed it. */
         CommandConsent: {
@@ -11122,6 +11142,11 @@ export interface components {
             schema_type: components["schemas"]["SchemaTypeEnum"];
             /** @description Whether the type's entries are in the site's feeds. Left out: yes for an article-like type, no for `WebPage`. */
             in_site_feed?: boolean | null;
+            /**
+             * @description Confirms that redirects to another section may stop: a name sent is one that section used to have (`section_path_former` names it).
+             * @default false
+             */
+            take_over_former: boolean;
         };
         /**
          * @description * `blog` - blog

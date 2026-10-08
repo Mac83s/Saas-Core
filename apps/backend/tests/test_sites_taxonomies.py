@@ -1209,3 +1209,98 @@ def test_the_migration_closes_every_existing_tag_at_its_key_and_walks_back() -> 
         assert (tag.locale_slugs, tag.former_slugs, tag.position) == ({}, [], 0)
         assert (tag.taxonomy_id, tag.parent_id) == (None, None)
     assert ContentEntry.all_objects.get(pk=entry).former_slugs == []
+
+
+def test_a_types_former_name_is_never_taken_quietly() -> None:
+    """A name a type used to have leads to it, with everything under it.
+    Code never takes such a name; a person does, having been told which
+    redirects stop — and then they stop (ADR-079 pkt 14)."""
+    from rest_framework.exceptions import ValidationError
+
+    from saas_core.modules.shared.sites import collections
+    from test_sites_collections import _automation, _grant
+
+    world = World("tax-former-type")
+    client, host = world.client, world.host
+    world.entry(world.projects, "dom-a", tags=("Porady",))
+    paths = f"/api/v1/sites/collections/{world.projects}/paths/"
+    names = {"en": "projects", "de": "referenzen"}
+    renamed = _send(
+        client, "put", paths, {"base_path": "prace", "locale_paths": names, "reason": "Krócej"}
+    )
+    assert renamed.status_code == 200, renamed.json()
+    assert renamed.json()["takes_over"] == []
+    _one_hop(host, "/realizacje/dom-a/", "/prace/dom-a/")
+    _one_hop(host, "/realizacje/tag/porady/", "/prace/tag/porady/")
+
+    new_type = {"key": "galeria", "name": "Galeria", "kind": "blog", "base_path": "realizacje"}
+    membership = Membership.objects.filter(organization_id=world.organization_id).first()
+    assert membership is not None
+    person = context_from_membership(membership)
+    key_id = uuid4()
+    _grant(
+        world.organization_id,
+        key_id,
+        person.actor_id,
+        collection_id=None,
+        site_id=world.site_id,
+        mode="draft_write",
+    )
+    key = _automation(world.organization_id, person.actor_id, key_id)
+    with activate_tenant_context(key), pytest.raises(ValidationError) as refused:
+        collections.create_collection(
+            site_id=world.site_id,  # type: ignore[arg-type]
+            **new_type,
+            idempotency_key="by-a-key",
+            take_over_former=True,
+        )
+    assert refused.value.get_codes() == {"base_path": ["section_path_former"]}
+
+    def make(**more: Any) -> Any:
+        return client.post(
+            f"/api/v1/sites/{world.site_id}/collections/",
+            {**new_type, **more},
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_value(client),
+            HTTP_IDEMPOTENCY_KEY=f"gallery-{len(more)}",
+        )
+
+    told = make()
+    assert _code(told) == (400, "section_path_former")
+    assert "/realizacje/" in told.json()["errors"][0]["message"]
+    assert "Realizacje" in told.json()["errors"][0]["message"]
+    _one_hop(host, "/realizacje/tag/porady/", "/prace/tag/porady/")
+
+    made = make(take_over_former=True)
+
+    assert made.status_code == 201, made.json()
+    gallery = str(made.json()["id"])
+    # The name is the new type's; what it used to lead to is no longer there.
+    assert _status(host, "/realizacje/") == 200
+    assert _moved(host, "/realizacje/tag/porady/") == (404, None)
+    assert _moved(host, "/realizacje/strona/2/") == (404, None)
+    # An entry's own first address still leads to it (ADR-071) — until the
+    # new type publishes something there.
+    _one_hop(host, "/realizacje/dom-a/", "/prace/dom-a/")
+    assert ContentTaxonomy.all_objects.count() == 0
+
+    # Renaming says beforehand which redirects would stop, in every language
+    # the name served, and saves only on the person's word.
+    moved_on = _send(
+        client,
+        "put",
+        f"/api/v1/sites/collections/{gallery}/paths/",
+        {"base_path": "galeria", "locale_paths": {}, "reason": "Inaczej"},
+    )
+    assert moved_on.status_code == 200, moved_on.json()
+    back = {"base_path": "realizacje", "locale_paths": names, "reason": "Jednak"}
+    look = _send(client, "post", paths + "preview/", back)
+    assert [(item["path"], item["name"]) for item in look.json()["takes_over"]] == [
+        ("/realizacje/", "Galeria"),
+        ("/en/realizacje/", "Galeria"),
+        ("/de/realizacje/", "Galeria"),
+    ]
+    assert _code(_send(client, "put", paths, back)) == (400, "section_path_former")
+    assert _send(client, "put", paths, {**back, "take_over_former": True}).status_code == 200
+    assert _status(host, "/realizacje/dom-a/") == 200
+    _one_hop(host, "/prace/dom-a/", "/realizacje/dom-a/")
