@@ -61,21 +61,32 @@ from .models import (
     ContentCollection,
     ContentEntry,
     ContentEntryState,
-    ContentTag,
     Site,
 )
 from .public_media import media_response
 from .publication_routing import (
     TAG_INDEX_THRESHOLD,
-    TAG_SEGMENT,
     parse_moment,
     serving_locales,
 )
 from .seo_graph import page_graph
+from .term_addresses import (
+    CATEGORY_TAXONOMY_KEY,
+    TAG_SEGMENT,
+    Taxonomy,
+    Term,
+    Vocabulary,
+    site_vocabulary,
+    taxonomy_segment,
+    term_names,
+    term_slug,
+)
 
 #: The one taxonomy of today: the site's tags, flat and shared by its types.
 #: Categories join as further taxonomies of a type (ADR-079 pkt 2, 9).
 TAG_TAXONOMY = "tag"
+#: A type's own categories: a tree, read beside the tags (ADR-079 pkt 9).
+CATEGORY_TAXONOMY = CATEGORY_TAXONOMY_KEY
 
 #: How many entries a list answers with at most; the product asks for fewer.
 MAX_PAGE_SIZE = 100
@@ -118,6 +129,8 @@ class _Listed:
     excerpt: str
     author_name: str
     tags: tuple[tuple[str, str], ...]
+    #: The categories its publication files it under, as (id, published name).
+    categories: tuple[tuple[str, str], ...]
     published_at: datetime | None
     changed_at: datetime
 
@@ -179,6 +192,16 @@ def _tags_of(value: Any) -> tuple[tuple[str, str], ...]:
     )
 
 
+def _categories_of(value: Any) -> tuple[tuple[str, str], ...]:
+    """The categories a snapshot names (`terms` with a taxonomy); a snapshot
+    older than the field names none."""
+    return tuple(
+        (str(term["id"]), str(term.get("name") or ""))
+        for term in (value if isinstance(value, list) else [])
+        if isinstance(term, dict) and term.get("id") and term.get("taxonomy")
+    )
+
+
 def _listed(workspace: _Workspace) -> list[_Listed]:
     """Every entry a list may show, newest first: published, asking to be
     indexed, in a language the workspace reads. Bodies stay in the database —
@@ -199,6 +222,7 @@ def _listed(workspace: _Workspace) -> list[_Listed]:
             f"{snapshot}excerpt",
             f"{snapshot}author_name",
             f"{snapshot}tags",
+            f"{snapshot}terms",
             f"{snapshot}changed_at",
         )
     )
@@ -213,6 +237,7 @@ def _listed(workspace: _Workspace) -> list[_Listed]:
             excerpt=str(excerpt or ""),
             author_name=str(author_name or ""),
             tags=_tags_of(tags),
+            categories=_categories_of(terms),
             published_at=published_at,
             # When the text changed, which publishing it again does not move.
             changed_at=parse_moment(changed_at) or created_at,
@@ -229,6 +254,7 @@ def _listed(workspace: _Workspace) -> list[_Listed]:
             excerpt,
             author_name,
             tags,
+            terms,
             changed_at,
         ) in rows
         if str(locale) in workspace.available
@@ -265,45 +291,94 @@ def _names(workspace: _Workspace, locale: str) -> dict[str, str]:
         )
 
 
-def _tag_ids(workspace: _Workspace, slugs: Iterable[str]) -> dict[str, str]:
-    wanted = sorted(set(slugs))
-    if not wanted:
-        return {}
-    with transaction.atomic():
-        set_local_organization_id(workspace.organization_id)
+def _vocabulary(workspace: _Workspace) -> Vocabulary:
+    """The workspace's tags and categories as they are now — their addresses
+    per language, the tree, the identifiers accepted names are kept under.
+    One read per answer, as that tenant: both tables force row-level
+    security (`site_vocabulary`). What exists for the read is still decided
+    by what published entries carry; this only names and addresses it."""
+    return site_vocabulary(organization_id=workspace.organization_id, site_id=workspace.site.id)
+
+
+@dataclass(frozen=True, slots=True)
+class _Naming:
+    """How one answer names terms: in one language, of one type."""
+
+    workspace: _Workspace
+    vocabulary: Vocabulary
+    locale: str
+    #: Accepted names in `locale`, by site-text key.
+    names: Mapping[str, str]
+    #: The type's category taxonomy, when it has one.
+    taxonomy: Taxonomy | None
+
+    @property
+    def tags(self) -> dict[str, Term]:
+        return {term.slug: term for term in self.vocabulary.of(None)}
+
+    def slug(self, term: Term) -> str:
+        """The term's part of an address in the language read."""
+        return term_slug(term, default_locale=self.workspace.default_locale, locale=self.locale)
+
+    def tag(self, key: str, published: str) -> dict[str, Any]:
+        """A tag by the key snapshots name it by: under its address in the
+        language read, and its accepted name there, else as published."""
+        row = self.tags.get(key)
         return {
-            str(slug): str(tag_id)
-            for slug, tag_id in ContentTag.all_objects.filter(
-                organization_id=workspace.organization_id,
-                site_id=workspace.site.id,
-                slug__in=wanted,
-            ).values_list("slug", "id")
-        }
-
-
-def _named_tags(
-    workspace: _Workspace, names: Mapping[str, str], slugs: Iterable[str]
-) -> dict[str, str]:
-    """The identifiers the accepted names are kept under, for every tag an
-    answer names — asked once per answer, however many entries it lists.
-    Nothing to ask where the language has no accepted names."""
-    return _tag_ids(workspace, slugs) if names else {}
-
-
-def _terms(
-    tags: Iterable[tuple[str, str]], names: Mapping[str, str], ids: Mapping[str, str]
-) -> list[dict[str, Any]]:
-    """Tags as the read names them: by taxonomy and slug, under the name in
-    the reader's language where one is accepted, else as published."""
-    tags = sorted(dict(tags).items())
-    return [
-        {
             "taxonomy": TAG_TAXONOMY,
-            "slug": slug,
-            "name": names.get(f"tag/{ids.get(slug)}") or name,
+            "slug": self.slug(row) if row is not None else key,
+            "name": (self.names.get(f"tag/{row.id}") if row is not None else None) or published,
         }
-        for slug, name in tags
-    ]
+
+    def category(self, term: Term, published: str = "") -> dict[str, Any]:
+        return {
+            "taxonomy": CATEGORY_TAXONOMY,
+            "slug": self.slug(term),
+            "name": self.names.get(f"tag/{term.id}") or published or term.name,
+        }
+
+    def categories(self) -> dict[str, Term]:
+        """The type's categories that still exist, by id."""
+        if self.taxonomy is None:
+            return {}
+        return {term.id: term for term in self.vocabulary.of(self.taxonomy)}
+
+    def terms(
+        self, tags: Iterable[tuple[str, str]], categories: Iterable[tuple[str, str]]
+    ) -> list[dict[str, Any]]:
+        """An entry's terms as the read names them: its tags by key, then its
+        categories in the tree's order. A category removed since is not there."""
+        mine = self.categories()
+        carried = dict(categories)
+        return [
+            *(self.tag(key, name) for key, name in sorted(dict(tags).items())),
+            *(
+                self.category(term, carried[term.id])
+                for term in (self.vocabulary.tree(self.taxonomy) if self.taxonomy else ())
+                if term.id in carried and term.id in mine
+            ),
+        ]
+
+
+def _naming(
+    workspace: _Workspace, collection: ContentCollection, locale: str, vocabulary: Vocabulary
+) -> _Naming:
+    return _Naming(
+        workspace=workspace,
+        vocabulary=vocabulary,
+        locale=locale,
+        names=_names(workspace, locale),
+        taxonomy=vocabulary.categories_of(collection.id),
+    )
+
+
+def _under(naming: _Naming, term: Term) -> frozenset[str]:
+    """A category and every category under it now: its list shows theirs."""
+    return naming.vocabulary.with_descendants(term)
+
+
+def _in_category(item: _Listed, ids: frozenset[str]) -> bool:
+    return any(term_id in ids for term_id, _name in item.categories)
 
 
 def _first_picture(blocks: Any, published: set[str]) -> dict[str, str] | None:
@@ -340,12 +415,7 @@ def _pictures(workspace: _Workspace, entry_ids: list[UUID]) -> dict[UUID, dict[s
     }
 
 
-def _item(
-    item: _Listed,
-    names: Mapping[str, str],
-    ids: Mapping[str, str],
-    picture: dict[str, str] | None,
-) -> dict[str, Any]:
+def _item(item: _Listed, naming: _Naming, picture: dict[str, str] | None) -> dict[str, Any]:
     return {
         "locale": item.locale,
         "slug": item.slug,
@@ -355,7 +425,7 @@ def _item(
         "published_at": item.published_at,
         "updated_at": item.changed_at,
         "image": picture,
-        "terms": _terms(item.tags, names, ids),
+        "terms": naming.terms(item.tags, item.categories),
     }
 
 
@@ -424,30 +494,64 @@ def read_terms(*, type_key: str, locale: str) -> dict[str, Any]:
             counts[slug] = counts.get(slug, 0) + 1
             # Newest first: the name the latest publication gave the tag.
             published.setdefault(slug, name)
-    names = _names(workspace, locale)
-    return {
-        "type": collection.key,
-        "locale": locale,
-        "taxonomies": [
-            {
-                "key": TAG_TAXONOMY,
-                "hierarchical": False,
-                "segment": TAG_SEGMENT,
-                "terms": [
-                    {
-                        **term,
-                        "count": counts[term["slug"]],
-                        "indexable": counts[term["slug"]] >= TAG_INDEX_THRESHOLD,
-                        # Tags are flat; a category names the one above it.
-                        "parent_slug": None,
-                    }
-                    for term in _terms(
-                        published.items(), names, _named_tags(workspace, names, published)
-                    )
-                ],
-            }
-        ],
-    }
+    naming = _naming(workspace, collection, locale, _vocabulary(workspace))
+    taxonomies: list[dict[str, Any]] = [
+        {
+            "key": TAG_TAXONOMY,
+            "hierarchical": False,
+            "segment": TAG_SEGMENT,
+            "terms": [
+                {
+                    **naming.tag(key, name),
+                    "count": counts[key],
+                    "indexable": counts[key] >= TAG_INDEX_THRESHOLD,
+                    # Tags are flat; a category names the one above it.
+                    "parent_slug": None,
+                }
+                for key, name in sorted(published.items())
+            ],
+        }
+    ]
+    categories = _category_terms(naming, entries)
+    if categories:
+        assert naming.taxonomy is not None
+        taxonomies.append({
+            "key": CATEGORY_TAXONOMY,
+            "hierarchical": True,
+            "segment": taxonomy_segment(
+                naming.taxonomy, default_locale=workspace.default_locale, locale=locale
+            ),
+            "terms": categories,
+        })
+    return {"type": collection.key, "locale": locale, "taxonomies": taxonomies}
+
+
+def _category_terms(naming: _Naming, entries: list[_Listed]) -> list[dict[str, Any]]:
+    """A type's categories that have a list in the language read, in the
+    tree's order: each with how many listed entries it shows — its own and
+    those of the categories under it — and the one above it. A category no
+    listed entry is under is not here; one above a listed one always is."""
+    if naming.taxonomy is None:
+        return []
+    mine = naming.categories()
+    found: list[dict[str, Any]] = []
+    for term in naming.vocabulary.tree(naming.taxonomy):
+        ids = _under(naming, term)
+        count = sum(1 for item in entries if _in_category(item, ids))
+        if not count:
+            continue
+        above = mine.get(term.parent_id) if term.parent_id else None
+        published = next(
+            (name for item in entries for term_id, name in item.categories if term_id == term.id),
+            "",
+        )
+        found.append({
+            **naming.category(term, published),
+            "count": count,
+            "indexable": count >= TAG_INDEX_THRESHOLD,
+            "parent_slug": naming.slug(above) if above is not None else None,
+        })
+    return found
 
 
 # -- lists ---------------------------------------------------------------------
@@ -469,17 +573,31 @@ def read_entries(
     size = page_size or settings.SITES_ENTRY_INDEX_PAGE_SIZE
     if page < 1 or not 1 <= size <= MAX_PAGE_SIZE:
         raise ContentNotFound
-    if bool(taxonomy) != bool(term) or (taxonomy and taxonomy != TAG_TAXONOMY):
+    if bool(taxonomy) != bool(term) or taxonomy not in ("", TAG_TAXONOMY, CATEGORY_TAXONOMY):
         raise ContentNotFound
     workspace = _workspace()
     listed = _listed(workspace)
     collection = _type(workspace, type_key, listed)
     of_type = [item for item in listed if item.collection_id == collection.id]
-    if term:
-        of_type = [item for item in of_type if any(slug == term for slug, _name in item.tags)]
+    naming = _naming(workspace, collection, locale, _vocabulary(workspace))
+    asked = _asked_term(naming, of_type, taxonomy, term) if term else None
+    if asked is not None:
+        of_type = [item for item in of_type if asked.lists(item)]
     entries = [item for item in of_type if item.locale == locale]
     if not entries and (term or locale != workspace.default_locale):
         raise ContentNotFound
+    if asked is not None and asked.term["slug"] != term:
+        # Asked by an address the term used to have, by its key, or by its
+        # address in another language: where its list answers in this one.
+        return {
+            "list": None,
+            "moved": {
+                "type": collection.key,
+                "locale": locale,
+                "taxonomy": taxonomy,
+                "term": asked.term["slug"],
+            },
+        }
     # Where this list answers: a term's wherever it has an entry, a type's
     # also in the site's own language, as on a company's site.
     languages = _languages(
@@ -491,38 +609,71 @@ def read_entries(
     if page > pages:
         raise ContentNotFound
     window = entries[(page - 1) * size : page * size]
-    names = _names(workspace, locale)
     pictures = _pictures(workspace, [item.entry_id for item in window])
-    # One question for the whole page's tags, not one per entry.
-    ids = _named_tags(
-        workspace,
-        names,
-        [*(slug for item in window for slug, _name in item.tags), *([term] if term else [])],
-    )
-    named = (
-        _terms(
-            [next((slug, name) for item in entries for slug, name in item.tags if slug == term)],
-            names,
-            ids,
-        )[0]
-        if term
-        else None
-    )
     return {
-        "type": collection.key,
-        "locale": locale,
-        "name": names.get(f"collection/{collection.id}") or collection.name,
-        "term": named,
-        "items": [_item(item, names, ids, pictures.get(item.entry_id)) for item in window],
-        "page": page,
-        "pages": pages,
-        "total": len(entries),
-        "languages": languages,
-        # A term's list with one or two entries is a thin copy of the type's
-        # own list: it answers readers and asks not to be indexed. The rule
-        # is the core's; the product only applies it.
-        "indexable": not term or len(entries) >= TAG_INDEX_THRESHOLD,
+        "moved": None,
+        "list": {
+            "type": collection.key,
+            "locale": locale,
+            "name": naming.names.get(f"collection/{collection.id}") or collection.name,
+            "term": asked.term if asked is not None else None,
+            "items": [_item(item, naming, pictures.get(item.entry_id)) for item in window],
+            "page": page,
+            "pages": pages,
+            "total": len(entries),
+            "languages": languages,
+            # A term's list with one or two entries is a thin copy of the type's
+            # own list: it answers readers and asks not to be indexed. The rule
+            # is the core's; the product only applies it.
+            "indexable": not term or len(entries) >= TAG_INDEX_THRESHOLD,
+        },
     }
+
+
+@dataclass(frozen=True, slots=True)
+class _Asked:
+    """The term a list was asked for: how the read names it now, and which
+    listed entries are on its list."""
+
+    term: dict[str, Any]
+    #: A tag's key, as snapshots name it; empty for a category.
+    key: str
+    #: A category's id and those of the categories under it.
+    ids: frozenset[str]
+
+    def lists(self, item: _Listed) -> bool:
+        if self.key:
+            return any(key == self.key for key, _name in item.tags)
+        return _in_category(item, self.ids)
+
+
+def _asked_term(naming: _Naming, of_type: list[_Listed], taxonomy: str, asked: str) -> _Asked:
+    """The term `asked` names in a taxonomy of this type: by its address in
+    the language read, or — the answer is then „moved" — by anything else
+    that leads to it: its key, its address in another language, an address it
+    used to have (one namespace per taxonomy, ADR-079 pkt 6). Nothing else
+    names a term."""
+    if taxonomy == CATEGORY_TAXONOMY:
+        rows = list(naming.categories().values())
+    else:
+        rows = list(naming.tags.values())
+    found = next((row for row in rows if naming.slug(row) == asked), None) or next(
+        (row for row in rows if asked in term_names(row)), None
+    )
+    if taxonomy == CATEGORY_TAXONOMY:
+        if found is None:
+            raise ContentNotFound
+        published = next(
+            (name for item in of_type for term_id, name in item.categories if term_id == found.id),
+            "",
+        )
+        return _Asked(naming.category(found, published), "", _under(naming, found))
+    key = found.slug if found is not None else asked
+    name = next((name for item in of_type for slug, name in item.tags if slug == key), None)
+    if name is None:
+        # No listed entry of the type carries it.
+        raise ContentNotFound
+    return _Asked(naming.tag(key, name), key, frozenset())
 
 
 # -- an entry ------------------------------------------------------------------
@@ -658,16 +809,25 @@ def read_entry(
         }
     noindex = bool(snapshot.get("noindex", False))
     tags = _tags_of(snapshot.get("tags"))
-    if noindex and tags:
+    categories = _categories_of(snapshot.get("terms"))
+    naming = _naming(workspace, entry.collection, locale, _vocabulary(workspace))
+    if noindex and (tags or categories):
         # A hidden entry is on no list, so a term only it carries has no list
         # either (pkt 30): it names the terms other entries make readable.
-        readable = {
-            slug
+        others = [
+            item
             for item in _listed(workspace)
             if item.collection_id == entry.collection_id and item.locale == locale
-            for slug, _name in item.tags
-        }
+        ]
+        readable = {slug for item in others for slug, _name in item.tags}
         tags = tuple(tag for tag in tags if tag[0] in readable)
+        mine = naming.categories()
+        categories = tuple(
+            (term_id, name)
+            for term_id, name in categories
+            if term_id in mine
+            and any(_in_category(item, _under(naming, mine[term_id])) for item in others)
+        )
     media = [str(asset_id) for asset_id in snapshot.get("media_asset_ids") or []]
     blocks = snapshot["blocks"]
     picture = _first_picture(blocks, set(media))
@@ -685,8 +845,7 @@ def read_entry(
             or "UTC"
         )
     machine = machine_text(snapshot.get("origin"))
-    names = _names(workspace, locale)
-    terms = _terms(tags, names, _named_tags(workspace, names, (slug for slug, _name in tags)))
+    terms = naming.terms(tags, categories)
     updated_at = str(snapshot.get("changed_at") or publication.created_at.isoformat())
     published_at = entry.published_at.isoformat() if entry.published_at is not None else None
     schema_type = str(entry.collection.schema_type)
@@ -731,7 +890,12 @@ def read_entry(
                         "author_name": str(snapshot.get("author_name") or ""),
                         "published_at": published_at,
                         "updated_at": updated_at,
-                        "tags": [{"name": term["name"]} for term in terms],
+                        # Keywords are the tags; a category is not one.
+                        "tags": [
+                            {"name": term["name"]}
+                            for term in terms
+                            if term["taxonomy"] == TAG_TAXONOMY
+                        ],
                     },
                     picture=picture,
                     machine=machine,
@@ -756,7 +920,7 @@ def read_sitemap() -> dict[str, Any]:
     types = _types(workspace)
     entries: dict[UUID, dict[str, Any]] = {}
     lists: dict[UUID, dict[str, datetime]] = {}
-    terms: dict[tuple[UUID, str], dict[str, list[_Listed]]] = {}
+    tagged: dict[tuple[UUID, str], dict[str, list[_Listed]]] = {}
     for item in listed:
         collection = types.get(item.collection_id)
         if collection is None:
@@ -770,10 +934,66 @@ def read_sitemap() -> dict[str, Any]:
         newest = lists.setdefault(item.collection_id, {})
         newest[item.locale] = max(newest.get(item.locale, item.changed_at), item.changed_at)
         for slug, _name in item.tags:
-            terms.setdefault((item.collection_id, slug), {}).setdefault(item.locale, []).append(
+            tagged.setdefault((item.collection_id, slug), {}).setdefault(item.locale, []).append(
                 item
             )
     default = workspace.default_locale
+    vocabulary = _vocabulary(workspace)
+    tags = {term.slug: term for term in vocabulary.of(None)}
+
+    def address(term: Term | None, key: str, locale: str) -> str:
+        return term_slug(term, default_locale=default, locale=locale) if term else key
+
+    def worth(by_locale: dict[str, list[_Listed]]) -> list[str]:
+        # Below the threshold a term's list asks not to be indexed.
+        return [
+            locale for locale, items in by_locale.items() if len(items) >= TAG_INDEX_THRESHOLD
+        ]
+
+    terms: list[dict[str, Any]] = [
+        {
+            "type": types[collection_id].key,
+            "taxonomy": TAG_TAXONOMY,
+            "versions": [
+                {
+                    "locale": locale,
+                    "slug": address(tags.get(key), key, locale),
+                    "updated_at": max(item.changed_at for item in by_locale[locale]),
+                }
+                for locale in _languages(default, indexable)
+            ],
+        }
+        for (collection_id, key), by_locale in sorted(
+            tagged.items(), key=lambda found: (types[found[0][0]].key, found[0][1])
+        )
+        if (indexable := worth(by_locale))
+    ]
+    # A type's categories: each with the entries of those under it.
+    for collection in sorted(types.values(), key=lambda found: found.key):
+        taxonomy = vocabulary.categories_of(collection.id)
+        if taxonomy is None:
+            continue
+        of_type = [item for item in listed if item.collection_id == collection.id]
+        for term in vocabulary.tree(taxonomy):
+            ids = vocabulary.with_descendants(term)
+            filed: dict[str, list[_Listed]] = {}
+            for item in of_type:
+                if _in_category(item, ids):
+                    filed.setdefault(item.locale, []).append(item)
+            indexable = worth(filed)
+            if indexable:
+                terms.append({
+                    "type": collection.key,
+                    "taxonomy": CATEGORY_TAXONOMY,
+                    "versions": [
+                        {
+                            "locale": locale,
+                            "slug": address(term, term.slug, locale),
+                            "updated_at": max(item.changed_at for item in filed[locale]),
+                        }
+                        for locale in _languages(default, indexable)
+                    ],
+                })
     return {
         "entries": [
             {
@@ -794,31 +1014,7 @@ def read_sitemap() -> dict[str, Any]:
             }
             for collection_id, newest in lists.items()
         ],
-        "terms": [
-            {
-                "type": types[collection_id].key,
-                "taxonomy": TAG_TAXONOMY,
-                "versions": [
-                    {
-                        "locale": locale,
-                        "slug": slug,
-                        "updated_at": max(item.changed_at for item in by_locale[locale]),
-                    }
-                    for locale in _languages(default, indexable)
-                ],
-            }
-            for (collection_id, slug), by_locale in sorted(
-                terms.items(), key=lambda found: (types[found[0][0]].key, found[0][1])
-            )
-            # Below the threshold a term's list asks not to be indexed.
-            if (
-                indexable := [
-                    locale
-                    for locale, items in by_locale.items()
-                    if len(items) >= TAG_INDEX_THRESHOLD
-                ]
-            )
-        ],
+        "terms": terms,
     }
 
 

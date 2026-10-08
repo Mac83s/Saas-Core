@@ -582,7 +582,7 @@ Puppily po CT2, CT3, CT4 i PR1.
 | --- | --- | --- |
 | CT1 | zbudowana 2026-10-08 | pakiet `pkg-ct1`; migracje `sites` 0053 (schemat) i `billing` 0029 (dane) |
 | CT2 | zbudowana 2026-10-08 | pakiet `pkg-ct2`; migracja `sites` 0054 (schemat); sekcja „Uzupełnienie CT2” |
-| CT3 | zbudowana 2026-10-08 (bez kategorii — do dołożenia po CT2) | pakiet `pkg-ct3`; bez migracji; kontrakt dla produktów: `docs/architecture/product-content-read.md` |
+| CT3 | zbudowana 2026-10-08; kategorie w odczycie dołożył pakiet CT2 | pakiet `pkg-ct3`; bez migracji; kontrakt dla produktów: `docs/architecture/product-content-read.md` |
 | CT4–CT6 | czekają | — |
 
 ### Uzupełnienie CT1 (2026-10-08): co kod pokazał inaczej niż projekt
@@ -836,6 +836,14 @@ składa; słownik strony czytany w tenancie), `taxonomies.py` (serwisy),
     poza pierwszym, „Kategorie” i „Tagi” bloga stoją pod `/panel/sites/content/<blog>/…`
     i należą do pozycji „Blog” (pole `under` w `PANEL_SECTIONS`) — kategorie ma każdy
     blog na każdej platformie (pkt 9).
+20. **Kategorie w odczycie dla stron produktu** (zostawione przez CT3, dołożone tutaj, bo
+    na nich stanie blog Puppily): `content_reads` nazywa i adresuje pozycje słownikiem
+    strony (`site_vocabulary`) — taksonomia `category` w `read_terms` z drzewem przez
+    `parent_slug` i licznikami razem z podrzędnymi, pozycje wpisu z `terms` migawki,
+    lista po kategorii z wpisami podrzędnych, adres pozycji per język i `moved` dla
+    każdej innej nazwy pozycji (klucz, adres z innego języka, dawny adres), listy
+    kategorii w wykazie sitemapy. Istnienie, liczniki i nazwy — jak dla tagów — tylko z
+    opublikowanych wpisów bez `noindex`. Kontrakt: `product-content-read.md` §4.2–4.3, §10.
 
 **Kto musi o tym pamiętać** (lista dla następnych faz):
 
@@ -975,11 +983,10 @@ nazywa innej firmy, a `SET LOCAL` stoi przed każdym odczytem tabeli z polityką
 w tej samej transakcji. Resztę sprawdza się po scaleniu na uruchomionym stosie, pod
 rolą aplikacji.
 
-**Co zostaje dla kategorii po CT2:** taksonomie typu w `read_terms` (drzewo z `parent_slug`,
-nazwa i segment taksonomii per język), pozycje z `terms` migawki zamiast `tags`, filtr
-listy po kategorii z wpisami kategorii podrzędnych, adres pozycji per język i dawny
-adres jako `moved` listy, listy kategorii w wykazie sitemapy. Kształt odpowiedzi jest
-na to gotowy (`taxonomy`, `parent_slug`, koperta `moved`).
+**Kategorie w odczycie** dołożył pakiet CT2 („Uzupełnienie CT2” pkt 20): taksonomia
+`category` w `read_terms` (drzewo przez `parent_slug`), pozycje wpisu z `terms` migawki,
+lista po kategorii z wpisami kategorii podrzędnych, adres pozycji per język i `moved`
+dla każdej innej nazwy pozycji, listy kategorii w wykazie sitemapy.
 
 ## Ryzyka
 

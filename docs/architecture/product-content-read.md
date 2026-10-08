@@ -92,7 +92,7 @@ const result = await contentEntry({ type: "poradnik", locale, slug, canonicalUrl
 | `blocks` | treść jako bloki rdzenia — rysuje je `SiteEntryBody` (§6) |
 | `image` | pierwsze zdjęcie treści `{ asset_id, alt }` albo `null` |
 | `image_sizes`, `ai_media_ids` | fakty o zdjęciach, których potrzebuje `SiteEntryBody` |
-| `terms` | pozycje wpisu `{ taxonomy, slug, name }`, nazwa w języku wpisu |
+| `terms` | pozycje wpisu `{ taxonomy, slug, name }` — tagi (`tag`), potem kategorie (`category`) w kolejności drzewa; nazwa i `slug` w języku wpisu |
 | `versions` | opublikowane wersje językowe `{ locale, slug }`, **ta wersja też**, język strony pierwszy |
 | `noindex` | wpis prosi o nieindeksowanie: strona ustawia `robots: noindex`; takiego wpisu nie ma na żadnej liście |
 | `machine_text` | `null` dla tekstu człowieka; inaczej znacznik tekstu AI (`notice`: pokaż czytelnikowi notę — robi to `SiteEntryBody`) |
@@ -104,6 +104,7 @@ const result = await contentEntry({ type: "poradnik", locale, slug, canonicalUrl
 ```ts
 const result = await contentEntries({ type: "poradnik", locale, page, pageSize });
 const tagged = await contentEntries({ type: "poradnik", locale, taxonomy: "tag", term: "porady" });
+const filed = await contentEntries({ type: "poradnik", locale, taxonomy: "category", term: "pielegnacja" });
 // { kind: "list", list } | { kind: "moved", to: { type, locale, taxonomy, term } } | { kind: "not-found" }
 ```
 
@@ -121,8 +122,11 @@ const tagged = await contentEntries({ type: "poradnik", locale, taxonomy: "tag",
 - Lista typu w języku strony workspace'u odpowiada także wtedy, gdy wszystkie wpisy
   typu są w innym języku (wtedy `items` jest puste); w każdym innym języku — tylko gdy
   ma tam wpis. Lista pozycji odpowiada tylko tam, gdzie pozycja ma wpis.
-- `moved` dla listy jest zarezerwowane na pozycję, o którą zapytano dawnym adresem;
-  do czasu kategorii (§10) zawsze przychodzi lista albo `not-found`.
+- Lista kategorii obejmuje wpisy kategorii, które leżą pod nią **teraz** (drzewo czyta
+  się na żywo; przeniesienie kategorii zmienia listy bez publikacji).
+- `moved` dla listy przychodzi, gdy o pozycję zapytano czymkolwiek innym niż jej adres w
+  tym języku: jej kluczem, adresem z innego języka albo dawnym adresem — i tylko wtedy,
+  gdy lista pod właściwym adresem odpowiada. Strona robi z niego jedno 308.
 
 ### 4.3 Typy i pozycje
 
@@ -130,8 +134,10 @@ const tagged = await contentEntries({ type: "poradnik", locale, taxonomy: "tag",
 const types = await contentTypes();
 // [{ key, schema_type, languages, names: { pl, en }, segments: { pl, en } }]
 const terms = await contentTerms({ type: "poradnik", locale });
-// { type, locale, taxonomies: [{ key: "tag", hierarchical, segment, terms: [
-//     { taxonomy, slug, name, count, indexable, parent_slug } ] }] } | null
+// { type, locale, taxonomies: [
+//   { key: "tag", hierarchical: false, segment: "tag", terms: [
+//       { taxonomy, slug, name, count, indexable, parent_slug: null } ] },
+//   { key: "category", hierarchical: true, segment: "kategoria", terms: [ … ] } ] } | null
 ```
 
 - Typ jest na liście dopiero, gdy ma wpis na jakiejś liście; `names` i `segments` tylko
@@ -141,7 +147,16 @@ const terms = await contentTerms({ type: "poradnik", locale });
 - Pozycja istnieje dla odczytu tylko tam, gdzie nosi ją **opublikowany wpis, który nie
   prosi o nieindeksowanie**, w danym języku. `count` liczy tylko takie wpisy.
 - `parent_slug` to slug pozycji nadrzędnej w taksonomii hierarchicznej; dla tagów `null`.
-  Drzewo składa produkt z tych wskazań.
+  Drzewo składa produkt z tych wskazań; pozycje przychodzą w kolejności drzewa
+  (nadrzędna przed podrzędnymi, rodzeństwo w kolejności z panelu).
+- Taksonomia `category` jest w odpowiedzi tylko wtedy, gdy typ ma kategorię z wpisem na
+  liście w tym języku. `count` kategorii liczy też wpisy kategorii pod nią, więc
+  kategoria nadrzędna widocznej kategorii zawsze jest widoczna.
+- `slug` pozycji jest adresem **w języku odpowiedzi**: kategoria „Sierść” może mieć
+  `siersc` po polsku i `coat` po angielsku. Tag sprzed kategorii ma ten sam slug we
+  wszystkich językach; tag i kategoria założone później dostają adres z nazwy w danym
+  języku, gdy ta zostanie przyjęta — wcześniej odpowiadają pod adresem z języka strony,
+  a potem raz zmieniają adres (stary daje `moved`).
 
 ### 4.4 Sitemapa
 
@@ -345,17 +360,25 @@ wyłączył — wtedy prowadzi do wersji w języku strony workspace'u (albo pier
 ma), a bez żadnej wersji jest `not-found`. Dojdą: dawny slug wpisu (ADR-079 pkt 16,
 pakiet CT4) i dawny adres pozycji (pkt 11, pakiet CT2) — bez zmiany kształtu odpowiedzi.
 
-## 10. Kategorie — co dojdzie
+## 10. Kategorie (od pakietu CT2)
 
-Pozycje są zaprojektowane tak, żeby kategorie były dodatkiem:
+Kategorie są częścią odczytu od fazy CT2 (ADR-079, „Uzupełnienie CT2”):
 
-- `terms[].taxonomy` dostanie kolejne wartości obok `tag` (klucz taksonomii kategorii
-  typu); `contentTerms` zwróci dodatkową taksonomię z `hierarchical: true`,
-  a `parent_slug` zacznie wskazywać pozycję nadrzędną;
-- `contentEntries({ taxonomy, term })` przyjmie tę taksonomię; lista kategorii
-  nadrzędnej obejmie wpisy podrzędnych;
-- slug pozycji stanie się adresem **per język**, a dawny adres da `moved`;
-- `contentSitemapEntries` już przyjmuje stronę per taksonomia (`terms: { … }`).
+- `terms[].taxonomy` ma dwie wartości: `tag` (tagi strony, wspólne dla typów) i
+  `category` (kategorie jednego typu, drzewo do trzech poziomów);
+- `contentTerms` zwraca drugą taksonomię z `hierarchical: true` i `parent_slug`;
+- `contentEntries({ taxonomy: "category", term })` daje listę kategorii razem z wpisami
+  kategorii podrzędnych;
+- slug pozycji jest adresem per język, a każda inna nazwa pozycji daje `moved` (§4.2);
+- `contentSitemapEntries` dostaje listy kategorii wartych indeksowania jak listy tagów —
+  strona per taksonomia (`terms: { tag: …, category: … }`).
+
+Jak dla tagów: kategoria istnieje dla odczytu tylko tam, gdzie jej listę zapełnia
+opublikowany wpis, który nie prosi o nieindeksowanie. Kategorii noszonej tylko przez
+szkic albo wpis ukryty nie ma — ani w drzewie, ani w liczniku, ani z nazwy. Nazwa:
+przyjęte tłumaczenie, inaczej nazwa z publikacji, inaczej nazwa z panelu (kategoria
+nadrzędna, której żaden wpis nie nosi wprost). Słowa kluczowe JSON-LD wpisu to tagi;
+kategoria nimi nie jest.
 
 Strona produktu, która traktuje `taxonomy` jako napis i ignoruje taksonomie, których
 nie zna, nie wymaga zmiany.

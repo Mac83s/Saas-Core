@@ -17786,11 +17786,15 @@ paths:
     get:
       operationId: public_content_entries_list
       description: 'Newest first; all of the type, or those under one term (`taxonomy`
-        and `term`). Entries that ask not to be indexed are on no list. `list.indexable`
-        is the core''s rule for thin term lists; the product applies it. Reads the
-        deployment''s platform workspace and nothing else; takes no host, site or
-        tenant. Only what is published: a draft, a withdrawn entry, a switched-off
-        type and an address nobody has all answer the same 404.'
+        — `tag` or `category` — and `term`). A category''s list has the entries of
+        the categories under it too. A term asked for by anything but its address
+        in this language — its key, its address in another language, one it used to
+        have — answers `moved` with the address to ask by. Entries that ask not to
+        be indexed are on no list. `list.indexable` is the core''s rule for thin term
+        lists; the product applies it. Reads the deployment''s platform workspace
+        and nothing else; takes no host, site or tenant. Only what is published: a
+        draft, a withdrawn entry, a switched-off type and an address nobody has all
+        answer the same 404.'
       summary: A page of a content type's published entries in one language
       parameters:
       - in: query
@@ -17822,7 +17826,7 @@ paths:
           default: ''
           maxLength: 80
           minLength: 1
-        description: 'With `term`: its taxonomy.'
+        description: 'With `term`: its taxonomy — `tag` or `category`.'
       - in: query
         name: term
         schema:
@@ -45658,8 +45662,8 @@ components:
           - $ref: '#/components/schemas/PublicContentListMoved'
           - type: 'null'
           description: Where the list answers now, in address parts — a term asked
-            for by an address it used to have. Always null until terms can change
-            address.
+            for by an address it used to have, by its address in another language
+            or by its key.
       required:
       - list
       - moved
@@ -45815,11 +45819,12 @@ components:
         taxonomy:
           type: string
           description: 'The taxonomy the term belongs to: `tag` — the site''s tags,
-            shared by its types. Categories of a type come as further taxonomies.'
+            shared by its types; `category` — the type''s own categories, a tree.'
         slug:
           type: string
           description: The term's part of an address in the language read; ask a list
-            by it.
+            by it. It may differ per language, and a list asked by another one answers
+            `moved`.
         name:
           type: string
           description: 'The term''s name in the language read: its accepted translation,
@@ -45854,11 +45859,12 @@ components:
         taxonomy:
           type: string
           description: 'The taxonomy the term belongs to: `tag` — the site''s tags,
-            shared by its types. Categories of a type come as further taxonomies.'
+            shared by its types; `category` — the type''s own categories, a tree.'
         slug:
           type: string
           description: The term's part of an address in the language read; ask a list
-            by it.
+            by it. It may differ per language, and a list asked by another one answers
+            `moved`.
         name:
           type: string
           description: 'The term''s name in the language read: its accepted translation,
@@ -45866,7 +45872,8 @@ components:
         count:
           type: integer
           minimum: 1
-          description: Listed entries of the type under the term in this language.
+          description: Listed entries of the type under the term in this language
+            — a category's with those of the categories under it.
         indexable:
           type: boolean
           description: Whether the term's list is a page worth indexing (three entries

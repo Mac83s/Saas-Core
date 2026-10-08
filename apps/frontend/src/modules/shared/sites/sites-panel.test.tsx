@@ -123,6 +123,10 @@ const platformDomain = {
 beforeEach(() => {
   vi.clearAllMocks();
   listSites.mockResolvedValue({ items: [site], next_cursor: null });
+  // A test that draws „Treści” without naming the types gets the refusal a
+  // server out of reach gives — a promise, like the client's own function.
+  listContentTypes.mockRejectedValue(new Error("offline"));
+  listTerms.mockRejectedValue(new Error("offline"));
   getSiteOnboarding.mockResolvedValue({
     id: null,
     version: 0,

@@ -71,6 +71,7 @@ OPEN_TABLES = (
 #: The tables this read touches that force row-level security.
 GUARDED_TABLES = (
     "sites_contenttag",
+    "sites_contenttaxonomy",
     "sites_sitetexttranslation",
     "media_mediaasset",
     "organizations_organization",
@@ -521,6 +522,174 @@ def test_lists_page_filter_by_term_and_say_when_a_term_is_too_thin_to_index() ->
         assert _read("types/poradnik/entries/", **query).status_code == 400, query
 
 
+def _category(guide: Publisher, name: str, parent: str | None = None) -> str:
+    made = guide.client.post(
+        f"/api/v1/sites/collections/{guide.type_id}/terms/",
+        {"kind": "categories", "name": name, **({"parent_id": parent} if parent else {})},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(guide.client),
+    )
+    assert made.status_code == 201, made.json()
+    return str(made.json()["id"])
+
+
+def _filed(guide: Publisher, slug: str, categories: list[str], **more: Any) -> str:
+    """An entry filed under categories and then published: an archive lists
+    what publications carry."""
+    entry_id = guide.entry(slug, out=False, **more)
+    filed = guide.client.put(
+        f"/api/v1/sites/entries/{entry_id}/categories/",
+        {"term_ids": categories},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(guide.client),
+    )
+    assert filed.status_code == 200, filed.json()
+    guide.publish(entry_id)
+    return entry_id
+
+
+def _tree(taxonomy: dict[str, Any]) -> list[tuple[Any, ...]]:
+    return [
+        (term["slug"], term["name"], term["count"], term["indexable"], term["parent_slug"])
+        for term in taxonomy["terms"]
+    ]
+
+
+def test_a_types_categories_are_read_as_a_tree_with_lists_per_language() -> None:
+    """The category part of the read (ADR-079 pkt 30; CT2): the type's
+    categories as a tree through `parent_slug`, each list with the entries of
+    the categories under it, addresses per language with „moved" for any
+    other name of a term — and, as for tags, only what a published entry that
+    asks to be indexed carries."""
+    guide = Publisher("read-categories")
+    care = _category(guide, "Pielęgnacja")
+    coat = _category(guide, "Sierść", care)
+    food = _category(guide, "Żywienie")
+    unused = _category(guide, "Pusta")
+    first = _filed(guide, "wpis-1", [coat], tags=["Porady"])
+    _filed(guide, "wpis-2", [coat])
+    _filed(guide, "wpis-3", [care])
+    _filed(guide, "wpis-4", [food])
+    # On no list: a hidden entry, and a draft — their categories count nothing.
+    _filed(guide, "ukryty", [food, unused], noindex=True)
+    drafted = guide.entry("szkic", out=False)
+    guide.client.put(
+        f"/api/v1/sites/entries/{drafted}/categories/",
+        {"term_ids": [unused]},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(guide.client),
+    )
+    english = guide.english(first, "entry-1", "Entry one")
+    guide.client.put(
+        f"/api/v1/sites/entries/{english}/categories/",
+        {"term_ids": [coat]},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(guide.client),
+    )
+    guide.publish(english, key="again")
+    named = guide.client.put(
+        f"/api/v1/sites/collections/{guide.type_id}/terms/{coat}/names/",
+        {"names": {"en": "Coat"}},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(guide.client),
+    )
+    assert named.status_code == 200, named.json()
+    guide.enter()
+
+    def terms(locale: str) -> list[dict[str, Any]]:
+        return list(_read("types/poradnik/terms/", locale=locale).json()["taxonomies"])
+
+    def listed(locale: str, taxonomy: str, term: str) -> Any:
+        return _read("types/poradnik/entries/", locale=locale, taxonomy=taxonomy, term=term)
+
+    polish = terms("pl")
+    assert [(found["key"], found["hierarchical"], found["segment"]) for found in polish] == [
+        ("tag", False, "tag"),
+        ("category", True, "kategoria"),
+    ]
+    # A category before those under it; counts with those under it; the
+    # hidden entry and the draft count nothing, so „Pusta” is not here.
+    assert _tree(polish[1]) == [
+        ("pielegnacja", "Pielęgnacja", 3, True, None),
+        ("siersc", "Sierść", 2, False, "pielegnacja"),
+        ("zywienie", "Żywienie", 1, False, None),
+    ]
+    english_terms = terms("en")
+    assert english_terms[1]["segment"] == "category"
+    # English: the one entry there; „Sierść” under its English name's
+    # address, the one above it under the site's language's until it has one.
+    assert _tree(english_terms[1]) == [
+        ("pielegnacja", "Pielęgnacja", 1, False, None),
+        ("coat", "Coat", 1, False, "pielegnacja"),
+    ]
+
+    wide = listed("pl", "category", "pielegnacja").json()["list"]
+    assert [item["slug"] for item in wide["items"]] == ["wpis-3", "wpis-2", "wpis-1"]
+    assert (wide["total"], wide["indexable"], wide["languages"]) == (3, True, ["pl", "en"])
+    assert wide["term"] == {"taxonomy": "category", "slug": "pielegnacja", "name": "Pielęgnacja"}
+    thin = listed("pl", "category", "siersc").json()["list"]
+    assert ([item["slug"] for item in thin["items"]], thin["indexable"]) == (
+        ["wpis-2", "wpis-1"],
+        False,
+    )
+    # An entry's terms: its tags, then its categories.
+    assert thin["items"][1]["terms"] == [
+        {"taxonomy": "tag", "slug": "porady", "name": "Porady"},
+        {"taxonomy": "category", "slug": "siersc", "name": "Sierść"},
+    ]
+    assert _read("types/poradnik/entries/pl/wpis-1/").json()["entry"]["terms"] == (
+        thin["items"][1]["terms"]
+    )
+    # The hidden entry names the category other entries make readable, not
+    # the one only it carries.
+    hidden = _read("types/poradnik/entries/pl/ukryty/").json()["entry"]
+    assert hidden["terms"] == [{"taxonomy": "category", "slug": "zywienie", "name": "Żywienie"}]
+    # English, by the English address; any other name of the term says where.
+    assert [item["slug"] for item in listed("en", "category", "coat").json()["list"]["items"]] == [
+        "entry-1"
+    ]
+    assert listed("en", "category", "siersc").json() == {
+        "list": None,
+        "moved": {"type": "poradnik", "locale": "en", "taxonomy": "category", "term": "coat"},
+    }
+    assert listed("pl", "category", "coat").json()["moved"]["term"] == "siersc"
+    # Nothing unpublished, nothing of another vocabulary, nothing made up.
+    for locale, taxonomy, term in (
+        ("pl", "category", "pusta"),
+        ("pl", "category", "nie-ma"),
+        ("pl", "category", "porady"),
+        ("pl", "tag", "siersc"),
+        ("en", "category", "zywienie"),
+        ("pl", "kategoria", "siersc"),
+    ):
+        assert listed(locale, taxonomy, term).status_code == 404, (locale, taxonomy, term)
+    everything = json.dumps([polish, english_terms, wide, thin, hidden]).lower()
+    assert "pusta" not in everything
+
+    # The sitemap listing: only a list worth indexing.
+    sitemap = _read("sitemap/").json()
+    assert [
+        (item["taxonomy"], [(version["locale"], version["slug"]) for version in item["versions"]])
+        for item in sitemap["terms"]
+    ] == [("category", [("pl", "pielegnacja")])]
+
+    # The tree is read as it is: a category moved shows at once.
+    guide.leave()
+    moved = guide.client.patch(
+        f"/api/v1/sites/collections/{guide.type_id}/terms/{coat}/",
+        {"parent_id": food},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(guide.client),
+    )
+    assert moved.status_code == 200, moved.json()
+    guide.enter()
+    assert _tree(terms("pl")[1]) == [
+        ("pielegnacja", "Pielęgnacja", 1, False, None),
+        ("zywienie", "Żywienie", 3, True, None),
+        ("siersc", "Sierść", 2, False, "zywienie"),
+    ]
+
+
 def test_a_longer_list_asks_the_database_no_more_often() -> None:
     """Anonymous and uncached: what a page of a list costs must not grow
     with how many entries are on it. Names in another language once took one
@@ -603,8 +772,10 @@ def test_names_in_another_language_need_no_publication_of_the_builder_site() -> 
     assert types[0]["names"] == {"pl": "Poradnik", "en": "Guide"}
     assert types[0]["segments"] == {"pl": "poradnik", "en": "guide"}
     assert listed["name"] == "Guide"
-    assert listed["items"][0]["terms"] == [{"taxonomy": "tag", "slug": "porady", "name": "Tips"}]
-    assert entry["terms"] == [{"taxonomy": "tag", "slug": "porady", "name": "Tips"}]
+    # A tag made today takes its English address from its English name
+    # (ADR-079 pkt 11): the read names it by that, as a company's site does.
+    assert listed["items"][0]["terms"] == [{"taxonomy": "tag", "slug": "tips", "name": "Tips"}]
+    assert entry["terms"] == [{"taxonomy": "tag", "slug": "tips", "name": "Tips"}]
     assert terms == [
         {
             "key": "tag",
@@ -613,7 +784,7 @@ def test_names_in_another_language_need_no_publication_of_the_builder_site() -> 
             "terms": [
                 {
                     "taxonomy": "tag",
-                    "slug": "porady",
+                    "slug": "tips",
                     "name": "Tips",
                     "count": 1,
                     "indexable": False,
@@ -622,7 +793,21 @@ def test_names_in_another_language_need_no_publication_of_the_builder_site() -> 
             ],
         }
     ]
-    assert [term["name"] for term in polish_terms[0]["terms"]] == ["Porady"]
+    assert [(term["slug"], term["name"]) for term in polish_terms[0]["terms"]] == [
+        ("porady", "Porady")
+    ]
+    # Asked by the address it had until the name was accepted — its Polish
+    # one, which is also its key — the list says where it answers now.
+    by_name = _read("types/poradnik/entries/", locale="en", taxonomy="tag", term="tips").json()
+    assert by_name["moved"] is None and by_name["list"]["term"]["slug"] == "tips"
+    by_key = _read("types/poradnik/entries/", locale="en", taxonomy="tag", term="porady").json()
+    assert by_key == {
+        "list": None,
+        "moved": {"type": "poradnik", "locale": "en", "taxonomy": "tag", "term": "tips"},
+    }
+    # In Polish its address is what it was, and the English one leads to it.
+    polish_list = _read("types/poradnik/entries/", locale="pl", taxonomy="tag", term="tips")
+    assert polish_list.json()["moved"]["term"] == "porady"
     everything = json.dumps([types, listed, terms, entry, polish_terms]).lower()
     assert "sketchy" not in everything and "szkicowy" not in everything
 

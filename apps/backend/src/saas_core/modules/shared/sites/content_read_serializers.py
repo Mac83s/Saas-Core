@@ -18,10 +18,11 @@ LOCALE = "A content language: a two-letter code of the platform's language regis
 class PublicContentTermSerializer(serializers.Serializer[dict[str, Any]]):
     taxonomy = serializers.CharField(
         help_text="The taxonomy the term belongs to: `tag` — the site's tags, shared by its "
-        "types. Categories of a type come as further taxonomies."
+        "types; `category` — the type's own categories, a tree."
     )
     slug = serializers.CharField(
-        help_text="The term's part of an address in the language read; ask a list by it."
+        help_text="The term's part of an address in the language read; ask a list by it. It "
+        "may differ per language, and a list asked by another one answers `moved`."
     )
     name = serializers.CharField(
         help_text="The term's name in the language read: its accepted translation, else the "
@@ -173,7 +174,7 @@ class PublicContentListAnswerSerializer(serializers.Serializer[dict[str, Any]]):
     moved = PublicContentListMovedSerializer(
         allow_null=True,
         help_text="Where the list answers now, in address parts — a term asked for by an "
-        "address it used to have. Always null until terms can change address.",
+        "address it used to have, by its address in another language or by its key.",
     )
 
 
@@ -196,7 +197,9 @@ class PublicContentTypeSerializer(serializers.Serializer[dict[str, Any]]):
 
 class PublicContentTreeTermSerializer(PublicContentTermSerializer):
     count = serializers.IntegerField(
-        min_value=1, help_text="Listed entries of the type under the term in this language."
+        min_value=1,
+        help_text="Listed entries of the type under the term in this language — a "
+        "category's with those of the categories under it.",
     )
     indexable = serializers.BooleanField(
         help_text="Whether the term's list is a page worth indexing (three entries or more)."
@@ -262,7 +265,10 @@ class PublicContentListQuerySerializer(serializers.Serializer[dict[str, Any]]):
         help_text="Entries per page; the deployment's own index size when left out.",
     )
     taxonomy = serializers.CharField(
-        required=False, default="", max_length=80, help_text="With `term`: its taxonomy."
+        required=False,
+        default="",
+        max_length=80,
+        help_text="With `term`: its taxonomy — `tag` or `category`.",
     )
     term = serializers.SlugField(
         required=False,

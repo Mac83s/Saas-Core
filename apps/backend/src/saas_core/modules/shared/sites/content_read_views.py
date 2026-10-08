@@ -104,9 +104,13 @@ class PublicContentEntriesView(_PublicContentView):
     @extend_schema(
         operation_id="public_content_entries_list",
         summary="A page of a content type's published entries in one language",
-        description="Newest first; all of the type, or those under one term (`taxonomy` and "
-        "`term`). Entries that ask not to be indexed are on no list. `list.indexable` is "
-        "the core's rule for thin term lists; the product applies it." + _PUBLISHED_ONLY,
+        description="Newest first; all of the type, or those under one term (`taxonomy` — "
+        "`tag` or `category` — and `term`). A category's list has the entries of the "
+        "categories under it too. A term asked for by anything but its address in this "
+        "language — its key, its address in another language, one it used to have — answers "
+        "`moved` with the address to ask by. Entries that ask not to be indexed are on no "
+        "list. `list.indexable` is the core's rule for thin term lists; the product applies "
+        "it." + _PUBLISHED_ONLY,
         tags=[TAG],
         parameters=[PublicContentListQuerySerializer],
         responses={
@@ -117,17 +121,16 @@ class PublicContentEntriesView(_PublicContentView):
     )
     def get(self, request: Request, type_key: str) -> Response:
         query = _query(PublicContentListQuerySerializer, request)
-        return Response({
-            "list": read_entries(
+        return Response(
+            read_entries(
                 type_key=type_key,
                 locale=query["locale"],
                 page=query["page"],
                 page_size=query.get("page_size"),
                 taxonomy=query["taxonomy"],
                 term=query["term"],
-            ),
-            "moved": None,
-        })
+            )
+        )
 
 
 class PublicContentEntryView(_PublicContentView):

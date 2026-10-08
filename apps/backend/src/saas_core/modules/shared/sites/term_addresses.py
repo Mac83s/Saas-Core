@@ -52,8 +52,9 @@ TAG_SEGMENT = "tag"
 KIND_TAGS = "tags"
 KIND_CATEGORIES = "categories"
 
-#: The key of a content type's category taxonomy.
-CATEGORY_TAXONOMY_KEY = "categories"
+#: The key of a content type's category taxonomy — what the read for a
+#: product's pages calls it beside `tag`.
+CATEGORY_TAXONOMY_KEY = "category"
 
 #: What a category's archive is called in an address, per language of the
 #: reader — written into the taxonomy's row when it is made and changed there
@@ -170,6 +171,7 @@ class Term:
 @dataclass(frozen=True, slots=True)
 class Taxonomy:
     id: str
+    key: str
     collection_id: str | None
     segment: str
     locale_segments: Mapping[str, str]
@@ -195,6 +197,28 @@ class Vocabulary:
 
     def by_id(self) -> dict[str, Term]:
         return {term.id: term for term in self.terms}
+
+    def tree(self, taxonomy: Taxonomy) -> tuple[Term, ...]:
+        """A taxonomy's terms, a category before those under it, each level
+        in its own order."""
+        terms = self.of(taxonomy)
+        ids = {term.id for term in terms}
+        ordered: list[Term] = []
+
+        def walk(parent: str | None) -> None:
+            for term in sorted(
+                (
+                    found
+                    for found in terms
+                    if (found.parent_id if found.parent_id in ids else None) == parent
+                ),
+                key=lambda found: (found.position, found.slug),
+            ):
+                ordered.append(term)
+                walk(term.id)
+
+        walk(None)
+        return tuple(ordered)
 
     def with_descendants(self, term: Term) -> frozenset[str]:
         """The term and every category under it now — the tree is read as it
@@ -231,7 +255,7 @@ def site_vocabulary(*, organization_id: Any, site_id: Any) -> Vocabulary:
         taxonomies = list(
             ContentTaxonomy.all_objects.filter(
                 organization_id=organization_id, site_id=site_id
-            ).values("id", "collection_id", "segment", "locale_segments", "former_segments")
+            ).values("id", "key", "collection_id", "segment", "locale_segments", "former_segments")
         )
         terms = list(
             ContentTag.all_objects.filter(organization_id=organization_id, site_id=site_id)
@@ -251,6 +275,7 @@ def site_vocabulary(*, organization_id: Any, site_id: Any) -> Vocabulary:
         taxonomies=tuple(
             Taxonomy(
                 id=str(row["id"]),
+                key=str(row["key"]),
                 collection_id=str(row["collection_id"]) if row["collection_id"] else None,
                 segment=str(row["segment"]),
                 locale_segments=dict(row["locale_segments"] or {}),

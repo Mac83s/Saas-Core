@@ -6058,7 +6058,7 @@ export interface paths {
         };
         /**
          * A page of a content type's published entries in one language
-         * @description Newest first; all of the type, or those under one term (`taxonomy` and `term`). Entries that ask not to be indexed are on no list. `list.indexable` is the core's rule for thin term lists; the product applies it. Reads the deployment's platform workspace and nothing else; takes no host, site or tenant. Only what is published: a draft, a withdrawn entry, a switched-off type and an address nobody has all answer the same 404.
+         * @description Newest first; all of the type, or those under one term (`taxonomy` — `tag` or `category` — and `term`). A category's list has the entries of the categories under it too. A term asked for by anything but its address in this language — its key, its address in another language, one it used to have — answers `moved` with the address to ask by. Entries that ask not to be indexed are on no list. `list.indexable` is the core's rule for thin term lists; the product applies it. Reads the deployment's platform workspace and nothing else; takes no host, site or tenant. Only what is published: a draft, a withdrawn entry, a switched-off type and an address nobody has all answer the same 404.
          */
         get: operations["public_content_entries_list"];
         put?: never;
@@ -17145,7 +17145,7 @@ export interface components {
         PublicContentListAnswer: {
             /** @description The page of the list, or null when it answers elsewhere. */
             list: components["schemas"]["PublicContentList"] | null;
-            /** @description Where the list answers now, in address parts — a term asked for by an address it used to have. Always null until terms can change address. */
+            /** @description Where the list answers now, in address parts — a term asked for by an address it used to have, by its address in another language or by its key. */
             moved: components["schemas"]["PublicContentListMoved"] | null;
         };
         PublicContentListItem: {
@@ -17199,9 +17199,9 @@ export interface components {
             terms: components["schemas"]["PublicContentTreeTerm"][];
         };
         PublicContentTerm: {
-            /** @description The taxonomy the term belongs to: `tag` — the site's tags, shared by its types. Categories of a type come as further taxonomies. */
+            /** @description The taxonomy the term belongs to: `tag` — the site's tags, shared by its types; `category` — the type's own categories, a tree. */
             taxonomy: string;
-            /** @description The term's part of an address in the language read; ask a list by it. */
+            /** @description The term's part of an address in the language read; ask a list by it. It may differ per language, and a list asked by another one answers `moved`. */
             slug: string;
             /** @description The term's name in the language read: its accepted translation, else the name it was published under. */
             name: string;
@@ -17213,13 +17213,13 @@ export interface components {
             taxonomies: components["schemas"]["PublicContentTaxonomy"][];
         };
         PublicContentTreeTerm: {
-            /** @description The taxonomy the term belongs to: `tag` — the site's tags, shared by its types. Categories of a type come as further taxonomies. */
+            /** @description The taxonomy the term belongs to: `tag` — the site's tags, shared by its types; `category` — the type's own categories, a tree. */
             taxonomy: string;
-            /** @description The term's part of an address in the language read; ask a list by it. */
+            /** @description The term's part of an address in the language read; ask a list by it. It may differ per language, and a list asked by another one answers `moved`. */
             slug: string;
             /** @description The term's name in the language read: its accepted translation, else the name it was published under. */
             name: string;
-            /** @description Listed entries of the type under the term in this language. */
+            /** @description Listed entries of the type under the term in this language — a category's with those of the categories under it. */
             count: number;
             /** @description Whether the term's list is a page worth indexing (three entries or more). */
             indexable: boolean;
@@ -38509,7 +38509,7 @@ export interface operations {
                 page?: number;
                 /** @description Entries per page; the deployment's own index size when left out. */
                 page_size?: number;
-                /** @description With `term`: its taxonomy. */
+                /** @description With `term`: its taxonomy — `tag` or `category`. */
                 taxonomy?: string;
                 /** @description With `taxonomy`: the term's slug in the language of the list. */
                 term?: string;
