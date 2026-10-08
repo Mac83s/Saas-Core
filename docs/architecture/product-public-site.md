@@ -359,8 +359,10 @@ Trzy poziomy; każdy widzi coś, czego nie widzi poprzedni.
   każdy adres pod nim, także z kropką, i odpowiada 404.
 - Profil z `publicBooking: false` odrzuca adresy zawierające `/book/` albo
   `/booking/` wcześniej niż tabela; test z §10 to wykrywa.
-- Odczyt opublikowanych wpisów systemu treści dla stron produktu i `/media` na hoście
-  platformy to osobne pakiety (ADR-079); tabela zostawia im `media` i `api`.
+- Opublikowane wpisy systemu treści (poradnik, blog platformy) strony produktu czytają
+  przez osobny kontrakt: [`product-content-read.md`](product-content-read.md)
+  (ADR-079). Zdjęcia tej treści odpowiadają pod `/media/<id>` na hoście platformy —
+  stąd `media` i `api` wśród segmentów zarezerwowanych.
 
 ## 12. Przeniesienie istniejącego serwisu — kolejność
 

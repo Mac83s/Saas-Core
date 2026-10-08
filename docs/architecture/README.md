@@ -16,6 +16,7 @@ kontrakt.
 | [model-port.md](model-port.md) | port modeli AI: typy żądania i odpowiedzi, błędy, dopuszczenie i sufity, telemetria (ADR-068) |
 | [translation-sources.md](translation-sources.md) | protokół źródeł tłumaczeń: fragmenty, pochodzenie, rejestr i obowiązki adaptera (ADR-069, ADR-070) |
 | [product-public-site.md](product-public-site.md) | publiczne strony produktu na jego hoście: tabela adresów per język, stare adresy (308/410), sitemapa, słowa, zarezerwowane segmenty (ADR-080) |
+| [product-content-read.md](product-content-read.md) | treść własna platformy na stronach produktu: odczyt opublikowanych wpisów po kluczu typu, języku i slugu (części adresu, nie ścieżki), listy, pozycje, wykaz do sitemapy, „przeniesione”, `/media` na hoście platformy, treść wpisu z bloków rdzenia (ADR-079 pkt 29–33) |
 | [`packages/contracts/content-operations/`](../../packages/contracts/content-operations/) | kontrakt zmian treści dla SeoContentRank (W9.6.0) |
 
 Prozę kontraktu z SeoContentRank — słownik, podział odpowiedzialności i

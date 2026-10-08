@@ -581,7 +581,8 @@ Puppily po CT2, CT3, CT4 i PR1.
 | Faza | Stan | Gdzie |
 | --- | --- | --- |
 | CT1 | zbudowana 2026-10-08 | pakiet `pkg-ct1`; migracje `sites` 0053 (schemat) i `billing` 0029 (dane) |
-| CT2–CT6 | czekają | — |
+| CT3 | zbudowana 2026-10-08 (bez kategorii — czekają na CT2) | pakiet `pkg-ct3`; bez migracji; kontrakt dla produktów: `docs/architecture/product-content-read.md` |
+| CT2, CT4–CT6 | czekają | — |
 
 ### Uzupełnienie CT1 (2026-10-08): co kod pokazał inaczej niż projekt
 
@@ -690,6 +691,110 @@ zapisu `_assert_entry_writable`. Zawsze jako złączenie w tym samym zapytaniu
 tenantowym, nigdy osobny odczyt przed nim. Nazwy typu wyłączonego zostają zajęte:
 `_assert_section_names_free`, `page_slug_is_section` i `free_slug` czytają wszystkie
 typy.
+
+### Uzupełnienie CT3 (2026-10-08): odczyt dla stron produktu — co kod pokazał inaczej niż projekt
+
+Zbudowane punkty 29–33 poza kategoriami (CT2 buduje je równolegle). Kontrakt, z którego
+produkt przenosi swoje widoki: [`docs/architecture/product-content-read.md`](../architecture/product-content-read.md).
+Odstępstwa i doprecyzowania:
+
+1. **Typ pyta się po kluczu, nie po nazwie działu (zmiana pkt 30).** Tabela adresów
+   produktu (ADR-080) nazywa sekcje sama, na sztywno, per język; nazwę działu typu da
+   się zmienić w panelu. Odczyt pytany o segment zamieniałby strony produktu w 404 po
+   takiej zmianie. Klucz typu jest stały. `segments` typu wracają jako informacja;
+   **dawnego segmentu działu odczyt nie obsługuje** — zmiana nazwy sekcji u produktu
+   to jego tabela i jego `old-addresses.ts`. „Przeniesione” dotyczy więc sluga wpisu
+   i adresu pozycji.
+2. **Co dziś daje „przeniesione”.** Jedno źródło: wpis w języku, który workspace
+   wyłączył — odpowiedź wskazuje wersję w języku strony (albo pierwszą, jaką wpis ma),
+   tak jak renderer strony firmy daje wtedy 308 (ADR-071 pkt 9). Dawny slug wpisu (CT4)
+   i dawny adres pozycji (CT2) dojdą bez zmiany kształtu: wpis i lista odpowiadają
+   kopertą `{ entry | list, moved }` już teraz.
+3. **Drzwi: `platform_workspace_id()`, nie `platform_workspace()` (zawężenie pkt 31).**
+   Nowa funkcja w `core/organizations/platform_workspace.py` wybiera **samą kolumnę
+   `id`** i pyta po rodzaju workspace'u **oraz** po slugu wyliczonym z wdrożenia
+   (`platform-<DEPLOYMENT>`): do ścieżki publicznej nie trafia żaden wiersz wczytany
+   poza politykami, a workspace innego wdrożenia w tej samej bazie nie jest czytany.
+   Bez pamięci w procesie. Dalej wszystko czyta się w tym tenancie. Workspace musi mieć
+   dokładnie jedną stronę — przy żadnej albo kilku odczyt nie zgaduje, tylko nic nie
+   oddaje.
+4. **Test przypinający wywołujących (uwaga 12).** `test_pre_tenant_door.py` ma listę
+   `DECLARED_WORKSPACE_LOOKUPS` (dziś: port modeli i `content_reads.py`, każdy z
+   powodem). Wykrywa moduł, który nazwę odnalezienia **importuje** (także przez moduł
+   pośredni), bierze cały moduł definiujący, sięga po nią jako atrybut albo zapisuje ją
+   w napisie — osobny test trzyma wykrywacz przy tych sposobach. Pięć plików
+   publicznego renderera nie może nazwać odnalezienia wcale. Liczba linii
+   `PRE_TENANT_DB` w module definiującym wzrosła z 2 do 3, z powodem.
+5. **Reguła pkt 29 stoi w jednym miejscu: `serving_locales`.** Przez nią przechodzą
+   wszystkie odczyty hosta — strony i wpisy, podpowiedź 404, kanały, sitemapa,
+   `robots.txt`, `llms.txt`, media, formularz kontaktowy — więc host strony workspace'u
+   odpowiada jak host nieznany. Dochodzą dwa skutki tej samej reguły: brama TLS nie
+   wyda **nowego** certyfikatu dla takiego hosta (decyzja sprzed zmiany żyje do końca
+   swojej pamięci podręcznej), a bramka hostów nie przepuści tam odczytów formularza
+   rezerwacji. Panel wydawcy dalej podgląda swoje strony (`publisher=True` w podglądzie
+   SEO) — reguła dotyczy hostów, nie panelu.
+6. **Strona workspace'u z opublikowanymi podstronami.** Wiersze zostają nietknięte
+   (publikacje, podstrony, domeny); przestają być serwowane od wdrożenia. Lokalny stos
+   Puppily ma taką stronę — jej adresy `<etykieta>.<platformDomain>` odpowiedzą 404.
+   Panel nadal pozwala edytować i publikować podstrony kreatora w workspace, choć nikt
+   ich nie zobaczy; ukrycie tych ekranów dla wydawcy to osobna, niezrobiona rzecz.
+7. **Nazwy w innych językach zawsze wprost (rozszerzenie pkt 33).** Punkt mówił
+   o stronie bez publikacji kreatora; po pkt 29 publikacja strony workspace'u niczego
+   już nie wydaje, więc odczyt bierze przyjęte tłumaczenia nazw typów i pozycji wprost
+   także wtedy, gdy taka publikacja istnieje — z tą samą regułą, co publikacja strony
+   firmy (`shown_texts`), i tylko dla tego, co nosi wpis z listy.
+8. **Co „istnieje dla odczytu”.** Typ — gdy ma wpis na liście (opublikowany, bez
+   `noindex`, w języku workspace'u); pusty typ, typ wyłączony i typ, którego nie ma,
+   odpowiadają tym samym 404. Pozycja — jak w pkt 30. Wpis z `noindex` odpowiada pod
+   własnym adresem (jak na stronie firmy), ale nie ma go na liście, w liczniku
+   ani w sitemapie i **nie użycza pozycji**: wśród jego `terms` są tylko te, które
+   niesie także wpis z listy.
+9. **JSON-LD: własne węzły wpisu, nie jeden węzeł.** `page_graph` (ta sama funkcja co
+   na stronach firm, niezmieniona) liczy graf z adresu podanego przez produkt
+   (`canonical_url`), a odczyt oddaje z niego węzły wpisu: `WebPage` (także `FAQPage`,
+   gdy treść ma pytania — sam węzeł artykułu zgubiłby je) i artykuł. `WebSite`
+   i `Organization` pisze produkt pod identyfikatorami, które te węzły wskazują.
+   `canonical_url` przechodzi kontrolę kształtu (pełny `http(s)`, bez danych logowania,
+   zapytania i fragmentu) i służy tylko do złożenia identyfikatorów. Bez
+   `translationOfWork` — rdzeń nie zna adresu wersji źródłowej u produktu.
+10. **Zdjęcia.** `GET /api/v1/public/content/media/<id>/[<wariant>/]` oddaje zdjęcie
+    tylko wtedy, gdy wymienia je bieżąca publikacja wpisu workspace'u we włączonym
+    typie — nie zdjęcia podstron kreatora workspace'u (nikt ich nie pokazuje) ani
+    źródeł rekordów na żywo. Frontend odpowiada pod `/media/<id>` i dwoma kopiami WebP
+    na hoście platformy (reguła w `proxy.ts`, trasa `app/media/…`); to origin panelu,
+    więc trasa oddaje wyłącznie JPEG, PNG i WebP, z `nosniff` i CSP `default-src 'none';
+    sandbox`, i odmawia hostom innym niż platformy. Strony firm i ich `/media/…` — bez
+    zmian (`proxy.golden.json`, `metadata.golden.json` nietknięte).
+11. **Punkt końcowy tylko na hostach platformy.** Trasy `/api/v1/public/content/…` nie
+    ma na liście tras czytanych przez host strony firmy (`http/hosts.py`), więc pod
+    hostem spoza `ALLOWED_HOSTS` — także strony firmy — odpowiada 400, jak API panelu.
+12. **Listy bez treści.** Lista, liczniki i sitemapa czytają z migawek same fakty
+    (tytuł, slug, pozycje, daty) wszystkich opublikowanych wpisów strony; treść czyta
+    się tylko dla wpisów bieżącej strony listy (pierwsze zdjęcie). Test trzyma tę
+    projekcję przy projekcji routera (`published_entries`): te same wpisy, ta sama
+    kolejność.
+13. **Na frontendzie.** `#lib/product-site/content` (klient tylko dla serwera, wyniki
+    `entry | moved | not-found`, `contentVersions` i `contentSitemapEntries` łączące
+    części adresu z tabelą produktu) oraz `#components/site-entry-body` (bloki rdzenia
+    bez strony wokół; `renderPublishedBody` w `@saas-core/site-blocks`, opakowanie
+    `.site-theme--embedded`). Formularz kontaktowy i bloki rekordów na żywo są w treści
+    pomijane. Odnośniki w treści wracają tak, jak je napisano.
+
+**Czego testy nie dowodzą** (baza testowa łączy się właścicielem tabel i omija RLS):
+że rola aplikacji widzi wiersze tagów (`sites_contenttag`), tekstów strony
+(`sites_sitetexttranslation`), mediów (`media_mediaasset`) i organizacji
+(`organizations_organization`) workspace'u — i tylko jego. Test trzyma to, co widać
+mimo wszystko: każde zapytanie do tabel bez polityki (`sites_site`, `sites_contententry`,
+`sites_contentcollection`, `sites_contententrypublication`) nazywa workspace, żadne nie
+nazywa innej firmy, a `SET LOCAL` stoi przed każdym odczytem tabeli z polityką,
+w tej samej transakcji. Resztę sprawdza się po scaleniu na uruchomionym stosie, pod
+rolą aplikacji.
+
+**Co zostaje dla kategorii po CT2:** taksonomie typu w `read_terms` (drzewo z `parent`,
+nazwa i segment taksonomii per język), pozycje z `terms` migawki zamiast `tags`, filtr
+listy po kategorii z wpisami kategorii podrzędnych, adres pozycji per język i dawny
+adres jako `moved` listy, listy kategorii w wykazie sitemapy. Kształt odpowiedzi jest
+na to gotowy (`taxonomy`, `parent`, koperta `moved`).
 
 ## Ryzyka
 
