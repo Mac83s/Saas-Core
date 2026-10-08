@@ -365,9 +365,11 @@ def switch_off_content_type(*, collection_id: UUID, dry_run: bool = False) -> Co
     subjects' archives, their later pages — answers 404, and the type leaves
     the menu, the feeds, the sitemap and every other page's language links.
     Its entries stay as they are, published ones included, but are not edited
-    or published while the type is off; publications planned for later are
-    called off, with the reason on the entry. The type's names in addresses
-    stay taken, so switching it on brings everything back where it was.
+    or published while the type is off — only withdrawn, by a person, so that
+    an entry does not return with the type; publications planned for later
+    are called off, with the reason on the entry. The type's names in
+    addresses stay taken, so switching it on brings everything back where it
+    was.
 
     A switched-off type does not count to the plan's limit, and switching it
     on needs room in it: `restorable` says whether the plan as it is would let

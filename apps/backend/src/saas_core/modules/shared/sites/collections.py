@@ -175,9 +175,13 @@ def _assert_entry_writable(
     *,
     publishing: bool = False,
     payload_bytes: int | None = None,
+    taking_down: bool = False,
 ) -> None:
     """Same two rules as pages (ADR-035 §4a), applied to the collection: the
     policy lives on the collection, the momentary lock on the entry.
+
+    `taking_down` is the one write a switched-off type's entry still takes:
+    being withdrawn puts nothing in front of readers.
 
     Under `proposed` the automation writes the draft and stops there — putting
     the article in front of readers, or taking it down, stays a person's act.
@@ -195,8 +199,10 @@ def _assert_entry_writable(
         )
     # A switched-off type's entries are neither edited nor published, by a
     # person or a key alike (ADR-079 pkt 23) — said after the grant, so a key
-    # learns it only about a type it was hired for.
-    if collection.archived_at is not None:
+    # learns it only about a type it was hired for. Withdrawing one stays
+    # possible: a company that will not have the type back can still decide
+    # that an entry is not to return with it.
+    if collection.archived_at is not None and not taking_down:
         raise ContentTypeArchived
     if not _is_automation(context):
         return
@@ -1520,7 +1526,7 @@ def withdraw_entry(*, entry_id: UUID) -> ContentEntry:
     )
     if entry is None:
         raise EntryNotFound
-    _assert_entry_writable(entry, entry.collection, publishing=True)
+    _assert_entry_writable(entry, entry.collection, publishing=True, taking_down=True)
     take_down_entry(context, entry)
     if is_translation_source(entry):
         notify_entry_withdrawn(context=context, entry_id=entry.id)

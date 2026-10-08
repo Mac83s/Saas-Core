@@ -527,6 +527,7 @@ def test_a_switched_off_type_answers_nothing_and_comes_back_whole() -> None:
 
     # Nothing was removed or unpublished; the entries just take no work.
     assert ContentEntry.all_objects.filter(collection_id=type_id, state="published").count() == 2
+    assert done.data["published"] == 2
     called_off = ContentEntry.all_objects.get(pk=waiting)
     assert called_off.schedule_state == EntryScheduleState.CANCELLED
     assert "wyłączony" in called_off.schedule_error
@@ -552,16 +553,24 @@ def test_a_switched_off_type_answers_nothing_and_comes_back_whole() -> None:
         assert _code(refused) == (409, "content_type_archived")
     # Its names stay taken — for another type and for a page alike.
     assert _new_type(client, blog.site_id, "Inne", "realizacje").status_code == 400
+    # The one thing an entry of a switched-off type still takes: a person
+    # withdraws it, and it does not come back with the type.
+    english = ContentEntry.all_objects.get(collection_id=type_id, locale="en")
+    withdrawn = _send(client, "delete", f"/api/v1/sites/entries/{english.id}/publication/")
+    assert withdrawn.status_code == 200, withdrawn.data
     again = _switch(client, type_id, "off")
     assert (again.status_code, again.data["changed"]) == (200, False)
 
     back = _switch(client, type_id, "on")
 
     assert back.status_code == 200, back.data
-    assert (back.data["changed"], back.data["published"]) == (True, 2)
+    assert (back.data["changed"], back.data["published"]) == (True, 1)
     assert back.data["collection"]["archived"] is False
-    for path in answering:
+    for path in ("/realizacje/", "/realizacje/dom-w-gdyni/"):
         assert _get(host, path).status_code == 200, path
+    # The entry withdrawn while the type was off stayed off, with its list.
+    for path in ("/en/projects/", "/en/projects/house-in-gdynia/"):
+        assert _get(host, path).status_code == 404, path
     assert [path for _title, path, _lang in _menu(_get(host, "/"))] == ["/blog/", "/realizacje/"]
     assert f"https://{host}/realizacje/dom-w-gdyni/" in _feed(host, "sitemap.xml").content.decode()
     # What was called off stays called off: nothing publishes by surprise.

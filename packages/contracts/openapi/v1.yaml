@@ -21002,7 +21002,8 @@ paths:
         entries, subjects'' archives and their later pages — answers 404 and the type
         leaves the menu, the feeds, the sitemap and other pages'' language links.
         Nothing is removed: entries stay as they are but are neither edited nor published
-        while the type is off, publications planned for later are called off (`scheduled`),
+        while the type is off — a person may still withdraw one, so that it does not
+        return with the type; publications planned for later are called off (`scheduled`),
         and the type''s addresses stay taken, so switching it on brings everything
         back. A switched-off type does not count to the plan''s limit and switching
         it on needs room in it: `restorable` says whether the plan as it is would
@@ -21053,7 +21054,8 @@ paths:
         it is saved every address of the type — its list, entries, subjects'' archives
         and their later pages — answers 404 and the type leaves the menu, the feeds,
         the sitemap and other pages'' language links. Nothing is removed: entries
-        stay as they are but are neither edited nor published while the type is off,
+        stay as they are but are neither edited nor published while the type is off
+        — a person may still withdraw one, so that it does not return with the type;
         publications planned for later are called off (`scheduled`), and the type''s
         addresses stay taken, so switching it on brings everything back. A switched-off
         type does not count to the plan''s limit and switching it on needs room in

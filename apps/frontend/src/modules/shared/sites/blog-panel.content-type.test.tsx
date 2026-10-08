@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -12,18 +12,24 @@ import { BlogPanel } from "./blog-panel";
 
 vi.mock("#i18n/navigation", () => ({ Link: "a" }));
 
-const { getPublicLocales, listContentCollections, listContentEntries } =
-  vi.hoisted(() => ({
-    getPublicLocales: vi.fn(),
-    listContentCollections: vi.fn(),
-    listContentEntries: vi.fn(),
-  }));
+const {
+  getPublicLocales,
+  listContentCollections,
+  listContentEntries,
+  withdrawContentEntry,
+} = vi.hoisted(() => ({
+  getPublicLocales: vi.fn(),
+  listContentCollections: vi.fn(),
+  listContentEntries: vi.fn(),
+  withdrawContentEntry: vi.fn(),
+}));
 
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   getPublicLocales,
   listContentCollections,
   listContentEntries,
+  withdrawContentEntry,
 }));
 
 const siteId = "019ff20d-a000-7000-8000-000000000010";
@@ -60,6 +66,29 @@ const off = {
   paths: { pl: "/aktualnosci/" },
   archived: true,
   archived_at: "2026-10-08T10:00:00Z",
+};
+
+const entry = {
+  id: "entry",
+  collection_id: off.id,
+  slug: "wpis",
+  locale: "pl",
+  title: "Wpis",
+  excerpt: "",
+  author_name: "",
+  state: "draft",
+  version: 1,
+  published_at: null,
+  publication_id: null,
+  noindex: false,
+  draft_author: null,
+  translation_group: "019ff20d-a000-7000-8000-000000000040",
+  schedule_state: "none",
+  scheduled_publish_at: null,
+  schedule_error: "",
+  tags: [],
+  translation_of: null,
+  pending_reason: "",
 };
 
 function renderPanel(typeId?: string, onLoaded = vi.fn()) {
@@ -101,7 +130,15 @@ test("shows one type's entries, with what the type is left to its settings", asy
   expect(screen.getByRole("button", { name: "Dodaj wpis" })).not.toBeNull();
 });
 
-test("a switched-off type takes no work and says where to switch it on", async () => {
+test("a switched-off type takes no work but a withdrawal, and says where to switch it on", async () => {
+  listContentEntries.mockResolvedValue({
+    items: [
+      { ...entry, id: "out", title: "Wpis na stronie", state: "published" },
+      { ...entry, id: "draft", title: "Szkic wpisu", state: "draft" },
+    ],
+    next_cursor: null,
+  });
+  withdrawContentEntry.mockResolvedValue({ ...entry, id: "out" });
   renderPanel(off.id);
 
   expect(
@@ -111,6 +148,15 @@ test("a switched-off type takes no work and says where to switch it on", async (
   expect(
     screen.getByRole("link", { name: "Wszystkie typy treści" }),
   ).not.toBeNull();
+  // Its entries are listed; the one that is out can be withdrawn, so that
+  // it does not come back with the type. Nothing is edited or published.
+  expect(await screen.findByText("Szkic wpisu")).not.toBeNull();
+  expect(screen.queryByRole("button", { name: /Edytuj/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Opublikuj/ })).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Wycofaj wpis Wpis na stronie" }),
+  );
+  await waitFor(() => expect(withdrawContentEntry).toHaveBeenCalledWith("out"));
 });
 
 test("a type that is not there says so instead of offering a new blog", async () => {

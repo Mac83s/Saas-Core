@@ -411,44 +411,62 @@ export function BlogPanel({
       id: "actions",
       header: t("lists.actions"),
       meta: { actions: true },
-      cell: ({ row: { original: item } }) => (
-        <RowActions
-          items={[
-            {
-              label: t("blogEdit", { title: item.title }),
-              icon: <PencilIcon aria-hidden="true" />,
-              inline: true,
-              main: true,
-              onSelect: () => setEntryId(item.id),
-            },
-            ...(item.state === "published"
-              ? [
-                  {
-                    label: t("blogRepublish", { title: item.title }),
-                    icon: <SendIcon aria-hidden="true" />,
-                    inline: true,
-                    onSelect: () => publish(item),
-                  },
-                  {
-                    label: t("blogWithdraw", { title: item.title }),
-                    icon: <EyeOffIcon aria-hidden="true" />,
-                    // Takes the article off the site: behind "…".
-                    destructive: true,
-                    onSelect: () => withdraw(item),
-                  },
-                ]
-              : [
-                  {
-                    label: t("blogPublish", { title: item.title }),
-                    icon: <SendIcon aria-hidden="true" />,
-                    inline: true,
-                    onSelect: () => publish(item),
-                  },
-                ]),
-          ]}
-          label={t("lists.blogActionsFor", { title: item.title })}
-        />
-      ),
+      cell: ({ row: { original: item } }) =>
+        collection?.archived ? (
+          // A switched-off type's entry takes one thing: being withdrawn,
+          // so that it does not return with the type (ADR-079 pkt 23).
+          item.state === "published" ? (
+            <RowActions
+              items={[
+                {
+                  label: t("blogWithdraw", { title: item.title }),
+                  icon: <EyeOffIcon aria-hidden="true" />,
+                  inline: true,
+                  destructive: true,
+                  onSelect: () => withdraw(item),
+                },
+              ]}
+              label={t("lists.blogActionsFor", { title: item.title })}
+            />
+          ) : null
+        ) : (
+          <RowActions
+            items={[
+              {
+                label: t("blogEdit", { title: item.title }),
+                icon: <PencilIcon aria-hidden="true" />,
+                inline: true,
+                main: true,
+                onSelect: () => setEntryId(item.id),
+              },
+              ...(item.state === "published"
+                ? [
+                    {
+                      label: t("blogRepublish", { title: item.title }),
+                      icon: <SendIcon aria-hidden="true" />,
+                      inline: true,
+                      onSelect: () => publish(item),
+                    },
+                    {
+                      label: t("blogWithdraw", { title: item.title }),
+                      icon: <EyeOffIcon aria-hidden="true" />,
+                      // Takes the article off the site: behind "…".
+                      destructive: true,
+                      onSelect: () => withdraw(item),
+                    },
+                  ]
+                : [
+                    {
+                      label: t("blogPublish", { title: item.title }),
+                      icon: <SendIcon aria-hidden="true" />,
+                      inline: true,
+                      onSelect: () => publish(item),
+                    },
+                  ]),
+            ]}
+            label={t("lists.blogActionsFor", { title: item.title })}
+          />
+        ),
     },
   ];
 
@@ -604,6 +622,18 @@ export function BlogPanel({
           <Link className="underline" href={contentTypesHref(siteId)}>
             {t("contentTypes.backToList")}
           </Link>
+          {entries.length > 0 ? (
+            <DataTable
+              caption={t("contentTypes.entriesCaption", {
+                name: collection.name,
+              })}
+              columns={columns}
+              data={entries}
+              getRowId={(item) => item.id}
+              labels={labels}
+              loading={loading}
+            />
+          ) : null}
         </div>
       ) : null}
 
