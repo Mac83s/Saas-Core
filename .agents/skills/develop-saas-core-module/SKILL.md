@@ -65,6 +65,12 @@ verifies both directions.
      core ships none there; the layout returns `SiteDocument`) — read
      `docs/architecture/product-public-site.md` (ADR-080) first; it answers
      only where the profile sets `features.marketingSite: false`.
+   - what its own module shows and stores for a visitor of those pages (its
+     records, their pictures, a form): rows of the platform's workspace,
+     reached only through `in_platform_workspace()` from
+     `core.organizations.api` — never by naming a workspace lookup, in a view
+     or in a command — and pictures at `/media/<asset id>/thumbnail|preview`
+     on the word of a registered public source (§13 of that contract).
    - middleware: `backend.middleware`, mounted after the tenant middleware;
    - scheduled work: `backend.beatSchedule` (`{name: {task, schedule}}`);
      `deployment-check` refuses middleware or tasks outside the module's app.

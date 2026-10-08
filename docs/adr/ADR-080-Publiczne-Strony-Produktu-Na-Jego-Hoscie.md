@@ -234,6 +234,172 @@ z kilkuset stronami w pięciu językach nie może nieść na każdej z nich kata
   `●`), bo `SiteDocument` jako komponent potomny ustawia język za późno; kontrakt §4
   ma tę linię w przykładzie.
 
+## Uzupełnienie 2026-10-09 (PR1c): własny moduł produktu na hoście platformy — zdjęcia, workspace platformy, poprawki kontraktu
+
+Pierwszy produkt na tym kontrakcie (strony informacyjne, potem kilkaset stron rekordów
+własnego modułu w pięciu językach, każda ze zdjęciem) pokazał trzy rzeczy, których
+rdzeń nie dawał. **Zmienia:** ADR-079 „Uzupełnienie CT3” pkt 10 (zdjęcia rekordów na
+żywo odpowiadają na hoście platformy — pkt 1 niżej) i pkt 4 (lista wywołujących
+odnalezienie workspace'u dostaje regułę dla modułów produktu — pkt 2). **Uzupełnia:**
+ADR-079 pkt 31, ADR-041 (drzwi sprzed tenanta), ADR-049 (produkt nie edytuje pliku
+rdzenia), ADR-074 pkt 7 (rejestr źródeł publicznych). Kontrakt: §13
+[`product-public-site.md`](../architecture/product-public-site.md).
+
+### 1. Zdjęcia rekordów modułu pod `/media/<id>/<wariant>` na hoście platformy
+
+ADR-079 dał hostowi platformy `/media/<id>` dla zdjęć opublikowanych wpisów treści.
+Rekord własnego modułu produktu (rasa) nie jest wpisem: nikt go nie „publikuje”
+migawką, więc co z niego widać, wie tylko jego moduł. Strona firmy ma na to od
+ADR-074 drugą regułę — źródło publiczne deklaruje zdjęcia, które gość ma prawo
+zobaczyć (`served_media`), i host serwuje je **jako kopię, nigdy oryginał**. Host
+platformy dostaje tę samą regułę dla źródeł workspace'u platformy
+(`serve_content_media`):
+
+- kopia (`thumbnail`, `preview`) odpowiada, gdy zdjęcie nazywa bieżąca publikacja
+  wpisu **albo** zwraca je `served_media` któregoś źródła; oryginał — tylko na słowo
+  wpisu, jak dotąd. Zdjęcie niezadeklarowane, cudze i nieistniejące dają to samo 404;
+- **źródło jest pytane w tenancie workspace'u**: jego tabele mają wymuszone RLS jak
+  media, więc pytanie stoi po `SET LOCAL`, w tej samej transakcji (wcześniej kontrola
+  wpisu stała przed blokiem transakcji — tabele wpisów nie mają polityki). Zapytane
+  przed ustawieniem tenanta, źródło pod rolą aplikacji nie widzi żadnego wiersza
+  i każde takie zdjęcie odpowiadałoby 404, podczas gdy testy — właściciel tabel —
+  byłyby zielone;
+- kopia pyta najpierw źródła (jeden mały odczyt), dopiero potem przeszukuje migawki
+  opublikowanych wpisów; oryginał źródeł nie pyta wcale.
+
+**Rejestr nie dostaje tańszego pytania „czy ten jeden identyfikator”.** Zmierzone
+2026-10-09 na stosie pierwszego produktu, pod rolą aplikacji (`saas_core_app`, bez
+`BYPASSRLS`), z kodem tej gałęzi i źródłem zwracającym 374 identyfikatory: żądanie
+miniatury 9,5 ms (mediana z 60 różnych zdjęć, p90 12,7 ms, razem z odczytem z magazynu
+plików), z czego pytanie do źródła 0,9 ms; odmowa 5,3 ms. Samo zapytanie o 374 wiersze
+to 0,13 ms w bazie, o jeden — 0,08 ms. Tańsze pytanie oszczędziłoby poniżej
+milisekundy na żądaniu, które przeglądarka dzięki `immutable` zadaje raz. Liczba
+zapytań jednego żądania nie zależy od wielkości odpowiedzi źródła (ma test); rośnie
+o jedno z każdym zarejestrowanym źródłem, które serwuje zdjęcia.
+
+### 2. Blok `in_platform_workspace()`: jedyna droga modułu produktu do workspace'u platformy bez hosta
+
+**Dwie rzeczy naraz.** Lista wywołujących `platform_workspace*` (ADR-079, CT3 pkt 4)
+istnieje po to, żeby nikt po cichu nie dołożył drugiego publicznego odczytu, który
+wybiera tenanta bez hosta — to klasa wycieków rdzenia wielu firm. A produkt nie może
+edytować pliku rdzenia (ADR-049), więc lista w teście rdzenia, do której trzeba by
+dopisać jego moduły, zamieniłaby każdą aktualizację rdzenia w czerwoną bramkę albo
+w edycję cudzego pliku.
+
+**Decyzja.** Według tego ADR moduł wertykału produktu jest właścicielem publicznych
+stron hosta platformy. To jedyne miejsce, w którym „workspace platformy, bez hosta”
+jest odpowiedzią zaprojektowaną, a nie wyjątkiem. Dlatego:
+
+1. Rdzeń daje **jeden blok**, `in_platform_workspace()` (w `core.organizations`,
+   wystawiony przez `core.organizations.api`): pyta drzwi stałym zapytaniem
+   `platform_workspace_id()` (rodzaj **i** nazwa wyliczona z wdrożenia, sama kolumna
+   `id` — linia drzwi policzona już w `DECLARED_DOOR`, licznik się nie zmienia),
+   otwiera transakcję, ustawia tenant workspace'u i oddaje jego identyfikator.
+   Wdrożenie bez workspace'u mówi to wprost: `PlatformWorkspaceMissing` (503).
+2. **Moduł wertykału (`modules/vertical/**`) woła blok bez deklaracji i nigdy nie
+   nazywa odnalezienia.** Test `test_pre_tenant_door.py` pada dla modułu produktu,
+   który nazywa `platform_workspace` albo `platform_workspace_id` — importem, atrybutem
+   albo napisem — z komunikatem, który podaje import bloku i jego użycie.
+3. **Moduł `core`, `shared` i każdy inny poza `modules/vertical/` potrzebuje wpisu
+   w `DECLARED_WORKSPACE_LOOKUPS` z powodem — za blok tak samo jak za odnalezienie.**
+   Rdzeń zostaje zamknięty: nowy odczyt bez hosta w rdzeniu to nadal zmiana, którą
+   ktoś pisze celowo i ktoś inny widzi w przeglądzie. Pięć plików publicznego
+   renderera nie może nazwać ani odnalezienia, ani bloku.
+4. **Komendy operatora idą tą samą regułą — bez wyjątku po ścieżce.** Komenda otwiera
+   blok, czyta w nim wiersz workspace'u i wychodzi; własne transakcje (jedna na
+   rekord przy imporcie, przebieg próbny z wycofaniem) prowadzi dalej jak dotąd, każda
+   ustawia tenant sama. Powody: (a) jedna reguła i jedna nazwa — wyjątek „plik pod
+   `management/commands/`” dawałby miejsce, z którego widok może zaimportować funkcję
+   z odnalezieniem; (b) blok pyta po nazwie wdrożenia, a `platform_workspace()` bierze
+   pierwszy workspace rodzaju „platforma” w bazie — import operatora ma trafić do
+   workspace'u *tego* wdrożenia; (c) wiersz organizacji wczytany w bloku pochodzi
+   z połączenia aplikacji, pod polityką, a nie z połączenia drzwi.
+
+**Co blok gwarantuje poza kolejnością** (każde ma test, `test_platform_workspace_block.py`):
+
+- *Nie zostawia ustawienia po sobie.* `SET LOCAL` przeżywa zwolnienie punktu zapisu.
+  Blok wywołany w czyjejś otwartej transakcji czyta ustawienie przy wejściu
+  i przywraca je przy wyjściu; zakończony wyjątkiem jest wycofany do punktu zapisu
+  razem z ustawieniem. Wywołany samodzielnie (widok, komenda) jest jedną transakcją
+  i nie płaci tych dwóch zapytań. To pierwszy przełącznik tenanta oddany kodowi
+  produktu do wołania skądkolwiek — pozostałe `set_local_organization_id` w rdzeniu
+  stoją w miejscach, które rdzeń sam ułożył.
+- *Zalogowany gość zostaje gościem.* Sesja panelu jedzie z każdym żądaniem tego
+  samego originu, więc gość zalogowany do własnej firmy ma na publicznych stronach
+  produktu jej `TenantContext`. W bloku kontekst cudzej firmy jest ukryty: serwis,
+  który zapytałby „kto działa”, dostaje odmowę jak dla anonimowego, zamiast działać
+  jako firma A przy bazie ustawionej na workspace. Odmowa wejścia do bloku przy
+  aktywnym kontekście została odrzucona — formularz publiczny przestałby działać
+  każdemu, kto jest zalogowany do panelu.
+- *Identyfikator może wyjść z bloku.* Wartość nie jest tajemnicą ani uprawnieniem:
+  każdy późniejszy odczyt i tak ustawia tenant sam, a tabele z RLS bez ustawienia nie
+  oddają nic.
+
+**Czego reguła nie obiecuje.** Test czyta drzewo źródeł, które produkt składa
+(rdzeń + własne moduły), więc pilnuje produktu jego własną bramką — produkt, który
+nie uruchamia testów rdzenia, nie jest pilnowany przez nic. Wykrywacz nie zobaczy
+nazwy złożonej dopiero w czasie działania ani `ensure_platform_workspace()` użytego
+jako odnalezienie (funkcja zakłada workspace, gdy go nie ma — w odczycie byłaby
+widocznym błędem). Moduł wertykału może wołać blok także tam, gdzie żądanie ma już
+swoją firmę; blok niczego wtedy nie wycieka (czyta workspace wydawcy, do którego
+produkt i tak pisze), ale takie użycie jest decyzją produktu, nie tego ADR.
+
+**Odrzucone:**
+
+- *Lista w teście rdzenia z wpisami produktu* — edycja pliku rdzenia przy każdym
+  module produktu (ADR-049) albo czerwona bramka po `core:update`.
+- *Plik deklaracji po stronie produktu, czytany przez test rdzenia* — produkt sam
+  wystawiałby sobie zgodę na odnalezienie; lista przestaje być czymś, co widzi
+  przegląd rdzenia.
+- *Wystawienie `platform_workspace_id()` modułom wertykału* — ustawienie tenanta
+  zostałoby u wywołującego, czyli tam, gdzie się o nim zapomina.
+- *Wyjątek dla komend po ścieżce pliku* — pkt 4a.
+- *Odmowa w bloku przy aktywnym kontekście innej firmy* — wyżej.
+
+### 3. Poprawki kontraktu po pierwszym produkcie
+
+- `SiteDocument` oznacza `<html>` jako `suppressHydrationWarning`: skrypt trybu
+  ciemnego zapisuje na nim atrybut przed hydratacją (jak dokument panelu).
+- Skompilowana tabela dostaje `has(route, locale?)`, a strony — `siteHas(…)`: pytanie,
+  które nie rzuca. `languages()` i pozostałe pytania o stronę, której tabela nie
+  nazywa, rzucają jak dotąd — teraz jest to zapisane.
+- **Nagłówek i stopkę renderuje strona, nie układ główny** (zmiana zdań i przykładu
+  kontraktu w §1 i §4): przełącznik języka prowadzi do tej samej strony w innym
+  języku, a jej klucz i parametry zna tylko strona. Układ główny to sam dokument.
+- Strona 404 produktu: `not-found.tsx` nie dostaje parametrów; język adresu daje
+  `getLocale()` (proxy ustawia go z prefiksu adresu także dla 404), otoczkę renderuje
+  jak każda strona, przełącznik prowadzi do stron głównych.
+- Logowanie i strony zespołu: zapisane, co odpowiadają w każdym języku (`/de/login` →
+  308 do `/en/login`), że stare adresy logowania zastępowanego serwisu nie mogą być
+  regułą ani celem reguły, i że odnośnik do logowania ze strony publicznej dostaje
+  `prefetch={false}`.
+
+### 4. Dowód i jego granice
+
+Baza testowa łączy się właścicielem tabel i omija RLS. Testy trzymają więc to, co
+widać mimo wszystko: `SET LOCAL` stoi przed pytaniem do źródła i przed każdym odczytem
+bloku, w tej samej transakcji; ustawienie wraca po bloku; żadne zapytanie nie nazywa
+innej firmy. **Że rola aplikacji widzi wiersze źródła i zdjęcia — i tylko w tym
+ustawieniu — pokazuje stos.** Przed scaleniem kod tej gałęzi został uruchomiony
+z modułem pierwszego produktu (tylko do odczytu, jednorazowy kontener na obrazie
+stosu, baza stosu, rola `saas_core_app`): poza blokiem 0 ras i 0 zdjęć, w bloku 374
+i 382; miniatura i podgląd zdjęcia rasy 200 `image/webp`, oryginał 404, osiem zdjęć
+workspace'u, których żadna rasa nie pokazuje — 404, obcy identyfikator — 404, host
+spoza platformy — 400. Skrypt: `~/DEVELOPMENT/.local-dev/resume/package-pr1c/`.
+
+### 5. Lżejszy arkusz stylów — nie w tym pakiecie
+
+Publiczna strona produktu importuje cały `@saas-core/ui/globals.css` (322 kB, 47 kB po
+gzip, blokuje rysowanie), żeby dostać tokeny. Wejście „same tokeny i podstawa” nie
+jest małe: tokeny (`:root`), `@theme inline` i `@layer base` są w `globals.css`
+przeplecione ze stylami kreatora stron (ok. 190 kB źródeł `site-*.css`), a `@source`
+skanuje całe `apps/**`, więc Tailwind emituje każdą klasę panelu. Potrzeba:
+wydzielenia tokenów do wspólnego pliku (zmiana kolejności w arkuszu panelu — do
+sprawdzenia na ekranach panelu i stronach firm; dwa testy czytają `globals.css`
+wprost), wejścia z `@import "tailwindcss" source(none)` i `@source` ograniczonym do
+plików stron produktu oraz komponentów, których używają, osobnego importu stylów
+treści dla `SiteEntryBody`, i pomiaru na zbudowanej aplikacji. Osobny pakiet.
+
 ## Konsekwencje
 
 - Slot frontendu ma cztery nowe pliki; istniejące produkty dostają je puste przez

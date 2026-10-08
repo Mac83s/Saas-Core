@@ -27,7 +27,8 @@ wymaga nowego ADR, nie cichego odstępstwa w kodzie.
   (ADR-039, ADR-041);
 - odczyt sprzed poznania tenanta idzie przez nazwane drzwi (`PRE_TENANT_DB`) i
   musi być dopisany do listy w `tests/test_pre_tenant_door.py` razem z powodem;
-  renderer publiczny drzwi nie używa — host nazywa tenanta;
+  renderer publiczny drzwi nie używa — host nazywa tenanta; moduł wertykału nie
+  nazywa odnalezienia workspace'u platformy, tylko woła `in_platform_workspace()`;
 - **baza testowa omija RLS**, bo łączy się właścicielem tabel. Zielony test nie
   dowodzi izolacji ani kolejności `SET LOCAL`: udowodnij to na uruchomionym
   stacku albo asercją kolejności zapytań;
@@ -129,7 +130,10 @@ repozytorium założone jako kopia Saas-Core, z Saas-Core jako `upstream`.
   `apps/frontend/src/app/product-site/[locale]/`, pod własnym układem głównym — kontrakt
   `docs/architecture/product-public-site.md`, ADR-080; opublikowaną treść własną
   platformy te strony czytają przez `#lib/product-site/content` — kontrakt
-  `docs/architecture/product-content-read.md`, ADR-079),
+  `docs/architecture/product-content-read.md`, ADR-079; dane i zdjęcia własnego
+  modułu w workspace platformy — wyłącznie blokiem `in_platform_workspace()`
+  z `core.organizations.api`, także w komendach, i pod `/media/<id>/<wariant>` na
+  słowo zarejestrowanego źródła publicznego — kontrakt §13),
   `product.json` (profile repozytorium),
   `.agents/evals/routing.product.json` (który skill obsługuje moduł wertykału —
   bez tego wpisu `pnpm ai:eval` zgłasza moduł bez pokrycia).

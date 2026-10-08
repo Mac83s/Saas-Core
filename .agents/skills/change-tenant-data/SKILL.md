@@ -27,7 +27,15 @@ for reads that happen before a tenant is known.
 3. **A read before the tenant is known goes through the door**, never through a
    widened policy: `Model.objects.using(PRE_TENANT_DB)`. Every such call site is
    listed in `apps/backend/tests/test_pre_tenant_door.py` with a reason, and the
-   test fails when the list and the source disagree.
+   test fails when the list and the source disagree. The platform's workspace
+   is found through it too (`platform_workspace`, `platform_workspace_id`), and
+   who names those is a second counted list in the same test. **A product's
+   vertical module names neither**: where it works in the platform's workspace
+   with no host to name a tenant — its public pages, its operator's commands —
+   it runs `with in_platform_workspace() as organization_id:` from
+   `core.organizations.api` (ADR-080, „Uzupełnienie PR1c"). The test lets a
+   vertical module call that block without a declaration and fails a core or
+   shared module that calls it, or a lookup, without one.
 4. **The public renderer never uses the door.** A hostname resolves to an
    organization through `sites_domain`, which has no policy, so the renderer
    sets that tenant and reads from inside it. Giving the most exposed surface a

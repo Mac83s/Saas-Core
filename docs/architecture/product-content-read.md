@@ -293,10 +293,14 @@ export default async function Page({ params }) {
 | `/media/<asset_id>/thumbnail`, `/media/<asset_id>/preview` | kopie WebP 320 px i 1280 px |
 | cokolwiek innego pod `/media` | jak dotąd (404) |
 
-- Odpowiada **tylko zdjęcie, które pokazuje bieżąca publikacja wpisu workspace'u
+- Odpowiada **zdjęcie, które pokazuje bieżąca publikacja wpisu workspace'u
   platformy** we włączonym typie i w języku, który workspace ma włączony — zdjęcie
   odpowiada tam, gdzie jego wpis. Zdjęcie ze szkicu, z wycofanego wpisu, ze strony
   kreatora workspace'u, cudze i nieistniejące dają to samo 404.
+- Druga reguła nie dotyczy treści: **kopię** (nigdy oryginał) zdjęcia, które własny
+  moduł produktu zadeklarował jako pokazywane gościowi (rekord na żywo — np. rasa),
+  opisuje [`product-public-site.md` §13](product-public-site.md) (ADR-080,
+  „Uzupełnienie PR1c”). Zdjęcie wpisu odpowiada jak dotąd, w oryginale i w kopiach.
 - Adresy pisze `SiteEntryBody`. Własną miniaturę na liście napisz z `image.asset_id`:
   `<img src={`/media/${image.asset_id}/thumbnail`} alt={image.alt} />`.
 - Odpowiedź ma `Cache-Control: public, max-age=31536000, immutable` (nowe zdjęcie to
@@ -376,8 +380,9 @@ nie zna, nie wymaga zmiany.
 - **Że odpowiedź jest pamiętana.** Każde wywołanie pyta backend; lista i sitemapa
   czytają wszystkie opublikowane wpisy strony (bez treści). Pamięć podręczna po stronie
   produktu jest jego decyzją i jego ryzykiem (wycofany wpis ma zniknąć od razu).
-- **Że `/media/…` odda zdjęcie spoza opublikowanego wpisu** albo cokolwiek innego niż
-  obraz.
+- **Że `/media/…` odda oryginał zdjęcia spoza opublikowanego wpisu** albo cokolwiek
+  innego niż obraz. Poza wpisami odpowiadają wyłącznie kopie (`thumbnail`, `preview`)
+  zdjęć zadeklarowanych przez źródło publiczne workspace'u (§7).
 - **Że strona workspace'u platformy z kreatora gdziekolwiek odpowiada.** Jej host
   (`<etykieta>.<platformDomain>` i domeny własne) odpowiada 404 na wszystkim — strony,
   wpisy, listy, kanały, sitemapa, media (ADR-079 pkt 29). Wiersze zostają w bazie,
@@ -391,6 +396,9 @@ nie zna, nie wymaga zmiany.
   kluczem typu, slugiem, tagiem i zdjęciem nie trafia do żadnej odpowiedzi; każde
   zapytanie do tabel bez RLS nazywa workspace; `SET LOCAL` stoi przed każdym odczytem
   tabeli z RLS); `/media/` tylko dla pokazanych zdjęć; strona workspace'u 404.
+  `apps/backend/tests/test_sites_content_media_sources.py` — zdjęcie rekordu na żywo:
+  tylko kopia, tylko zadeklarowane, cudze i niczyje dają to samo 404, `SET LOCAL` stoi
+  przed pytaniem do źródła.
   `apps/backend/tests/test_pre_tenant_door.py` — lista wywołujących odnalezienie
   workspace'u przez drzwi sprzed tenanta; nowy wywołujący psuje test.
   `lib/product-site/content.test.ts`, `components/site-entry-body.test.tsx`,
