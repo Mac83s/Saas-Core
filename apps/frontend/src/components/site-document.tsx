@@ -32,6 +32,11 @@ type Props = {
  * namespaces only — under `app/[locale]` every page carries the language's
  * whole catalogue.
  *
+ * The layout also calls `setRequestLocale(locale)` in its own body: this
+ * component sets it too, but as a child it runs after a page below may have
+ * read a translation, and such a page then renders per request instead of
+ * statically (seen on a build: `ƒ` instead of `●`).
+ *
  * Not given, because a public site decides them itself: the stylesheet (the
  * layout imports `@saas-core/ui/globals.css` if it wants the core's Tailwind
  * and tokens), the font (a `next/font` variable named `--font-geist` in

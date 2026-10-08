@@ -100,6 +100,7 @@ każda strona niesie cały katalog komunikatów języka.
 // app/product-site/[locale]/layout.tsx
 import "@saas-core/ui/globals.css";                    // jeśli produkt chce stylów rdzenia
 import { Inter } from "next/font/google";
+import { setRequestLocale } from "next-intl/server";
 import { SiteDocument, siteStaticParams } from "#components/site-document";
 
 const font = Inter({ subsets: ["latin", "latin-ext", "cyrillic"], variable: "--font-geist" });
@@ -107,6 +108,7 @@ export const generateStaticParams = siteStaticParams;
 
 export default async function Layout({ children, params }) {
   const { locale } = await params;
+  setRequestLocale(locale);   // w ciele układu, zanim strona przeczyta tłumaczenie
   return (
     <SiteDocument locale={locale} namespaces={["MojSerwis"]} className={font.variable}>
       <Header />{children}<Footer />
@@ -143,10 +145,13 @@ decyduje o tym po swojemu):
 
 Pozostałe zasady:
 
-- Nagłówek i stopkę renderuj jako komponenty **wewnątrz** `SiteDocument` — wtedy język
-  jest już ustawiony. Strona, która ma być generowana statycznie, woła
-  `setRequestLocale(locale)` z `params` sama (wymóg next-intl); bez tego jest
-  renderowana przy żądaniu, w języku z adresu.
+- **`setRequestLocale(locale)` w ciele układu głównego** (jak w przykładzie) jest
+  tym, co pozwala stronom bez parametru budować się statycznie: sprawdzone na
+  zbudowanej aplikacji — bez tej linii strona główna i lista działu renderują się przy
+  każdym żądaniu (`ƒ`), z nią są statyczne (`●`). `SiteDocument` też ustawia język, ale
+  jako komponent potomny robi to za późno dla strony, która czyta tłumaczenia.
+  Bez tej linii strony nadal odpowiadają poprawnie, w języku z adresu — tylko wolniej.
+- Nagłówek i stopkę renderuj jako komponenty **wewnątrz** `SiteDocument`.
 - **Strona z parametrem odpowiada `notFound()` na wartość, której nie zna.** Tabela
   sprawdza tylko kształt adresu; czy rasa istnieje, wie strona.
 - Kodowanych adresów nie pisze się ręcznie (§5). Odnośnik do panelu albo logowania
@@ -287,13 +292,13 @@ export async function siteSitemap(): Promise<SiteSitemapEntry[]> {
 
   | Strona | HTML przed | gzip przed | HTML po | gzip po |
   |---|---|---|---|---|
-  | `/en` (strona główna) | 359 805 B | 100 135 B | 12 422 B | 3 734 B |
+  | `/en` (strona główna) | 359 805 B | 100 135 B | 13 178 B | 3 019 B |
   | `/en/dog-breeds/german-shepherd` | 359 768 B | 101 150 B | 13 362 B | 3 906 B |
   | `/ru/quiz` (strona kliencka) | 360 037 B | 101 558 B | 10 876 B | 2 759 B |
 
   Przed: 342 KB dokumentu (96 KB po gzip) to był cały katalog komunikatów języka
-  z układu rdzenia. Po: komunikaty to 2,5 KB (0,8 KB po gzip) — jedna przestrzeń nazw
-  produktu.
+  z układu rdzenia. Po: w dokumencie jest jedna przestrzeń nazw produktu (kilkaset
+  bajtów do 2,5 KB, zależnie od tego, czy strona jest statyczna).
 - Czcionka z cyrylicą: układ główny produktu ładuje ją przez `next/font`
   z podzbiorami `latin`, `latin-ext`, `cyrillic` (§4). Czcionka panelu (Geist, `latin`
   i `latin-ext`) zostaje, jaka była.

@@ -218,10 +218,10 @@ z kilkuset stronami w pięciu językach nie może nieść na każdej z nich kata
   język żądania i dostawcę z samymi wymienionymi przestrzeniami nazw. Komponenty
   serwerowe czytają dalej każdą przestrzeń nazw języka, także teksty gości rdzenia.
 - Ta sama strona jednorazowego produktu, zbudowana aplikacja, przed i po:
-  `/en` 359 805 B → 12 422 B (gzip 100 135 B → 3 734 B);
+  `/en` 359 805 B → 13 178 B (gzip 100 135 B → 3 019 B);
   `/en/dog-breeds/german-shepherd` 359 768 B → 13 362 B (gzip 101 150 B → 3 906 B);
   `/ru/quiz` (strona kliencka) 360 037 B → 10 876 B (gzip 101 558 B → 2 759 B).
-  Komunikaty w dokumencie: 342 KB → 2,5 KB.
+  Komunikaty w dokumencie: 342 KB → najwyżej 2,5 KB.
 - Ponowny przebieg na zbudowanej aplikacji: strony, 404 produktu, stare adresy, 410,
   przejścia po stronie klienta, hydratacja strony klienckiej, czcionka z cyrylicą
   i `product-site:check` — jak przed zmianą; folder odpowiada 404 w każdej pisowni.
@@ -229,7 +229,10 @@ z kilkuset stronami w pięciu językach nie może nieść na każdej z nich kata
   i `metadata.golden.json` bez zmian, strony marketingowe rdzenia zachowują swój
   dokument (i jego wagę — „Granice”).
 - Koszt: przejście między stronami produktu a panelem to pełne załadowanie dokumentu
-  (dwa układy główne); strona, która ma być statyczna, sama woła `setRequestLocale`.
+  (dwa układy główne). Układ główny produktu woła `setRequestLocale` we własnym ciele
+  — bez tego strony bez parametru przestają być statyczne (sprawdzone: `ƒ` zamiast
+  `●`), bo `SiteDocument` jako komponent potomny ustawia język za późno; kontrakt §4
+  ma tę linię w przykładzie.
 
 ## Konsekwencje
 
