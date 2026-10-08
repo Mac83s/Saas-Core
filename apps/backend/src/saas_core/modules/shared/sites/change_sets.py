@@ -38,6 +38,7 @@ from saas_core.modules.shared.billing.api import FeatureOperation, authorize_ent
 from .block_contracts import validate_site_block
 from .block_decoration import normalize_block, stored_block_payload
 from .capabilities import CONTENT_CONTRACT_VERSION, MINIMUM_CONTENT_CONTRACT_VERSION
+from .content_type_limit import ContentTypeArchived
 from .language_versions import LocaleNotEnabled, site_locales
 from .metrics import (
     CHANGE_SET_LATENCY,
@@ -45,6 +46,7 @@ from .metrics import (
     CHANGE_SET_RESULTS,
 )
 from .models import (
+    ContentCollection,
     ContentEntry,
     ContentProposal,
     Page,
@@ -271,6 +273,18 @@ def _content_base(
         site_id=site.id,
         collection_id=UUID(target["collection_id"]) if target["kind"] == "content_entry" else None,
     )
+    # A change set for an entry of a switched-off type is refused when it is
+    # planned, not only when it is applied (ADR-079 pkt 23) — after the grant,
+    # so a key learns it only about a type it was hired for.
+    if (
+        target["kind"] == "content_entry"
+        and ContentCollection.all_objects.filter(
+            pk=target["collection_id"],
+            organization_id=context.organization_id,
+            archived_at__isnull=False,
+        ).exists()
+    ):
+        raise ContentTypeArchived
     # The contract fixes a language's shape; which languages this site has is
     # answered here, after the grant, so a key learns it only about its own.
     if target["locale"] not in site_locales(site):

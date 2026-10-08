@@ -236,10 +236,12 @@ def list_collections(*, site_id: UUID) -> list[ContentCollection]:
     if not _is_automation(context):
         return rows
     # A key sees the sections its grants name, as in the inventory, not every
-    # section the customer has.
+    # section the customer has — and, as there, none that is switched off.
     from .inventory import _granted
 
-    return [row for row in rows if _granted(context, site_id, row.id)]
+    return [
+        row for row in rows if row.archived_at is None and _granted(context, site_id, row.id)
+    ]
 
 
 @transaction.atomic

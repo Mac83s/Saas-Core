@@ -29,7 +29,9 @@ from saas_core.modules.core.organizations.models import (
 )
 from saas_core.modules.core.organizations.person_gate import PersonRequired
 from saas_core.modules.shared.billing.models import AccessMode, EntitlementSnapshot
+from saas_core.modules.shared.sites.change_sets import read_content_base
 from saas_core.modules.shared.sites.collections import create_collection as make_type
+from saas_core.modules.shared.sites.collections import list_collections
 from saas_core.modules.shared.sites.content_type_limit import (
     CONTENT_TYPES_ADDITIONAL_MAX as QUOTA,
 )
@@ -39,6 +41,7 @@ from saas_core.modules.shared.sites.content_types import (
     switch_on_content_type,
 )
 from saas_core.modules.shared.sites.entry_translation_source import ENTRY_SOURCE
+from saas_core.modules.shared.sites.inventory import read_inventory
 from saas_core.modules.shared.sites.models import (
     ContentCollection,
     ContentEntry,
@@ -48,7 +51,14 @@ from saas_core.modules.shared.sites.models import (
 from test_site_language_versions_api import _draft, _hero
 from test_sites_api import create_page, create_site, csrf_value, save_translation, sites_client
 from test_sites_blog_languages import Blog, _feed, _get, _items, _menu
-from test_sites_collections import create_entry, publish, save_entry_draft, schedule
+from test_sites_collections import (
+    _automation,
+    _grant,
+    create_entry,
+    publish,
+    save_entry_draft,
+    schedule,
+)
 from test_sites_llms import _links, _llms
 
 pytestmark = pytest.mark.django_db
@@ -648,6 +658,52 @@ def test_nobody_orders_a_translation_of_a_switched_off_types_entry() -> None:
     assert blog.polish in offered_entries()
     with activate_tenant_context(context), pytest.raises(ContentTypeArchived):
         ENTRY_SOURCE.authorize(context=context, action="translate", object_ids=[polish])  # type: ignore[list-item]
+
+
+@pytest.mark.usefixtures("content_types_offered")
+def test_an_integration_is_not_shown_a_switched_off_type_and_plans_nothing_for_it() -> None:
+    blog = Blog("types-off-key")
+    type_id, polish = _projects(blog)
+    organization = _organization(blog.site_id)
+    user = Membership.objects.get(organization=organization).user
+    credential_id = uuid7()
+    _grant(organization.id, credential_id, user.id, collection_id=type_id, mode="draft_write")
+    key = _automation(organization.id, user.id, credential_id)
+    target = {
+        "kind": "content_entry",
+        "site_id": blog.site_id,
+        "collection_id": type_id,
+        "entry_id": polish,
+        "locale": "pl",
+    }
+
+    def shown() -> tuple[list[str], list[str]]:
+        with activate_tenant_context(key):
+            inventory = read_inventory()
+            listed = list_collections(site_id=blog.site_id)  # type: ignore[arg-type]
+        return (
+            [item["collection_id"] for site in inventory["sites"] for item in site["collections"]],
+            [str(row.id) for row in listed],
+        )
+
+    assert shown() == ([type_id], [type_id])
+    with activate_tenant_context(key):
+        assert read_content_base(target)
+
+    assert _switch(blog.client, type_id, "off").status_code == 200
+
+    # Left out of what the key reads, and a change set for it is refused when
+    # it is planned, not only when it is applied.
+    assert shown() == ([], [])
+    with activate_tenant_context(key), pytest.raises(ContentTypeArchived):
+        read_content_base(target)
+    # The person's panel still lists it, marked.
+    assert [
+        row["collection"]["archived"] for row in _types(blog.client, blog.site_id).json()["types"]
+    ] == [False, True]
+    # Switched on, it is the same section under the same id.
+    assert _switch(blog.client, type_id, "on").status_code == 200
+    assert shown() == ([type_id], [type_id])
 
 
 # --- removing an empty type --------------------------------------------------

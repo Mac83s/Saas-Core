@@ -61,8 +61,13 @@ def read_inventory() -> dict[str, Any]:
     for site in sites:
         collections = [
             collection
+            # A switched-off type is not a surface anybody plans work for
+            # (ADR-079 pkt 23): left out, it comes back under the same id when
+            # the company switches it on.
             for collection in ContentCollection.all_objects.filter(
-                organization_id=context.organization_id, site_id=site.id
+                organization_id=context.organization_id,
+                site_id=site.id,
+                archived_at__isnull=True,
             ).order_by("key")
             if not automation or _granted(context, site.id, collection.id)
         ]
