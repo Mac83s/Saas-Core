@@ -12,8 +12,18 @@ vi.mock("../marketing/content", async (original) => ({
   productHasCatalog: true,
 }));
 // The core's marketing is what this sitemap lists; a product's own profile
-// may switch it off (`features.marketingSite`).
+// may switch it off (`features.marketingSite`) and route more languages.
 vi.mock("../marketing/enabled", () => ({ marketingSiteEnabled: true }));
+vi.mock("../generated/deployment", async (original) => {
+  const { deployment } =
+    await original<typeof import("../generated/deployment")>();
+  return {
+    deployment: {
+      ...deployment,
+      product: { ...deployment.product, supportedLocales: ["pl", "en"] },
+    },
+  };
+});
 // No public pages of a product (ADR-080): in a product's repository the slot
 // may declare some, and this test is about a deployment that has none.
 vi.mock("../product/public-site", () => ({ publicSite: null }));
