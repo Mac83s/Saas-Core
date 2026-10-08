@@ -7,7 +7,7 @@
  *  one redirects. What cannot be removed says why in the company's terms —
  *  the server's counts, never its sentence. */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
@@ -83,6 +83,8 @@ export function useLanguageName(): (code: string) => string {
   return (code) =>
     locales.find((item) => item.code === code)?.name ?? nativeName(code);
 }
+
+const NO_SLUGS: Set<string> = new Set();
 
 /** A tree level in a select's option: spaces, since an option has no padding. */
 const indent = (depth: number) =>
@@ -799,12 +801,20 @@ function TermAddressDialog({
   const common = useTranslations("Common");
   const languageName = useLanguageName();
   const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string>();
-  const [preview, setPreview] = useState<TermChange>();
-  const [checking, setChecking] = useState(false);
-  const [taken, setTaken] = useState<Set<string>>(new Set());
-  const [takeOverMissing, setTakeOverMissing] = useState(false);
-  const asked = useRef(0);
+  const [saveProblem, setSaveProblem] = useState<string>();
+  // What the server said about one typed address, and what the person
+  // ticked for it: both belong to that address and are nobody's once the
+  // typing moves on — kept with the address they answer, not cleared.
+  const [answer, setAnswer] = useState<{
+    asked: string;
+    change?: TermChange;
+    problem?: string;
+  }>();
+  const [ticks, setTicks] = useState<{
+    asked: string;
+    slugs: Set<string>;
+    missing: boolean;
+  }>();
   const form = useForm<AddressValues>({
     resolver: zodResolver(
       z.object({
@@ -824,19 +834,18 @@ function TermAddressDialog({
   const slug = useWatch({ control: form.control, name: "slug" });
   const current = term.slugs[locale] ?? "";
   const valid = SECTION_PATH.test(slug) && slug !== current;
+  const asking = `${locale}\n${slug}`;
+  const answered = valid && answer?.asked === asking ? answer : undefined;
+  const preview = answered?.change;
+  const checking = valid && !answered;
+  const problem = saveProblem ?? answered?.problem;
+  const taken = ticks?.asked === asking ? ticks.slugs : NO_SLUGS;
+  const takeOverMissing = ticks?.asked === asking && ticks.missing;
 
   // The preview follows the typing, a moment after it stops.
   useEffect(() => {
-    asked.current += 1;
-    const mine = asked.current;
-    setPreview(undefined);
-    setTaken(new Set());
-    setTakeOverMissing(false);
-    if (!valid) {
-      setChecking(false);
-      return;
-    }
-    setChecking(true);
+    if (!valid) return;
+    let mine = true;
     const timer = setTimeout(() => {
       previewTermAddress(typeId, term.id, {
         locale,
@@ -845,20 +854,18 @@ function TermAddressDialog({
         take_over_former: false,
       })
         .then((change) => {
-          if (asked.current === mine) {
-            setPreview(change);
-            setProblem(undefined);
-          }
+          if (mine) setAnswer({ asked: asking, change });
         })
         .catch((error: unknown) => {
-          if (asked.current === mine) setProblem(sitesErrorMessage(error, t));
-        })
-        .finally(() => {
-          if (asked.current === mine) setChecking(false);
+          if (mine)
+            setAnswer({ asked: asking, problem: sitesErrorMessage(error, t) });
         });
     }, 250);
-    return () => clearTimeout(timer);
-  }, [valid, locale, slug, term.id, typeId, t]);
+    return () => {
+      mine = false;
+      clearTimeout(timer);
+    };
+  }, [valid, asking, locale, slug, term.id, typeId, t]);
 
   // The path as it will be: the archive's path with the term's own part
   // replaced by what is typed.
@@ -870,17 +877,16 @@ function TermAddressDialog({
   async function submit(values: AddressValues) {
     if (!preview) return;
     form.clearErrors("reason");
-    setTakeOverMissing(false);
     if (moved.length > 0 && !values.reason.trim()) {
       form.setError("reason", { message: t("terms.reasonRequired") });
       return;
     }
     if (takesOver.some((item) => !taken.has(item.slug))) {
-      setTakeOverMissing(true);
+      setTicks({ asked: asking, slugs: taken, missing: true });
       return;
     }
     setBusy(true);
-    setProblem(undefined);
+    setSaveProblem(undefined);
     try {
       onSaved(
         await setTermAddress(typeId, term.id, {
@@ -891,7 +897,7 @@ function TermAddressDialog({
         }),
       );
     } catch (error) {
-      setProblem(sitesErrorMessage(error, t));
+      setSaveProblem(sitesErrorMessage(error, t));
       setBusy(false);
     }
   }
@@ -993,14 +999,12 @@ function TermAddressDialog({
               <input
                 checked={taken.has(item.slug)}
                 className="mt-1"
-                onChange={(event) =>
-                  setTaken((previous) => {
-                    const next = new Set(previous);
-                    if (event.target.checked) next.add(item.slug);
-                    else next.delete(item.slug);
-                    return next;
-                  })
-                }
+                onChange={(event) => {
+                  const next = new Set(taken);
+                  if (event.target.checked) next.add(item.slug);
+                  else next.delete(item.slug);
+                  setTicks({ asked: asking, slugs: next, missing: false });
+                }}
                 type="checkbox"
               />
               <span>
