@@ -2,11 +2,11 @@ import {
   compileProductSite,
   type CompiledSite,
   type SiteParams,
-} from "#lib/product-site";
+} from "#lib/product-site/table";
 import { contentLocales, routing } from "#i18n/routing";
-import { marketingSiteEnabled } from "../marketing/enabled";
-import { publicSite } from "../product/public-site";
-import { RESERVED_SEGMENTS } from "../proxy-segments";
+import { marketingSiteEnabled } from "../../marketing/enabled";
+import { publicSite } from "../../product/public-site";
+import { RESERVED_SEGMENTS } from "../../proxy-segments";
 
 /**
  * The product's table of public addresses, compiled for this deployment
@@ -17,7 +17,7 @@ import { RESERVED_SEGMENTS } from "../proxy-segments";
  *   (`features.marketingSite` is not `false`): a host has one home page, and
  *   there it is the core's;
  * - the table cannot be served as written. That is caught where the table is
- *   built — `product-site/table.test.ts` runs in the product's gate — and
+ *   built — `lib/product-site/slot.test.ts` runs in the product's gate — and
  *   here it only keeps a broken table from taking the panel down with it:
  *   the public pages are off, and the reason is in `productSiteProblem`.
  */

@@ -9,9 +9,9 @@ import {
   compileProductSite,
   type ProductOldAddresses,
   type ProductPublicSite,
-} from "#lib/product-site";
-import { deployment as rendered } from "../generated/deployment";
-import { RESERVED_SEGMENTS } from "../proxy-segments";
+} from "#lib/product-site/table";
+import { deployment as rendered } from "../../generated/deployment";
+import { RESERVED_SEGMENTS } from "../../proxy-segments";
 import { GONE_WORDS } from "./gone-page";
 
 /**
@@ -25,9 +25,9 @@ import { GONE_WORDS } from "./gone-page";
  * off: a product's pages answer only there, and the table must be right
  * whichever of its profiles is rendered.
  */
-vi.mock("../generated/deployment", async (original) => {
+vi.mock("../../generated/deployment", async (original) => {
   const { deployment } =
-    await original<typeof import("../generated/deployment")>();
+    await original<typeof import("../../generated/deployment")>();
   return {
     deployment: {
       ...deployment,
@@ -40,7 +40,7 @@ const registry: { locales: { code: string }[] } = JSON.parse(
   readFileSync(
     path.resolve(
       __dirname,
-      "../../../../packages/contracts/locales/registry.json",
+      "../../../../../packages/contracts/locales/registry.json",
     ),
     "utf8",
   ),
@@ -117,11 +117,11 @@ function hold(
 }
 
 const { publicSite } = await vi.importActual<
-  typeof import("../product/public-site")
->("../product/public-site");
+  typeof import("../../product/public-site")
+>("../../product/public-site");
 const { oldAddresses } = await vi.importActual<
-  typeof import("../product/old-addresses")
->("../product/old-addresses");
+  typeof import("../../product/old-addresses")
+>("../../product/old-addresses");
 const { fixtureOldAddresses, fixtureSite } = await import("./fixture");
 
 hold("the product's own table", publicSite, oldAddresses, profileLocales);
@@ -144,7 +144,7 @@ describe("the product's own table, through the proxy", () => {
   });
 
   it("answers every old address with one redirect, and its target with a page", async () => {
-    const { default: proxy } = await import("../proxy");
+    const { default: proxy } = await import("../../proxy");
     const visit = (address: string) =>
       proxy(
         new NextRequest(`http://localhost${address}`, {
@@ -171,7 +171,7 @@ describe("the product's own table, through the proxy", () => {
   });
 
   it("answers every address of the table with its page", async () => {
-    const { default: proxy } = await import("../proxy");
+    const { default: proxy } = await import("../../proxy");
     const { productSite } = await import("./site");
     if (!productSite) return;
 

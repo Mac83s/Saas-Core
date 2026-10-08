@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { routing } from "#i18n/routing";
-import { SITE_PAGES_SEGMENT, SITE_UNCLAIMED_PATH } from "#lib/product-site";
-import { absoluteUrl } from "../proxy-host";
-import { RESERVED_SEGMENTS } from "../proxy-segments";
+import {
+  SITE_PAGES_SEGMENT,
+  SITE_UNCLAIMED_PATH,
+} from "#lib/product-site/table";
+import { absoluteUrl } from "../../proxy-host";
+import { RESERVED_SEGMENTS } from "../../proxy-segments";
 import { goneDocument } from "./gone-page";
 import { productOldAddresses } from "./old-addresses";
 import { productSite } from "./site";
@@ -17,7 +20,7 @@ import { productSite } from "./site";
 
 /** next-intl reads a request's language from this header; its own
  *  middleware sets it, and so does the rewrite below, which stands in for
- *  it (`answers.test.ts` holds the name against the real middleware). */
+ *  it (`answers.test.ts` next to this file holds the name against the real middleware). */
 export const LOCALE_HEADER = "X-NEXT-INTL-LOCALE";
 
 /**

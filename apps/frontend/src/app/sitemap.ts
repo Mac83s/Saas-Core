@@ -4,7 +4,7 @@ import { marketingLocales, routing } from "#i18n/routing";
 import { localizedUrl } from "../marketing/seo";
 import { productCopy, productHasCatalog } from "../marketing/content";
 import { marketingSiteEnabled } from "../marketing/enabled";
-import { productSiteSitemap } from "../product-site/sitemap";
+import { productSiteSitemap } from "../lib/product-site/sitemap";
 import { cardLanguages } from "../modules/shared/profiles/catalog-seo";
 import {
   readCatalogLocalesOnServer,

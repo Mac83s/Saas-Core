@@ -6,9 +6,9 @@ import type {
   SiteParams,
   SiteSitemapEntry,
   SiteVersions,
-} from "#lib/product-site";
-import { deployment } from "../generated/deployment";
-import { openGraphLocale } from "../marketing/seo";
+} from "#lib/product-site/table";
+import { deployment } from "../../generated/deployment";
+import { openGraphLocale } from "../../marketing/seo";
 import { productSite } from "./site";
 
 const origin = `https://${deployment.product.platformDomain}`;

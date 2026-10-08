@@ -1,4 +1,4 @@
-import type { ReservedSegments } from "#lib/product-site";
+import type { ReservedSegments } from "#lib/product-site/table";
 
 /**
  * The first path segment of an address on the platform host, after any

@@ -1,4 +1,4 @@
-import type { ProductPublicSite } from "#lib/product-site";
+import type { ProductPublicSite } from "#lib/product-site/table";
 
 /**
  * The product's public pages on its own host (ADR-080): which page file

@@ -2,7 +2,7 @@ import type {
   ProductOldAddresses,
   ProductPublicSite,
   SiteSitemapEntry,
-} from "#lib/product-site";
+} from "#lib/product-site/table";
 
 /**
  * A product's public pages as a product would declare them — for tests only

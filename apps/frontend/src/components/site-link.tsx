@@ -2,8 +2,8 @@ import NextLink from "next/link";
 import { useLocale } from "next-intl";
 import type { ComponentProps } from "react";
 
-import type { SiteParams } from "#lib/product-site";
-import { siteHref } from "./site";
+import type { SiteParams } from "#lib/product-site/table";
+import { siteHref } from "#lib/product-site/site";
 
 type Props = Omit<ComponentProps<typeof NextLink>, "href"> & {
   /** A key of the product's table: `/breeds/[slug]`. */

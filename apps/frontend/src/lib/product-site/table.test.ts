@@ -8,9 +8,9 @@ import {
   type ProductOldAddresses,
   type ProductPublicSite,
   type SiteOptions,
-} from "./product-site";
-import { fixtureOldAddresses, fixtureSite } from "../product-site/fixture";
-import { RESERVED_SEGMENTS } from "../proxy-segments";
+} from "./table";
+import { fixtureOldAddresses, fixtureSite } from "./fixture";
+import { RESERVED_SEGMENTS } from "../../proxy-segments";
 
 const options: SiteOptions = {
   locales: ["pl", "en", "de", "es", "ru"],

@@ -11,33 +11,33 @@ const origin = "https://platform.example.test";
 
 async function load(deployment = fixtureDeployment()) {
   vi.resetModules();
-  vi.doMock("../generated/deployment", () => ({ deployment }));
-  vi.doMock("../product", () => ({ product: {} }));
-  vi.doMock("../product/public-site", () => ({ publicSite: fixtureSite }));
-  vi.doMock("../product/old-addresses", () => ({
+  vi.doMock("../../generated/deployment", () => ({ deployment }));
+  vi.doMock("../../product", () => ({ product: {} }));
+  vi.doMock("../../product/public-site", () => ({ publicSite: fixtureSite }));
+  vi.doMock("../../product/old-addresses", () => ({
     oldAddresses: fixtureOldAddresses,
   }));
-  vi.doMock("../product/site-sitemap", () => ({
+  vi.doMock("../../product/site-sitemap", () => ({
     siteSitemap: async () => fixtureSitemap,
   }));
-  vi.doMock("../modules/shared/profiles/catalog-server", () => ({
+  vi.doMock("../../modules/shared/profiles/catalog-server", () => ({
     readCatalogLocalesOnServer: async () => null,
     readCatalogSitemapOnServer: async () => null,
   }));
-  const { default: sitemap } = await import("../app/sitemap");
-  const { default: robots } = await import("../app/robots");
-  const { default: proxy } = await import("../proxy");
+  const { default: sitemap } = await import("../../app/sitemap");
+  const { default: robots } = await import("../../app/robots");
+  const { default: proxy } = await import("../../proxy");
   return { sitemap, robots, proxy, seo: await import("./seo") };
 }
 
 afterEach(() => {
   for (const mocked of [
-    "../generated/deployment",
-    "../product",
-    "../product/public-site",
-    "../product/old-addresses",
-    "../product/site-sitemap",
-    "../modules/shared/profiles/catalog-server",
+    "../../generated/deployment",
+    "../../product",
+    "../../product/public-site",
+    "../../product/old-addresses",
+    "../../product/site-sitemap",
+    "../../modules/shared/profiles/catalog-server",
   ]) {
     vi.doUnmock(mocked);
   }

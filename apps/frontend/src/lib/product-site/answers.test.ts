@@ -4,7 +4,7 @@ import path from "node:path";
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { describeResponse, walk } from "../proxy-corpus";
+import { describeResponse, walk } from "../../proxy-corpus";
 import { fixtureDeployment, fixtureOldAddresses, fixtureSite } from "./fixture";
 
 /**
@@ -12,7 +12,7 @@ import { fixtureDeployment, fixtureOldAddresses, fixtureSite } from "./fixture";
  * a test-only slot, the real proxy, next-intl's real middleware.
  */
 const golden: Record<string, Record<string, string>> = JSON.parse(
-  readFileSync(path.resolve(__dirname, "../proxy.golden.json"), "utf8"),
+  readFileSync(path.resolve(__dirname, "../../proxy.golden.json"), "utf8"),
 );
 
 type Slot = {
@@ -23,16 +23,16 @@ type Slot = {
 
 async function load(slot: Slot = {}) {
   vi.resetModules();
-  vi.doMock("../generated/deployment", () => ({
+  vi.doMock("../../generated/deployment", () => ({
     deployment: slot.deployment ?? fixtureDeployment(),
   }));
-  vi.doMock("../product/public-site", () => ({
+  vi.doMock("../../product/public-site", () => ({
     publicSite: slot.site === undefined ? fixtureSite : slot.site,
   }));
-  vi.doMock("../product/old-addresses", () => ({
+  vi.doMock("../../product/old-addresses", () => ({
     oldAddresses: slot.rules ?? fixtureOldAddresses,
   }));
-  const { default: proxy } = await import("../proxy");
+  const { default: proxy } = await import("../../proxy");
   const visit = (address: string, host = "localhost:8080") =>
     proxy(
       new NextRequest(`http://${host.split(":")[0]}${address}`, {
@@ -43,9 +43,9 @@ async function load(slot: Slot = {}) {
 }
 
 afterEach(() => {
-  vi.doUnmock("../generated/deployment");
-  vi.doUnmock("../product/public-site");
-  vi.doUnmock("../product/old-addresses");
+  vi.doUnmock("../../generated/deployment");
+  vi.doUnmock("../../product/public-site");
+  vi.doUnmock("../../product/old-addresses");
   vi.resetModules();
   vi.restoreAllMocks();
 });

@@ -9,6 +9,9 @@ vi.mock("./generated/deployment", async (original) => {
     deployment: {
       ...deployment,
       product: { ...deployment.product, supportedLocales: ["pl", "en", "de"] },
+      // The core's marketing and catalogue are what these addresses are; a
+      // product's own profile may switch them off (`features.marketingSite`).
+      features: { ...deployment.features, marketingSite: true },
     },
   };
 });

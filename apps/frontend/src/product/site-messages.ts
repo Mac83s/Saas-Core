@@ -1,4 +1,4 @@
-import type { SiteMessages } from "#lib/product-site";
+import type { SiteMessages } from "#lib/product-site/table";
 
 /**
  * The words of the product's public pages, per content language (ADR-080) —

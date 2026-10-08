@@ -1,4 +1,4 @@
-import type { ProductOldAddresses } from "#lib/product-site";
+import type { ProductOldAddresses } from "#lib/product-site/table";
 
 /**
  * Addresses of the site this product's public pages replace (ADR-080): where

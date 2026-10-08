@@ -6,7 +6,7 @@ import { isPanelLocale, panelLocales, routing } from "#i18n/routing";
 import { deployment } from "./generated/deployment";
 import { marketingSiteEnabled } from "./marketing/enabled";
 import { PUBLIC_SITE_METHOD_HEADER } from "./modules/shared/sites/page-view";
-import { oldAddressAnswer, sitePageAnswer } from "./product-site/answers";
+import { oldAddressAnswer, sitePageAnswer } from "./lib/product-site/answers";
 import { absoluteUrl, normalizeRequestHostname } from "./proxy-host";
 import { GUEST_SEGMENTS, PANEL_SEGMENTS } from "./proxy-segments";
 

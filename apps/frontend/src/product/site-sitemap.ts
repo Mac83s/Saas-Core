@@ -1,4 +1,4 @@
-import type { SiteSitemapEntry } from "#lib/product-site";
+import type { SiteSitemapEntry } from "#lib/product-site/table";
 
 /**
  * The product's public pages for `sitemap.xml` (ADR-080): which pages of its

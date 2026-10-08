@@ -11,7 +11,7 @@ import { productSite } from "./site";
  */
 export async function productSiteSitemap(): Promise<MetadataRoute.Sitemap> {
   if (!productSite) return [];
-  const { siteSitemap } = await import("../product/site-sitemap");
+  const { siteSitemap } = await import("../../product/site-sitemap");
   return siteSitemapLines(
     productSite,
     productOldAddresses,

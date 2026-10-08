@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fixtureDeployment, fixtureSite } from "./fixture";
+import { fixtureDeployment, fixtureSite } from "#lib/product-site/fixture";
 
 async function load() {
   vi.resetModules();
@@ -10,7 +10,7 @@ async function load() {
     deployment: fixtureDeployment(),
   }));
   vi.doMock("../product/public-site", () => ({ publicSite: fixtureSite }));
-  return import("./link");
+  return import("./site-link");
 }
 
 afterEach(() => {
