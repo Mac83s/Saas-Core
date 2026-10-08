@@ -78,8 +78,9 @@ Co odpowiada na hoście platformy, gdy tabela jest czynna:
 | adres tabeli w swoim języku (`/rasy-psow/labrador`, `/en/dog-breeds/labrador`) | 200, plik strony; język z adresu, bez ciasteczka i bez wykrywania |
 | adres tabeli z prefiksem języka domyślnego (`/pl/rasy-psow/labrador`) | jedno 308 do adresu bez prefiksu, z zachowanym zapytaniem |
 | adres z końcowym ukośnikiem | jedno 308 do adresu bez ukośnika (reguła hosta platformy, bez zmian) |
+| adres tabeli z prefiksem języka domyślnego **i** końcowym ukośnikiem (`/pl/rasy-psow/labrador/`) | jedno 308 prosto do adresu kanonicznego |
 | nazwa działu z innego języka (`/en/rasy-psow/…`), inna pisownia, adres spoza tabeli | 404 — własna strona 404 produktu, w języku z prefiksu adresu |
-| folder plików stron wprost (`/product-site/…`) | 404 — także w profilu, w którym tabela jest zadeklarowana, ale nieczynna |
+| folder plików stron wprost (`/product-site/…`), także z kropką w adresie i w zapisie procentowym | 404 — także w profilu, w którym tabela jest zadeklarowana, ale nieczynna |
 | `/`, gdy tabela nie ma strony `/` | 307 do logowania, jak dotąd |
 | strony zespołu i gości (`/panel`, `/login`, `/book`, …), `/sitemap.xml`, `/robots.txt` | bez zmian |
 
@@ -108,8 +109,8 @@ Wszystko liczy ta sama skompilowana tabela, która rozstrzyga w proxy:
 
 ```tsx
 import { SiteLink } from "#components/site-link";
-import { siteMetadata } from "#lib/product-site/seo";
-import { productSite, siteHref } from "#lib/product-site/site";
+import { siteMetadata, siteVersions } from "#lib/product-site/seo";   // tylko serwer
+import { siteHref } from "#lib/product-site/site";
 
 <SiteLink route="/breeds/[slug]" params={{ slug }}>…</SiteLink>   // język czytelnika
 <SiteLink route="/" locale="en">English</SiteLink>                 // inny język
@@ -119,7 +120,7 @@ export async function generateMetadata({ params }) {
   return siteMetadata({ route: "/breeds/[slug]", locale, params: versions, title, description });
 }
 
-productSite.versions("/breeds/[slug]", versions);   // [{ locale, path }] — przełącznik języka
+siteVersions("/breeds/[slug]", versions);   // [{ locale, path }] — przełącznik języka
 ```
 
 - `params` to parametry wspólne dla wszystkich języków (`{ slug: "labrador" }`) albo
@@ -131,7 +132,12 @@ productSite.versions("/breeds/[slug]", versions);   // [{ locale, path }] — pr
 - `SiteLink` i `siteHref` rzucają błąd dla strony, języka albo parametru, których
   tabela nie obsłuży — błąd widać tam, gdzie link napisano, nie tam, gdzie go kliknięto.
 - Przełącznik języka to zwykłe odnośniki (ADR-071 pkt 13): treść nie zależy od
-  `Accept-Language` ani ciasteczka.
+  `Accept-Language` ani ciasteczka. Buduje go `siteVersions` — po stronie serwera;
+  komponent kliencki dostaje gotową listę.
+- `hreflang`, `siteVersions` i sitemapa czytają jeden filtr: adres, na który dziś
+  odpowiada reguła starych adresów, nie jest wymieniany w żadnym z nich. `SiteLink`
+  i `siteHref` reguł nie znają (reguły nie trafiają do przeglądarki): link do wpisu
+  o starej nazwie zadziała, ale przez jedno 308 — linkuj nową nazwę.
 
 ## 6. Stare adresy — `product/old-addresses.ts`
 
@@ -150,8 +156,13 @@ export const oldAddresses: ProductOldAddresses = {
   stroną w języku starego adresu (pierwszy segment, jeśli jest językiem treści; inaczej
   język domyślny), z odnośnikiem do strony głównej w tym języku. Słowa strony 410 ma
   rdzeń, dla każdego języka rejestru.
-- Źródło to cała ścieżka starego serwisu, razem z jego prefiksem języka. Reguły są
-  sprawdzane **przed** obsługą języka, końcowego ukośnika i tabelą stron.
+- Źródło to cała ścieżka starego serwisu, razem z jego prefiksem języka (także
+  `/pl/…`, jeśli stary serwis tak pisał polski). Reguły są sprawdzane **przed** obsługą
+  języka, końcowego ukośnika i tabelą stron.
+- **Jedna lista dla wszystkich profili.** Reguły są sprawdzane względem wszystkich
+  języków, które tabela wymienia, więc lista jest poprawna albo błędna niezależnie od
+  profilu. Profil bez niemieckiego pomija reguły prowadzące pod `/de/…` (nie odpowiada
+  na nie), a resztę obsługuje.
 - **Jak porównujemy** — jedną funkcją (`normalizeOldAddress`) źródło reguły i ścieżkę
   wizyty:
   1. puste segmenty odpadają — końcowy i podwójny ukośnik nie mają znaczenia;
@@ -168,11 +179,18 @@ export const oldAddresses: ProductOldAddresses = {
     ukośnik, prefiks języka domyślnego, wielka litera, adres panelu);
   - ten sam adres dwa razy (po porównaniu z punktów 1–4), także raz w `moved`, raz
     w `gone`;
-  - źródło równe adresowi strony bez parametru albo stronie głównej dowolnego języka;
+  - źródło równe adresowi strony bez parametru albo stronie głównej — w dowolnym
+    języku tabeli i także w pisowni z prefiksem języka domyślnego (`/pl/quiz`: temu
+    adresowi należy się 308 do `/quiz`, nie reguła);
   - źródło pod segmentem zarezerwowanym (§9), z zapytaniem albo fragmentem;
   - źródło z kropką w segmencie (`/strona.html`, `/feed.xml`): takie adresy są
-    serwowane jako pliki i do reguł nie docierają — przekieruj je w serwerze przed
-    aplikacją.
+    serwowane jako pliki i do reguł nie docierają.
+- **Stare adresy z kropką albo rozróżniane zapytaniem** (`/strona.html`, `/?p=123`)
+  nie są regułami tabeli: reguła porównuje samą ścieżkę, a adres z kropką omija proxy.
+  Przekierowuje je serwer przed aplikacją (jedno 308 prosto do adresu tabeli); rdzeń
+  nie ma dziś dla produktu punktu rozszerzenia na takie reguły — produkt, który ich
+  potrzebuje, zgłasza to do rdzenia. Nie obsługuj ich stroną, która sama przekierowuje:
+  to drugi krok.
 - Reguła **może** leżeć na adresie strony z parametrem (`/rasy-psow/owczarek` →
   `/rasy-psow/owczarek-niemiecki`): tak przenosi się wpis o zmienionej nazwie.
   Reguła odpowiada przed stroną.
@@ -211,6 +229,14 @@ export async function siteSitemap(): Promise<SiteSitemapEntry[]> {
   w `product/index.ts` zostają słowami panelu (pl/en).
 - `NextIntlClientProvider` przekazuje komunikaty do przeglądarki na każdej stronie,
   także w panelu (pl/en) — trzymaj tu słowa interfejsu, nie treść stron.
+- **Ile waży publiczna strona (zmierzone 2026-10-08 na zbudowanej aplikacji):** dokument
+  strony produktu ma ok. 360 KB (100 KB po gzip), z czego ok. 342 KB (96 KB po gzip)
+  to cały katalog komunikatów języka (`messages/en.json` ma 366 KB) plus słowa
+  produktu — dostawca w układzie rdzenia `app/[locale]/layout.tsx` oddaje go
+  przeglądarce na każdej stronie pod `[locale]`, tak samo na stronach marketingowych
+  i rezerwacji każdego produktu. **Produkt nie uniknie tego nowymi plikami:** dostawca
+  stoi nad folderem jego stron, a własny dostawca w układzie produktu niczego z tego
+  ładunku nie zdejmuje. To otwarta sprawa rdzenia (ADR-080, „Granice”).
 - Czcionka z cyrylicą: układ produktu ładuje własną przez `next/font` z podzbiorami
   `latin`, `latin-ext`, `cyrillic` i nadaje jej klasę swojemu kontenerowi. Czcionka
   panelu (Geist, `latin` i `latin-ext`) zostaje, jaka była.
@@ -230,26 +256,45 @@ ewentualnym prefiksie języka) od:
 
 Lista żyje w jednym pliku (`proxy-segments.ts`), z którego czyta też proxy.
 
-## 10. Bramka: kto odrzuca złą tabelę
+## 10. Kto odrzuca złą tabelę: test, `/healthz` i kontrola na zbudowanym stacku
 
-`lib/product-site/slot.test.ts` (test rdzenia, uruchamiany w bramce produktu) kompiluje
-tabelę i reguły **z tego repozytorium** i sprawdza: języki z rejestru, każdy adres
-tabeli wraca do swojej strony, każdy stary adres daje przez prawdziwe proxy jedno 308,
-a jego cel stronę (nie kolejne przekierowanie i nie 404), każdy `gone` daje 410.
-`next build` złej tabeli nie odrzuca.
+Trzy poziomy; każdy widzi coś, czego nie widzi poprzedni.
 
-W działającej aplikacji tabela, której nie da się obsłużyć, **wyłącza publiczne strony
-produktu** (`productSiteProblem`, wpis w logu), a panel działa dalej; reguły, których
-nie da się obsłużyć, wyłączają tylko reguły (`productOldAddressesProblem`).
+1. **Test w bramce produktu** — `lib/product-site/slot.test.ts` (test rdzenia)
+   kompiluje tabelę i reguły **z tego repozytorium**: języki z rejestru, każdy adres
+   tabeli wraca do swojej strony, żadna reguła nie jest łańcuchem, pętlą ani
+   przykryciem strony, a przez prawdziwe proxy każdy stary adres daje jedno 308 pod
+   adres, który proxy oddaje plikowi strony (nie kolejne przekierowanie i nie 404
+   z proxy), każdy `gone` daje 410. **Tego test nie wie:** czy strona pod celem
+   istnieje. Tabela sprawdza kształt adresu; literówka w slugu celu
+   (`/rasy-psow/labradorr`) przechodzi ten test, odpowiada 308 i kończy na `notFound()`
+   strony — a przeglądarki pamiętają 308. `next build` złej tabeli nie odrzuca.
+2. **`/healthz`** — tabela, której nie da się obsłużyć, wyłącza publiczne strony
+   produktu, a lista reguł, której nie da się obsłużyć, wyłącza reguły; panel działa
+   dalej, ale `/healthz` odpowiada wtedy **503** (`product_site_off` albo
+   `product_old_addresses_off`, z treścią odmowy), więc przebudowa czekająca na
+   `/healthz` (`rebuild-stack`, kontrola na VPS) nie przechodzi po cichu.
+3. **Kontrola na zbudowanym stacku — część odbioru produktu** po każdej przebudowie,
+   która zmieniła tabelę, reguły albo strony:
+
+   ```
+   PRODUCT_SITE_URL=http://127.0.0.1:<port> PRODUCT_SITE_HOST=<host platformy> \
+     pnpm --filter @saas-core/frontend product-site:check
+   ```
+
+   Idzie po każdej regule z tego repozytorium na działającym stacku: 308 pod cel
+   i **200 pod celem** (strona, nie jej 404), 410 dla `gone`; każda linia
+   `sitemap.xml` odpowiada 200; strona główna odpowiada w każdym języku; `/healthz`
+   jest `ok`. `PRODUCT_SITE_LOCALES=pl,en,de` podaje języki profilu stacku, gdy jest
+   inny niż wyrenderowany w repozytorium. W zwykłej bramce ten test jest pomijany.
 
 ## 11. Granice
 
 - Parametr obejmuje jeden segment; nie ma parametru „reszta ścieżki”.
 - Strona 410 jest rdzenia — mała, bez nagłówka produktu.
-- Adres z kropką nie trafia do proxy (zasada dopasowania proxy, bez zmian): nie da
-  się go przekierować regułą, a plik strony z parametrem zapytany wprost pod
-  `/<język>/product-site/…/<wartość.z.kropką>` omija tabelę — dlatego strona
-  z parametrem musi odpowiadać `notFound()` na nieznaną wartość (§4).
+- Adres z kropką nie trafia do proxy (zasada dopasowania proxy, bez zmian) i nie da
+  się go przekierować regułą (§6). Wyjątkiem jest folder plików stron: proxy dostaje
+  każdy adres pod nim, także z kropką, i odpowiada 404.
 - Profil z `publicBooking: false` odrzuca adresy zawierające `/book/` albo
   `/booking/` wcześniej niż tabela; test z §10 to wykrywa.
 - Odczyt opublikowanych wpisów systemu treści dla stron produktu i `/media` na hoście
@@ -264,3 +309,5 @@ nie da się obsłużyć, wyłączają tylko reguły (`productOldAddressesProblem
 4. `site-messages.ts`: słowa w każdym języku; linki przez `SiteLink`.
 5. `old-addresses.ts` (+ `.json`): stare adresy; `pnpm test` pokaże każdą odmowę.
 6. `site-sitemap.ts`: lista stron z parametrami per język.
+7. Po przebudowie stacku: `product-site:check` (§10 pkt 3) — dopiero on mówi, że
+   każdy stary adres kończy na istniejącej stronie.

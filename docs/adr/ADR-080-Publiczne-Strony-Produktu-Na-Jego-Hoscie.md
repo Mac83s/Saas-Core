@@ -59,7 +59,10 @@ każde żądanie każdego produktu i każdej strony firmy.
    (`/` rdzenia i `/` produktu) to błąd budowania Next — przepisanie w proxy jest
    jedynym sposobem, żeby produkt miał własną stronę główną bez zmiany pliku rdzenia.
    Rdzeń nie umieszcza w tym folderze żadnego pliku (plik rdzenia zmieniony przez
-   produkt łamie `core:check`).
+   produkt łamie `core:check`). Dopasowanie proxy obejmuje ten folder w całości, także
+   adresy z kropką, które inaczej omijają proxy: gdy tabela jest zadeklarowana, każdy
+   adres pod nim — w każdej pisowni, którą router odczytałby jako jego nazwę —
+   odpowiada 404; gdy nie jest, taki adres idzie dalej nietknięty, jak dotąd.
 
 4. **Strony produktu odpowiadają tylko tam, gdzie profil wyłącza marketing rdzenia**
    (`features.marketingSite: false`) i tylko na hoście platformy. W profilu
@@ -86,22 +89,32 @@ każde żądanie każdego produktu i każdej strony firmy.
 
 7. **Łańcuch i pętla są odmową przy kompilacji.** Cel reguły musi być adresem tabeli
    w pisowni kanonicznej (czyli odpowiada stroną, nie przekierowaniem) i nie może sam
-   być źródłem reguły. Źródło nie może przykrywać strony bez parametru, strony głównej,
+   być źródłem reguły. Źródło nie może przykrywać strony bez parametru ani strony
+   głównej — w żadnym języku tabeli i także w pisowni z prefiksem języka domyślnego —
    panelu, stron gości, `/media`, `/api` ani mieć kropki (taki adres nie trafia do
    proxy). Reguła na adresie strony z parametrem jest dozwolona — to wpis o zmienionej
-   nazwie.
+   nazwie. Reguły są sprawdzane względem wszystkich języków, które tabela wymienia,
+   więc lista jest poprawna albo błędna niezależnie od profilu; profil pomija tylko
+   reguły prowadzące do języka, którego nie oferuje.
 
-8. **Kto odrzuca złą tabelę: test w bramce produktu, nie `next build` i nie
-   czytelnik.** `lib/product-site/slot.test.ts` kompiluje tabelę i reguły z bieżącego
-   repozytorium i przepuszcza każdą regułę przez prawdziwe proxy (jedno 308, cel
-   odpowiada stroną). W działającej aplikacji tabela, której nie da się obsłużyć,
+8. **Kto odrzuca złą tabelę: test w bramce produktu, `/healthz` przy wdrożeniu
+   i kontrola na zbudowanym stacku — nie `next build` i nie czytelnik.**
+   `lib/product-site/slot.test.ts` kompiluje tabelę i reguły z bieżącego repozytorium
+   i przepuszcza każdą regułę przez prawdziwe proxy (jedno 308 pod adres, który proxy
+   oddaje plikowi strony). W działającej aplikacji tabela, której nie da się obsłużyć,
    wyłącza publiczne strony produktu i zostawia panel — moduł proxy nie może paść przy
-   imporcie, bo padłoby każde żądanie.
+   imporcie, bo padłoby każde żądanie — ale `/healthz` odpowiada wtedy 503, więc
+   wdrożenie, które czeka na `/healthz`, nie przechodzi po cichu (tak samo jak przy
+   niezgodności profili obrazów). Czy pod celem reguły jest istniejąca strona, wie
+   dopiero zbudowana aplikacja: `product-site:check` idzie po każdej regule na
+   działającym stacku i wymaga 200 pod celem; to część odbioru produktu.
 
 9. **Sitemapa: produkt wymienia strony, rdzeń pisze adresy.**
    `product/site-sitemap.ts` zwraca klucze tabeli z parametrami (także per język, gdy
    nazwa wpisu jest tłumaczona); rdzeń pisze linie z `hreflang` i pomija adres, na
-   który odpowiada reguła starych adresów. `robots.txt` się nie zmienia.
+   który odpowiada reguła starych adresów. Ten sam filtr stoi za `hreflang` w nagłówku
+   strony i za przełącznikiem języka (`siteVersions`), więc nagłówek, przełącznik
+   i sitemapa wymieniają te same adresy. `robots.txt` się nie zmienia.
 
 10. **Słowa: `product/site-messages.ts`, per język treści, czytane tylko na serwerze.**
     Osobny plik, a nie poszerzone `messages` w `product/index.ts`, bo `product`
@@ -161,6 +174,30 @@ odpowiedzi proxy pilnują pliki `*.golden.json`. Skrypty przebiegu:
 zewnętrzne (drugie przejście przez proxy) — także przepisania next-intl; lokalnie
 `HOSTNAME=localhost`, w obrazie `0.0.0.0`, jak dotąd.
 
+## Uzupełnienie po przeglądzie (2026-10-08)
+
+Gałąź przeszła przegląd tylko do odczytu; werdykt: nadaje się do scalenia, nic nie
+zmienia adresów Business, HoofCare ani MedPlano. Siedem uwag weszło przed scaleniem
+(pkt 3, 7, 8 i 9 powyżej oraz „Granice” są już w ich brzmieniu):
+
+1. złą tabelę albo listę reguł zgłasza `/healthz` (503), nie tylko log;
+2. reguły są sprawdzane względem wszystkich języków tabeli, a profil pomija tylko te,
+   które prowadzą do języka, którego nie oferuje — wcześniej reguła pod `/de/…`
+   w profilu bez niemieckiego wyłączała całą listę;
+3. „cel jest stroną” nie wynikało z testu (przepisanie w proxy to zawsze 200):
+   doszła kontrola `product-site:check` na zbudowanym stacku, część odbioru produktu;
+4. `hreflang`, przełącznik języka i sitemapa czytają jeden filtr reguł;
+5. folder plików stron jest w dopasowaniu proxy razem z adresami z kropką i odpowiada
+   404 w każdej pisowni; bez zadeklarowanej tabeli taki adres idzie nietknięty;
+6. adres tabeli z prefiksem języka domyślnego i końcowym ukośnikiem to jedno 308;
+7. źródło reguły na stronie bez parametru jest odmową także w pisowni z prefiksem
+   języka domyślnego (`gone` pod `/pl/quiz` odpowiadało 410 zamiast 308 do `/quiz`).
+
+Drugi przebieg na zbudowanej aplikacji (ten sam jednorazowy produkt, 3011 reguł, jedna
+celowo z literówką w celu) potwierdził 5 i 6 statusami, a `product-site:check` wskazał
+dokładnie tę jedną regułę (308, potem 404 strony); reszta: 308 i 200 pod celem.
+Pliki `proxy.golden.json` i `metadata.golden.json` pozostały bez zmian.
+
 ## Konsekwencje
 
 - Slot frontendu ma cztery nowe pliki; istniejące produkty dostają je puste przez
@@ -178,14 +215,27 @@ zewnętrzne (drugie przejście przez proxy) — także przepisania next-intl; lo
 - Parametr adresu obejmuje jeden segment; pierwszy segment adresu jest nazwą.
 - Strona 410 jest rdzenia (mała, bez wyglądu produktu); własna strona 410 produktu
   byłaby osobnym punktem rozszerzenia.
-- Adres z kropką omija proxy (dopasowanie proxy, bez zmian): nie da się go objąć
-  regułą, a plik strony z parametrem zapytany wprost pod wewnętrznym adresem z wartością
-  z kropką nie przechodzi przez tabelę. Strona z parametrem odpowiada więc `notFound()`
-  na nieznaną wartość — kontrakt §4.
-- `/pl/…/` (prefiks języka domyślnego i końcowy ukośnik naraz) odpowiada dwoma
-  przekierowaniami, jak każdy adres hosta platformy przed tym pakietem.
+- Adres z kropką omija proxy (dopasowanie proxy, bez zmian) i nie da się go objąć
+  regułą; stare adresy z kropką albo rozróżniane zapytaniem przekierowuje serwer przed
+  aplikacją (kontrakt §6) — rdzeń nie ma dla nich punktu rozszerzenia. Folder plików
+  stron jest wyjątkiem: proxy dostaje każdy adres pod nim i odpowiada 404 (pkt 3).
+- `/pl/…/` (prefiks języka domyślnego i końcowy ukośnik naraz) to jedno 308 dla
+  adresu tabeli; dla pozostałych adresów hosta platformy (strony rdzenia) zostają dwa,
+  jak przed tym pakietem — zapis w `proxy.golden.json` się nie zmienił.
 - Odczyt opublikowanych wpisów systemu treści przez strony produktu i `/media` na
   hoście platformy to osobne pakiety (ADR-079); tabela zostawia im miejsce.
+- **Każda strona pod `[locale]` niesie cały katalog komunikatów języka.** Zmierzone
+  na zbudowanej aplikacji: dokument strony produktu to ok. 360 KB (100 KB po gzip),
+  z czego ok. 342 KB (96 KB po gzip) to katalog panelu przekazywany przez dostawcę
+  w układzie rdzenia. To cecha rdzenia sprzed tego pakietu (tak samo ważą strony
+  marketingowe i rezerwacji), ale dla serwisu treści z kilkuset stronami ma inną wagę,
+  a produkt nie zdejmie tego ładunku nowymi plikami. Dwie drogi, obie poza tym
+  pakietem: (a) folder stron produktu pod własnym układem głównym
+  (`app/product-site/[locale]/` — zmienia się cel przepisania w proxy i kontrakt §4,
+  produkt pisze `<html>` i dostawcę z samymi swoimi słowami; rdzeń może dać do tego
+  gotowy komponent), (b) dostawcy per obszar w rdzeniu z wyborem przestrzeni nazw
+  (pomaga też stronom marketingowym i rezerwacji wszystkich produktów). Decyzja przed
+  przeniesieniem pierwszych stron produktu — po niej zmiana (a) to przeniesienie plików.
 
 ## Odrzucone
 
