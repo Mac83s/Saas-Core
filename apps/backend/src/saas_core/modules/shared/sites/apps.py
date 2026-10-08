@@ -3,7 +3,6 @@ from pathlib import Path
 from django.apps import AppConfig
 from django.conf import settings
 from django.core.checks import Error, register
-from django.core.exceptions import ImproperlyConfigured
 
 
 class SitesConfig(AppConfig):
@@ -136,42 +135,4 @@ def check_content_contracts(**_kwargs: object) -> list[Error]:
     ):
         if not (Path(settings.SITE_BLOCK_CONTRACTS_PATH) / filename).is_file():
             errors.append(Error(message, id=code))
-    if not errors:
-        errors.extend(_check_module_block_contracts())
-    return errors
-
-
-def _check_module_block_contracts() -> list[Error]:
-    """The block types the composed modules bring (docs/architecture/
-    site-block-types.md) are read on first use like the core's: a manifest
-    that breaks its contract stops the deploy here, not a visitor's page."""
-    from .block_contracts import site_block_contracts
-    from .localized_bodies import unknown_module_translation_paths
-
-    errors: list[Error] = []
-    modules = Path(settings.SITE_BLOCK_MODULE_CONTRACTS_PATH)
-    if modules.is_dir():
-        for directory in sorted(modules.iterdir()):
-            # A directory nobody composes is never read: a mistyped module id
-            # would make its blocks vanish without a word.
-            if directory.is_dir() and directory.name not in settings.KNOWN_MODULES:
-                errors.append(
-                    Error(
-                        f"Katalog bloków {directory.name} nie nazywa żadnego modułu katalogu.",
-                        obj=str(directory),
-                        id="sites.E011",
-                    )
-                )
-    try:
-        site_block_contracts()
-    except ImproperlyConfigured as error:
-        return [*errors, Error(str(error), id="sites.E012")]
-    errors.extend(
-        Error(
-            f"Manifest bloku {block_type} nazywa pod `translation` miejsce {path}, "
-            "którego nie ma w żadnej wersji schematu.",
-            id="sites.E013",
-        )
-        for block_type, path in unknown_module_translation_paths()
-    )
     return errors

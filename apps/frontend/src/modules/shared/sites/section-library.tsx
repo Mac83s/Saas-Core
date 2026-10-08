@@ -42,12 +42,11 @@ import {
   useSectionTypeName,
   type BlockFormValues,
 } from "./block-form";
-import { blockModules, sectionTemplates } from "./site-block-registry";
 import { stayEntitlements, stayModules } from "./stay-offers";
 import { OwnSectionTemplates } from "./own-templates";
 
 /** Library order and category filter: the families interleave in this order. */
-const CORE_TYPES = [
+const BLOCK_TYPES = [
   "hero",
   "feature_list",
   "faq",
@@ -66,16 +65,6 @@ const CORE_TYPES = [
   "stay_calendar",
   "stay_map",
 ] as const;
-/** The core's families, then those of the composed modules' blocks (ADR-077),
- *  in the order the product's slot lists them. */
-const BLOCK_TYPES: readonly string[] = [
-  ...CORE_TYPES.map((name) => `core.${name}`),
-  ...new Set(
-    sectionTemplates
-      .map((template) => template.blockType)
-      .filter((type) => !type.startsWith("core.")),
-  ),
-];
 
 const tokens = {
   schemaVersion: 1,
@@ -194,16 +183,12 @@ export function SectionLibraryContent({
   // category narrows the list.
   const matching = useMemo(
     () =>
-      availableSectionTemplates(
-        registry,
-        {
-          entitlements: stayEntitlements(stays),
-          modules: [...stayModules(stays), ...blockModules],
-          industry,
-          blockType: "",
-        },
-        sectionTemplates,
-      ).filter((template) => {
+      availableSectionTemplates(registry, {
+        entitlements: stayEntitlements(stays),
+        modules: stayModules(stays),
+        industry,
+        blockType: "",
+      }).filter((template) => {
         const search = query.trim().toLocaleLowerCase(locale);
         if (!search) return true;
         const labels = template.labels[locale];
@@ -224,9 +209,10 @@ export function SectionLibraryContent({
     () =>
       [
         { value: "", count: matching.length },
-        ...BLOCK_TYPES.map((type) => ({
-          value: type,
-          count: matching.filter((item) => item.blockType === type).length,
+        ...BLOCK_TYPES.map((name) => ({
+          value: `core.${name}`,
+          count: matching.filter((item) => item.blockType === `core.${name}`)
+            .length,
         })),
       ].filter(
         // An empty category is no choice, unless it is the chosen one.
@@ -239,7 +225,7 @@ export function SectionLibraryContent({
   );
   const ordered = useMemo(() => {
     const groups = BLOCK_TYPES.map((type) =>
-      templates.filter((item) => item.blockType === type),
+      templates.filter((item) => item.blockType === `core.${type}`),
     );
     const mixed = Array.from(
       { length: Math.max(...groups.map((group) => group.length), 0) },

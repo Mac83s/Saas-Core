@@ -21,9 +21,6 @@ import { SectionLibraryContent } from "./section-library";
 // (`siteIndustry`, section-library-industry.test.tsx). Pinned here so a
 // product's slot does not change what these tests count.
 vi.mock("../../../product", () => ({ product: {} }));
-// The core's own catalogue: a product's slot adds its blocks' sections to the
-// library, and the chips, counts and „remaining” below are the core's.
-vi.mock("../../../product/site-blocks", () => ({ siteBlocks: [] }));
 
 vi.mock("@saas-core/api-client", async (original) => ({
   ...(await original<typeof import("@saas-core/api-client")>()),

@@ -22,7 +22,6 @@ import { PageEditorContext } from "./page-editor-context";
 import { StayOfferSelect } from "./stay-offer-select";
 import { LayoutChooser } from "./layout-chooser";
 import { SectionTypeChooser } from "./section-conversion";
-import { registry, sectionTemplates } from "./site-block-registry";
 import { emptyTableRows } from "./table-doc";
 import {
   useFieldArray,
@@ -36,10 +35,13 @@ import { z } from "zod";
 
 import {
   blockAssetIds,
+  coreSiteBlockManifest,
+  createSiteBlockRegistry,
   ensureUniqueAnchors,
   fieldsOfOtherLayouts,
   hiddenFields,
   InvalidBlockDataError,
+  offeredSectionTemplates,
   richTextAnchors,
   type BlockFieldDefinition,
   type JsonObject,
@@ -76,8 +78,7 @@ const TableEditor = dynamic(
   { ssr: false },
 );
 
-// The deployment's registry: the core's blocks and its modules' (ADR-077).
-export { registry };
+export const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
 
 export type BlockFormValues = {
   block_type: string;
@@ -343,7 +344,7 @@ export function BlockFields<TValues extends FieldValues>({
   // One option per layout: an industry template may reuse a universal one.
   // A block that has no layouts — the stay widget, the calendar, the map —
   // is its one library section and gets no select: its data has no `layout`.
-  const layouts = sectionTemplates.filter(
+  const layouts = offeredSectionTemplates().filter(
     (template, position, all) =>
       template.blockType === type &&
       template.seed.pl.layout !== undefined &&

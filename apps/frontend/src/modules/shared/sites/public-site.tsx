@@ -4,6 +4,8 @@ import { request as httpRequest } from "node:http";
 
 import type { PublicSitePage } from "@saas-core/api-client";
 import {
+  coreSiteBlockManifest,
+  createSiteBlockRegistry,
   renderPublishedPage,
   parseSiteAppearance,
   siteUiTexts,
@@ -21,15 +23,14 @@ import {
 import { SiteStayBlock } from "../booking/site-stay-blocks";
 import { SiteStayMap } from "../booking/site-stay-map";
 import { PublicContactForm } from "./public-contact-form";
-import { registry } from "./site-block-registry";
+
+const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
 
 export type PublicSiteResult =
   | { kind: "page"; page: PublicSitePage }
   | { kind: "redirect"; location: string; temporary?: boolean }
-  /** On a known site, the language the address was asked in and its home.
-   *  `gone`: an address removed for good (410, ADR-077) — the proxy answers
-   *  it before the page is asked; here it is a missing page with other words. */
-  | { kind: "not-found"; locale?: string; homePath?: string; gone?: true };
+  /** On a known site, the language the address was asked in and its home. */
+  | { kind: "not-found"; locale?: string; homePath?: string };
 
 type BackendResponse = {
   status: number;

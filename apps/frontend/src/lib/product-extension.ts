@@ -6,8 +6,6 @@ import type {
   BookingCatalog,
 } from "@saas-core/api-client";
 
-import type { ModuleSiteBlocks } from "@saas-core/site-blocks";
-
 import type { ProductContent } from "../marketing/content/types";
 import type { PanelAccess } from "./panel-navigation";
 
@@ -91,22 +89,6 @@ export type ProductExtension = {
 export type OrganizationTypeMessages = Partial<
   Record<string, Partial<Record<"pl" | "en", Messages>>>
 >;
-
-/**
- * The block types the product's modules bring to the site builder (slot file
- * `src/product/site-blocks.ts`, ADR-077, docs/architecture/site-block-types.md):
- * one set per module, each made by `defineModuleSiteBlocks` in a file of the
- * module's own from its contract (`packages/contracts/site-blocks/modules/
- * <module id>/`). Core ships none. A set whose module the deployment does not
- * compose is left out — its types are unknown to the studio and to the
- * published page alike. The words — a block's name, its fields' labels —
- * are `Sites` messages the product brings (`product.messages`).
- *
- * A file of its own, read by the public renderer on the server and by the
- * studio in the browser: nothing in it or in what it imports may pull the
- * panel's UI into a published page.
- */
-export type ProductSiteBlocks = readonly ModuleSiteBlocks[];
 
 /**
  * The product's own "Today" under /panel (slot file `src/product/dashboard.tsx`,

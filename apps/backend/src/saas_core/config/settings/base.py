@@ -290,10 +290,6 @@ SITE_BLOCK_CONTRACTS_PATH = Path(
         BASE_DIR.parent.parent / "packages" / "contracts" / "site-blocks",
     )
 )
-#: Where the composed modules keep the block types they bring, one directory
-#: per module id (docs/architecture/site-block-types.md). Inside the core's
-#: directory on purpose: whatever carries that into an image carries these.
-SITE_BLOCK_MODULE_CONTRACTS_PATH = SITE_BLOCK_CONTRACTS_PATH / "modules"
 PAGE_TEMPLATE_CONTRACTS_PATH = Path(
     os.environ.get(
         "PAGE_TEMPLATE_CONTRACTS_PATH",

@@ -21,7 +21,6 @@ from saas_core.modules.shared.sites.localized_bodies import (
     UnitProblem,
     assemble,
     extract_units,
-    is_data_field,
     structure_signature,
     text_fields,
 )
@@ -68,7 +67,7 @@ def _all_schemas():
 def test_every_string_of_every_schema_version_is_text_or_structure(block_type, version, schema):
     fields = text_fields(block_type, version)
     for path, constrained in _string_paths(schema).items():
-        if constrained or is_data_field(block_type, path):
+        if constrained or (block_type, path) in DATA_FIELDS:
             assert path not in fields, path
         else:
             assert path in fields, path
@@ -283,3 +282,33 @@ def test_the_structure_signature_is_shared_by_languages_and_changes_with_structu
     assert structure_signature([TESTIMONIALS, RICH]) != signature
     decorated = {**TESTIMONIALS, "decoration": {"schemaVersion": 1, "preset": "plain"}}
     assert structure_signature([RICH, decorated]) != signature
+
+
+def test_a_module_reads_a_body_as_units_through_the_modules_api() -> None:
+    """What a module needs to translate a record whose text is a list of core
+    blocks, from the Sites module's public door (`shared.sites.api`)."""
+    from saas_core.modules.shared.sites import api as sites_api
+
+    def hero(title: str, text: str) -> dict[str, Any]:
+        return {
+            "block_type": "core.hero",
+            "schema_version": 6,
+            "data": {"title": title, "text": text},
+        }
+
+    body = [hero("Start", "Opis"), hero("Dalej", "Więcej")]
+    units = [unit.key for unit in sites_api.extract_units(body)]
+    assert {"0/title", "0/text", "1/title", "1/text"} <= set(units)
+
+    texts = {"0/title": "Home", "0/text": "About", "1/title": "Next", "1/text": "More"}
+    english = sites_api.assemble(body, texts)
+    assert (english.missing, english.blocks[1]["data"]["title"]) == ((), "Next")
+    # Whole blocks from outside become the same units again.
+    assert sites_api.texts_against(body, english.blocks) == texts
+    with pytest.raises(sites_api.StructureDiffers):
+        sites_api.texts_against(body, english.blocks[:1])
+    with pytest.raises(sites_api.LocaleUnitsInvalid) as refused:
+        sites_api.assemble(body, {"9/title": "Nowhere"})
+    assert [(problem.key, problem.code) for problem in refused.value.problems] == [
+        ("9/title", "unknown_unit")
+    ]
