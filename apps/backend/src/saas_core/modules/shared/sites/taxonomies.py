@@ -1074,12 +1074,13 @@ def update_term(
         # The categories now above it list its published entries from this
         # moment: their archives answer, so their addresses close — as at a
         # publication, in each language those entries are in.
-        above, current = [], by_id.get(term.parent_id) if term.parent_id is not None else None
-        while current is not None and current.pk not in {item.pk for item in above}:
-            above.append(current)
+        ancestors: list[ContentTag] = []
+        current = by_id.get(term.parent_id) if term.parent_id is not None else None
+        while current is not None and all(current.pk != item.pk for item in ancestors):
+            ancestors.append(current)
             current = by_id.get(current.parent_id) if current.parent_id is not None else None
         for locale in _carriers(term, _descendants(term, siblings), _listed(site, collection)):
-            close_term_addresses(above, default_locale=site.default_locale, locale=locale)
+            close_term_addresses(ancestors, default_locale=site.default_locale, locale=locale)
     if renamed:
         # A machine's translation of the old name is no name any more; an
         # address made from it and still open goes with it.

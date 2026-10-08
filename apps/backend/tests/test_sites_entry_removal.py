@@ -259,9 +259,11 @@ def test_a_type_whose_every_entry_is_removed_is_deleted_and_they_are_erased_for_
     world = World("removal-erase")
     host = world.host
     bathrooms = world.category(world.projects, "Łazienki")
+    # A tree goes whole: the category under it too.
+    small = world.category(world.projects, "Małe", bathrooms)
     first = world.entry(world.projects, "dom-a", categories=(bathrooms,), tags=("Porady",))
     english = world.translated(first, "en", "house-a", "House A", categories=(bathrooms,))
-    draft = world.entry(world.projects, "dom-szkic", out=False)
+    draft = world.entry(world.projects, "dom-szkic", categories=(small,), out=False)
     ids = [first, english, draft]
 
     # With entries it is not deletable, whatever is typed.
@@ -287,7 +289,7 @@ def test_a_type_whose_every_entry_is_removed_is_deleted_and_they_are_erased_for_
         "entries": 0,
         "removed_entries": 3,
         "removed_publications": 2,
-        "categories": 1,
+        "categories": 2,
         "paths": {"pl": "/realizacje/", "en": "/en/projects/", "de": "/de/referenzen/"},
         "confirmation_required": True,
     }
@@ -313,7 +315,7 @@ def test_a_type_whose_every_entry_is_removed_is_deleted_and_they_are_erased_for_
     assert not SiteOutboxEvent.all_objects.filter(entry_publication_id__in=publications).exists()
     assert not ContentEntryTag.all_objects.filter(entry_id__in=ids).exists()
     # Its categories went with it; the site's tags are the site's.
-    assert not ContentTag.all_objects.filter(pk=bathrooms).exists()
+    assert not ContentTag.all_objects.filter(pk__in=[bathrooms, small]).exists()
     assert not ContentTaxonomy.all_objects.filter(collection_id=world.projects).exists()
     assert ContentTag.all_objects.filter(site_id=world.site_id, slug="porady").exists()
     # What outlives the rows: who, when, which type, how many, and which.
@@ -325,7 +327,7 @@ def test_a_type_whose_every_entry_is_removed_is_deleted_and_they_are_erased_for_
         audit.metadata["erased_publications"],
         audit.metadata["erased_versions"],
         audit.metadata["categories"],
-    ) == (3, 2, 3, 1)
+    ) == (3, 2, 3, 2)
     assert sorted(item["title"] for item in audit.metadata["entries"]) == [
         "Dom A",
         "Dom Szkic",
