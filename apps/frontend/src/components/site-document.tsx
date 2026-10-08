@@ -42,7 +42,10 @@ type Props = {
  * and tokens), the font (a `next/font` variable named `--font-geist` in
  * `className` feeds the core's `font-sans`), the dark-mode script (the
  * panel's `COLOR_SCHEME_SCRIPT`, as the first child, if the site has a dark
- * look at all).
+ * look at all — `<html>` carries `suppressHydrationWarning` for it), and the
+ * header and the footer: each page renders its own shell, because the
+ * language switch in it leads to *that* page in another language, and only
+ * the page knows which page it is (contract §4).
  */
 export async function SiteDocument({
   locale,
@@ -63,6 +66,11 @@ export async function SiteDocument({
       lang={locale}
       dir={RIGHT_TO_LEFT.has(locale) ? "rtl" : "ltr"}
       className={className}
+      // A dark-mode script (`COLOR_SCHEME_SCRIPT`) writes an attribute on
+      // this element before React hydrates it; without this React reports
+      // the difference on every page of a site that has one. It covers this
+      // element's own attributes only — as the panel's document does.
+      suppressHydrationWarning
     >
       <body>
         <NextIntlClientProvider messages={messages}>

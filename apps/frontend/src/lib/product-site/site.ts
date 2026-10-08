@@ -45,6 +45,17 @@ export const { site: productSite, problem: productSiteProblem } = compile();
 export const productSiteDeclared = publicSite !== null;
 
 /**
+ * Whether the product has this public page — in that language, or without
+ * one in any language of the deployment. Never throws, also where the
+ * deployment serves no public pages of the product at all: a menu entry or a
+ * button to a page that may not be there yet asks this before it links,
+ * because `siteHref` and `SiteLink` throw for a page the table has not.
+ */
+export function siteHas(route: string, locale?: string): boolean {
+  return productSite?.has(route, locale) ?? false;
+}
+
+/**
  * The address of one of the product's public pages in a language — the only
  * way a link to it is written. Throws for a page or a language the table has
  * not, so a wrong link fails where it is written, not where it is clicked.

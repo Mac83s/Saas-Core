@@ -43,6 +43,26 @@ describe("a link to a product's public page (ADR-080)", () => {
     expect(polish).toHaveAttribute("hreflang", "pl");
   });
 
+  it("can ask first whether the page is there, with or without a table", async () => {
+    await load();
+    const { siteHas } = await import("#lib/product-site/site");
+
+    expect(siteHas("/breeds", "de")).toBe(true);
+    expect(siteHas("/breeds", "es")).toBe(false);
+    expect(siteHas("/guides")).toBe(false);
+
+    // A deployment that serves no public pages of the product: nothing is
+    // there, and the question still does not throw.
+    vi.resetModules();
+    vi.doMock("../generated/deployment", () => ({
+      deployment: fixtureDeployment(),
+    }));
+    vi.doMock("../product/public-site", () => ({ publicSite: null }));
+    const bare = await import("#lib/product-site/site");
+    expect(bare.siteHas("/breeds", "de")).toBe(false);
+    expect(() => bare.siteHref("/breeds", "de")).toThrow(/no public pages/);
+  });
+
   it("fails where it is written when the page has no such language", async () => {
     const { SiteLink } = await load();
     vi.spyOn(console, "error").mockImplementation(() => {});

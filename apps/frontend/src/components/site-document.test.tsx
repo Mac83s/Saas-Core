@@ -39,9 +39,29 @@ describe("the document of a product's public pages (ADR-080)", () => {
     );
 
     expect(html).toContain('data-shipped="Site,Common"');
+    // `suppressHydrationWarning` is React's own and leaves no attribute.
     expect(html).toContain('<html lang="en" dir="ltr" class="site-font">');
     expect(html).toContain("<main>page</main>");
     expect(server.setRequestLocale).toHaveBeenCalledWith("en");
+  });
+
+  it("lets a dark-mode script change <html> before hydration without a report", async () => {
+    // The script writes `data-color-scheme` on <html> before React hydrates
+    // (`COLOR_SCHEME_SCRIPT`); React reports an attribute it did not render
+    // unless the element says the difference is expected.
+    const document = await SiteDocument({
+      locale: "en",
+      namespaces: [],
+      children: null,
+    });
+
+    expect(document.type).toBe("html");
+    expect(document.props.suppressHydrationWarning).toBe(true);
+    // One element deep: the body and the pages below report as ever.
+    expect(document.props.children.type).toBe("body");
+    expect(
+      document.props.children.props.suppressHydrationWarning,
+    ).toBeUndefined();
   });
 
   it("answers 404 for a language the deployment does not route", async () => {

@@ -108,7 +108,14 @@ export type CompiledSite = {
   defaultLocale: string;
   /** The table's keys. */
   routes: readonly string[];
-  /** The languages a page has an address in. */
+  /**
+   * Whether the page has an address — in that language, or without one in
+   * any language the profile serves. Never throws: the question a menu entry
+   * or a button asks before it links to a page the table may not name yet.
+   */
+  has(route: string, locale?: string): boolean;
+  /** The languages a page has an address in. Throws for a page the table
+   *  does not name — ask `has` first where that may be. */
   languages(route: string): readonly string[];
   /** Whether the page's address takes parameters. */
   hasParams(route: string): boolean;
@@ -365,6 +372,11 @@ function build(
     locales,
     defaultLocale,
     routes: [...byRoute.keys()],
+    has(route, locale) {
+      const known = byRoute.get(route);
+      if (!known) return false;
+      return locale === undefined ? known.size > 0 : known.has(locale);
+    },
     languages: (route) => locales.filter((locale) => served(route).has(locale)),
     hasParams: (route) =>
       [...served(route).values()].some((row) => row.page.some(isParam)),

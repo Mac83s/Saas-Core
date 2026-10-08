@@ -71,6 +71,33 @@ describe("a product's table of public addresses (ADR-080)", () => {
     expect(site.href("/quiz", "es")).toBe("/es/quiz");
   });
 
+  it("says whether a page has an address without throwing for one it does not name", () => {
+    // A menu entry to a page a later change brings asks before it links.
+    expect(site.has("/breeds")).toBe(true);
+    expect(site.has("/breeds", "de")).toBe(true);
+    // Spanish has no such section; nobody has such a page.
+    expect(site.has("/breeds", "es")).toBe(false);
+    expect(site.has("/guides")).toBe(false);
+    expect(site.has("/guides", "pl")).toBe(false);
+    // The questions that answer about a page the table names throw for one
+    // it does not: a wrong link fails where it is written.
+    expect(() => site.languages("/guides")).toThrow(/no page "\/guides"/);
+    expect(() => site.href("/guides", "pl")).toThrow(/no page "\/guides"/);
+    // A language the profile does not offer is no language of the page.
+    const narrow = compileProductSite(fixtureSite, {
+      ...options,
+      locales: ["pl", "en"],
+    });
+    expect(narrow.has("/breeds", "de")).toBe(false);
+    expect(narrow.has("/guide/[chapter]")).toBe(true);
+    expect(
+      compileProductSite(fixtureSite, { ...options, locales: ["pl"] }).has(
+        "/guide/[chapter]",
+        "pl",
+      ),
+    ).toBe(true);
+  });
+
   it("prefers a name over a parameter in the same place", () => {
     expect(site.match("/rasy-psow/porownaj")).toMatchObject({
       route: "/breeds/compare",
