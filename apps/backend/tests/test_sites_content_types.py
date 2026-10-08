@@ -14,6 +14,7 @@ from uuid import uuid7
 
 import pytest
 from django.core.cache import cache
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -68,6 +69,7 @@ from test_sites_collections import (
     publish,
     save_entry_draft,
     schedule,
+    set_tags,
 )
 from test_sites_llms import _links, _llms
 
@@ -658,6 +660,56 @@ def test_no_former_address_leads_into_a_switched_off_type() -> None:
     assert _switch(client, type_id, "on").status_code == 200
     moved = _get(host, "/realizacje/dom-w-gdyni/")
     assert (moved.status_code, moved["Location"]) == (308, "/prace/dom-w-gdyni/")
+
+
+@pytest.mark.usefixtures("content_types_offered")
+def test_a_switched_off_type_leaves_its_subjects_archives_and_the_feed() -> None:
+    """A type that readers follow in the feed and that has a subject's
+    archive worth indexing: switched off, neither names it any more, the
+    blog's archive of the same subject lists the blog's articles as before,
+    and switching on brings both back."""
+    blog = Blog("types-off-subjects")
+    client, host, origin = blog.client, blog.host, f"https://{blog.host}"
+    made = _new_type(
+        client, blog.site_id, "Aktualności", "aktualnosci", schema_type="NewsArticle"
+    )
+    assert made.status_code == 201, made.data
+    type_id = str(made.data["id"])
+    assert ContentCollection.all_objects.get(pk=type_id).in_site_feed is True
+    for slug in ("targi", "nagroda", "nowy-oddzial"):
+        entry_id = _entry(client, type_id, slug, out=False)
+        assert set_tags(client, entry_id, ["Porady"]).status_code == 200
+        assert publish(client, entry_id, idempotency_key=f"p-{slug}").status_code == 201
+    archive, shared = "/aktualnosci/tag/porady/", "/blog/tag/porady/"
+
+    def read() -> tuple[int, int, bool, bool, bool]:
+        sitemap = _feed(host, "sitemap.xml").content.decode()
+        return (
+            _get(host, archive).status_code,
+            _get(host, "/aktualnosci/tag/porady/strona/2/").status_code,
+            f"<loc>{origin}{archive}</loc>" in sitemap,
+            "/aktualnosci/targi/" in _feed(host, "feed.xml").content.decode(),
+            "/aktualnosci/targi/" in _feed(host, "atom.xml").content.decode(),
+        )
+
+    with override_settings(SITES_ENTRY_INDEX_PAGE_SIZE=2):
+        # Three entries on the subject: an archive of its own, in the sitemap.
+        assert read() == (200, 200, True, True, True)
+        assert _get(host, archive).data["noindex"] is False
+        assert _items(_get(host, shared)) == ["/blog/wpis-jeden/"]
+
+        assert _switch(client, type_id, "off").status_code == 200
+
+        assert read() == (404, 404, False, False, False)
+        # The subject is the site's: the blog's archive of it stays, with the
+        # blog's articles only, and the blog stays in the feed.
+        assert _items(_get(host, shared)) == ["/blog/wpis-jeden/"]
+        assert "/blog/wpis-jeden/" in _feed(host, "feed.xml").content.decode()
+        assert "aktualnosci" not in _feed(host, "sitemap.xml").content.decode()
+
+        assert _switch(client, type_id, "on").status_code == 200
+
+        assert read() == (200, 200, True, True, True)
 
 
 @pytest.mark.usefixtures("content_types_offered")
