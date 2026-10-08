@@ -60,8 +60,9 @@ verifies both directions.
    - its own public site on the product host (home page, sections named per
      language, old addresses, sitemap lines, words per content language): the
      slot files `public-site.ts`, `old-addresses.ts`, `site-sitemap.ts`,
-     `site-messages.ts` and page files in a folder named `product-site` under
-     `apps/frontend/src/app/[locale]/` (the core ships none there) — read
+     `site-messages.ts` and page files with a root layout of their own in a
+     folder named `product-site` beside `apps/frontend/src/app/[locale]/` (the
+     core ships none there; the layout returns `SiteDocument`) — read
      `docs/architecture/product-public-site.md` (ADR-080) first; it answers
      only where the profile sets `features.marketingSite: false`.
    - middleware: `backend.middleware`, mounted after the tenant middleware;

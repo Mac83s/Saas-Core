@@ -51,18 +51,24 @@ każde żądanie każdego produktu i każdej strony firmy.
    i tak musiałoby samo wiedzieć, czy adres jest adresem produktu (własne 404, profil
    bez marketingu) — byłyby dwa silniki czytające jedną tabelę.
 
-3. **Pliki stron leżą pod `app/[locale]/product-site/`.** Segment jest wewnętrzny:
-   czytelnik go nie widzi, a zapytany wprost odpowiada 404. Pod `[locale]`, a nie obok
-   niego z własnym układem głównym, bo strony dziedziczą wtedy `<html lang>`, dostawcę
-   komunikatów i style rdzenia, a produkt pisze tylko swój układ (nagłówek, stopka,
-   czcionka). Osobny folder, a nie grupa tras, bo dwie strony pod jednym adresem
-   (`/` rdzenia i `/` produktu) to błąd budowania Next — przepisanie w proxy jest
-   jedynym sposobem, żeby produkt miał własną stronę główną bez zmiany pliku rdzenia.
-   Rdzeń nie umieszcza w tym folderze żadnego pliku (plik rdzenia zmieniony przez
-   produkt łamie `core:check`). Dopasowanie proxy obejmuje ten folder w całości, także
-   adresy z kropką, które inaczej omijają proxy: gdy tabela jest zadeklarowana, każdy
-   adres pod nim — w każdej pisowni, którą router odczytałby jako jego nazwę —
-   odpowiada 404; gdy nie jest, taki adres idzie dalej nietknięty, jak dotąd.
+3. **Pliki stron leżą w `app/product-site/[locale]/`, pod własnym układem głównym
+   produktu** (od uzupełnienia PR1b, niżej; pierwotnie pod `app/[locale]/product-site/`).
+   Segment jest wewnętrzny: czytelnik go nie widzi, a zapytany wprost odpowiada 404.
+   Obok `[locale]`, a nie pod nim, bo pod układem rdzenia każda strona dziedziczy
+   dostawcę komunikatów, który oddaje przeglądarce cały katalog języka — 342 KB z 360 KB
+   dokumentu strony — i produkt nie zdejmie tego nowymi plikami. Żeby własny układ
+   główny nie znaczył powtarzania dokumentu przy każdym produkcie, rdzeń daje
+   `SiteDocument` (`#components/site-document`): `<html lang dir>`, język żądania dla
+   next-intl i dostawcę z samymi wymienionymi przestrzeniami nazw; arkusz stylów,
+   czcionkę i skrypt trybu ciemnego układ produktu dobiera sam (kontrakt §4). Osobny
+   folder, a nie grupa tras, bo dwie strony pod jednym adresem (`/` rdzenia i `/`
+   produktu) to błąd budowania Next — przepisanie w proxy jest jedynym sposobem, żeby
+   produkt miał własną stronę główną bez zmiany pliku rdzenia. Rdzeń nie umieszcza
+   w tym folderze żadnego pliku (plik rdzenia zmieniony przez produkt łamie
+   `core:check`). Dopasowanie proxy obejmuje ten folder w całości, także adresy
+   z kropką, które inaczej omijają proxy: gdy tabela jest zadeklarowana, każdy adres
+   pod nim — w każdej pisowni, którą router odczytałby jako jego nazwę — odpowiada 404;
+   gdy nie jest, taki adres idzie dalej nietknięty, jak dotąd.
 
 4. **Strony produktu odpowiadają tylko tam, gdzie profil wyłącza marketing rdzenia**
    (`features.marketingSite: false`) i tylko na hoście platformy. W profilu
@@ -122,7 +128,7 @@ każde żądanie każdego produktu i każdej strony firmy.
     paczki panelu (ten sam powód co `organization-messages.ts`).
 
 11. **Czcionka z cyrylicą należy do układu produktu** (`next/font` z podzbiorem
-    `cyrillic` na jego kontenerze). Czcionka panelu się nie zmienia: dołożenie podzbioru
+    `cyrillic`, zmienna w `className` dokumentu). Czcionka panelu się nie zmienia: dołożenie podzbioru
     w układzie rdzenia wstępnie ładowałoby go na każdej stronie każdego produktu.
 
 12. **Segmenty zarezerwowane są jedną listą** (`proxy-segments.ts`), z której czyta
@@ -198,6 +204,33 @@ celowo z literówką w celu) potwierdził 5 i 6 statusami, a `product-site:check
 dokładnie tę jedną regułę (308, potem 404 strony); reszta: 308 i 200 pod celem.
 Pliki `proxy.golden.json` i `metadata.golden.json` pozostały bez zmian.
 
+## Uzupełnienie 2026-10-08 (PR1b): folder stron pod własnym układem głównym
+
+Rozstrzygnięcie pytania, które PR1 zostawił otwarte po pomiarze z przeglądu (uwaga 8;
+wariant „własny układ główny folderu stron”): zanim pierwszy produkt przeniesie strony,
+folder jego stron wychodzi spod układu rdzenia. Serwis treści
+z kilkuset stronami w pięciu językach nie może nieść na każdej z nich katalogu panelu.
+
+- Proxy oddaje stronę produktu plikowi pod `app/product-site/[locale]/…` (wcześniej
+  `app/[locale]/product-site/…`); folder jest odmową po pierwszym segmencie, wpis
+  dopasowania pod prefiksem języka znika, bo tam folderu już nie ma.
+- `SiteDocument` daje to, czego strona nadal potrzebuje od rdzenia: `<html lang dir>`,
+  język żądania i dostawcę z samymi wymienionymi przestrzeniami nazw. Komponenty
+  serwerowe czytają dalej każdą przestrzeń nazw języka, także teksty gości rdzenia.
+- Ta sama strona jednorazowego produktu, zbudowana aplikacja, przed i po:
+  `/en` 359 805 B → 12 422 B (gzip 100 135 B → 3 734 B);
+  `/en/dog-breeds/german-shepherd` 359 768 B → 13 362 B (gzip 101 150 B → 3 906 B);
+  `/ru/quiz` (strona kliencka) 360 037 B → 10 876 B (gzip 101 558 B → 2 759 B).
+  Komunikaty w dokumencie: 342 KB → 2,5 KB.
+- Ponowny przebieg na zbudowanej aplikacji: strony, 404 produktu, stare adresy, 410,
+  przejścia po stronie klienta, hydratacja strony klienckiej, czcionka z cyrylicą
+  i `product-site:check` — jak przed zmianą; folder odpowiada 404 w każdej pisowni.
+- Dla wdrożenia bez tabeli nic się nie zmienia: `proxy.golden.json`
+  i `metadata.golden.json` bez zmian, strony marketingowe rdzenia zachowują swój
+  dokument (i jego wagę — „Granice”).
+- Koszt: przejście między stronami produktu a panelem to pełne załadowanie dokumentu
+  (dwa układy główne); strona, która ma być statyczna, sama woła `setRequestLocale`.
+
 ## Konsekwencje
 
 - Slot frontendu ma cztery nowe pliki; istniejące produkty dostają je puste przez
@@ -224,24 +257,20 @@ Pliki `proxy.golden.json` i `metadata.golden.json` pozostały bez zmian.
   jak przed tym pakietem — zapis w `proxy.golden.json` się nie zmienił.
 - Odczyt opublikowanych wpisów systemu treści przez strony produktu i `/media` na
   hoście platformy to osobne pakiety (ADR-079); tabela zostawia im miejsce.
-- **Każda strona pod `[locale]` niesie cały katalog komunikatów języka.** Zmierzone
-  na zbudowanej aplikacji: dokument strony produktu to ok. 360 KB (100 KB po gzip),
-  z czego ok. 342 KB (96 KB po gzip) to katalog panelu przekazywany przez dostawcę
-  w układzie rdzenia. To cecha rdzenia sprzed tego pakietu (tak samo ważą strony
-  marketingowe i rezerwacji), ale dla serwisu treści z kilkuset stronami ma inną wagę,
-  a produkt nie zdejmie tego ładunku nowymi plikami. Dwie drogi, obie poza tym
-  pakietem: (a) folder stron produktu pod własnym układem głównym
-  (`app/product-site/[locale]/` — zmienia się cel przepisania w proxy i kontrakt §4,
-  produkt pisze `<html>` i dostawcę z samymi swoimi słowami; rdzeń może dać do tego
-  gotowy komponent), (b) dostawcy per obszar w rdzeniu z wyborem przestrzeni nazw
-  (pomaga też stronom marketingowym i rezerwacji wszystkich produktów). Decyzja przed
-  przeniesieniem pierwszych stron produktu — po niej zmiana (a) to przeniesienie plików.
+- **Strony rdzenia pod `[locale]` niosą cały katalog komunikatów języka** — strony
+  marketingowe, katalog i strony rezerwacji każdego produktu (Business, HoofCare,
+  MedPlano): dokument ma ok. 360 KB, 100 KB po gzip, z czego 96 KB to katalog
+  przekazywany przez dostawcę w `app/[locale]/layout.tsx`. Znane i zostawione: to
+  osobna, większa sprawa (dostawcy per obszar z wyborem przestrzeni nazw), a te strony
+  mają odpowiadać dokładnie jak dotąd. Publiczne strony produktu z tabeli już tego nie
+  niosą (uzupełnienie PR1b).
 
 ## Odrzucone
 
 - **`pathnames` next-intl** — pkt 2.
-- **Własny układ główny produktu obok `[locale]`** — produkt powtarzałby `<html>`,
-  dostawcę komunikatów i kontrolę języka; więcej do pomylenia przy każdym produkcie.
+- **Strony produktu pod układem rdzenia (`app/[locale]/product-site/`)** — pierwotny
+  wybór tego pakietu, żeby produkt nie powtarzał `<html>` i dostawcy komunikatów;
+  cofnięty po pomiarze (uzupełnienie PR1b): strona niosła cały katalog panelu.
 - **Przekierowania w `next.config` albo w Caddy** — reguły żyłyby poza repozytorium
   produktu albo poza jego testami, bez kontroli łańcuchów względem tabeli; ADR-077
   pkt 5 mówi, że to kod produktu.

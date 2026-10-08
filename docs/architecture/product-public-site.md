@@ -14,7 +14,7 @@ stronę — kodowane widoki z własnym nagłówkiem i stopką, na tym samym hoś
 | stare adresy: dokąd przeniesione (308) albo usunięte (410) | `product/old-addresses.ts` (slot) | proxy, sitemapa |
 | które strony istnieją — do `sitemap.xml` | `product/site-sitemap.ts` (slot) | tylko serwer |
 | słowa stron w każdym języku treści | `product/site-messages.ts` (slot) | tylko serwer |
-| same strony, układ (nagłówek, stopka), 404 | nowe pliki w `app/[locale]/product-site/` | Next |
+| same strony, własny układ główny (nagłówek, stopka), 404 | nowe pliki w `app/product-site/[locale]/` | Next |
 
 Rdzeń dostarcza cztery pliki slotu puste; produkt je zastępuje. `public-site.ts`
 i `old-addresses.ts` to **wyłącznie dane** (mogą importować plik `.json` obok siebie):
@@ -56,7 +56,7 @@ export const publicSite: ProductPublicSite | null = {
 };
 ```
 
-- **Klucz** to ścieżka pliku strony pod `app/[locale]/product-site`, zapisana jak
+- **Klucz** to ścieżka pliku strony pod `app/product-site/[locale]`, zapisana jak
   w Next: `/` → `page.tsx`, `/breeds/[slug]` → `breeds/[slug]/page.tsx`. Klucz jest
   też nazwą strony w `SiteLink`, `siteHref`, `siteMetadata` i w sitemapie.
 - **Wartość** to adres dla czytelnika: jeden napis — ten sam we wszystkich językach
@@ -84,24 +84,74 @@ Co odpowiada na hoście platformy, gdy tabela jest czynna:
 | `/`, gdy tabela nie ma strony `/` | 307 do logowania, jak dotąd |
 | strony zespołu i gości (`/panel`, `/login`, `/book`, …), `/sitemap.xml`, `/robots.txt` | bez zmian |
 
-## 4. Pliki stron — `app/[locale]/product-site/`
+## 4. Pliki stron — `app/product-site/[locale]/`
 
-- `layout.tsx` — układ wszystkich publicznych stron produktu: nagłówek, stopka,
-  czcionka. `page.tsx` — strona główna. `not-found.tsx` i `[...rest]/page.tsx`
-  (wywołuje `notFound()`) — własna strona 404; bez nich adres spoza tabeli dostaje
-  404 bez układu produktu.
-- Strony leżą pod układem rdzenia `app/[locale]/layout.tsx` i dziedziczą po nim:
-  `<html lang>` z języka adresu, `NextIntlClientProvider`, `@saas-core/ui/globals.css`
-  (Tailwind skanuje `apps/**`, więc klasy z plików produktu działają), zmienną
-  `--font-geist` i skrypt trybu ciemnego (klasa `.dark` na `<html>` z ustawienia
-  czytelnika — układ produktu sam decyduje, czy go honoruje).
-- Język: proxy ustawia go z adresu, więc `getTranslations`/`useTranslations` działają
-  bez dodatkowych kroków; stronie generowanej statycznie nadal potrzebne jest
-  `setRequestLocale(locale)` z `params`.
+Folder stoi **obok** `app/[locale]`, nie pod nim: strony produktu mają własny układ
+główny i nie dziedziczą dokumentu panelu. Powód jest mierzalny (§8): pod `[locale]`
+każda strona niesie cały katalog komunikatów języka.
+
+- `layout.tsx` — **układ główny** produktu. `page.tsx` — strona główna.
+  `not-found.tsx` i `[...rest]/page.tsx` (wywołuje `notFound()`) — własna strona 404;
+  bez nich adres spoza tabeli dostaje 404 bez układu produktu.
+
+```tsx
+// app/product-site/[locale]/layout.tsx
+import "@saas-core/ui/globals.css";                    // jeśli produkt chce stylów rdzenia
+import { Inter } from "next/font/google";
+import { SiteDocument, siteStaticParams } from "#components/site-document";
+
+const font = Inter({ subsets: ["latin", "latin-ext", "cyrillic"], variable: "--font-geist" });
+export const generateStaticParams = siteStaticParams;
+
+export default async function Layout({ children, params }) {
+  const { locale } = await params;
+  return (
+    <SiteDocument locale={locale} namespaces={["MojSerwis"]} className={font.variable}>
+      <Header />{children}<Footer />
+    </SiteDocument>
+  );
+}
+```
+
+**Co daje rdzeń (`SiteDocument`):**
+
+- `<html lang>` z języka adresu i `dir` (`rtl` dla języków pisanych od prawej),
+  `<body>`; 404 dla języka, którego wdrożenie nie obsługuje;
+- język żądania dla next-intl (`setRequestLocale`) — proxy ustawia go też z adresu,
+  bez ciasteczka i bez wykrywania;
+- dostawcę komunikatów, który oddaje przeglądarce **tylko wymienione przestrzenie
+  nazw** (`namespaces`): własne produktu i dowolne rdzenia, których używają komponenty
+  klienckie stron (`Common`, teksty strony gościa). Komponenty serwerowe czytają
+  każdą przestrzeń nazw języka (`getTranslations`), także teksty gości rdzenia, bez
+  wymieniania ich tutaj i bez kosztu w przeglądarce.
+
+**Co układ produktu musi dać sam** (rdzeń tego nie narzuca, bo publiczny serwis
+decyduje o tym po swojemu):
+
+- **arkusz stylów**: `import "@saas-core/ui/globals.css"` daje Tailwind (skanuje
+  `apps/**`, więc klasy z plików produktu działają), tokeny i komponenty rdzenia;
+  bez tego importu strona nie ma żadnych stylów rdzenia;
+- **czcionkę**: `next/font` z podzbiorem `cyrillic`; zmienna o nazwie `--font-geist`
+  podana w `className` zasila `font-sans` rdzenia (w `globals.css`), inna nazwa
+  wymaga własnego CSS;
+- **`generateStaticParams`** (`siteStaticParams`) i treść: nagłówek, stopkę;
+- opcjonalnie skrypt trybu ciemnego (`COLOR_SCHEME_SCRIPT` z `#lib/color-scheme` jako
+  pierwsze dziecko), jeśli serwis ma ciemny wygląd; metadane i ikony — jak w każdej
+  aplikacji Next (`metadata`, `siteMetadata` z §5).
+
+Pozostałe zasady:
+
+- Nagłówek i stopkę renderuj jako komponenty **wewnątrz** `SiteDocument` — wtedy język
+  jest już ustawiony. Strona, która ma być generowana statycznie, woła
+  `setRequestLocale(locale)` z `params` sama (wymóg next-intl); bez tego jest
+  renderowana przy żądaniu, w języku z adresu.
 - **Strona z parametrem odpowiada `notFound()` na wartość, której nie zna.** Tabela
   sprawdza tylko kształt adresu; czy rasa istnieje, wie strona.
 - Kodowanych adresów nie pisze się ręcznie (§5). Odnośnik do panelu albo logowania
-  to `Link` z `#i18n/navigation` (lint rdzenia odrzuca `<a href="/panel">`).
+  to `Link` z `#i18n/navigation` (lint rdzenia odrzuca `<a href="/panel">`); na
+  stronie w języku spoza pl/en podaj mu `locale="en"`, inaczej prowadzi przez jedno
+  308. Przejście między stronami produktu a panelem to pełne załadowanie dokumentu
+  (dwa układy główne); między stronami produktu — przejście po stronie klienta.
 
 ## 5. Linki, przełącznik języka, canonical i hreflang
 
@@ -227,19 +277,24 @@ export async function siteSitemap(): Promise<SiteSitemapEntry[]> {
   pl/en czyta katalog angielski, więc angielskie słowa produktu leżą pod jego własnymi:
   brak słowa po niemiecku daje słowo angielskie. Plik czyta tylko serwer; `messages`
   w `product/index.ts` zostają słowami panelu (pl/en).
-- `NextIntlClientProvider` przekazuje komunikaty do przeglądarki na każdej stronie,
-  także w panelu (pl/en) — trzymaj tu słowa interfejsu, nie treść stron.
-- **Ile waży publiczna strona (zmierzone 2026-10-08 na zbudowanej aplikacji):** dokument
-  strony produktu ma ok. 360 KB (100 KB po gzip), z czego ok. 342 KB (96 KB po gzip)
-  to cały katalog komunikatów języka (`messages/en.json` ma 366 KB) plus słowa
-  produktu — dostawca w układzie rdzenia `app/[locale]/layout.tsx` oddaje go
-  przeglądarce na każdej stronie pod `[locale]`, tak samo na stronach marketingowych
-  i rezerwacji każdego produktu. **Produkt nie uniknie tego nowymi plikami:** dostawca
-  stoi nad folderem jego stron, a własny dostawca w układzie produktu niczego z tego
-  ładunku nie zdejmuje. To otwarta sprawa rdzenia (ADR-080, „Granice”).
-- Czcionka z cyrylicą: układ produktu ładuje własną przez `next/font` z podzbiorami
-  `latin`, `latin-ext`, `cyrillic` i nadaje jej klasę swojemu kontenerowi. Czcionka
-  panelu (Geist, `latin` i `latin-ext`) zostaje, jaka była.
+- Słowa serwisu w pl i en są częścią katalogu języka, więc niesie je też każda strona
+  panelu — trzymaj w nich słowa interfejsu, nie treść stron.
+- Do przeglądarki trafiają tylko przestrzenie nazw wymienione w `SiteDocument` (§4).
+  **Zmierzone na zbudowanej aplikacji (2026-10-08), ta sama strona przed i po
+  przeniesieniu folderu spod `[locale]`:**
+
+  | Strona | HTML przed | gzip przed | HTML po | gzip po |
+  |---|---|---|---|---|
+  | `/en` (strona główna) | 359 805 B | 100 135 B | 12 422 B | 3 734 B |
+  | `/en/dog-breeds/german-shepherd` | 359 768 B | 101 150 B | 13 362 B | 3 906 B |
+  | `/ru/quiz` (strona kliencka) | 360 037 B | 101 558 B | 10 876 B | 2 759 B |
+
+  Przed: 342 KB dokumentu (96 KB po gzip) to był cały katalog komunikatów języka
+  z układu rdzenia. Po: komunikaty to 2,5 KB (0,8 KB po gzip) — jedna przestrzeń nazw
+  produktu.
+- Czcionka z cyrylicą: układ główny produktu ładuje ją przez `next/font`
+  z podzbiorami `latin`, `latin-ext`, `cyrillic` (§4). Czcionka panelu (Geist, `latin`
+  i `latin-ext`) zostaje, jaka była.
 
 ## 9. Zarezerwowane pierwsze segmenty
 
@@ -304,9 +359,10 @@ Trzy poziomy; każdy widzi coś, czego nie widzi poprzedni.
 
 1. Profil: `features.marketingSite: false`, języki w `supportedLocales`.
 2. `public-site.ts`: strona główna i działy z nazwami per język.
-3. `app/[locale]/product-site/`: `layout.tsx`, `page.tsx`, strony działów,
-   `not-found.tsx`, `[...rest]/page.tsx`.
-4. `site-messages.ts`: słowa w każdym języku; linki przez `SiteLink`.
+3. `app/product-site/[locale]/`: `layout.tsx` (układ główny z `SiteDocument`),
+   `page.tsx`, strony działów, `not-found.tsx`, `[...rest]/page.tsx`.
+4. `site-messages.ts`: słowa w każdym języku; przestrzenie nazw komponentów
+   klienckich w `namespaces` układu; linki przez `SiteLink`.
 5. `old-addresses.ts` (+ `.json`): stare adresy; `pnpm test` pokaże każdą odmowę.
 6. `site-sitemap.ts`: lista stron z parametrami per język.
 7. Po przebudowie stacku: `product-site:check` (§10 pkt 3) — dopiero on mówi, że

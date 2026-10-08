@@ -93,7 +93,9 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   stronę główną, działy nazwane per język, stare adresy (jedno 308 albo 410), linie
   sitemapy i słowa per język treści — nowymi plikami i czterema plikami slotu
   (`product/public-site.ts`, `old-addresses.ts`, `site-sitemap.ts`,
-  `site-messages.ts`), strony pod `app/[locale]/product-site/`; kontrakt
+  `site-messages.ts`), strony pod własnym układem głównym w
+  `app/product-site/[locale]/` (`SiteDocument`; strona niesie słowa produktu, nie
+  katalog panelu — 12 KB zamiast 360 KB); kontrakt
   `docs/architecture/product-public-site.md`. Business, HoofCare i MedPlano bez
   zmian — pilnują tego `proxy.golden.json` i `metadata.golden.json`. Otwarte po
   tym pakiecie: odczyt opublikowanych wpisów systemu treści przez strony produktu

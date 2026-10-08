@@ -125,7 +125,7 @@ rdzenia poza slotami; pilnuje tego `pnpm core:check`, a rdzeń przychodzi przez
 | okres bezpłatny konta danego typu organizacji | `register_free_period` z `billing/api.py` w `AppConfig.ready`: karta planu podaje `free_until` (deklaracja, bez egzekwowania) |
 | menu, zakładki „Ustawień” (`settingsSections`), dolny pasek na telefonie (`mobileTabs`: adresy pozycji menu; bez pola — trzy pierwsze pozycje pracy), tłumaczenia, treść marketingowa | `apps/frontend/src/product/index.ts` |
 | strony panelu | nowe pliki w `apps/frontend/src/app/` |
-| własna publiczna strona na hoście produktu: strona główna, działy nazwane per język, stare adresy (308/410), sitemapa, słowa per język treści | `apps/frontend/src/product/public-site.ts`, `old-addresses.ts`, `site-sitemap.ts`, `site-messages.ts` + pliki stron w `apps/frontend/src/app/[locale]/product-site/`; kontrakt: [`product-public-site.md`](product-public-site.md) (ADR-080) |
+| własna publiczna strona na hoście produktu: strona główna, działy nazwane per język, stare adresy (308/410), sitemapa, słowa per język treści | `apps/frontend/src/product/public-site.ts`, `old-addresses.ts`, `site-sitemap.ts`, `site-messages.ts` + pliki stron z własnym układem głównym w `apps/frontend/src/app/product-site/[locale]/`; kontrakt: [`product-public-site.md`](product-public-site.md) (ADR-080) |
 | rekordy modułu w blokach stron i własne strony rekordów | `register_public_source` z `core/organizations/api.py` w `AppConfig.ready` (protokół: notatka w `core/organizations/public_sources.py`) |
 | profil, obrazy, testy, kontrakt | `deployments/<produkt>/`, `product.json` |
 

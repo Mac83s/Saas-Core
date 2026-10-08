@@ -126,7 +126,7 @@ repozytorium założone jako kopia Saas-Core, z Saas-Core jako `upstream`.
   organizacji w `apps/frontend/src/product/organization-messages.ts`,
   własną publiczną stronę na hoście produktu (`public-site.ts`, `old-addresses.ts`,
   `site-sitemap.ts`, `site-messages.ts` w tym samym slocie i pliki stron w
-  `apps/frontend/src/app/[locale]/product-site/` — kontrakt
+  `apps/frontend/src/app/product-site/[locale]/`, pod własnym układem głównym — kontrakt
   `docs/architecture/product-public-site.md`, ADR-080),
   `product.json` (profile repozytorium),
   `.agents/evals/routing.product.json` (który skill obsługuje moduł wertykału —
