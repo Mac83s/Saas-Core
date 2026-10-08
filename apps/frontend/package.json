@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node ../../scripts/run-vitest.mjs",
+    "product-site:check": "node ../../scripts/run-vitest.mjs src/lib/product-site/built-stack.test.ts",
     "test:e2e": "node ../../scripts/run-playwright.mjs"
   },
   "dependencies": {
