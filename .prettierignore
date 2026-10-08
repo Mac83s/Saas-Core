@@ -24,6 +24,9 @@ packages/contracts/openapi/quality-baseline*.json
 packages/contracts/catalog/cities.json
 # Written only by `pnpm commands:manifest`.
 packages/contracts/commands/manifest*.json
+# Written only by `SITES_GOLDEN_WRITE=1 pytest tests/test_sites_golden_blog.py`, compared
+# byte for byte.
+apps/backend/tests/golden/
 packages/api-client/src/schema.d.ts
 apps/frontend/src/generated/deployment.ts
 deployments/*/module-artifact.json
