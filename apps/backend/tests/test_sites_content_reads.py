@@ -471,8 +471,8 @@ def test_lists_page_filter_by_term_and_say_when_a_term_is_too_thin_to_index() ->
     assert (wide.data["list"]["total"], wide.data["list"]["indexable"]) == (5, True)
     assert wide.data["list"]["languages"] == ["pl", "en"]
     assert _slugs(english) == ["entry-1"]
-    # A language the type has nothing in has no list; German is a language of
-    # the deployment, so this is about the content, not the code.
+    # A language the type has nothing in has no list; German is in the
+    # platform's registry, so this is about the content, not the code.
     assert _read("types/poradnik/entries/", locale="de").status_code == 404
     item = first.data["list"]["items"][0]
     assert set(item) == {
@@ -567,7 +567,7 @@ def test_names_in_another_language_need_no_publication_of_the_builder_site() -> 
                     "name": "Tips",
                     "count": 1,
                     "indexable": False,
-                    "parent": None,
+                    "parent_slug": None,
                 }
             ],
         }
@@ -831,6 +831,45 @@ def test_a_second_site_in_the_workspace_reads_nothing_rather_than_guessing() -> 
 
     assert _read("types/").json() == []
     assert _read("types/poradnik/entries/pl/pierwszy/").status_code == 404
+
+
+def test_the_read_is_called_from_its_own_routes_and_nowhere_else() -> None:
+    """The read finds its tenant without a host. What makes that safe is
+    where it is mounted: under addresses the host gate answers on the
+    platform's own hosts only, with no caller's value choosing the workspace.
+    A second caller — another view, a task, a route addressed by a company's
+    host — would carry the exception somewhere this file does not test, so
+    the modules that import the read are counted here, like the door's."""
+    import ast
+    from pathlib import Path
+
+    from django.conf import settings
+
+    from saas_core.http.hosts import PUBLIC_MEDIA_PREFIX, PUBLIC_SITE_ROUTES
+
+    source = Path(settings.BASE_DIR) / "src" / "saas_core"
+    importers = set()
+    for path in sorted(source.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            names = (
+                [node.module or "", *(alias.name for alias in node.names)]
+                if isinstance(node, ast.ImportFrom)
+                else [alias.name for alias in node.names]
+                if isinstance(node, ast.Import)
+                else []
+            )
+            if any(name.rsplit(".", 1)[-1] == "content_reads" for name in names):
+                importers.add(path.relative_to(source).as_posix())
+
+    assert importers == {
+        # The routes, and the shapes they answer with (the page-size bound).
+        "modules/shared/sites/content_read_views.py",
+        "modules/shared/sites/content_read_serializers.py",
+    }
+    # And those routes are none of the ones a company's site is read through.
+    prefix = "/api/v1/public/content/"
+    assert not any(route.startswith(prefix) for route in PUBLIC_SITE_ROUTES)
+    assert not prefix.startswith(PUBLIC_MEDIA_PREFIX)
 
 
 # --- pictures ----------------------------------------------------------------

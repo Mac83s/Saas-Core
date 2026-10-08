@@ -44641,7 +44641,7 @@ components:
           type: boolean
           description: Whether the term's list is a page worth indexing (three entries
             or more).
-        parent:
+        parent_slug:
           type:
           - string
           - 'null'
@@ -44651,7 +44651,7 @@ components:
       - count
       - indexable
       - name
-      - parent
+      - parent_slug
       - slug
       - taxonomy
     PublicContentType:

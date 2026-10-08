@@ -424,7 +424,7 @@ def read_terms(*, type_key: str, locale: str) -> dict[str, Any]:
                         "count": counts[term["slug"]],
                         "indexable": counts[term["slug"]] >= TAG_INDEX_THRESHOLD,
                         # Tags are flat; a category names the one above it.
-                        "parent": None,
+                        "parent_slug": None,
                     }
                     for term in _terms(workspace, locale, published.items(), names)
                 ],

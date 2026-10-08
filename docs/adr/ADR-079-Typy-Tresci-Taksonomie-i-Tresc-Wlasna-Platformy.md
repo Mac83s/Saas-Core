@@ -724,7 +724,10 @@ Odstępstwa i doprecyzowania:
    pośredni), bierze cały moduł definiujący, sięga po nią jako atrybut albo zapisuje ją
    w napisie — osobny test trzyma wykrywacz przy tych sposobach. Pięć plików
    publicznego renderera nie może nazwać odnalezienia wcale. Liczba linii
-   `PRE_TENANT_DB` w module definiującym wzrosła z 2 do 3, z powodem.
+   `PRE_TENANT_DB` w module definiującym wzrosła z 2 do 3, z powodem. Policzone są też
+   moduły importujące sam odczyt (`content_reads`): tylko jego widoki i ich
+   serializery — drugi wywołujący przeniósłby wyjątek tam, gdzie nikt go nie sprawdził.
+   Czego wykrywacz nie zobaczy: nazwy złożonej dopiero w czasie działania.
 5. **Reguła pkt 29 stoi w jednym miejscu: `serving_locales`.** Przez nią przechodzą
    wszystkie odczyty hosta — strony i wpisy, podpowiedź 404, kanały, sitemapa,
    `robots.txt`, `llms.txt`, media, formularz kontaktowy — więc host strony workspace'u
@@ -790,11 +793,11 @@ nazywa innej firmy, a `SET LOCAL` stoi przed każdym odczytem tabeli z polityką
 w tej samej transakcji. Resztę sprawdza się po scaleniu na uruchomionym stosie, pod
 rolą aplikacji.
 
-**Co zostaje dla kategorii po CT2:** taksonomie typu w `read_terms` (drzewo z `parent`,
+**Co zostaje dla kategorii po CT2:** taksonomie typu w `read_terms` (drzewo z `parent_slug`,
 nazwa i segment taksonomii per język), pozycje z `terms` migawki zamiast `tags`, filtr
 listy po kategorii z wpisami kategorii podrzędnych, adres pozycji per język i dawny
 adres jako `moved` listy, listy kategorii w wykazie sitemapy. Kształt odpowiedzi jest
-na to gotowy (`taxonomy`, `parent`, koperta `moved`).
+na to gotowy (`taxonomy`, `parent_slug`, koperta `moved`).
 
 ## Ryzyka
 

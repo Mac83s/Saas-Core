@@ -193,7 +193,16 @@ const newest = (versions: readonly { updated_at: string }[]) =>
 export async function contentSitemapEntries(
   routes: Readonly<Record<string, ContentRoutes>>,
 ): Promise<SiteSitemapEntry[]> {
-  const sitemap = await contentSitemap();
+  const listing = await contentSitemap();
+  // Parameters without a language would read as "the same in every
+  // language of the table": an item that names none is no line at all.
+  const named = <T extends { versions: readonly unknown[] }>(items: T[]) =>
+    items.filter((item) => item.versions.length > 0);
+  const sitemap = {
+    entries: named(listing.entries),
+    lists: named(listing.lists),
+    terms: named(listing.terms),
+  };
   const lines: SiteSitemapEntry[] = [];
   for (const item of sitemap.lists) {
     const route = routes[item.type]?.list;

@@ -201,7 +201,7 @@ class PublicContentTreeTermSerializer(PublicContentTermSerializer):
     indexable = serializers.BooleanField(
         help_text="Whether the term's list is a page worth indexing (three entries or more)."
     )
-    parent = serializers.CharField(
+    parent_slug = serializers.CharField(
         allow_null=True,
         help_text="The slug of the term above it in a hierarchical taxonomy; null at the top "
         "and for every tag.",

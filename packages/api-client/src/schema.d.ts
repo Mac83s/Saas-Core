@@ -16847,7 +16847,7 @@ export interface components {
             /** @description Whether the term's list is a page worth indexing (three entries or more). */
             indexable: boolean;
             /** @description The slug of the term above it in a hierarchical taxonomy; null at the top and for every tag. */
-            parent: string | null;
+            parent_slug: string | null;
         };
         PublicContentType: {
             /** @description The type's stable key: every read asks by it. */

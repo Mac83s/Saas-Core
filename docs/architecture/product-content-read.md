@@ -131,7 +131,7 @@ const types = await contentTypes();
 // [{ key, schema_type, languages, names: { pl, en }, segments: { pl, en } }]
 const terms = await contentTerms({ type: "poradnik", locale });
 // { type, locale, taxonomies: [{ key: "tag", hierarchical, segment, terms: [
-//     { taxonomy, slug, name, count, indexable, parent } ] }] } | null
+//     { taxonomy, slug, name, count, indexable, parent_slug } ] }] } | null
 ```
 
 - Typ jest na liście dopiero, gdy ma wpis na jakiejś liście; `names` i `segments` tylko
@@ -140,7 +140,7 @@ const terms = await contentTerms({ type: "poradnik", locale });
   Sekcje swojej strony produkt nazywa we własnej tabeli (§5).
 - Pozycja istnieje dla odczytu tylko tam, gdzie nosi ją **opublikowany wpis, który nie
   prosi o nieindeksowanie**, w danym języku. `count` liczy tylko takie wpisy.
-- `parent` to slug pozycji nadrzędnej w taksonomii hierarchicznej; dla tagów `null`.
+- `parent_slug` to slug pozycji nadrzędnej w taksonomii hierarchicznej; dla tagów `null`.
   Drzewo składa produkt z tych wskazań.
 
 ### 4.4 Sitemapa
@@ -344,7 +344,7 @@ Pozycje są zaprojektowane tak, żeby kategorie były dodatkiem:
 
 - `terms[].taxonomy` dostanie kolejne wartości obok `tag` (klucz taksonomii kategorii
   typu); `contentTerms` zwróci dodatkową taksonomię z `hierarchical: true`,
-  a `parent` zacznie wskazywać pozycję nadrzędną;
+  a `parent_slug` zacznie wskazywać pozycję nadrzędną;
 - `contentEntries({ taxonomy, term })` przyjmie tę taksonomię; lista kategorii
   nadrzędnej obejmie wpisy podrzędnych;
 - slug pozycji stanie się adresem **per język**, a dawny adres da `moved`;

@@ -352,6 +352,24 @@ describe("the platform's content in the product's sitemap (ADR-079, ADR-080)", (
     ]);
   });
 
+  it("writes no line for an item that names no language", async () => {
+    const { content } = await load();
+    fetched.mockResolvedValue(
+      json({
+        entries: [{ type: "breeds", versions: [] }],
+        lists: [{ type: "breeds", versions: [] }],
+        terms: [],
+      }),
+    );
+
+    // `{}` as parameters would mean "every language of the table".
+    expect(
+      await content.contentSitemapEntries({
+        breeds: { entry: "/breeds/[slug]", list: "/breeds" },
+      }),
+    ).toEqual([]);
+  });
+
   it("gives a term's list its page where the product has one", async () => {
     const { content } = await load();
     fetched.mockResolvedValue(json(listing));
