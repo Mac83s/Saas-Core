@@ -37,13 +37,13 @@ from .models import (
     ContentCollection,
     ContentEntry,
     ContentEntryState,
-    ContentTag,
     Domain,
     DomainStatus,
     Publication,
     Site,
 )
 from .seo_graph import ARTICLE_TYPE, page_graph
+from .term_addresses import TAG_SEGMENT, site_tags
 
 
 def tenant_is_servable(organization_id: Any) -> bool:
@@ -401,12 +401,17 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
     # Derived from the menu, never stored: a stored trail is wrong the moment
     # somebody reorders the tree, and the whole point of the hierarchy is that
     # reordering is cheap.
+    # A category's archive brings its own: the categories it lies under.
+    trail = page.page.get("trail")
     breadcrumbs = (
-        _breadcrumbs(
-            navigation,
-            page_id=str(page.page.get("page_id", "")),
-            title=selected_locale["title"],
-            path=page.canonical_path,
+        (
+            trail
+            or _breadcrumbs(
+                navigation,
+                page_id=str(page.page.get("page_id", "")),
+                title=selected_locale["title"],
+                path=page.canonical_path,
+            )
         )
         if own is None
         else _source_trail(page, own, home, site_snapshot, site_name)
@@ -476,7 +481,7 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         # A record's own page shows its trail: no menu leads to it, and the
         # trail is where it says whose it is. A page of the menu keeps its
         # trail for machines alone.
-        "show_breadcrumbs": own is not None,
+        "show_breadcrumbs": own is not None or bool(trail),
         # Present only where they mean something: an index has pages, an
         # article has an author and dates, a plain page has neither.
         "pagination": _absolute_pagination(page.page.get("pagination"), canonical_origin),
@@ -744,9 +749,29 @@ def _localized_article(
     page: PublicPage, site_snapshot: dict[str, Any], default_locale: str
 ) -> dict[str, Any] | None:
     """An article's facts, its tags named in the article's language where the
-    site's texts translate them (TL11c)."""
+    site's texts translate them (TL11c). An entry filed under categories
+    carries `categories` — each named and linked to its archive in the
+    reader's language; an entry under none has no such key, so an article
+    older than categories reads exactly as it did."""
     article = page.page.get("article")
     texts = (site_snapshot.get("site_texts") or {}).get(page.locale) or {}
+    carried = page.page.get("categories") or []
+    # An entry that asks not to be indexed is on no archive's list, so its
+    # category's archive may not answer at all: it links to none.
+    if article is not None and carried and not page.page.get("noindex"):
+        from .public_archives import entry_categories
+
+        categories = entry_categories(
+            organization_id=page.organization_id,
+            site_id=page.site_id,
+            collection_id=page.page.get("collection_id"),
+            carried=carried,
+            texts=texts,
+            default_locale=default_locale,
+            locale=page.locale,
+        )
+        if categories:
+            article = {**article, "categories": categories}
     if article is None or page.locale == default_locale or not article.get("tags") or not texts:
         return article
     # sites_contenttag forces RLS: the tenant the host named goes first. The
@@ -754,11 +779,9 @@ def _localized_article(
     with transaction.atomic():
         set_local_organization_id(page.organization_id)
         ids = dict(
-            ContentTag.all_objects.filter(
-                organization_id=page.organization_id,
-                site_id=page.site_id,
-                slug__in=[tag["slug"] for tag in article["tags"]],
-            ).values_list("slug", "id")
+            site_tags(organization_id=page.organization_id, site_id=page.site_id)
+            .filter(slug__in=[tag["slug"] for tag in article["tags"]])
+            .values_list("slug", "id")
         )
     return {
         **article,
@@ -1101,6 +1124,14 @@ def _find_entry(
                 # The structured data's type of the entry (ADR-079 pkt 20);
                 # read here, never published: changing it republishes nothing.
                 "schema_type": str(entry.collection.schema_type),
+                # The categories this publication files the entry under, for
+                # the links to their archives (`_localized_article`).
+                "collection_id": str(entry.collection_id),
+                "categories": [
+                    term
+                    for term in snapshot.get("terms") or []
+                    if isinstance(term, dict) and term.get("id") and term.get("taxonomy")
+                ],
                 # What a reader and a search engine both want to know about an
                 # article and never about a page: who wrote it and when.
                 "article": {
@@ -1167,13 +1198,19 @@ def _company_timezone(organization_id: Any) -> str:
 
 
 def published_entries(
-    *, organization_id: Any, site_id: Any, available: frozenset[str] | None = None
+    *,
+    organization_id: Any,
+    site_id: Any,
+    available: frozenset[str] | None = None,
+    collection_id: Any | None = None,
 ) -> list[dict[str, Any]]:
     """Every published entry of a site, newest first, as plain snapshot data.
 
     The feed, the sitemap and the blog index are the same projection read three
     ways (ADR-035 section 7), so they read it from one place rather than each
-    growing its own idea of what is published.
+    growing its own idea of what is published. `collection_id` narrows the
+    read to one content type — an index and an archive list one type's
+    entries and need not read the site's others.
     """
     rows = ContentEntry.all_objects.select_related(
         "current_publication", "collection", "site"
@@ -1186,6 +1223,8 @@ def published_entries(
         # so one read says what is published and what is on the site.
         collection__archived_at__isnull=True,
     )
+    if collection_id is not None:
+        rows = rows.filter(collection_id=collection_id)
     items: list[dict[str, Any]] = []
     for entry in rows:
         publication = entry.current_publication
@@ -1208,6 +1247,13 @@ def published_entries(
             "author_name": str(snapshot.get("author_name", "")),
             "tags": [
                 tag for tag in snapshot.get("tags", []) if isinstance(tag, dict) and tag.get("slug")
+            ],
+            # Every term the publication carries, categories too, by id
+            # (ADR-079 pkt 8); a snapshot older than the field has none.
+            "terms": [
+                term
+                for term in snapshot.get("terms") or []
+                if isinstance(term, dict) and term.get("id")
             ],
             "published_at": entry.published_at,
             # When the article last changed, which is when its current
@@ -1456,7 +1502,12 @@ def _find_collection_index(
     )
     default_locale = str(site.default_locale)
     grouped = entries_by_locale(
-        published_entries(organization_id=organization_id, site_id=site.id, available=available),
+        published_entries(
+            organization_id=organization_id,
+            site_id=site.id,
+            available=available,
+            collection_id=collection.id,
+        ),
         str(collection.id),
     )
     languages = index_languages(default_locale, grouped)
@@ -1531,9 +1582,8 @@ def _find_collection_index(
     )
 
 
-#: One segment for every site, in both languages, because a tag address has to
-#: survive being read aloud and retyped.
-TAG_SEGMENT = "tag"
+# `TAG_SEGMENT` (term_addresses): one segment for every site, in every
+# language, because a tag address has to survive being read aloud and retyped.
 
 #: Below this many articles a subject archive is a thin duplicate of the
 #: index rather than a topic page worth indexing on its own.
@@ -1542,15 +1592,6 @@ TAG_INDEX_THRESHOLD = 3
 
 def tag_archive_path(*, index_path: str, slug: str) -> str:
     return f"{index_path}{TAG_SEGMENT}/{slug}/"
-
-
-def _split_tag_archive(requested_path: str) -> tuple[str, str] | None:
-    """Separates `/blog/tag/porady/` into the index address and the tag."""
-    normalized = _comparable_path(requested_path)
-    parts = [part for part in normalized.split("/") if part]
-    if len(parts) >= 3 and parts[-2] == TAG_SEGMENT:
-        return _comparable_path("/" + "/".join(parts[:-2]) + "/"), parts[-1]
-    return None
 
 
 def _pagination_segment(locale: str) -> str:
@@ -1596,126 +1637,16 @@ def _find_tag_archive(
     requested_path: str,
     available: frozenset[str] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], Any]:
-    """Every published article on one subject, at one address per language.
+    """A tag's archive under a content type, or a category's — every
+    published entry on one subject, at one address per language
+    (`public_archives.find_term_archive`)."""
+    from .public_archives import find_term_archive
 
-    A projection like the collection index, and for the same reason: a page
-    somebody maintains by hand is wrong from the first article they forget to
-    add to it. An empty tag is a 404 rather than an empty page — unlike the
-    blog's own address, nothing links to a subject nobody has written about.
-    """
-    # The page suffix comes off first, so an archive paginates exactly like the
-    # collection index rather than growing into one enormous page again.
-    without_page, requested_page = _split_index_page(requested_path)
-    split = _split_tag_archive(without_page)
-    if split is None:
-        raise PublicSiteNotFound
-    index_path, slug = split
-    collection, locale = _find_index(
-        organization_id=organization_id, site=site, wanted=index_path, available=available
-    )
-    default_locale = str(site.default_locale)
-    grouped = {
-        code: tagged
-        for code, items in entries_by_locale(
-            published_entries(
-                organization_id=organization_id, site_id=site.id, available=available
-            ),
-            str(collection.id),
-        ).items()
-        if (tagged := [item for item in items if any(t.get("slug") == slug for t in item["tags"])])
-    }
-    entries = grouped.get(locale, [])
-    if not entries:
-        raise PublicSiteNotFound
-    page_size = settings.SITES_ENTRY_INDEX_PAGE_SIZE
-    total_pages = max(1, -(-len(entries) // page_size))
-    if requested_page > total_pages:
-        raise PublicSiteNotFound
-    window = entries[(requested_page - 1) * page_size : requested_page * page_size]
-
-    # sites_contenttag forces RLS: the tenant the host named goes first. The
-    # site texts name a tag by its id, the archive's address by its slug.
-    with transaction.atomic():
-        set_local_organization_id(organization_id)
-        tag_id = (
-            ContentTag.all_objects.filter(
-                organization_id=organization_id, site_id=site.id, slug=slug
-            )
-            .values_list("id", flat=True)
-            .first()
-        )
-    name = _site_texts(site, locale, available).get(f"tag/{tag_id}") or next(
-        (
-            str(tag.get("name") or slug)
-            for item in entries
-            for tag in item["tags"]
-            if tag.get("slug") == slug
-        ),
-        slug,
-    )
-
-    def archive_of(code: str) -> str:
-        return tag_archive_path(
-            index_path=collection_index_path(
-                collection, default_locale=default_locale, locale=code
-            ),
-            slug=slug,
-        )
-
-    archive_path = archive_of(locale)
-    path = (
-        archive_path
-        if requested_page == 1
-        else index_page_path(archive_path, locale, requested_page)
-    )
-    hreflang = (
-        {code: archive_of(code) for code in sorted(grouped)}
-        if requested_page == 1
-        else {locale: path}
-    )
-    title = _ui_text(TAG_INDEX_TITLE, locale).format(name=name)
-    locale_document: dict[str, Any] = {
-        "locale": locale,
-        "translation_id": None,
-        "version": 1,
-        "slug": slug,
-        "path": path,
-        "canonical_path": path,
-        "title": title,
-        "description": "",
-        "social_title": title,
-        "social_description": "",
-        "fallback_fields": [],
-    }
-    block = {
-        "block_type": "core.entry_list",
-        "schema_version": 1,
-        "data": {
-            "title": title,
-            "main": True,
-            "empty_text": _ui_text(INDEX_EMPTY_TEXT, locale),
-            "items": [_index_item(item) for item in window],
-        },
-    }
-    return (
-        {
-            "page_id": str(collection.id),
-            "key": f"{collection.key}-tag-{slug}",
-            "blocks": [block],
-            "media_asset_ids": [],
-            "locales": [locale_document],
-            "hreflang": hreflang,
-            # One x-default for the cluster, as for an article: the site's
-            # language where the subject has articles, else the same first one.
-            "x_default": hreflang.get(default_locale) or hreflang[min(hreflang)],
-            # A subject with one or two articles is a thin duplicate of the
-            # index, not a topic page; below the threshold the archive still
-            # serves readers but asks not to be indexed.
-            "noindex": len(entries) < TAG_INDEX_THRESHOLD,
-            "pagination": _pagination(archive_path, locale, requested_page, total_pages),
-        },
-        locale_document,
-        _IndexPublication(collection=collection, entries=window),
+    return find_term_archive(
+        organization_id=organization_id,
+        site=site,
+        requested_path=requested_path,
+        available=available,
     )
 
 
@@ -1957,73 +1888,18 @@ def _redirect_target(
 def moved_section(
     *, organization_id: Any, site: Any, requested_path: str, available: frozenset[str] | None
 ) -> str | None:
-    """Where an address under a section's former name answers now: its index,
-    an article, a subject's archive or a later page of either, under the
-    section's name of today (ADR-071 pkt 14, „Uzupełnienie 2026-10-07").
+    """Where an address that used to be right answers now, in one step: under
+    a content type's former name, a taxonomy's former segment, an entry's or
+    a term's former slug, or any of them together
+    (`public_archives.moved_address`; ADR-079 pkt 13)."""
+    from .public_archives import moved_address
 
-    One step from any former name: the target is built from what the section
-    is called now, not from what it was called next, and it is an address
-    that answers — a former name leads nowhere for an article that is gone.
-    A name the site's own language used to have counts for every language,
-    because a language without a name of its own follows that one."""
-    default_locale = str(site.default_locale)
-    parts = _comparable_path(requested_path).strip("/").split("/")
-    locale = default_locale
-    if len(parts) > 1 and len(parts[0]) == 2 and parts[0] != default_locale:
-        locale, parts = parts[0], parts[1:]
-    former, rest = parts[0], parts[1:]
-    if not former:
-        return None
-    # An article's own stored address — where it went out, in whatever shape
-    # addresses had then — leads to where it answers now.
-    wanted = _comparable_path(requested_path)
-    for entry in ContentEntry.all_objects.select_related(
-        "current_publication", "collection"
-    ).filter(
+    return moved_address(
         organization_id=organization_id,
-        site_id=site.id,
-        state=ContentEntryState.PUBLISHED,
-        current_publication__snapshot__path__in=[wanted, f"{wanted}/"],
-        collection__archived_at__isnull=True,
-    ):
-        assert entry.current_publication is not None
-        try:
-            return _section_address(
-                organization_id=organization_id,
-                site=site,
-                path=published_entry_path(
-                    entry, entry.current_publication.snapshot, default_locale
-                ),
-                available=available,
-            )
-        except PublicSiteMoved as moved:
-            return moved.location
-        except PublicSiteNotFound:
-            continue
-    for collection in ContentCollection.all_objects.filter(
-        organization_id=organization_id, site_id=site.id, archived_at__isnull=True
-    ):
-        if not any(
-            isinstance(item, dict)
-            and item.get("path") == former
-            and item.get("locale") in (locale, default_locale)
-            for item in collection.former_paths or []
-        ):
-            continue
-        target = collection_index_path(
-            collection, default_locale=default_locale, locale=locale
-        ) + "".join(f"{part}/" for part in rest)
-        try:
-            return _section_address(
-                organization_id=organization_id, site=site, path=target, available=available
-            )
-        except PublicSiteMoved as moved:
-            # The language is switched off: straight to where its own
-            # address leads, never through it.
-            return moved.location
-        except PublicSiteNotFound:
-            continue
-    return None
+        site=site,
+        requested_path=requested_path,
+        available=available,
+    )
 
 
 def _section_address(

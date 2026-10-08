@@ -30,7 +30,7 @@ from django.test import override_settings
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.models import Organization
-from saas_core.modules.shared.sites.models import Site
+from saas_core.modules.shared.sites.models import LEGACY_TERM_LOCK, ContentTag, Site
 from test_sites_api import csrf_value
 from test_sites_blog_languages import Blog, _feed, _get
 from test_sites_collections import _tagged_entry, publish, save_entry_draft, set_tags
@@ -144,6 +144,9 @@ def _blog() -> Blog:
     _translation(blog.client, second, "en", "second-one", "Second one")
     _translation(blog.client, third, "en", "third-one", "Third one")
     _translation(blog.client, blog.polish, "de", "der-erste", "Der Erste")
+    # The site's tags are older than addresses per language: closed at their
+    # keys, as the migration leaves every tag that was there before it.
+    ContentTag.all_objects.filter(site_id=blog.site_id).update(slug_locked_at=LEGACY_TERM_LOCK)
     blog.english_names("Journal", "Tips")
     return blog
 

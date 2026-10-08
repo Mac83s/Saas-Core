@@ -9,6 +9,7 @@ to follow.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -57,7 +58,6 @@ from .models import (
     ContentEntry,
     ContentEntryPublication,
     ContentEntryState,
-    ContentEntryTag,
     ContentEntryVersion,
     ContentSchemaType,
     ContentTag,
@@ -92,6 +92,9 @@ from .services import (
     emit_draft_saved_event,
 )
 from .source_changes import notify_entry_published, notify_entry_withdrawn
+from .term_addresses import close_term_addresses, snapshot_terms
+
+logger = logging.getLogger(__name__)
 
 COLLECTION_CREATED = "sites.collection.created"
 ENTRY_CREATED = "sites.entry.created"
@@ -1029,6 +1032,14 @@ def publish_entry(
         # publication does not make it so.
         entry.accepted_version = entry.current_draft
         ContentEntry.all_objects.filter(pk=entry.id).update(accepted_version=entry.current_draft)
+    # Locked in key order, as every publication locks them: two entries going
+    # out at once that share a term wait for each other, never on each other.
+    carried = list(
+        ContentTag.all_objects.select_for_update(of=("self",))
+        .filter(organization_id=context.organization_id, entry_links__entry_id=entry.id)
+        .order_by("slug")
+    )
+    tags, terms = snapshot_terms(carried)
     snapshot = {
         "schema_version": ENTRY_SNAPSHOT_SCHEMA_VERSION,
         "entry_id": str(entry.id),
@@ -1053,13 +1064,10 @@ def publish_entry(
         "noindex": entry.noindex,
         # Carried in the snapshot rather than read live: what a visitor sees
         # has to be what was published, including which archives list it.
-        "tags": [
-            {"slug": tag.slug, "name": tag.name}
-            for tag in ContentTag.all_objects.filter(
-                organization_id=context.organization_id,
-                entry_links__entry_id=entry.id,
-            ).order_by("slug")
-        ],
+        # `tags` is the site's tags in the shape it always had; `terms` names
+        # every term the entry carries, categories too (ADR-079 pkt 8).
+        "tags": tags,
+        "terms": terms,
         "version": entry.current_draft.number,
         # When the text last changed, not when it was last published: a
         # sitemap's `lastmod` (TL14).
@@ -1085,6 +1093,16 @@ def publish_entry(
     publication = record_entry_publication(
         context, entry, snapshot, normalized_key, published_at=published_at
     )
+    # The archives of what it carries answer from now on: their addresses
+    # close. Never a reason not to publish — a translation job publishes
+    # here, in the transaction that settles its credits.
+    try:
+        with transaction.atomic():
+            close_term_addresses(
+                carried, default_locale=entry.site.default_locale, locale=entry.locale
+            )
+    except Exception:
+        logger.exception("sites.term_addresses_not_closed entry=%s", entry.id)
     if is_translation_source(entry):
         from .entry_translation_source import follow_source
 
@@ -1165,111 +1183,18 @@ def record_entry_publication(
     return publication
 
 
-class TooManyTags(APIException):
-    status_code = 400
-    default_detail = "Wpis może mieć najwyżej dziesięć tagów."
-    default_code = "entry_too_many_tags"
-
-
-class TagNameInvalid(APIException):
-    status_code = 400
-    default_detail = "Nazwa tagu nie może być pusta."
-    default_code = "entry_tag_name_invalid"
-
-
-def tag_slug(name: str) -> str:
-    """A tag's address, derived from its name rather than typed twice.
-
-    Polish letters fold to their ASCII shapes: an address a person cannot read
-    aloud over the phone is one they will not link to.
-    """
-    folded = name.strip().lower()
-    for source_char, target in (
-        ("ą", "a"), ("ć", "c"), ("ę", "e"), ("ł", "l"), ("ń", "n"),
-        ("ó", "o"), ("ś", "s"), ("ź", "z"), ("ż", "z"),
-    ):
-        folded = folded.replace(source_char, target)
-    slug = re.sub(r"[^a-z0-9]+", "-", folded).strip("-")
-    return slug[:80]
-
-
-@transaction.atomic
 def set_entry_tags(*, entry_id: UUID, names: list[str]) -> list[ContentTag]:
-    """Replaces the whole set rather than adding to it.
+    """The entry's tags, the whole set — `taxonomies.set_entry_tags`, kept
+    under the name it always had here."""
+    from .taxonomies import set_entry_tags as set_tags
 
-    A caller sending the tags it wants cannot accidentally leave one behind,
-    which is what makes this safe to call from an automation replaying the same
-    change set twice.
-    """
-    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
-    entry = (
-        ContentEntry.all_objects.select_for_update(of=("self",))
-        .select_related("collection")
-        .filter(pk=entry_id, organization_id=context.organization_id)
-        .first()
-    )
-    if entry is None:
-        raise EntryNotFound
-    _assert_entry_writable(entry, entry.collection)
-
-    wanted: dict[str, str] = {}
-    for raw in names:
-        slug = tag_slug(raw)
-        if not slug:
-            raise TagNameInvalid
-        # First spelling wins, so "Porady" and "porady" are one tag rather than
-        # two addresses holding half the archive each.
-        wanted.setdefault(slug, raw.strip())
-    if len(wanted) > 10:
-        raise TooManyTags
-
-    tags: list[ContentTag] = []
-    for slug, name in wanted.items():
-        tag, _created = ContentTag.all_objects.get_or_create(
-            organization_id=context.organization_id,
-            site_id=entry.site_id,
-            slug=slug,
-            defaults={"name": name, "created_by_id": context.actor_id},
-        )
-        tags.append(tag)
-    # One order everywhere — the listing, the snapshot and this reply — so
-    # nothing downstream reads meaning into a sequence nothing preserves.
-    tags.sort(key=lambda item: item.slug)
-
-    ContentEntryTag.all_objects.filter(
-        organization_id=context.organization_id, entry_id=entry.id
-    ).exclude(tag_id__in=[tag.id for tag in tags]).delete()
-    for tag in tags:
-        ContentEntryTag.all_objects.get_or_create(
-            organization_id=context.organization_id, entry_id=entry.id, tag_id=tag.id
-        )
-    record_audit(
-        organization=Organization.objects.get(pk=context.organization_id),
-        action=ENTRY_TAGS_SET,
-        actor=User.objects.get(pk=context.actor_id),
-        target_type="content_entry",
-        target_id=entry.id,
-        metadata={"tags": [tag.slug for tag in tags]},
-    )
-    return tags
+    return set_tags(entry_id=entry_id, names=names)
 
 
 def entry_tags(*, entry_id: UUID) -> list[ContentTag]:
-    context = authorize_entitled(
-        SITE_CONTENT_EDIT, SITES_ENABLED, operation=FeatureOperation.READ
-    )
-    entry = ContentEntry.all_objects.filter(
-        pk=entry_id, organization_id=context.organization_id
-    ).first()
-    if entry is None:
-        raise EntryNotFound
-    assert_within_grant(context, site_id=entry.site_id, collection_id=entry.collection_id)
-    return list(
-        ContentTag.all_objects.filter(
-            organization_id=context.organization_id,
-            entry_links__entry_id=entry_id,
-        ).order_by("slug")
-    )
+    from .taxonomies import entry_tags as tags_of
+
+    return tags_of(entry_id=entry_id)
 
 
 class ScheduleInPast(APIException):

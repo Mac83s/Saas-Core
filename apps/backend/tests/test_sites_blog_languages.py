@@ -151,7 +151,13 @@ def test_each_language_lists_its_own_articles_under_its_own_name() -> None:
         ("en", "/en/blog/"),
     ]
 
-    archive = _get(blog.host, "/en/blog/tag/porady/")
+    # A tag made today answers in English under its English name: the archive
+    # moved there once, when the name was accepted (ADR-079 pkt 11), and the
+    # address it had until then leads to it. A tag older than that rule stays
+    # at its key in every language (`test_sites_golden_blog`).
+    moved = _get(blog.host, "/en/blog/tag/porady/")
+    assert (moved.status_code, moved["Location"]) == (308, "/en/blog/tag/tips/")
+    archive = _get(blog.host, "/en/blog/tag/tips/")
     assert archive.status_code == 200, archive.data
     assert archive.data["title"] == "Entries tagged: Tips"
     assert _items(archive) == ["/en/blog/in-english/"]
@@ -263,12 +269,15 @@ def test_the_tag_name_is_looked_up_as_the_tenant_the_host_named() -> None:
     blog.english_names("Journal", "Tips")
 
     with CaptureQueriesContext(connection) as queries:
-        archive = _get(blog.host, "/en/blog/tag/porady/")
+        archive = _get(blog.host, "/en/blog/tag/tips/")
 
     assert archive.data["title"] == "Entries tagged: Tips"
     statements = [query["sql"] for query in queries.captured_queries]
+    # The taxonomy table forces RLS too and is read in the same block, first.
     tag_query = next(
-        index for index, sql in enumerate(statements) if 'FROM "sites_contenttag"' in sql
+        index
+        for index, sql in enumerate(statements)
+        if 'FROM "sites_contenttag"' in sql or 'FROM "sites_contenttaxonomy"' in sql
     )
     # In its own transaction: on the stack each block is one, so a tenant set
     # by an earlier block is gone by then (in a test it would linger).

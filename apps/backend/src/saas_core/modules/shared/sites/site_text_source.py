@@ -72,6 +72,7 @@ from .site_texts import (
     basis_token,
     published_appearance,
     republish_site_texts,
+    settle_term_addresses,
     site_text_units,
     store_row,
     target_token,
@@ -264,6 +265,9 @@ class SiteTextSource:
             for (site_id, locale), keys in sorted(touched.items()):
                 site = _site(context, site_id, lock=True)
                 if keys:
+                    # A name the job gave is gone: an address made from it
+                    # and still open goes with it; a closed one stays.
+                    settle_term_addresses(site, locale)
                     republish_site_texts(
                         context,
                         site,
@@ -466,6 +470,9 @@ def _write_item(
         )[:40]
         row.pending_ref = job_ref
         row.save()
+    if current:
+        # A term's name the job made current may be its address there too.
+        settle_term_addresses(site, item.locale)
     version = target_token(translation_rows(site, item.locale))
     results: list[WriteOutcome] = []
     if current:
@@ -525,6 +532,7 @@ def _decide(
         row.pending_reason, row.pending_ref = "", ""
         row.save()
     if action == "accept":
+        settle_term_addresses(site, item.locale)
         republish_site_texts(
             context,
             site,

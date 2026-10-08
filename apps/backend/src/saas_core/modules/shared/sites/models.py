@@ -1290,6 +1290,10 @@ class ContentEntryState(models.TextChoices):
     DRAFT = "draft", "Szkic"
     PUBLISHED = "published", "Opublikowany"
     WITHDRAWN = "withdrawn", "Wycofany"
+    #: A person removed the entry (ADR-079, „Uzupełnienie CT2"): it is on no
+    #: list and at no address, its rows stay as history like a removed
+    #: page's, and nothing but removing its whole type erases them.
+    REMOVED = "removed", "Usunięty"
 
 
 class ContentCollection(TenantScopedModel):
@@ -1396,14 +1400,91 @@ class ContentCollection(TenantScopedModel):
         super().save(*args, **kwargs)
 
 
-class ContentTag(TenantScopedModel):
-    """One subject, shared by every collection on a site.
+#: The key of `ContentTag.slug_locked_at` that holds for every language.
+EVERY_LOCALE = "*"
 
-    Deliberately one flat taxonomy rather than separate categories and tags.
-    Two vocabularies mean two archive shapes, two panel fields and a rule about
-    which one is "the main one"; for a business blog that distinction buys
-    nothing a reader can see. An entry's tags are an unordered set, sorted by
-    slug wherever they are listed.
+#: What every tag made before terms had addresses per language carries
+#: (ADR-079 pkt 11): its address is its key in every language and is closed,
+#: so translating its name later moves nothing. The database gives it to rows
+#: older than the column and to any row written by code older than it.
+LEGACY_TERM_LOCK = {EVERY_LOCALE: "2026-10-08T00:00:00+00:00"}
+
+
+class ContentTaxonomy(TenantScopedModel):
+    """A vocabulary a site's entries are filed under (ADR-079 pkt 2).
+
+    One row per content type that has categories. The site's tags have no
+    row: their rules — flat, shared by every type, the segment `tag` in every
+    language — are the constant `SITE_TAGS` of `taxonomies`, which is what
+    keeps every tag older than this table untouched. `collection` empty is
+    kept for a vocabulary shared by every type of the site (a company's own
+    taxonomies, after version 1).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.CASCADE, related_name="content_taxonomies")
+    collection = models.ForeignKey(
+        ContentCollection,
+        on_delete=models.CASCADE,
+        related_name="taxonomies",
+        null=True,
+        blank=True,
+    )
+    key = models.SlugField(max_length=80)
+    name = models.CharField(max_length=120)
+    hierarchical = models.BooleanField(default=False)
+    # The word between the type's name and a term in an archive's address,
+    # the same pattern as a section's name: in the site's own language, per
+    # other language, and the former ones, each answering one 308.
+    segment = models.SlugField(max_length=80)
+    locale_segments = models.JSONField(default=dict, blank=True)
+    former_segments = models.JSONField(default=list, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_content_taxonomies",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "site_id", "key", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "collection", "key"],
+                condition=models.Q(collection__isnull=False),
+                name="sites_taxonomy_org_type_key_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "site", "key"],
+                condition=models.Q(collection__isnull=True),
+                name="sites_taxonomy_org_site_key_uq",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.site_id}:{self.key}"
+
+    def clean(self) -> None:
+        super().clean()
+        if self.site_id and self.site.organization_id != self.organization_id:
+            raise ValidationError({"site": "Taksonomia należy do innej organizacji."})
+        if self.collection is not None and self.collection.site_id != self.site_id:
+            raise ValidationError({"collection": "Typ treści należy do innej strony."})
+
+
+class ContentTag(TenantScopedModel):
+    """A term of a site's vocabulary (ADR-079 pkt 3): a tag — `taxonomy`
+    empty, shared by every content type of the site, what every row older
+    than the field is — or a category of one content type.
+
+    `slug` is the term's key: it never changes and is unique on the site,
+    because published snapshots name a tag by it. A term's address in an
+    archive is another thing (`taxonomies.term_slug`): `locale_slugs` per
+    language, else the site's language's, else the key. An entry's terms are
+    an unordered set; a category's place among its siblings is `position`.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
@@ -1412,6 +1493,32 @@ class ContentTag(TenantScopedModel):
     )
     slug = models.SlugField(max_length=80)
     name = models.CharField(max_length=120)
+    taxonomy = models.ForeignKey(
+        ContentTaxonomy,
+        on_delete=models.CASCADE,
+        related_name="terms",
+        null=True,
+        blank=True,
+    )
+    # The category above this one, in the same taxonomy. RESTRICT: removing a
+    # category moves its children up first (`taxonomies.delete_term`); only a
+    # taxonomy going with its type takes a whole tree at once.
+    parent = models.ForeignKey(
+        "self", on_delete=models.RESTRICT, related_name="children", null=True, blank=True
+    )
+    position = models.PositiveIntegerField(default=0, db_default=0)
+    # The term's address per language, made by code from its name there:
+    # {"en": "bathrooms"}. A language without one answers under the site's
+    # language's, and without that under the key.
+    locale_slugs = models.JSONField(default=dict, db_default={}, blank=True)
+    # When each language's address closed (ISO moments by language code):
+    # from then on it changes only by a person's decision, with a 308.
+    # Stored, never worked out at request time — withdrawing the last entry
+    # opens nothing. See `LEGACY_TERM_LOCK` for the rows older than this.
+    slug_locked_at = models.JSONField(default=dict, db_default=LEGACY_TERM_LOCK, blank=True)
+    # Addresses the term answered under before somebody changed them; each
+    # answers one 308 to today's, in every language.
+    former_slugs = models.JSONField(default=list, db_default=[], blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -1614,6 +1721,10 @@ class ContentEntry(TenantScopedModel):
         Site, on_delete=models.PROTECT, related_name="content_entries"
     )
     slug = models.SlugField(max_length=140)
+    # Slugs the entry answered under before somebody changed its address; each
+    # answers one 308 to today's (ADR-079 pkt 7, 13). Read by the public
+    # resolver from phase CT2; written by the change of an entry's address.
+    former_slugs = models.JSONField(default=list, db_default=[], blank=True)
     locale = models.CharField(max_length=10)
     # Entries sharing this are the same article in different languages. A new
     # entry starts as its own group of one, so an article that never gets

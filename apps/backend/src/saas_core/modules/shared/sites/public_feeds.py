@@ -14,8 +14,8 @@ from saas_core.modules.core.organizations.public_sources import page_sources
 from .domains import InvalidHostname, normalize_hostname
 from .localization import collection_index_path
 from .models import ContentCollection, Domain, DomainStatus
+from .public_archives import archive_locations
 from .publication_routing import (
-    TAG_INDEX_THRESHOLD,
     PublicSiteNotFound,
     collection_links,
     entries_by_locale,
@@ -28,9 +28,9 @@ from .publication_routing import (
     published_entries,
     serving_locales,
     source_page_versions,
-    tag_archive_path,
     visible_snapshot,
 )
+from .term_addresses import Vocabulary, site_vocabulary
 
 #: How many articles a feed carries. A reader wants what is new; handing it
 #: ten thousand items makes a slow response nobody reads to the end.
@@ -239,6 +239,8 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
         organization_id=domain.organization_id, site_id=domain.site_id, available=available
     )
     page_size = settings.SITES_ENTRY_INDEX_PAGE_SIZE
+    # Read once, as the tenant the host named, and only if a type is listed.
+    vocabulary: Vocabulary | None = None
     for collection in ContentCollection.all_objects.filter(
         organization_id=domain.organization_id, site_id=domain.site_id, archived_at__isnull=True
     ):
@@ -261,23 +263,21 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
             for number in range(2, pages + 1):
                 window = listed[(number - 1) * page_size : number * page_size]
                 locations.append(_Location(index_page_path(first, locale, number), _latest(window)))
-        # One address per subject that has enough articles to be worth
-        # indexing. Below that the archive exists for readers but asks not to
-        # be indexed, so listing it — or naming it as another's version —
-        # would contradict the page itself.
-        topics: dict[str, dict[str, list[dict[str, Any]]]] = {}
-        for locale in languages:
-            for item in grouped.get(locale, []):
-                for tag in item["tags"]:
-                    slug = str(tag.get("slug", ""))
-                    if slug:
-                        topics.setdefault(slug, {}).setdefault(locale, []).append(item)
-        for slug, by_locale in sorted(topics.items()):
-            indexed = {
-                locale: tag_archive_path(index_path=firsts[locale], slug=slug)
-                for locale, items in by_locale.items()
-                if len(items) >= TAG_INDEX_THRESHOLD
-            }
+        # One address per subject — a tag or a category — that has enough
+        # articles to be worth indexing. Below that the archive exists for
+        # readers but asks not to be indexed, so listing it — or naming it as
+        # another's version — would contradict the page itself.
+        if vocabulary is None:
+            vocabulary = site_vocabulary(
+                organization_id=domain.organization_id, site_id=domain.site_id
+            )
+        for indexed, by_locale in archive_locations(
+            collection=collection,
+            grouped=grouped,
+            languages=languages,
+            vocabulary=vocabulary,
+            default_locale=site_locale,
+        ):
             for locale, path in sorted(indexed.items()):
                 locations.append(_Location(path, _latest(by_locale[locale]), indexed))
     # The pages a source's records have by themselves (a unit of the company's

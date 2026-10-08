@@ -134,6 +134,18 @@ def _entry_payload(entry: ContentEntry) -> dict[str, Any]:
         "tags": [
             {"slug": link.tag.slug, "name": link.tag.name}
             for link in sorted(entry.tag_links.all(), key=lambda item: item.tag.slug)
+            if link.tag.taxonomy_id is None
+        ],
+        # What the draft is filed under among its type's categories.
+        "categories": [
+            {
+                "id": str(link.tag.id),
+                "key": link.tag.slug,
+                "name": link.tag.name,
+                "parent_id": str(link.tag.parent_id) if link.tag.parent_id else None,
+            }
+            for link in sorted(entry.tag_links.all(), key=lambda item: item.tag.slug)
+            if link.tag.taxonomy_id is not None
         ],
         "translation_of": (
             str(entry.translation_of_id) if entry.translation_of_id else None

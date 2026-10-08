@@ -60,6 +60,18 @@ from .onboarding_views import (
 )
 from .search_visibility_views import SearchVisibilityView
 from .seo_preview_views import SeoPreviewView
+from .taxonomy_views import (
+    ContentTypeCategorySegmentsPreviewView,
+    ContentTypeCategorySegmentsView,
+    ContentTypeTermAddressPreviewView,
+    ContentTypeTermAddressView,
+    ContentTypeTermNamesView,
+    ContentTypeTermPreviewView,
+    ContentTypeTermRemovalPreviewView,
+    ContentTypeTermsView,
+    ContentTypeTermView,
+    EntryCategoriesView,
+)
 from .template_media_views import TemplatePhotoView
 from .views import (
     AutomationConnectionListView,
@@ -292,6 +304,56 @@ urlpatterns = [
         "collections/<uuid:collection_id>/paths/preview/",
         ContentCollectionPathsPreviewView.as_view(),
         name="collection-paths-preview",
+    ),
+    path(
+        "collections/<uuid:collection_id>/terms/",
+        ContentTypeTermsView.as_view(),
+        name="content-type-terms",
+    ),
+    path(
+        "collections/<uuid:collection_id>/terms/<uuid:term_id>/",
+        ContentTypeTermView.as_view(),
+        name="content-type-term",
+    ),
+    path(
+        "collections/<uuid:collection_id>/terms/<uuid:term_id>/preview/",
+        ContentTypeTermPreviewView.as_view(),
+        name="content-type-term-preview",
+    ),
+    path(
+        "collections/<uuid:collection_id>/terms/<uuid:term_id>/removal/preview/",
+        ContentTypeTermRemovalPreviewView.as_view(),
+        name="content-type-term-removal-preview",
+    ),
+    path(
+        "collections/<uuid:collection_id>/terms/<uuid:term_id>/names/",
+        ContentTypeTermNamesView.as_view(),
+        name="content-type-term-names",
+    ),
+    path(
+        "collections/<uuid:collection_id>/terms/<uuid:term_id>/address/",
+        ContentTypeTermAddressView.as_view(),
+        name="content-type-term-address",
+    ),
+    path(
+        "collections/<uuid:collection_id>/terms/<uuid:term_id>/address/preview/",
+        ContentTypeTermAddressPreviewView.as_view(),
+        name="content-type-term-address-preview",
+    ),
+    path(
+        "collections/<uuid:collection_id>/category-segments/",
+        ContentTypeCategorySegmentsView.as_view(),
+        name="content-type-category-segments",
+    ),
+    path(
+        "collections/<uuid:collection_id>/category-segments/preview/",
+        ContentTypeCategorySegmentsPreviewView.as_view(),
+        name="content-type-category-segments-preview",
+    ),
+    path(
+        "entries/<uuid:entry_id>/categories/",
+        EntryCategoriesView.as_view(),
+        name="entry-categories",
     ),
     path(
         "pages/<uuid:page_id>/policy/",

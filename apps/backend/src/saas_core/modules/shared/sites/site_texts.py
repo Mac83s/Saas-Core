@@ -5,10 +5,11 @@ tags: one translation each per language, found by the hash of the source text
 (`SiteTextTranslation`), so a reordered footer keeps its translations.
 
 - **Units** are what the site shows now: the tagline and footer from the
-  published appearance, collection names, and the names of tags a published
-  article carries. A unit's key is where the text stands (`header/tagline`,
-  `footer/link/<href hash>`, `collection/<id>`, `tag/<id>`), which is how a
-  reworded text finds its old translation — it reads as stale.
+  published appearance, collection names, and the names of the tags and
+  categories an article's current publication carries. A unit's key is where
+  the text stands (`header/tagline`, `footer/link/<href hash>`,
+  `collection/<id>`, `tag/<id>`), which is how a reworded text finds its old
+  translation — it reads as stale.
 - **Publications** carry, per language, the text visitors read for each key
   (`snapshot["site_texts"]`): a current translation, or a person's or an
   integration's one of a reworded text until they decide; anything else shows
@@ -29,6 +30,7 @@ from typing import Any
 from uuid import UUID
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import APIException, ValidationError
 
@@ -47,7 +49,6 @@ from saas_core.modules.shared.billing.api import FeatureOperation, authorize_ent
 from .language_versions import site_locales
 from .models import (
     ContentCollection,
-    ContentEntryState,
     ContentTag,
     Publication,
     PublicationReason,
@@ -57,10 +58,13 @@ from .models import (
 )
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED
 from .services import SiteNotFound, SitePublicationNotReady, _idempotency_key
+from .term_addresses import carried_terms
 
 KEY_TAGLINE = "header/tagline"
 KEY_FOOTER = "footer/text"
 LINK_PREFIX = "footer/link/"
+TERM_PREFIX = "tag/"
+TERM_NAME_MAX = 120
 SITE_TEXTS_SAVED = "sites.site_texts.saved"
 SITE_TEXTS_PUBLISHED = "sites.site_texts.published"
 
@@ -158,25 +162,48 @@ def site_text_units(site: Site, appearance: Mapping[str, Any] | None) -> tuple[U
         if collection.name.strip()
     ]
     texts += [
-        SiteText(f"tag/{tag.id}", "tag", tag.name.strip(), 120)
-        for tag in ContentTag.all_objects.filter(
-            organization_id=site.organization_id,
-            site_id=site.id,
-            entry_links__entry__state=ContentEntryState.PUBLISHED,
-        )
-        .distinct()
-        .order_by("slug")
-        if tag.name.strip()
+        SiteText(term_text_key(term.id), "tag", term.name.strip(), TERM_NAME_MAX)
+        for term in published_terms(site)
+        if term.name.strip()
     ]
-    return tuple(
-        Unit(
-            key=text.key,
-            kind=UNIT_TEXT,
-            text=text.text,
-            data_class=DATA_PUBLIC,
-            max_length=text.max_length,
-        )
-        for text in texts
+    return tuple(_unit(text) for text in texts)
+
+
+def _unit(text: SiteText) -> Unit:
+    return Unit(
+        key=text.key,
+        kind=UNIT_TEXT,
+        text=text.text,
+        data_class=DATA_PUBLIC,
+        max_length=text.max_length,
+    )
+
+
+def term_text_key(term_id: Any) -> str:
+    """The key of a term's name among the site's texts — a tag's since they
+    were first translated, a category's too (ADR-079 pkt 11)."""
+    return f"{TERM_PREFIX}{term_id}"
+
+
+def term_unit(term: ContentTag) -> Unit:
+    """A term's name as a text of the site, whether or not the site shows it
+    yet: the panel writes a category's name in another language before its
+    first entry is out, and the engine finds it there by its hash."""
+    return _unit(SiteText(term_text_key(term.id), "tag", term.name.strip(), TERM_NAME_MAX))
+
+
+def published_terms(site: Site) -> list[ContentTag]:
+    """The tags and categories a visitor can meet: those an entry's current
+    publication carries — read from the snapshots, never from what an entry's
+    draft is filed under (ADR-079 pkt 10). Only these are offered for
+    translation and only their names reach a publication of the site."""
+    ids, keys = carried_terms(organization_id=site.organization_id, site_id=site.id)
+    if not ids and not keys:
+        return []
+    return list(
+        ContentTag.all_objects.filter(organization_id=site.organization_id, site_id=site.id)
+        .filter(Q(pk__in=ids) | Q(taxonomy__isnull=True, slug__in=keys))
+        .order_by("slug")
     )
 
 
@@ -345,6 +372,7 @@ def save_site_texts(
         )
         row.origin_ref = context.acting_ref or ""
         row.save()
+    settle_term_addresses(site, locale)
     record_audit(
         organization=Organization.objects.get(pk=context.organization_id),
         action=SITE_TEXTS_SAVED,
@@ -429,6 +457,16 @@ def republish_site_texts(
     return publication
 
 
+def settle_term_addresses(site: Site, locale: str) -> None:
+    """The language's texts changed, a category's or a tag's name among them
+    perhaps: the terms whose address there is still open take it from their
+    accepted name (`taxonomies.settle_term_addresses`). Every writer of
+    `SiteTextTranslation.text` calls this, holding the site's row lock."""
+    from .taxonomies import settle_term_addresses as settle
+
+    settle(site, locale)
+
+
 def store_row(site: Site, locale: str, unit: Unit) -> SiteTextTranslation:
     row, _created = SiteTextTranslation.all_objects.get_or_create(
         organization_id=site.organization_id,
@@ -507,6 +545,7 @@ __all__ = [
     "publish_site_texts",
     "republish_site_texts",
     "save_site_texts",
+    "settle_term_addresses",
     "site_text_units",
     "snapshot_site_texts",
 ]

@@ -26,7 +26,7 @@ from django.core.cache import cache
 from django.test import override_settings
 
 from saas_core.modules.core.organizations.models import Organization
-from saas_core.modules.shared.sites.models import Site
+from saas_core.modules.shared.sites.models import LEGACY_TERM_LOCK, ContentTag, Site
 from test_sites_api import csrf_value
 from test_sites_blog_languages import Blog
 from test_sites_collections import (
@@ -269,6 +269,9 @@ def _site() -> Blog:
             {"base_path": base_path, "locale_paths": names, "reason": "Nowa nazwa działu"},
         )
         assert renamed.status_code == 200, renamed.data
+    # The site's tags are older than addresses per language: closed at their
+    # keys, as the migration leaves every tag that was there before it.
+    ContentTag.all_objects.filter(site_id=blog.site_id).update(slug_locked_at=LEGACY_TERM_LOCK)
     blog.english_names("Magazine", "Tips")
     return blog
 

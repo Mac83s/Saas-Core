@@ -575,6 +575,13 @@ class ContentTagSerializer(serializers.Serializer[dict[str, Any]]):
     name = serializers.CharField()
 
 
+class ContentEntryCategorySerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    key = serializers.CharField()
+    name = serializers.CharField()
+    parent_id = serializers.UUIDField(allow_null=True)
+
+
 class ContentEntrySerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     collection_id = serializers.UUIDField()
@@ -594,6 +601,11 @@ class ContentEntrySerializer(serializers.Serializer[dict[str, Any]]):
     scheduled_publish_at = serializers.DateTimeField(allow_null=True)
     schedule_error = serializers.CharField(allow_blank=True)
     tags = ContentTagSerializer(many=True)
+    categories = ContentEntryCategorySerializer(
+        many=True,
+        help_text="The categories of its content type the entry is filed under in the "
+        "panel — what its next publication will carry.",
+    )
     translation_of = serializers.UUIDField(
         allow_null=True,
         help_text="The entry a translation job translated this one from; null for a person's.",

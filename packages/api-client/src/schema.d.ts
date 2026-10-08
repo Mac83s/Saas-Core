@@ -6953,6 +6953,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/collections/{collection_id}/category-segments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change the word for „category” in a content type's addresses
+         * @description The word for „category” in a content type's addresses — `/<type>/<word>/<category>/` — in the site's own language (`segment`) and per other language (`locale_segments`; a language left out follows `segment`). The whole set is sent each time. Every category archive under a word that stops being the type's answers one 308 to today's from the moment this is saved. Never `tag` and never a language's word for „page” (`taxonomy_segment_reserved`). The type must have categories (`taxonomy_not_found`). When archives visitors could open move (`moved` of the preview is not empty) a `reason` is required (`redirect_reason_required`). A person's decision.
+         */
+        put: operations["sites_category_segments_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/category-segments/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview changing the word for „category” in a content type's addresses
+         * @description Validates and answers with the words as they would be and what would move, without saving. The word for „category” in a content type's addresses — `/<type>/<word>/<category>/` — in the site's own language (`segment`) and per other language (`locale_segments`; a language left out follows `segment`). The whole set is sent each time. Every category archive under a word that stops being the type's answers one 308 to today's from the moment this is saved. Never `tag` and never a language's word for „page” (`taxonomy_segment_reserved`). The type must have categories (`taxonomy_not_found`).
+         */
+        post: operations["sites_category_segments_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/collections/{collection_id}/entries/": {
         parameters: {
             query?: never;
@@ -7153,6 +7193,154 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/collections/{collection_id}/terms/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A content type's categories, or the site's tags as that type shows them
+         * @description `kind=categories`: the type's own categories as a tree. `kind=tags`: the site's tags, shared by every content type, with the addresses their archives have under this type. Each term comes with its name per language, its address per language and whether that is closed, how many entries are filed under it, how many its archive lists to visitors per language (read from publications), and whether it can be removed. `max_depth` and `max_per_entry` are the limits to keep.
+         */
+        get: operations["sites_terms_list"];
+        put?: never;
+        /**
+         * Make a category of a content type, or a tag of the site
+         * @description A category goes under `parent_id` when given, up to `max_depth` levels (`term_too_deep`); the type's first category starts its categories — there is nothing to switch on. The address is made from the name and follows it until the first entry carrying the term is published. A name a category beside it already has is refused (`term_name_taken`). A tag's name that means an existing tag — its key or its address in any language — answers with that tag (200).
+         */
+        post: operations["sites_term_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/terms/{term_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a category or a tag that nothing carries
+         * @description Refused while an entry is filed under it in the panel or an entry's current publication names it (`term_in_use`, 409) — otherwise an archive visitors can open would become a 404; the preview says what holds it. Categories under a removed one move one level up. Its addresses become free. A person's decision: an integration and the assistant are refused (`person_required`).
+         */
+        delete: operations["sites_term_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename, move or reorder a category or a tag
+         * @description Renames a category or a tag (`name`), moves a category under another (`parent_id`; null: to the top; at most `max_depth` levels with what is under it) and puts it at `position` among those beside it. A field left out keeps its value. No address moves: a category's archive has the same address wherever it hangs, and a new name changes the address only while no entry carrying the term has been published. What a term is called and where a category hangs shows to visitors at once, with no publication; which entries an archive lists changes only when an entry is published.
+         */
+        patch: operations["sites_term_update"];
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/terms/{term_id}/address/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change the address of a category's or a tag's archive
+         * @description Gives the term's archive another address in one language; in the site's own language it also moves every language without an address of its own. The old address answers one 308 from the moment this is saved, nothing is republished, and the address is closed afterwards: the name no longer changes it. An address another term of the same vocabulary has is refused (`term_slug_taken`); one that only redirects to another term can be taken — `takes_over` of the preview names the redirect that stops, and saving needs `take_over_former` (`term_slug_former` without it). When the change moves an archive visitors could open (`moved` of the preview is not empty) a `reason` is required (`redirect_reason_required`). A person's decision (`person_required`).
+         */
+        put: operations["sites_term_address_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/terms/{term_id}/address/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview changing the address of a category's or a tag's archive
+         * @description Validates and answers with the term as it would be, the archives that would move (`moved`) and the redirects of other terms that would stop (`takes_over`), without saving. Gives the term's archive another address in one language; in the site's own language it also moves every language without an address of its own. The old address answers one 308 from the moment this is saved, nothing is republished, and the address is closed afterwards: the name no longer changes it. An address another term of the same vocabulary has is refused (`term_slug_taken`); one that only redirects to another term can be taken — `takes_over` of the preview names the redirect that stops, and saving needs `take_over_former` (`term_slug_former` without it).
+         */
+        post: operations["sites_term_address_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/terms/{term_id}/names/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Name a category or a tag in the site's other languages
+         * @description A person's names by language code, for the languages that change; an empty name removes it. The translation engine never overwrites a name written here and offers the term only in languages still without one. Where the term's address in a language is still open it is made from the name; if the archive there already answered under the site's language's address it moves once and closes — `moved` says from where to where — and the old address answers one 308. Published at once when the caller may publish, otherwise with the site's next publication.
+         */
+        put: operations["sites_term_names_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/terms/{term_id}/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview renaming, moving or reordering a category or a tag
+         * @description Validates and answers with the term as it would be and `published` — how many published entries are under it, whose archives would change at once — without saving. Renames a category or a tag (`name`), moves a category under another (`parent_id`; null: to the top; at most `max_depth` levels with what is under it) and puts it at `position` among those beside it. A field left out keeps its value. No address moves: a category's archive has the same address wherever it hangs, and a new name changes the address only while no entry carrying the term has been published. What a term is called and where a category hangs shows to visitors at once, with no publication; which entries an archive lists changes only when an entry is published.
+         */
+        post: operations["sites_term_update_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/terms/{term_id}/removal/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Whether a category or a tag can be removed, and what holds it
+         * @description Answers without removing: `removable`, how many entries are filed under the term in the panel (`drafts`), how many entries' current publications carry it (`published`) and how many categories under it would move one level up.
+         */
+        post: operations["sites_term_delete_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/connections/": {
         parameters: {
             query?: never;
@@ -7222,6 +7410,30 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["sites_domains_action"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/entries/{entry_id}/categories/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The categories an entry is filed under in the panel
+         * @description What the entry's draft is filed under — what its next publication will carry, not necessarily what visitors see now.
+         */
+        get: operations["sites_entry_categories_list"];
+        /**
+         * File an entry under categories of its content type
+         * @description Replaces the whole set (at most `max_per_entry`); the entry's tags are not touched. A category of another content type is refused (`term_not_of_type`). Visitors see the change when the entry is next published: an archive lists what publications carry.
+         */
+        put: operations["sites_entry_categories_set"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -10883,6 +11095,8 @@ export interface components {
             scheduled_publish_at: string | null;
             schedule_error: string;
             tags: components["schemas"]["ContentTag"][];
+            /** @description The categories of its content type the entry is filed under in the panel — what its next publication will carry. */
+            categories: components["schemas"]["ContentEntryCategory"][];
             /**
              * Format: uuid
              * @description The entry a translation job translated this one from; null for a person's.
@@ -10890,6 +11104,14 @@ export interface components {
             translation_of: string | null;
             /** @description Why a translation of this entry waits for a person; empty when none waits. */
             pending_reason: string;
+        };
+        ContentEntryCategory: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            name: string;
+            /** Format: uuid */
+            parent_id: string | null;
         };
         ContentEntryCreate: {
             slug: string;
@@ -11670,6 +11892,10 @@ export interface components {
             computed_at: string;
             /** Format: date-time */
             effective_until: string | null;
+        };
+        EntryCategoriesSave: {
+            /** @description The categories of the entry's content type to file it under — the whole set; an empty list takes it out of every category. */
+            term_ids: string[];
         };
         EntrySchedule: {
             /** Format: date-time */
@@ -13205,6 +13431,12 @@ export interface components {
             slot: number;
             block: components["schemas"]["PageBlockInput"];
         };
+        /**
+         * @description * `categories` - A content type's categories: a tree, its own
+         *     * `tags` - The site's tags: flat, shared by every content type
+         * @enum {string}
+         */
+        Kind867Enum: "categories" | "tags";
         /**
          * @description * `note` - Notatka
          *     * `alert` - Uwaga
@@ -15427,6 +15659,18 @@ export interface components {
         PatchedTeamUpdate: {
             name?: string;
             member_ids?: string[];
+        };
+        /** @description Each field is optional: one left out keeps its value. */
+        PatchedTermUpdate: {
+            /** @description The name in the site's own language. */
+            name?: string;
+            /**
+             * Format: uuid
+             * @description The category to move it under; null moves it to the top.
+             */
+            parent_id?: string | null;
+            /** @description The place among those beside it, from 0. */
+            position?: number;
         };
         PatchedTranslationSettingsUpdate: {
             /**
@@ -19893,6 +20137,30 @@ export interface components {
             model: string;
             capabilities: string[];
         };
+        TaxonomySegments: {
+            /** @description The word per language of the site, as saved or as it would be. */
+            segments: {
+                [key: string]: string;
+            };
+            /** @description Per language whose category archives move: the address every archive starts with, before and after. */
+            moved: components["schemas"]["TermMovedPath"][];
+            /** @description False when the words sent are the ones in use. */
+            changed: boolean;
+        };
+        /** @description The whole set of words, sent each time. */
+        TaxonomySegmentsSave: {
+            /** @description The word in the addresses of the site's own language. Lower-case Latin letters, digits and single hyphens. */
+            segment: string;
+            /** @description The word per other language code; a language left out, or given an empty word, follows `segment`. */
+            locale_segments?: {
+                [key: string]: string;
+            };
+            /**
+             * @description Why the addresses move. Required when the change moves archives visitors could open (`moved` of the preview is not empty).
+             * @default
+             */
+            reason: string;
+        };
         Team: {
             /** Format: uuid */
             id: string;
@@ -19936,6 +20204,167 @@ export interface components {
         TemplatePreviewResult: {
             subject: string;
             html_body: string;
+        };
+        Term: {
+            /** Format: uuid */
+            id: string;
+            /** @description The term's fixed key, unique on the site. An address under the key always leads to the term. */
+            key: string;
+            /** @description The name in the site's own language. */
+            name: string;
+            /**
+             * Format: uuid
+             * @description The category above; null at the top and for a tag.
+             */
+            parent_id: string | null;
+            /** @description The place among those beside it, from 0. */
+            position: number;
+            /** @description 1 at the top, up to `max_depth`. */
+            depth: number;
+            /** @description The name in the site's other languages, by language code; a language without one is absent and shows the site's language's name. */
+            names: {
+                [key: string]: components["schemas"]["TermName"];
+            };
+            /** @description The term's address per language of the site. */
+            slugs: {
+                [key: string]: string;
+            };
+            /** @description Where its archive under this content type answers, per language. */
+            paths: {
+                [key: string]: string;
+            };
+            /** @description The languages its address is closed in: the name no longer changes it, only `address` does. */
+            locked: string[];
+            /** @description Entries of this content type filed under it, drafts included. */
+            entries: number;
+            /** @description A tag: entries of the site's other content types filed under it. */
+            entries_elsewhere: number;
+            /** @description Entries its archive under this content type lists to visitors now, by language — a category's with those of the categories under it. Read from publications; a language absent here has no archive. */
+            published: {
+                [key: string]: number;
+            };
+            /** @description Whether nothing carries it: no entry in the panel and no publication. */
+            removable: boolean;
+        };
+        TermAddress: {
+            /** @description The language whose address changes. */
+            locale: string;
+            /** @description The new address. Lower-case Latin letters, digits and single hyphens. */
+            slug: string;
+            /**
+             * @description Why the address moves. Required when the change moves an archive visitors could open (`moved` of the preview is not empty); kept in the history.
+             * @default
+             */
+            reason: string;
+            /**
+             * @description Confirms that a redirect of another term may stop (`takes_over` of the preview): the address only redirects to that term today.
+             * @default false
+             */
+            take_over_former: boolean;
+        };
+        TermChange: {
+            /** @description The term as saved — or, in a preview, as it would be. */
+            term: components["schemas"]["Term"];
+            /** @description False when nothing differs from what is. */
+            changed: boolean;
+            /** @description Archives visitors could open that the change moves. Empty: nothing public moves and no reason is needed. */
+            moved: components["schemas"]["TermMovedPath"][];
+            /** @description Redirects of other terms that stop, because this term takes the address they start from. */
+            takes_over: components["schemas"]["TermTakenOver"][];
+            /** @description Published entries under the term, whose archives change at once. */
+            published: number;
+        };
+        TermCreate: {
+            /** @default categories */
+            kind: components["schemas"]["Kind867Enum"];
+            /** @description The name in the site's own language; the address is made from it. */
+            name: string;
+            /**
+             * Format: uuid
+             * @description A category of the same content type to put the new one under.
+             */
+            parent_id?: string | null;
+        };
+        TermList: {
+            kind: components["schemas"]["Kind867Enum"];
+            /** Format: uuid */
+            collection_id: string;
+            /**
+             * Format: uuid
+             * @description Null for tags, and for categories until the type's first one is made.
+             */
+            taxonomy_id: string | null;
+            /** @description The site's own language. */
+            default_locale: string;
+            /** @description The site's languages, its own first. */
+            locales: string[];
+            /** @description The word between the type's name and a term in an archive's address, per language: `tag` everywhere for tags. */
+            segments: {
+                [key: string]: string;
+            };
+            /** @description How deep categories nest. */
+            max_depth: number;
+            /** @description How many terms of one kind an entry takes. */
+            max_per_entry: number;
+            /** @description In tree order: a category, then those under it, by position. */
+            terms: components["schemas"]["Term"][];
+        };
+        TermMovedPath: {
+            /** @description The language whose archive moves. */
+            locale: string;
+            /** @description The archive's address that stops being the term's; it answers one 308. */
+            from_path: string;
+            /** @description Where it leads from then on. */
+            to_path: string;
+        };
+        TermName: {
+            /** @description The name in that language. */
+            text: string;
+            /** @description Who wrote it: `human` or `ai`; empty when not recorded. */
+            origin: string;
+            /** @description `fresh`; `stale` — the name in the site's language changed since; `unverified`. */
+            state: string;
+        };
+        TermNames: {
+            /** @description The name per language code, for the languages that change; an empty name removes it. */
+            names: {
+                [key: string]: string;
+            };
+        };
+        TermRemoval: {
+            /** @description Whether nothing carries the term. */
+            removable: boolean;
+            /** @description True once it is gone; false in a preview. */
+            removed: boolean;
+            /** @description Entries filed under it in the panel. */
+            drafts: number;
+            /** @description Entries whose current publication carries it. */
+            published: number;
+            /** @description Categories under it, which move one level up. */
+            children: number;
+        };
+        TermTakenOver: {
+            /** @description The address that redirects today. */
+            slug: string;
+            /**
+             * Format: uuid
+             * @description The term it redirects to.
+             */
+            term_id: string;
+            /** @description That term's name. */
+            name: string;
+        };
+        /** @description Each field is optional: one left out keeps its value. */
+        TermUpdate: {
+            /** @description The name in the site's own language. */
+            name?: string;
+            /**
+             * Format: uuid
+             * @description The category to move it under; null moves it to the top.
+             */
+            parent_id?: string | null;
+            /** @description The place among those beside it, from 0. */
+            position?: number;
         };
         /**
          * @description * `slot` - slot
@@ -40780,6 +41209,124 @@ export interface operations {
             };
         };
     };
+    sites_category_segments_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaxonomySegmentsSave"];
+                "application/x-www-form-urlencoded": components["schemas"]["TaxonomySegmentsSave"];
+                "multipart/form-data": components["schemas"]["TaxonomySegmentsSave"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxonomySegments"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_category_segments_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaxonomySegmentsSave"];
+                "application/x-www-form-urlencoded": components["schemas"]["TaxonomySegmentsSave"];
+                "multipart/form-data": components["schemas"]["TaxonomySegmentsSave"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxonomySegments"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_entries_list: {
         parameters: {
             query?: {
@@ -41331,6 +41878,505 @@ export interface operations {
             };
         };
     };
+    sites_terms_list: {
+        parameters: {
+            query?: {
+                /** @description Which vocabulary; `categories` when left out. */
+                kind?: "categories" | "tags";
+            };
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermList"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_term_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TermCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["TermCreate"];
+                "multipart/form-data": components["schemas"]["TermCreate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Term"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Term"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_term_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+                term_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermRemoval"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_term_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+                term_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedTermUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedTermUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedTermUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermChange"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_term_address_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+                term_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TermAddress"];
+                "application/x-www-form-urlencoded": components["schemas"]["TermAddress"];
+                "multipart/form-data": components["schemas"]["TermAddress"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermChange"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_term_address_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+                term_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TermAddress"];
+                "application/x-www-form-urlencoded": components["schemas"]["TermAddress"];
+                "multipart/form-data": components["schemas"]["TermAddress"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermChange"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_term_names_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+                term_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TermNames"];
+                "application/x-www-form-urlencoded": components["schemas"]["TermNames"];
+                "multipart/form-data": components["schemas"]["TermNames"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermChange"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_term_update_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+                term_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TermUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["TermUpdate"];
+                "multipart/form-data": components["schemas"]["TermUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermChange"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_term_delete_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+                term_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermRemoval"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_automation_connections_list: {
         parameters: {
             query?: never;
@@ -41497,6 +42543,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteDomain"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_entry_categories_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentEntryCategory"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_entry_categories_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryCategoriesSave"];
+                "application/x-www-form-urlencoded": components["schemas"]["EntryCategoriesSave"];
+                "multipart/form-data": components["schemas"]["EntryCategoriesSave"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentEntryCategory"][];
                 };
             };
             400: {
