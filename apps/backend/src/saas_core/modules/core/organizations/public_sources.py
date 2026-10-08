@@ -347,6 +347,15 @@ def page_segment_reserved(segment: str, locale: str) -> bool:
     return source is not None and not (source.root_page and source.segment(locale) == segment)
 
 
+def section_root_name(segment: str, locale: str) -> str:
+    """The one name under which a page read in `locale` stands at the own
+    address of the section that holds `segment` in some language
+    (`root_page`); "" where no source holds it or its section gives its
+    address to no page."""
+    source = page_source(segment)
+    return source.segment(locale) if source is not None and source.root_page else ""
+
+
 def section_root_segment(segment: str, locale: str, other: str) -> str:
     """The name in `other` of the section whose own address a page at
     `segment` in `locale` stands at (`root_page`); "" where it stands at

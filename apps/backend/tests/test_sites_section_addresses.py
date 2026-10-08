@@ -42,6 +42,7 @@ from saas_core.modules.shared.sites.publication_routing import (
     _localized_href,
     visible_snapshot,
 )
+from saas_core.modules.shared.sites.services import SlugReserved
 from saas_core.modules.shared.sites.translation_source import free_slug
 from test_site_language_publication import _translate_all
 from test_site_language_versions_api import _draft, _hero
@@ -844,11 +845,29 @@ def test_a_page_stands_at_the_root_of_a_section_that_gives_it_one(
     client, host, origin = blog.client, blog.host, f"https://{blog.host}"
     page_id, save = _section_page(blog, "rasy")
 
-    # The root in a language is under the section's name in that language.
-    for locale, slug in (("pl", "test-breeds"), ("pl", "testrassen"), ("en", "rasy-testowe")):
-        assert _refused(save(locale, slug)) == (400, "slug_reserved"), (locale, slug)
+    # The root in a language is under the section's name in that language,
+    # and the refusal says which name that is.
+    for locale, slug, right in (
+        ("pl", "test-breeds", "rasy-testowe"),
+        ("pl", "testrassen", "rasy-testowe"),
+        ("en", "rasy-testowe", "test-breeds"),
+    ):
+        refused = save(locale, slug)
+        assert _refused(refused) == (400, "slug_reserved"), (locale, slug)
+        (error,) = refused.json()["errors"]
+        assert error["message"] == refused.json()["detail"]
+        assert f"W języku „{locale}” ten dział ma adres „{right}”" in error["message"]
     assert save("pl", "rasy-testowe").status_code in (200, 201)
     assert save("en", "test-breeds").status_code in (200, 201)
+    # Moving the address is the same refusal with the same hint.
+    moved = client.put(
+        f"/api/v1/sites/pages/{page_id}/url/",
+        {"locale": "en", "slug": "testrassen", "reason": "Test."},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert _refused(moved) == (400, "slug_reserved")
+    assert "ten dział ma adres „test-breeds”" in moved.json()["detail"]
     _translate_all(client, page_id, "rasy-en")
     blog.publish("root")
 
@@ -942,7 +961,10 @@ def test_a_section_that_gives_no_root_is_closed_to_pages_in_every_language(
         ("en", "rasy-testowe"),
         ("en", "testrassen"),
     ):
-        assert _refused(save(locale, slug)) == (400, "slug_reserved"), (locale, slug)
+        refused = save(locale, slug)
+        assert _refused(refused) == (400, "slug_reserved"), (locale, slug)
+        # No name is right here: the refusal is the general one.
+        assert refused.json()["detail"] == SlugReserved.default_detail
     assert save("pl", "rasy").status_code in (200, 201)
     assert save("en", "breeds").status_code in (200, 201)
     page = Page.all_objects.get(pk=page_id)

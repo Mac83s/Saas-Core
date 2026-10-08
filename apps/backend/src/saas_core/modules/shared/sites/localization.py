@@ -8,6 +8,7 @@ from uuid import UUID
 from saas_core.modules.core.organizations.public_sources import (
     page_segment_reserved,
     page_source_segments,
+    section_root_name,
 )
 
 from .models import ContentCollection, Page, PageTranslation, Site
@@ -98,6 +99,20 @@ def page_slug_reserved(slug: str, *, default_locale: str, locale: str) -> bool:
     if locale == default_locale and _platform_first_segment(slug):
         return True
     return page_segment_reserved(slug, locale)
+
+
+def reserved_slug_hint(slug: str, locale: str) -> str:
+    """What a refused slug's author can do about it, where there is something:
+    the name is a record section's in another language and that section gives
+    its own address to a page — under one name in `locale`, said here. ""
+    for every other reserved name."""
+    name = section_root_name(slug, locale)
+    if not name or name == slug:
+        return ""
+    return (
+        f"Adres „{slug}” jest nazwą działu rekordów w innym języku. W języku "
+        f"„{locale}” ten dział ma adres „{name}” i tylko pod nim może stanąć podstrona."
+    )
 
 
 def localized_path(*, default_locale: str, locale: str, slug: str) -> str:

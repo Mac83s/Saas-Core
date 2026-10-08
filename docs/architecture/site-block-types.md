@@ -270,7 +270,9 @@ przykładowe pozostają rdzenia.
   dostaje nazwę działu w swoim języku sama (`/en/dog-breeds/`), a okruszki
   stron rekordów prowadzą przez nią. Bez flagi segment jest dla podstron
   zamknięty w każdym języku (`slug_reserved`); dział (blog) nie dostaje go
-  nigdy (ADR-074 pkt 7, „Korzeń działu jest podstroną”).
+  nigdy (ADR-074 pkt 7, „Korzeń działu jest podstroną”). Podstronie, która
+  bierze nazwę działu z innego języka, odmowa `slug_reserved` mówi, pod jaką
+  nazwą dział stoi w jej języku.
 - Zapisu bloków moduł nie obsługuje: `validate_site_block` rdzenia przyjmuje
   jego typy tak samo jak własne.
 - **Rekord z treścią z bloków stawianych** (opis rasy jako lista bloków
