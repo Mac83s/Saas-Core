@@ -79,12 +79,13 @@ class Records:
     def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self.shown: set[UUID] = set()
         self.asked: list[UUID] = []
-        # In the registry for this test only: a source left behind would
-        # answer in every later test of the process.
-        monkeypatch.setitem(
-            public_sources._sources,
-            "test.records",
-            PublicSource("test.records", self.served, served_media=self.served),
+        # The whole registry, for this test only: a source left behind would
+        # answer in every later test of the process, and the sources of
+        # whatever product composes this tree are not what is tested here.
+        monkeypatch.setattr(
+            public_sources,
+            "_sources",
+            {"test.records": PublicSource("test.records", self.served, served_media=self.served)},
         )
 
     def served(self, organization_id: UUID) -> set[UUID]:
@@ -259,12 +260,9 @@ def test_a_picture_costs_the_same_however_many_the_source_shows(
     assert len(among_many) == len(alone)
     reads = [sql for sql in among_many if sql.startswith("SELECT")]
     # The door, the workspace's row and its site; then, with the tenant set,
-    # one question to each source that serves pictures and the picture's row.
-    assert [
-        next(table for table in TABLES if f'FROM "{table}"' in sql)
-        for sql in reads
-        if "booking_resource" not in sql  # another source of this composition
-    ] == [
+    # one question to the source and the picture's row. (Each further source
+    # that serves pictures adds one question of its own.)
+    assert [next(table for table in TABLES if f'FROM "{table}"' in sql) for sql in reads] == [
         "organizations_organization",
         "organizations_organization",
         "sites_site",
