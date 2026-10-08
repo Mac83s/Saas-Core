@@ -5,11 +5,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from saas_core.modules.core.organizations.public_sources import (
-    page_segment_reserved,
-    page_source_segments,
-    section_root_name,
-)
+from saas_core.modules.core.organizations.public_sources import page_source_segments
 
 from .models import ContentCollection, Page, PageTranslation, Site
 
@@ -89,30 +85,15 @@ def first_segment_reserved(segment: str) -> bool:
 
 def page_slug_reserved(slug: str, *, default_locale: str, locale: str) -> bool:
     """One rule for a page's address in every language (ADR-074 pkt 7,
-    „Uzupełnienie 2026-10-07”, PB3d). A language's prefix and the platform's
-    paths are first segments, so they bind the site's own language only —
-    `/en/de/` is an address like any other. A record source's name of its
-    section binds every language, the name in another language included,
-    unless the source gives the section's own address to a page there
-    (`PublicSource.root_page`). Asked of a new or changed slug only: a stored
-    one keeps answering and saving (`sites_reserved_slugs` lists them)."""
+    „Uzupełnienie 2026-10-07”). A language's prefix and the platform's paths
+    are first segments, so they bind the site's own language only — `/en/de/`
+    is an address like any other. A record source's name of its section binds
+    every language, the name in another language included. Asked of a new or
+    changed slug only: a stored one keeps answering and saving
+    (`sites_reserved_slugs` lists them)."""
     if locale == default_locale and _platform_first_segment(slug):
         return True
-    return page_segment_reserved(slug, locale)
-
-
-def reserved_slug_hint(slug: str, locale: str) -> str:
-    """What a refused slug's author can do about it, where there is something:
-    the name is a record section's in another language and that section gives
-    its own address to a page — under one name in `locale`, said here. ""
-    for every other reserved name."""
-    name = section_root_name(slug, locale)
-    if not name or name == slug:
-        return ""
-    return (
-        f"Adres „{slug}” jest nazwą działu rekordów w innym języku. W języku "
-        f"„{locale}” ten dział ma adres „{name}” i tylko pod nim może stanąć podstrona."
-    )
+    return slug in page_source_segments()
 
 
 def localized_path(*, default_locale: str, locale: str, slug: str) -> str:

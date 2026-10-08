@@ -76,7 +76,6 @@ from .localization import (
     collection_index_path,
     localized_path,
     page_slug_reserved,
-    reserved_slug_hint,
 )
 from .metrics import OUTBOX_EVENTS
 from .models import (
@@ -260,11 +259,6 @@ class SlugReserved(APIException):
         "(na przykład stay) są strony tych rekordów."
     )
     default_code = "slug_reserved"
-
-    def __init__(self, slug: str = "", locale: str = "") -> None:
-        """With the refused slug and its language the refusal names the right
-        name, where there is one (`reserved_slug_hint`)."""
-        super().__init__((reserved_slug_hint(slug, locale) if slug else "") or None)
 
 
 class TranslationNotFound(NotFound):
@@ -1785,7 +1779,7 @@ def save_page_translation(
     if (translation is None or translation.slug != values["slug"]) and page_slug_reserved(
         str(values["slug"]), default_locale=site.default_locale, locale=normalized_locale
     ):
-        raise SlugReserved(str(values["slug"]), normalized_locale)
+        raise SlugReserved
     if translation is not None:
         receipt = PageTranslationMutation.all_objects.filter(
             organization_id=context.organization_id,
@@ -3160,7 +3154,7 @@ def change_page_url(
     if page_slug_reserved(
         normalized_slug, default_locale=site.default_locale, locale=normalized_locale
     ):
-        raise SlugReserved(normalized_slug, normalized_locale)
+        raise SlugReserved
     if (
         PageTranslation.all_objects.filter(
             organization_id=context.organization_id,

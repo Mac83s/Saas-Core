@@ -238,7 +238,7 @@ def import_blueprint(*, site_id: UUID, document: dict[str, Any]) -> tuple[dict[s
     if page_slug_reserved(
         document["key"], default_locale=site.default_locale, locale=document["locale"]
     ):
-        raise SlugReserved(document["key"], document["locale"])
+        raise SlugReserved
     if PageTranslation.all_objects.filter(
         organization_id=context.organization_id,
         site=site,

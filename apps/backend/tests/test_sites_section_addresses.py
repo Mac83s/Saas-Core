@@ -37,11 +37,7 @@ from saas_core.modules.shared.sites.models import (
     PageTranslation,
     Site,
 )
-from saas_core.modules.shared.sites.publication_routing import (
-    _link_targets,
-    _localized_href,
-    visible_snapshot,
-)
+from saas_core.modules.shared.sites.publication_routing import _localized_href
 from saas_core.modules.shared.sites.services import SlugReserved
 from saas_core.modules.shared.sites.translation_source import free_slug
 from test_site_language_publication import _translate_all
@@ -558,6 +554,42 @@ def test_only_a_person_renames_a_section() -> None:
     assert ContentCollection.all_objects.get(pk=collection.id).base_path == "blog"
 
 
+def test_a_link_to_a_section_follows_the_readers_language() -> None:
+    """ADR-071 pkt 14: `/blog/` written in a page leads an
+    English reader to the section under its English name, as a link to a page
+    leads to that page's English version."""
+    blog = Blog("section-links")
+    _translate_entry(blog.client, blog.polish, "in-english", "In English")
+    assert _rename(blog, "blog", {"en": "journal"}, reason="Angielska nazwa.").status_code == 200
+    url = f"/api/v1/sites/{blog.site_id}/appearance/"
+    current = blog.client.get(url).data
+    appearance = current["appearance"]
+    appearance["footer"]["links"] = [
+        {"label": "Blog", "href": "/blog/#nowe"},
+        {"label": "Oferta", "href": "/oferta/"},
+    ]
+    saved = blog.client.put(
+        url,
+        {"expected_version": current["version"], "appearance": appearance},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(blog.client),
+        HTTP_IDEMPOTENCY_KEY="footer-links",
+    )
+    assert saved.status_code == 200, saved.data
+    blog.publish("footer-links")
+
+    def footer(path: str) -> list[str]:
+        return [
+            link["href"] for link in _get(blog.host, path).data["appearance"]["footer"]["links"]
+        ]
+
+    assert footer("/") == ["/blog/#nowe", "/oferta/"]
+    # The section under its English name; the page without an English
+    # version stays as written.
+    assert footer("/en/") == ["/en/journal/#nowe", "/oferta/"]
+    assert footer("/en/journal/in-english/") == ["/en/journal/#nowe", "/oferta/"]
+
+
 # --- A record source with a section name and a slug per language -------------
 
 BREED_SLUGS = {"pl": "owczarek-niemiecki", "en": "german-shepherd"}
@@ -616,12 +648,6 @@ def _breeds(register: Any, **fields: Any) -> PublicSource:
 @pytest.fixture
 def breeds(register_test_source: Any) -> PublicSource:
     return _breeds(register_test_source)
-
-
-@pytest.fixture
-def listed_breeds(register_test_source: Any) -> PublicSource:
-    """The same source, giving its section's own address to a page."""
-    return _breeds(register_test_source, root_page=True)
 
 
 def test_a_test_source_stands_whatever_the_composition_registered(
@@ -741,8 +767,6 @@ def test_two_sources_never_share_a_section_name(breeds: PublicSource) -> None:
         {"page_segment": "psy-testowe", "page_segments": {"en": "Dog Breeds"}},
         {"page_segment": "psy-testowe", "page_segments": {"en": "xx"}},
         {"page_segments": {"en": "test-dogs"}},
-        # A root given to a page needs a section to be the root of.
-        {"root_page": True},
     ):
         with pytest.raises(ImproperlyConfigured):
             register_public_source(other(**fields))
@@ -808,7 +832,7 @@ def test_an_article_published_under_an_older_address_shape_keeps_it() -> None:
     assert _get(host, "/blog/wpis-jeden/").status_code == 200
 
 
-# --- The section's own address: a page a person builds, or nothing -----------
+# --- A record section's names: closed to pages in every language -------------
 
 
 def _section_page(blog: Blog, key: str) -> tuple[str, Any]:
@@ -838,116 +862,7 @@ def _refused(response: Any) -> tuple[int, str]:
     return response.status_code, response.json().get("code", "")
 
 
-def test_a_page_stands_at_the_root_of_a_section_that_gives_it_one(
-    listed_breeds: PublicSource,
-) -> None:
-    blog = Blog("section-root")
-    client, host, origin = blog.client, blog.host, f"https://{blog.host}"
-    page_id, save = _section_page(blog, "rasy")
-
-    # The root in a language is under the section's name in that language,
-    # and the refusal says which name that is.
-    for locale, slug, right in (
-        ("pl", "test-breeds", "rasy-testowe"),
-        ("pl", "testrassen", "rasy-testowe"),
-        ("en", "rasy-testowe", "test-breeds"),
-    ):
-        refused = save(locale, slug)
-        assert _refused(refused) == (400, "slug_reserved"), (locale, slug)
-        (error,) = refused.json()["errors"]
-        assert error["message"] == refused.json()["detail"]
-        assert f"W języku „{locale}” ten dział ma adres „{right}”" in error["message"]
-    assert save("pl", "rasy-testowe").status_code in (200, 201)
-    assert save("en", "test-breeds").status_code in (200, 201)
-    # Moving the address is the same refusal with the same hint.
-    moved = client.put(
-        f"/api/v1/sites/pages/{page_id}/url/",
-        {"locale": "en", "slug": "testrassen", "reason": "Test."},
-        format="json",
-        HTTP_X_CSRFTOKEN=csrf_value(client),
-    )
-    assert _refused(moved) == (400, "slug_reserved")
-    assert "ten dział ma adres „test-breeds”" in moved.json()["detail"]
-    _translate_all(client, page_id, "rasy-en")
-    blog.publish("root")
-
-    roots = {"pl": "/rasy-testowe/", "en": "/en/test-breeds/"}
-    for locale, path in roots.items():
-        page = _get(host, path)
-        assert page.status_code == 200, (path, page.status_code)
-        assert page.data["locale"] == locale
-        assert page.data["canonical_url"] == origin + path
-        assert page.data["hreflang"] == {code: origin + to for code, to in roots.items()}
-    assert _get(host, "/en/test-breeds/").data["blocks"][0]["data"]["title"] == "EN Rasy psów"
-
-    # Records answer under it as before, and their trail leads through it.
-    for locale, path in (
-        ("pl", "/rasy-testowe/owczarek-niemiecki/"),
-        ("en", "/en/test-breeds/german-shepherd/"),
-    ):
-        record = _get(host, path)
-        assert record.status_code == 200, (path, record.status_code)
-        # The company, the section's page, the record.
-        assert [crumb["path"] for crumb in record.data["breadcrumbs"][1:]] == [
-            roots[locale],
-            path,
-        ]
-        assert len(record.data["breadcrumbs"]) == 3
-        assert record.data["breadcrumbs"][1]["title"] == "Rasy psów"
-    assert _moved(host, "/en/rasy-testowe/german-shepherd/") == (
-        308,
-        "/en/test-breeds/german-shepherd/",
-    )
-    assert _get(host, "/rasy-testowe/jamnik/").status_code == 404
-    # Another language's name of the section is still nobody's root.
-    assert _get(host, "/en/rasy-testowe/").status_code == 404
-    assert _get(host, "/test-breeds/").status_code == 404
-
-    # A link to the section's page is a link to a page: its version in the
-    # reader's language, or as written where it has none — never a record's.
-    site = Site.all_objects.get(pk=blog.site_id)
-    targets = _link_targets(visible_snapshot(site.current_publication), "en")
-    assert _localized_href("/rasy-testowe/#lista", targets, "/en") == "/en/test-breeds/#lista"
-    assert _localized_href("/rasy-testowe/", {}, "/en") == "/rasy-testowe/"
-    assert _localized_href("/rasy-testowe/owczarek-niemiecki/", targets, "/en") == (
-        "/en/test-breeds/owczarek-niemiecki/"
-    )
-
-    # A section (blog) takes none of the names: its entries would stand where
-    # the records do.
-    for name in ("rasy-testowe", "test-breeds", "testrassen"):
-        taken = create_collection(
-            client, blog.site_id, key=name, base_path=name, idempotency_key=name
-        )
-        assert _refused(taken) == (400, "slug_reserved"), name
-    named = _rename(blog, "blog", {"en": "test-breeds"}, preview=True)
-    assert _errors(named) == [("locale_paths.en", "slug_reserved")]
-
-
-def test_a_language_version_of_the_sections_page_takes_the_sections_name(
-    listed_breeds: PublicSource,
-) -> None:
-    """An address worked out from a title follows the same rule, and the
-    version of the page at the root stands at the root whatever its title."""
-    blog = Blog("section-root-version")
-    page_id, save = _section_page(blog, "rasy")
-    assert save("pl", "rasy-testowe").status_code in (200, 201)
-    root = Page.all_objects.get(pk=page_id)
-    other = Page.all_objects.filter(site_id=blog.site_id).exclude(pk=page_id).first()
-
-    assert free_slug(root, "en", "all-test-breeds-a-z") == "test-breeds"
-    assert free_slug(root, "de", "alle-hunde") == "testrassen"
-    # French names no section of its own: it follows the source's first name.
-    assert free_slug(root, "fr", "races-de-chiens") == "rasy-testowe"
-    # Any page may be titled into the root; another language's name is closed.
-    assert free_slug(other, "en", "test-breeds") == "test-breeds"
-    assert free_slug(other, "en", "rasy-testowe") == "rasy-testowe-2"
-    # The root already has a page in English: the version keeps its title's.
-    PageTranslation.all_objects.filter(page=other, locale="en").update(slug="test-breeds")
-    assert free_slug(root, "en", "all-test-breeds-a-z") == "all-test-breeds-a-z"
-
-
-def test_a_section_that_gives_no_root_is_closed_to_pages_in_every_language(
+def test_a_record_sections_names_are_closed_to_pages_in_every_language(
     breeds: PublicSource,
 ) -> None:
     blog = Blog("section-closed")
@@ -963,7 +878,7 @@ def test_a_section_that_gives_no_root_is_closed_to_pages_in_every_language(
     ):
         refused = save(locale, slug)
         assert _refused(refused) == (400, "slug_reserved"), (locale, slug)
-        # No name is right here: the refusal is the general one.
+        # One refusal for every reserved name, said the same way.
         assert refused.json()["detail"] == SlugReserved.default_detail
     assert save("pl", "rasy").status_code in (200, 201)
     assert save("en", "breeds").status_code in (200, 201)

@@ -3,8 +3,7 @@
 A source-language page slug or a blog address may not be two letters (a
 language prefix) or one of the platform's own paths, and neither they nor a
 language version's slug may be a record source's name of its section
-(ADR-074 pkt 7; a page may where the source gives it the section's own
-address). New ones are refused; ones saved earlier keep answering and saving,
+(ADR-074 pkt 7). New ones are refused; ones saved earlier keep answering and saving,
 and a page "de" shadows the German home page /de/ until somebody moves it.
 This shows where, per organization, so the move is a decision with the owner
 rather than a silent rename.

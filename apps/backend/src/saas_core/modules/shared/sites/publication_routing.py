@@ -727,29 +727,17 @@ def _source_trail(
     menu holds such a page, so the trail starts at the home page — in the
     page's language where the site is read in it, else in the site's own —
     under the company's name as its structured data states it, and the page
-    itself follows under the record's own name. Between them stands the page
-    published at the section's own address in that language, where there is
-    one (`PublicSource.root_page`, ADR-074 pkt 7). A site with no page marked
+    itself follows under the record's own name. A site with no page marked
     as the home page starts at the page its root answers with (`_visible`)."""
     facts = site_snapshot.get("organization") or {}
     if home is None:
         with suppress(PublicSiteNotFound):
             home, _root = find_page(site_snapshot, "/")
-    section: list[dict[str, Any]] = []
-    try:
-        _above, document = find_page(
-            site_snapshot, _comparable_path(page.canonical_path).rsplit("/", 1)[0]
-        )
-    except PublicSiteNotFound:
-        pass
-    else:
-        section = [{"title": str(document.get("title") or ""), "path": str(document["path"])}]
     return [
         {
             "title": str(facts.get("name") or site_name),
             "path": str(((home or {}).get("hreflang") or {}).get(page.locale) or "/"),
         },
-        *section,
         {
             "title": found.name or str(page.page["selected_locale"]["title"]),
             "path": page.canonical_path,
@@ -918,11 +906,8 @@ def _localized_href(href: str, targets: dict[str, str], prefix: str = "") -> str
     # language (a unit), or with where the text can be read (a document) —
     # and under the section's name in that language. A record with a slug of
     # its own there answers the written one with one move to it.
-    # The section's own address is no record's page: where a page stands
-    # there (`PublicSource.root_page`) the targets above know it, and a link
-    # to it stays as written where that page has no version in the language.
-    first, _, record = href[:cut].strip("/").partition("/")
-    source = page_source(first) if prefix and record else None
+    first = href[:cut].strip("/").split("/", 1)[0]
+    source = page_source(first) if prefix else None
     if source is not None:
         return f"{prefix}/{source.segment(prefix.strip('/'))}{href[1 + len(first) :]}"
     return href
