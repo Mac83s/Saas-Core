@@ -15,7 +15,7 @@ silence: each difference between the input and the output is one `HtmlLoss`
   whose address the contract refuses (the words stay), an image with no media
   asset to point at;
 - `changed` — everything is still there, said differently: an underline
-  removed, an `h1` written as `h2`, merged table cells written out;
+  written as bold, an `h1` written as `h2`, merged table cells written out;
 - `split` — one thing became several because of a limit: a text over 160
   nodes, a list over 40 items, a table over 120 rows.
 
@@ -28,9 +28,16 @@ Decisions (plan PB2, 2026-10-07):
 
 - A table is its own block, `core.table`; rich text is cut around it.
 - `<u>` has no counterpart: rich text marks are bold, italic and a link, and
-  an underline on the web reads as a link. A paragraph that is wholly bold
-  and underlined is what the legacy texts used for a sub-heading and becomes
-  an `h3`; any other underline is removed and its words stay.
+  an underline on the web reads as a link. What it meant is kept (rules set
+  on a real corpus, plan PB2c, 2026-10-08). An underline on a part of a text
+  is emphasis and becomes bold. A short paragraph underlined from end to end
+  (`LABEL_MAX_LENGTH`) names what follows it and becomes a sub-heading one
+  level under the heading it stands below.
+- Words are never left out because of the markup around them. Words written
+  in a list outside its items become an item, words in a table outside its
+  cells a paragraph before the table, and an opening tag that lost its `>`
+  and swallowed the words after it (`<b<Word:</b>`) is read as the tag it
+  was. What cannot be read as words is named as lost.
 - A run of `div.question_answer` becomes one `core.faq` when every answer is
   plain paragraphs within the block's limits. A group with a link, a list, a
   table or an image in an answer stays text (a heading and its paragraphs):
@@ -87,6 +94,11 @@ _MAX_FAQ_ANSWER = 2000
 _MAX_FAQ_TITLE = 120
 _MAX_HREF = 500
 
+# A paragraph underlined from end to end is a label for what follows — a
+# sub-heading — when it is no longer than this. On the corpus the rule was set
+# on (3,672 such paragraphs in five languages) the longest had 81 characters.
+LABEL_MAX_LENGTH: Final = 100
+
 _HREF = re.compile(r"^(?:/(?!/)|https://|mailto:|tel:)")
 _ANCHOR = re.compile(r"[a-z][a-z0-9-]{0,63}")
 # The class a source puts on a question with its answer, unless told otherwise.
@@ -129,6 +141,25 @@ _NEUTRAL = _tags("span font a")
 # `rel` values the renderer writes itself where they matter.
 _REL_PLUMBING = _tags("noopener noreferrer external")
 _REL_KINDS = ("sponsored", "ugc", "nofollow")
+# Places whose words keep their marks; a heading, a caption and an FAQ string
+# are plain.
+_MARKED = frozenset({"paragraph", "list item", "quote", "table cell"})
+# Tags whose words a reader sees: what an opening tag that lost its `>` may be.
+_WORDED = (
+    _BLOCKS | _BOLD | _ITALIC | _UNDERLINE | _STRUCK | _CODE | _NEUTRAL | _tags("sup sub")
+) - _VOID
+# Every tag this module has a rule for.
+_NAMED = _WORDED | _VOID | _REMOVED
+# What is found where the lost `>` of an opening tag stood — or a `<`, when
+# words come after it and not a tag (`<li<b>Word</b>` only lacks the `>`).
+_MANGLED = "/.,;:-"
+_TAG_FOLLOWS = re.compile(r"</|<[a-zA-Z][a-zA-Z0-9]*(?:[ \t\n\r\f]+[a-zA-Z-]+=|[ \t\n\r\f]*/?>)")
+# A document cut off inside a tag: `…</li> </`, `…</p><p`.
+_UNFINISHED = re.compile(r"<[/!?a-zA-Z][^<>]*\Z")
+_TAG_BEGUN = re.compile(r"</?([a-zA-Z][a-zA-Z0-9]*)?[ \t\n\r\f]*")
+_TAG_RUN = re.compile(r"[a-z][a-z0-9]*|[A-Z][A-Z0-9]*")
+_TAG_WORD = re.compile(r"[a-zA-Z][a-zA-Z0-9]*")
+_TAG_CLOSED = re.compile(r"</([a-zA-Z][a-zA-Z0-9]*)[ \t\n\r\f]*>\Z")
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,17 +210,101 @@ class _Element:
     children: list[_Element | _Text] = field(default_factory=list)
 
 
+def _reopened(raw: str) -> tuple[str, str] | None:
+    """An opening tag that ran on into the next tag because its `>` is gone
+    (`<b<Word:</b>`, `<b word</b>`, `<liWord …</li>`): the tag it was, and
+    what it swallowed. None when no tag a reader sees starts it."""
+    body = raw[1:]
+    run = _TAG_RUN.match(body)
+    word = _TAG_WORD.match(body)
+    closed = _TAG_CLOSED.search(raw)
+    name = None
+    if run is not None and run.group().lower() in _WORDED:
+        # `<b word`, `<liWord`: the name ends where the word begins.
+        name = run.group().lower()
+    elif word is not None:
+        letters = word.group().lower()
+        end = closed.group(1).lower() if closed is not None else ""
+        if end in _WORDED and letters.startswith(end):
+            # `<bword</b>`: the tag that closes it names it.
+            name = end
+        else:
+            # `<liword <b>`: a guess, the shortest tag the letters begin with.
+            starts = (letters[:size] for size in range(1, len(letters) + 1))
+            name = next((start for start in starts if start in _WORDED), None)
+    if name is None:
+        return None
+    rest = body[len(name) :]
+    if rest[:1] == "<":
+        return name, rest if _TAG_FOLLOWS.match(rest) else rest[1:]
+    return name, rest[1:] if rest[:1] in _MANGLED else rest
+
+
+def _only_begun(fragment: str) -> bool:
+    """The end of a document cut off inside a tag is the beginning of that
+    tag and no words: `</`, `<p`, `</stro`, `<a href="/x`. Anything else
+    (`<pAnd the last words`) is an opening tag that lost its `>` before the
+    cut, with words nothing can tell from attributes."""
+    if fragment[1] in "!?" or "=" in fragment:
+        return True
+    begun = _TAG_BEGUN.fullmatch(fragment)
+    if begun is None:
+        return False
+    name = (begun.group(1) or "").lower()
+    return any(known.startswith(name) for known in _NAMED)
+
+
 class _Tree(HTMLParser):
     """The document as a tree, with HTML's optional end tags closed where a
     browser closes them (`<p>`, `<li>`, table parts)."""
 
-    def __init__(self) -> None:
+    def __init__(self, outer: _Tree | None = None) -> None:
         super().__init__(convert_charrefs=True)
-        self.root = _Element("#document", {})
-        self.stack = [self.root]
-        self.stray: Counter[str] = Counter()
-        self.comments = 0
-        self.declarations = 0
+        # A fragment read for another tree (`mend`) builds that tree.
+        self.root: _Element = outer.root if outer else _Element("#document", {})
+        self.stack: list[_Element] = outer.stack if outer else [self.root]
+        self.stray: Counter[str] = outer.stray if outer else Counter()
+        # Comments and declarations: nothing a reader saw.
+        self.skipped: Counter[str] = outer.skipped if outer else Counter()
+        # Opening tags read as the tag they were, with that tag's name.
+        self.mended: list[tuple[str, str]] = outer.mended if outer else []
+        # Opening tags that swallowed words nothing could read.
+        self.unread: list[str] = outer.unread if outer else []
+        # The beginning of a tag the document was cut off in.
+        self.unfinished = ""
+
+    def read(self, html: str) -> None:
+        cut = _UNFINISHED.search(html)
+        if cut is not None:
+            html = html[: cut.start()]
+            if _only_begun(cut.group()):
+                self.unfinished = cut.group()
+            else:
+                self.unread.append(cut.group())
+        self.feed(html)
+        self.close()
+
+    def mend(self, tag: str, attrs: list[tuple[str, str | None]]) -> bool:
+        """An opening tag without its `>` runs on to the end of the next tag,
+        and a browser shows none of the words in between: `<b<Word:</b>` is a
+        tag named `b<word:<`. No tag or attribute is named with a `<`, so this
+        is read as the tag it was, and the words after it as words. A tag
+        with real attributes (`=`) that only runs into the next tag after them
+        is left as a browser reads it: nothing in it is words."""
+        raw = self.get_starttag_text() or ""
+        if "<" not in tag and ("=" in raw or not any("<" in name for name, _value in attrs)):
+            return False
+        found = _reopened(raw)
+        if found is None:
+            self.unread.append(raw)
+            return False
+        name, rest = found
+        self.mended.append((name, raw))
+        self.open(name, {})
+        inner = _Tree(self)
+        inner.feed(rest)
+        inner.close()
+        return True
 
     def _close(self, tags: frozenset[str] | set[str], stop: frozenset[str] | set[str]) -> None:
         for index in range(len(self.stack) - 1, 0, -1):
@@ -201,6 +316,10 @@ class _Tree(HTMLParser):
                 return
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if not self.mend(tag, attrs):
+            self.open(tag, {name: value or "" for name, value in attrs})
+
+    def open(self, tag: str, attrs: dict[str, str]) -> None:
         if tag in _ENDS_PARAGRAPH:
             self._close({"p"}, {"table", "td", "th", "caption", "button", "object"})
         if tag == "li":
@@ -213,13 +332,15 @@ class _Tree(HTMLParser):
             self._close({"tr"}, {"table"})
         elif tag in ("thead", "tbody", "tfoot"):
             self._close({"thead", "tbody", "tfoot", "tr"}, {"table"})
-        element = _Element(tag, {name: value or "" for name, value in attrs})
+        element = _Element(tag, attrs)
         self.stack[-1].children.append(element)
         if tag not in _VOID:
             self.stack.append(element)
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self.handle_starttag(tag, attrs)
+        if self.mend(tag, attrs):
+            return
+        self.open(tag, {name: value or "" for name, value in attrs})
         if tag not in _VOID:
             self.stack.pop()
 
@@ -236,17 +357,17 @@ class _Tree(HTMLParser):
         self.stack[-1].children.append(_Text(data))
 
     def handle_comment(self, data: str) -> None:
-        self.comments += 1
+        self.skipped["comment"] += 1
 
     def handle_decl(self, decl: str) -> None:
-        self.declarations += 1
+        self.skipped["declaration"] += 1
 
     def handle_pi(self, data: str) -> None:
-        self.declarations += 1
+        self.skipped["declaration"] += 1
 
     def unknown_decl(self, data: str) -> None:
         # `<![CDATA[…]]>` in HTML is a bogus comment: a browser shows none of it.
-        self.declarations += 1
+        self.skipped["declaration"] += 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -374,6 +495,10 @@ class _Converter:
         self.fragments: dict[str, str] = {}
         self.blocks: list[dict[str, Any]] = []
         self.nodes: list[dict[str, Any]] = []
+        # The level of the heading the text stands under, once there is one.
+        self.section: int | None = None
+        # A label waiting for what it labels: its runs, words and level.
+        self.held: tuple[list[dict[str, Any]], str, int] | None = None
         self.pending: list[_Piece] = []
         self.figures: list[dict[str, Any]] = []
         # Inside a paragraph a picture is inline: it follows the paragraph.
@@ -584,11 +709,28 @@ class _Converter:
             runs.extend(part)
         return self.fitted(self.finish(runs), where)
 
+    def emphasis(self, runs: list[dict[str, Any]], where: str) -> None:
+        """An underline marks what matters, and the mark rich text has for
+        that is bold. On a link it is how a link looks, and on bold words it
+        adds nothing: there it only goes."""
+        marked = [run for run in runs if run.pop("_u", False)]
+        fresh = [run for run in marked if not run.get("bold") and "href" not in run]
+        for run in fresh:
+            run["bold"] = True
+        if fresh:
+            self.note(CHANGED, "underline_as_bold", f"in a {where}", fresh[0]["text"])
+        elif marked:
+            on = "a link" if "href" in marked[0] else "bold words"
+            self.note(CHANGED, "underline_dropped", f"on {on} in a {where}", marked[0]["text"])
+
     def fitted(self, runs: list[dict[str, Any]], where: str) -> list[dict[str, Any]]:
-        """Underlines out, and no more runs than one inline place holds."""
-        underlined = [run for run in runs if run.pop("_u", False)]
-        if underlined:
-            self.note(CHANGED, "underline_dropped", f"in a {where}", underlined[0]["text"])
+        """Underlines settled, and no more runs than one inline place holds."""
+        if where in _MARKED:
+            self.emphasis(runs, where)
+        else:
+            underlined = [run for run in runs if run.pop("_u", False)]
+            if underlined:
+                self.note(CHANGED, "underline_dropped", f"in a {where}", underlined[0]["text"])
         runs = self.finish(runs)
         if len(runs) <= _MAX_RUNS:
             return runs
@@ -608,9 +750,11 @@ class _Converter:
     # -- the text flow ------------------------------------------------------
 
     def add_node(self, node: dict[str, Any]) -> None:
+        self.release(followed=True)
         self.nodes.append(node)
 
     def add_block(self, block_type: str, version: int, data: dict[str, Any]) -> None:
+        self.release(followed=True)
         self.flush_nodes()
         self.blocks.append({"block_type": block_type, "schema_version": version, "data": data})
 
@@ -661,24 +805,57 @@ class _Converter:
             self.add_node(figure)
 
     def paragraph(self, runs: list[dict[str, Any]]) -> None:
-        text = _text_of(runs)
         if not runs:
             return
-        if len(text) <= _MAX_HEADING and all(
-            run.get("_u") and run.get("bold") and "href" not in run for run in runs
-        ):
-            # What the legacy texts used for a sub-heading.
-            self.note(CHANGED, "underline_bold_as_heading", "h3", text)
-            self.add_node({
-                "type": "heading",
-                "level": 3,
-                "anchor": self.anchor(text),
-                "text": text,
-            })
+        text = _text_of(runs)
+        if self.is_label(runs, text):
+            self.release(followed=True)
+            # One level under the heading it stands below; a text without a
+            # heading of its own stands under its page's or section's `h2`.
+            self.held = (runs, text, min((self.section or 2) + 1, 4))
             return
-        underlined = [run for run in runs if run.pop("_u", False)]
-        if underlined:
-            self.note(CHANGED, "underline_dropped", "in a paragraph", underlined[0]["text"])
+        self.written(runs, text)
+
+    def is_label(self, runs: list[dict[str, Any]], text: str) -> bool:
+        """A short paragraph underlined from end to end names what follows it:
+        `<u>Tools:</u>`, `<b><u>2. Tyres</u></b>`. Punctuation may stand
+        outside the underline (`<u>Tools</u>:`). A sentence with its full
+        stop, a link or italics is a text of its own, however short."""
+        return (
+            len(text) <= LABEL_MAX_LENGTH
+            and not text.endswith(".")
+            and any(run.get("_u") for run in runs)
+            and all(
+                "href" not in run
+                and not run.get("italic")
+                and (run.get("_u") or not any(sign.isalnum() for sign in run["text"]))
+                for run in runs
+            )
+        )
+
+    def release(self, *, followed: bool) -> None:
+        """A label waits for what it labels. With something after it, it is a
+        sub-heading; as the last words of the document it labels nothing and
+        is emphasis like any other underline."""
+        held, self.held = self.held, None
+        if held is None:
+            return
+        runs, text, level = held
+        if not followed:
+            self.written(runs, text)
+            return
+        self.note(CHANGED, "underline_as_heading", f"h{level}", text)
+        if len({bool(run.get("bold")) for run in runs if run.get("_u")}) > 1:
+            self.note(CHANGED, "heading_marks_dropped", "bold on a part", text)
+        self.nodes.append({
+            "type": "heading",
+            "level": level,
+            "anchor": self.anchor(text),
+            "text": text,
+        })
+
+    def written(self, runs: list[dict[str, Any]], text: str) -> None:
+        self.emphasis(runs, "paragraph")
         runs = self.finish(runs)
         if len(runs) > _MAX_RUNS:
             self.note(SPLIT, "paragraph_split", f"over {_MAX_RUNS} runs", text)
@@ -802,7 +979,9 @@ class _Converter:
             return
         for run in runs:
             if "href" in run:
-                self.note(LOST, "link_dropped", "in a heading", f"{run['text']} → {run['href']}")
+                # A heading holds no link. Where it pointed is said in full,
+                # so whoever imports the text can decide what to do with it.
+                self.note(LOST, "heading_link_dropped", run["href"], text)
         if any(run.get("italic") for run in runs):
             self.note(CHANGED, "heading_marks_dropped", "italic", text)
         if len({bool(run.get("bold")) for run in runs}) > 1:
@@ -818,6 +997,7 @@ class _Converter:
             return
         anchor = self.anchor(text, element.attrs.get("id") or None)
         self.add_node({"type": "heading", "level": target, "anchor": anchor, "text": text})
+        self.section = target
 
     def item(self, element: _Element, marks: _Marks) -> tuple[list[dict[str, Any]], list[_Element]]:
         """A list item's own words, and the lists nested in it."""
@@ -832,6 +1012,35 @@ class _Converter:
                 self.inline(child, inner, out, "list item")
         return self.joined(out, "list item"), nested
 
+    def parts(self, element: _Element) -> Iterator[_Element]:
+        """A list's items and sub-lists, in order. A list holds nothing else,
+        so what is written between them comes as an item of its own, one for
+        each run of it: words after a `</li>` that came too early, or an
+        element that is not an item."""
+        loose: list[_Element | _Text] = []
+
+        def gathered() -> Iterator[_Element]:
+            said = [node for node in loose if isinstance(node, _Element) or node.value.strip()]
+            loose.clear()
+            if len(said) == 1 and isinstance(said[0], _Element):
+                # One element in an item's place is read as the item.
+                self.note(CHANGED, "tag_unwrapped", f"{said[0].tag} in a list", _plain(said[0]))
+                yield said[0]
+                return
+            wrapper = _Element("li", {}, said)
+            words = _plain(wrapper)
+            if words or any(item.tag == "img" for item in _descendants(wrapper)):
+                self.note(CHANGED, "list_text_as_item", f"inside <{element.tag}>", words)
+                yield wrapper
+
+        for child in element.children:
+            if isinstance(child, _Element) and (child.tag == "li" or child.tag in _LISTS):
+                yield from gathered()
+                yield child
+            else:
+                loose.append(child)
+        yield from gathered()
+
     def flat_items(
         self, element: _Element, marks: _Marks, depth: int
     ) -> list[list[dict[str, Any]]]:
@@ -840,14 +1049,10 @@ class _Converter:
         if depth > 2:
             self.note(CHANGED, "list_nesting_flattened", f"level {depth}", _plain(element))
         found: list[list[dict[str, Any]]] = []
-        for child in element.children:
-            if isinstance(child, _Text):
-                continue
+        for child in self.parts(element):
             if child.tag in _LISTS:
                 found.extend(self.flat_items(child, marks, depth + 1))
                 continue
-            if child.tag != "li":
-                self.note(CHANGED, "tag_unwrapped", f"{child.tag} in a list", _plain(child))
             content, nested = self.item(child, marks)
             if content:
                 found.append(content)
@@ -897,15 +1102,11 @@ class _Converter:
             if not kept["items"]:
                 del parent["children"]
 
-        for child in element.children:
-            if isinstance(child, _Text):
-                continue
+        for child in self.parts(element):
             if child.tag in _LISTS:
                 # A sub-list written beside the items, not inside one.
                 nest([child])
                 continue
-            if child.tag != "li":
-                self.note(CHANGED, "tag_unwrapped", f"{child.tag} in a list", _plain(child))
             content, nested = self.item(child, marks)
             if not content and not nested:
                 self.note(CHANGED, "empty_block_dropped", "li")
@@ -1047,8 +1248,27 @@ class _Converter:
         self.attributes(element)
         caption: list[dict[str, Any]] = []
         sections: dict[str, list[_Element]] = {"thead": [], "tbody": [], "tfoot": []}
+        # What stands where a table has no cell: runs of it, each with the
+        # element it stands in.
+        loose: list[tuple[_Element, list[_Element | _Text]]] = []
+
+        def outside(node: _Element | _Text, parent: _Element) -> None:
+            if isinstance(node, _Text) and not node.value.strip():
+                return
+            if loose and loose[-1][0] is parent:
+                loose[-1][1].append(node)
+            else:
+                loose.append((parent, [node]))
+
+        def row_of(row: _Element, section: str) -> None:
+            sections[section].append(row)
+            for item in row.children:
+                if not (isinstance(item, _Element) and item.tag in ("td", "th")):
+                    outside(item, row)
+
         for child in element.children:
             if isinstance(child, _Text):
+                outside(child, element)
                 continue
             if child.tag == "caption":
                 self.attributes(child)
@@ -1059,13 +1279,13 @@ class _Converter:
                 self.attributes(child)
                 for row in child.children:
                     if isinstance(row, _Element) and row.tag == "tr":
-                        sections[child.tag].append(row)
-                    elif isinstance(row, _Element):
-                        self.drop_unplaced(row)
+                        row_of(row, child.tag)
+                    else:
+                        outside(row, child)
             elif child.tag == "tr":
-                sections["tbody"].append(child)
+                row_of(child, "tbody")
             else:
-                self.drop_unplaced(child)
+                outside(child, element)
         head, foot = sections["thead"], sections["tfoot"]
         if foot:
             self.note(CHANGED, "table_footer_as_rows", "", _plain(foot[0]))
@@ -1083,12 +1303,11 @@ class _Converter:
             flags: list[bool] = []
             # The row's cells, then once more for the columns still carried.
             written: list[_Element | None] = [
-                item for item in row.children if isinstance(item, _Element)
+                item
+                for item in row.children
+                if isinstance(item, _Element) and item.tag in ("td", "th")
             ]
             for entry in [*written, None]:
-                if entry is not None and entry.tag not in ("td", "th"):
-                    self.drop_unplaced(entry)
-                    continue
                 while carried.get(len(cells), 0) > 0:
                     carried[len(cells)] -= 1
                     cells.append({})
@@ -1115,6 +1334,14 @@ class _Converter:
                 headers.append(flags)
             else:
                 self.note(CHANGED, "empty_block_dropped", "tr")
+
+        # A browser shows what a table has no cell for in front of the table.
+        for parent, strays in loose:
+            words = _plain(_Element(parent.tag, {}, strays))
+            if words:
+                self.note(CHANGED, "table_text_as_paragraph", f"inside <{parent.tag}>", words)
+            self.flow(strays)
+            self.flush_paragraph()
 
         caption_text = _text_of(caption)
         if any(run.keys() - {"text"} for run in caption):
@@ -1212,13 +1439,6 @@ class _Converter:
                 data = {"caption": caption_text, **data}
             self.add_block("core.table", TABLE_VERSION, data)
 
-    def drop_unplaced(self, element: _Element) -> None:
-        """Words in a place a table has no cell for."""
-        if _plain(element):
-            for text in _texts(element):
-                text.used = True
-            self.note(LOST, "text_dropped", f"inside <{element.tag}> in a table", _plain(element))
-
     # -- questions and answers ----------------------------------------------
 
     def faq_misfit(self, group: list[_Element]) -> str | None:
@@ -1261,6 +1481,7 @@ class _Converter:
                 self.flow(element.children, marks)
                 self.flush_paragraph()
             return
+        self.release(followed=True)
         items: list[dict[str, str]] = []
         for element in group:
             self.attributes(element)
@@ -1345,15 +1566,22 @@ class _Converter:
 
     def result(self, tree: _Tree) -> HtmlConversion:
         self.flush_paragraph()
+        self.release(followed=False)
         self.flush_nodes()
         self.settle_fragments()
         for tag, count in sorted(tree.stray.items()):
             for _ in range(count):
                 self.note(CHANGED, "stray_end_tag", tag)
-        for _ in range(tree.comments):
+        for _ in range(tree.skipped["comment"]):
             self.note(CHANGED, "comment_dropped")
-        for _ in range(tree.declarations):
+        for _ in range(tree.skipped["declaration"]):
             self.note(CHANGED, "declaration_dropped")
+        for name, raw in tree.mended:
+            self.note(CHANGED, "opening_tag_repaired", name, raw)
+        for raw in tree.unread:
+            self.note(LOST, "text_dropped", "inside a broken tag", raw)
+        if tree.unfinished:
+            self.note(CHANGED, "unfinished_tag_dropped", "", tree.unfinished)
         self.unplaced(tree.root)
         characters_out = len(_squash("".join(_written(self.blocks))))
         if self.characters_in + self.inserted != characters_out:
@@ -1451,8 +1679,7 @@ def convert_html(
     the FAQ reading off.
     """
     tree = _Tree()
-    tree.feed(html)
-    tree.close()
+    tree.read(html)
     converter = _Converter(
         image_assets=image_assets or {},
         default_image_alt=default_image_alt,

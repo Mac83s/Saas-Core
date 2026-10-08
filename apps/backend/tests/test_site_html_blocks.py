@@ -2,11 +2,16 @@
 `docs/architecture/site-html-import.md`): what each construct becomes, that
 nothing goes missing without being named, that the limits split instead of
 cutting, and that the result is what the entry service and a translation take
-as they are."""
+as they are.
+
+The rules for an underline, for words the markup put where nothing holds them
+and for a link in a heading were set on a real corpus (PB2c). The fixtures
+here are written for the tests: they repeat the shapes found, not the texts."""
 
 from __future__ import annotations
 
 import json
+import re
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -19,6 +24,7 @@ from saas_core.modules.shared.sites.block_contracts import site_block_contracts
 from saas_core.modules.shared.sites.html_blocks import (
     CHANGED,
     FAQ_VERSION,
+    LABEL_MAX_LENGTH,
     LOST,
     RICH_TEXT_VERSION,
     SEPARATOR_VERSION,
@@ -204,15 +210,41 @@ def test_anchors_avoid_the_ones_the_page_already_uses():
     assert nodes(conversion)[0]["anchor"] == "kontakt-2"
 
 
-def test_a_heading_too_long_for_one_or_holding_a_link_says_so():
+def test_a_heading_too_long_for_one_becomes_a_bold_paragraph():
     long = "Bardzo długi śródtytuł " * 12
-    conversion = convert_html(f'<h2>{long}</h2><h3><a href="/x">Z linkiem</a></h3>')
-    assert nodes(conversion)[0] == {
-        "type": "paragraph",
-        "content": [{"text": long.strip(), "bold": True}],
-    }
-    assert nodes(conversion)[1]["text"] == "Z linkiem"
-    assert kinds(conversion) == {"link_dropped": 1, "heading_too_long": 1}
+    conversion = convert_html(f"<h2>{long}</h2>")
+    assert nodes(conversion) == [
+        {"type": "paragraph", "content": [{"text": long.strip(), "bold": True}]}
+    ]
+    assert kinds(conversion) == {"heading_too_long": 1}
+
+
+def test_a_link_in_a_heading_is_lost_and_the_report_says_in_full_where_it_pointed():
+    # Longer than a sample is: the address is the loss's detail, never cut.
+    address = "https://stary.example/poradnik/" + "bardzo-dlugi-adres-wpisu-" * 4
+    assert len(address) > 120
+    conversion = convert_html(
+        f'<h2>Zobacz też: <a href="{address}">jak dobrać ramę</a></h2><p>Tekst.</p>'
+        '<h3><a href="/poradnik/opony/">Opony</a> na błoto</h3><p>Tekst.</p>'
+        f'<h3><a href="{address}">Jeszcze raz</a></h3><p>Tekst.</p>'
+    )
+    assert [node["text"] for node in nodes(conversion) if node["type"] == "heading"] == [
+        "Zobacz też: jak dobrać ramę",
+        "Opony na błoto",
+        "Jeszcze raz",
+    ]
+    assert [
+        (loss.severity, loss.kind, loss.detail, loss.count, loss.sample)
+        for loss in conversion.losses
+    ] == [
+        (LOST, "heading_link_dropped", "/poradnik/opony/", 1, "Opony na błoto"),
+        (LOST, "heading_link_dropped", address, 2, "Zobacz też: jak dobrać ramę"),
+    ]
+    # The caller's mapping of old addresses is applied before the loss is named.
+    mapped = convert_html(
+        f'<h2><a href="{address}">Rama</a></h2>', rewrite_link=lambda _href: "/wpisy/rama/"
+    )
+    assert [loss.detail for loss in mapped.losses] == ["/wpisy/rama/"]
 
 
 def test_a_heading_has_one_weight_so_bold_on_a_part_of_it_is_named():
@@ -225,30 +257,240 @@ def test_a_heading_has_one_weight_so_bold_on_a_part_of_it_is_named():
     ]
 
 
-def test_an_underline_is_removed_and_a_bold_underlined_paragraph_is_a_sub_heading():
+def test_an_underline_on_a_part_of_a_text_is_emphasis_and_becomes_bold():
     conversion = convert_html(
-        "<p><b><u>Wygląd ogólny</u></b></p>"
-        "<p><u><strong>Charakter</strong></u><br>Pies <u>spokojny</u> i czujny.</p>"
-        "<ul><li><b><u>Waga:</u></b> 30 kg</li></ul>"
-        '<p><span style="text-decoration: underline">Podkreślone stylem</span></p>'
+        "<p>To rower, który <u>nie lubi deszczu</u> i <i><u>soli</u></i>.</p>"
+        "<ul><li><u>Smarowanie</u> – po każdej ulewie</li></ul>"
+        "<blockquote>Rama <ins>stalowa</ins>.</blockquote>"
+        "<table><tr><td>Masa</td>"
+        '<td><span style="text-decoration: underline">11 kg</span></td></tr></table>'
     )
     assert nodes(conversion) == [
-        {"type": "heading", "level": 3, "anchor": "wyglad-ogolny", "text": "Wygląd ogólny"},
-        {"type": "heading", "level": 3, "anchor": "charakter", "text": "Charakter"},
-        {"type": "paragraph", "content": [{"text": "Pies spokojny i czujny."}]},
+        {
+            "type": "paragraph",
+            "content": [
+                {"text": "To rower, który "},
+                {"text": "nie lubi deszczu", "bold": True},
+                {"text": " i "},
+                {"text": "soli", "bold": True, "italic": True},
+                {"text": "."},
+            ],
+        },
         {
             "type": "list",
             "style": "bullet",
-            "items": [{"content": [{"text": "Waga:", "bold": True}, {"text": " 30 kg"}]}],
+            "items": [
+                {
+                    "content": [
+                        {"text": "Smarowanie", "bold": True},
+                        {"text": " – po każdej ulewie"},
+                    ]
+                }
+            ],
         },
-        {"type": "paragraph", "content": [{"text": "Podkreślone stylem"}]},
+        {
+            "type": "quote",
+            "content": [{"text": "Rama "}, {"text": "stalowa", "bold": True}, {"text": "."}],
+        },
     ]
+    assert conversion.blocks[1]["data"]["rows"][0]["cells"][1] == {
+        "content": [{"text": "11 kg", "bold": True}]
+    }
+    assert [(loss.severity, loss.kind, loss.detail, loss.count) for loss in conversion.losses] == [
+        (CHANGED, "underline_as_bold", "in a list item", 1),
+        (CHANGED, "underline_as_bold", "in a paragraph", 1),
+        (CHANGED, "underline_as_bold", "in a quote", 1),
+        (CHANGED, "underline_as_bold", "in a table cell", 1),
+    ]
+
+
+def test_an_underline_next_to_bold_is_one_bold_run_and_on_bold_words_it_only_goes():
+    conversion = convert_html(
+        "<p><b>Masa:</b><u> 11 kg</u> bez pedałów.</p>"
+        "<p>Zasada <b><u>najpierw hamulce</u></b> jest najważniejsza.</p>"
+        '<p>Opis <a href="/modele/"><u>wszystkich modeli</u></a> jest osobno.</p>'
+    )
+    assert nodes(conversion) == [
+        {
+            "type": "paragraph",
+            "content": [{"text": "Masa: 11 kg", "bold": True}, {"text": " bez pedałów."}],
+        },
+        {
+            "type": "paragraph",
+            "content": [
+                {"text": "Zasada "},
+                {"text": "najpierw hamulce", "bold": True},
+                {"text": " jest najważniejsza."},
+            ],
+        },
+        {
+            "type": "paragraph",
+            "content": [
+                {"text": "Opis "},
+                {"text": "wszystkich modeli", "href": "/modele/"},
+                {"text": " jest osobno."},
+            ],
+        },
+    ]
+    assert [(loss.kind, loss.detail, loss.count) for loss in conversion.losses] == [
+        ("underline_as_bold", "in a paragraph", 1),
+        ("underline_dropped", "on a link in a paragraph", 1),
+        ("underline_dropped", "on bold words in a paragraph", 1),
+    ]
+    assert conversion.count(LOST) == 0
+
+
+def test_a_place_that_holds_plain_words_drops_the_underline_and_says_so():
+    conversion = convert_html(
+        "<h2>Rama <u>stalowa</u></h2><p>Tekst.</p>"
+        "<table><caption><u>Wymiary</u></caption><tr><td>a</td></tr></table>"
+        '<div class="question_answer"><h3>Czy <u>rdzewieje</u>?</h3><p>Nie.</p></div>'
+    )
+    assert nodes(conversion)[0]["text"] == "Rama stalowa"
+    assert conversion.blocks[1]["data"]["caption"] == "Wymiary"
+    assert conversion.blocks[2]["data"]["items"] == [
+        {"question": "Czy rdzewieje?", "answer": "Nie."}
+    ]
+    assert [(loss.kind, loss.detail) for loss in conversion.losses] == [
+        ("underline_dropped", "in a heading"),
+        ("underline_dropped", "in a question or answer"),
+        ("underline_dropped", "in a table caption"),
+    ]
+
+
+def test_a_short_paragraph_underlined_from_end_to_end_is_a_sub_heading():
+    conversion = convert_html(
+        "<p><u>Najczęstsze usterki napędu:</u></p><ul><li>łańcuch</li></ul>"
+        # The colon outside the underline, bold with it, a line of a paragraph,
+        # a question: the same label.
+        "<p><u>Czyszczenie łańcucha</u>:</p><p>Po jeździe w deszczu.</p>"
+        "<p><b><u>2. Ciśnienie w oponach</u></b></p><p>Co tydzień rano.</p>"
+        "<p><u>Mycie:</u><br>Rzadko, <u>bez myjki</u>.</p>"
+        '<p><span style="text-decoration: underline">Komu pasuje taka rama?</span></p>'
+        "<p>Wysokim.</p>"
+    )
+    assert [node for node in nodes(conversion) if node["type"] == "heading"] == [
+        {
+            "type": "heading",
+            "level": 3,
+            "anchor": "najczestsze-usterki-napedu",
+            "text": "Najczęstsze usterki napędu:",
+        },
+        {
+            "type": "heading",
+            "level": 3,
+            "anchor": "czyszczenie-lancucha",
+            "text": "Czyszczenie łańcucha:",
+        },
+        {
+            "type": "heading",
+            "level": 3,
+            "anchor": "cisnienie-w-oponach",
+            "text": "2. Ciśnienie w oponach",
+        },
+        {"type": "heading", "level": 3, "anchor": "mycie", "text": "Mycie:"},
+        {
+            "type": "heading",
+            "level": 3,
+            "anchor": "komu-pasuje-taka-rama",
+            "text": "Komu pasuje taka rama?",
+        },
+    ]
+    assert nodes(conversion)[7] == {
+        "type": "paragraph",
+        "content": [{"text": "Rzadko, "}, {"text": "bez myjki", "bold": True}, {"text": "."}],
+    }
     assert kinds(conversion) == {
-        "underline_bold_as_heading": 2,
-        "underline_dropped": 3,
+        "underline_as_heading": 5,
+        "underline_as_bold": 1,
         "line_break_as_paragraph": 1,
     }
-    assert conversion.count(LOST) == 0
+    assert {loss.severity for loss in conversion.losses} == {CHANGED}
+    assert conversion.stats["characters_in"] == conversion.stats["characters_out"]
+    assert_unique_anchors(conversion.blocks)
+
+
+def test_a_label_stands_one_level_under_the_heading_above_it():
+    conversion = convert_html(
+        "<p><u>Bez śródtytułu nad sobą:</u></p><p>a</p>"
+        "<h2>Napęd</h2><p><u>Pod h2:</u></p><p>b</p>"
+        # One label does not put the next one under itself.
+        "<p><u>Też pod h2:</u></p><p>c</p>"
+        "<h3>Łańcuch</h3><p><u>Pod h3:</u></p><p>d</p>"
+        "<h4>Ogniwa</h4><p><u>Pod h4, głębiej się nie da:</u></p><p>e</p>"
+        "<h1>Koła</h1><p><u>Pod h1 zapisanym jako h2:</u></p><p>f</p>"
+    )
+    assert [
+        (node["level"], node["text"]) for node in nodes(conversion) if node["type"] == "heading"
+    ] == [
+        (3, "Bez śródtytułu nad sobą:"),
+        (2, "Napęd"),
+        (3, "Pod h2:"),
+        (3, "Też pod h2:"),
+        (3, "Łańcuch"),
+        (4, "Pod h3:"),
+        (4, "Ogniwa"),
+        (4, "Pod h4, głębiej się nie da:"),
+        (2, "Koła"),
+        (3, "Pod h1 zapisanym jako h2:"),
+    ]
+    assert [
+        (loss.kind, loss.detail, loss.count)
+        for loss in conversion.losses
+        if loss.kind == "underline_as_heading"
+    ] == [
+        ("underline_as_heading", "h3", 4),
+        ("underline_as_heading", "h4", 2),
+    ]
+
+
+@pytest.mark.parametrize(
+    "paragraph",
+    [
+        # A sentence with its full stop.
+        "<p><u>Nie myj łożysk pod ciśnieniem.</u></p>",
+        # Longer than a label is.
+        f"<p><u>{'Rozwlekła uwaga serwisowa ' * 5}</u></p>",
+        # Italics: a title or a name, not a label.
+        "<p><i><u>Bellis perennis</u></i></p>",
+        # A word outside the underline.
+        "<p>Uwaga: <u>luźne szprychy</u></p>",
+    ],
+)
+def test_an_underlined_paragraph_that_is_not_a_label_stays_a_paragraph(paragraph: str):
+    conversion = convert_html(f"{paragraph}<p>Dalej.</p>")
+    assert [node["type"] for node in nodes(conversion)] == ["paragraph", "paragraph"]
+    assert all(
+        run.get("bold") for run in nodes(conversion)[0]["content"] if run["text"] != "Uwaga: "
+    )
+    assert kinds(conversion) == {"underline_as_bold": 1}
+
+
+def test_a_label_is_as_long_as_the_limit_and_not_a_character_more():
+    at_limit = "Ż" * LABEL_MAX_LENGTH
+    assert nodes(convert_html(f"<p><u>{at_limit}</u></p><p>x</p>"))[0]["type"] == "heading"
+    assert nodes(convert_html(f"<p><u>{at_limit}ż</u></p><p>x</p>"))[0]["type"] == "paragraph"
+
+
+def test_a_label_with_nothing_after_it_labels_nothing_and_stays_emphasis():
+    conversion = convert_html("<p>Tekst.</p><p><u>Na koniec:</u></p>")
+    assert nodes(conversion) == [
+        {"type": "paragraph", "content": [{"text": "Tekst."}]},
+        {"type": "paragraph", "content": [{"text": "Na koniec:", "bold": True}]},
+    ]
+    assert kinds(conversion) == {"underline_as_bold": 1}
+    # A table, a rule or questions after it are something to label.
+    for following in (
+        "<table><tr><td>a</td></tr></table>",
+        "<hr>",
+        '<div class="question_answer"><h3>Czy rdzewieje?</h3><p>Nie.</p></div>',
+    ):
+        labelled = convert_html(f"<h2>Rama</h2><p><u>Wymiary:</u></p>{following}")
+        assert [(node["type"], node.get("text")) for node in nodes(labelled)] == [
+            ("heading", "Rama"),
+            ("heading", "Wymiary:"),
+        ]
+        assert len(labelled.blocks) == 2
 
 
 def test_marks_from_inline_style_count_and_other_declarations_are_named():
@@ -518,13 +760,226 @@ def test_an_empty_row_is_named_and_a_caption_whose_picture_cannot_stand_is_kept(
     assert figure.stats["characters_in"] == figure.stats["characters_out"]
 
 
-def test_words_in_a_place_a_table_has_no_cell_for_are_named_as_lost():
-    conversion = convert_html("<table>luzem<tr>w wierszu<td>komórka</td></tr></table>")
-    assert conversion.blocks[0]["data"]["rows"] == [{"cells": [{"content": [{"text": "komórka"}]}]}]
-    assert [(loss.severity, loss.kind, loss.detail) for loss in conversion.losses] == [
-        (LOST, "text_dropped", "inside <table>"),
-        (LOST, "text_dropped", "inside <tr>"),
+def test_words_a_table_has_no_cell_for_stand_in_front_of_the_table():
+    conversion = convert_html(
+        "<p>Przed.</p><table>luzem<tr>w <b>wierszu</b><td>komórka</td></tr>"
+        "<tbody><p>w części</p><tr><td>druga</td></tr></tbody><div>w bloku</div></table>"
+    )
+    assert types(conversion) == ["core.rich_text", "core.table"]
+    assert nodes(conversion) == [
+        {"type": "paragraph", "content": [{"text": "Przed."}]},
+        {"type": "paragraph", "content": [{"text": "luzem"}]},
+        {"type": "paragraph", "content": [{"text": "w "}, {"text": "wierszu", "bold": True}]},
+        {"type": "paragraph", "content": [{"text": "w części"}]},
+        {"type": "paragraph", "content": [{"text": "w bloku"}]},
     ]
+    assert conversion.blocks[1]["data"]["rows"] == [
+        {"cells": [{"content": [{"text": "komórka"}]}]},
+        {"cells": [{"content": [{"text": "druga"}]}]},
+    ]
+    assert [(loss.severity, loss.kind, loss.detail, loss.count) for loss in conversion.losses] == [
+        (CHANGED, "table_text_as_paragraph", "inside <table>", 2),
+        (CHANGED, "table_text_as_paragraph", "inside <tbody>", 1),
+        (CHANGED, "table_text_as_paragraph", "inside <tr>", 1),
+    ]
+    assert conversion.stats["characters_in"] == conversion.stats["characters_out"]
+    # A cell written outside a row keeps its words too.
+    bare = convert_html("<table><td>bez wiersza</td></table>")
+    assert nodes(bare) == [{"type": "paragraph", "content": [{"text": "bez wiersza"}]}]
+    assert bare.count(LOST) == 0
+
+
+def test_words_in_a_list_outside_its_items_are_an_item_of_their_own():
+    conversion = convert_html(
+        # An item closed too early: the rest of its sentence is left in the list.
+        "<ul><li>Dokręć śrubę</li> – ale dopiero gdy <b>mostek</b> stoi prosto</li>"
+        "<li>Sprawdź hamulce</li></ul>"
+        # Words before the first item, words around an element, and the same
+        # one level down.
+        "<ol>Kolejność:<li>raz<ul><li>a</li>luzem niżej<li>b</li></ul></li>"
+        "<span>dwa</span> i pół</ol>"
+    )
+    assert nodes(conversion) == [
+        {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+                {"content": [{"text": "Dokręć śrubę"}]},
+                {
+                    "content": [
+                        {"text": "– ale dopiero gdy "},
+                        {"text": "mostek", "bold": True},
+                        {"text": " stoi prosto"},
+                    ]
+                },
+                {"content": [{"text": "Sprawdź hamulce"}]},
+            ],
+        },
+        {
+            "type": "list",
+            "style": "ordered",
+            "items": [
+                {"content": [{"text": "Kolejność:"}]},
+                {
+                    "content": [{"text": "raz"}],
+                    "children": {
+                        "style": "bullet",
+                        "items": [
+                            {"content": [{"text": "a"}]},
+                            {"content": [{"text": "luzem niżej"}]},
+                            {"content": [{"text": "b"}]},
+                        ],
+                    },
+                },
+                {"content": [{"text": "dwa i pół"}]},
+            ],
+        },
+    ]
+    assert [(loss.severity, loss.kind, loss.detail, loss.count) for loss in conversion.losses] == [
+        (CHANGED, "list_text_as_item", "inside <ol>", 2),
+        (CHANGED, "list_text_as_item", "inside <ul>", 2),
+        (CHANGED, "stray_end_tag", "li", 1),
+    ]
+    assert conversion.stats["characters_in"] == conversion.stats["characters_out"]
+    # One element where an item should be is read as that item, as before.
+    lone = convert_html("<ul><li>raz</li><p>dwa</p></ul>")
+    assert nodes(lone)[0]["items"] == [
+        {"content": [{"text": "raz"}]},
+        {"content": [{"text": "dwa"}]},
+    ]
+    assert [(loss.kind, loss.detail) for loss in lone.losses] == [("tag_unwrapped", "p in a list")]
+
+
+@pytest.mark.parametrize(
+    ("html", "content", "tag"),
+    [
+        # `<` where the `>` was.
+        (
+            "<ul><li><b<Rozmiar:</b> 54 cm</li></ul>",
+            [{"text": "Rozmiar:", "bold": True}, {"text": " 54 cm"}],
+            "b",
+        ),
+        # A whole item inside its own opening tag.
+        (
+            "<ul><li<Rozmiar: 52–56 cm (ok. 11 kg)</li></ul>",
+            [{"text": "Rozmiar: 52–56 cm (ok. 11 kg)"}],
+            "li",
+        ),
+        # A space, a slash or a full stop where the `>` was.
+        (
+            "<ul><li>co <b usztywnia ramę</b> w zakręcie</li></ul>",
+            [{"text": "co "}, {"text": "usztywnia ramę", "bold": True}, {"text": " w zakręcie"}],
+            "b",
+        ),
+        (
+            "<ul><li><b/miękkie siodło</b></li></ul>",
+            [{"text": "miękkie siodło", "bold": True}],
+            "b",
+        ),
+        (
+            "<ul><li>zapobiega <i.pękaniu szprych</i></li></ul>",
+            [{"text": "zapobiega "}, {"text": "pękaniu szprych", "italic": True}],
+            "i",
+        ),
+        # Nothing where the `>` was: the name ends where the word begins, or
+        # the closing tag names it.
+        (
+            "<ul><li><bZębatki i przerzutki:</b></li></ul>",
+            [{"text": "Zębatki i przerzutki:", "bold": True}],
+            "b",
+        ),
+        ("<ul><li><bЭто новая рама</b></li></ul>", [{"text": "Это новая рама", "bold": True}], "b"),
+        ("<ul><li><busztywnia ramę</b></li></ul>", [{"text": "usztywnia ramę", "bold": True}], "b"),
+        ("<ul><LI<Rozmiar: 54 cm</LI></ul>", [{"text": "Rozmiar: 54 cm"}], "li"),
+        # Only the `>` is missing: the tag after it is a tag, not words.
+        (
+            "<ul><li<b>Rozmiar:</b> 54 cm</li></ul>",
+            [{"text": "Rozmiar:", "bold": True}, {"text": " 54 cm"}],
+            "li",
+        ),
+        # A `=` among the words does not make them attributes.
+        (
+            "<ul><li><b<Skok = 100 mm</b> z przodu</li></ul>",
+            [{"text": "Skok = 100 mm", "bold": True}, {"text": " z przodu"}],
+            "b",
+        ),
+    ],
+)
+def test_an_opening_tag_that_lost_its_bracket_gives_back_the_words_it_swallowed(
+    html: str, content: list[dict[str, Any]], tag: str
+):
+    conversion = convert_html(html)
+    assert nodes(conversion) == [
+        {"type": "list", "style": "bullet", "items": [{"content": content}]}
+    ]
+    broken = re.search(r"<[a-zA-Z]+[^<>]*<[^>]*>", html)
+    assert broken is not None
+    raw = broken.group()
+    assert [(loss.severity, loss.kind, loss.detail, loss.sample) for loss in conversion.losses] == [
+        (CHANGED, "opening_tag_repaired", tag, raw)
+    ]
+    assert conversion.stats["characters_in"] == conversion.stats["characters_out"]
+
+
+def test_a_broken_opening_tag_that_runs_into_the_next_one_keeps_both():
+    conversion = convert_html("<pDlatego rama wymaga <b>przeglądu</b> co rok.</p><p>Dalej.</p>")
+    assert nodes(conversion) == [
+        {
+            "type": "paragraph",
+            "content": [
+                {"text": "Dlatego rama wymaga "},
+                {"text": "przeglądu", "bold": True},
+                {"text": " co rok."},
+            ],
+        },
+        {"type": "paragraph", "content": [{"text": "Dalej."}]},
+    ]
+    assert kinds(conversion) == {"opening_tag_repaired": 1}
+
+
+def test_a_broken_tag_nothing_can_read_is_named_as_lost_and_a_tag_with_attributes_is_left_alone():
+    unread = convert_html("<p>Przed <xyz<słowa w środku</xyz> po.</p>")
+    assert (LOST, "text_dropped", "inside a broken tag", "<xyz<słowa w środku</xyz>") in [
+        (loss.severity, loss.kind, loss.detail, loss.sample) for loss in unread.losses
+    ]
+    # Cut off before the next tag could end it: words nothing tells from attributes.
+    cut = convert_html("<p>raz</p><pA na koniec dwa słowa")
+    assert nodes(cut) == [{"type": "paragraph", "content": [{"text": "raz"}]}]
+    assert [(loss.severity, loss.kind, loss.detail, loss.sample) for loss in cut.losses] == [
+        (LOST, "text_dropped", "inside a broken tag", "<pA na koniec dwa słowa")
+    ]
+    # `=` says attributes, not words: what a browser reads stays what is read.
+    attributes = convert_html(
+        '<p><a href="/x" title="a<b">link</a> i <span class="x" <b>tekst</b></p>'
+    )
+    assert "opening_tag_repaired" not in kinds(attributes)
+    assert nodes(attributes)[0]["content"][0] == {"text": "link", "href": "/x"}
+
+
+@pytest.mark.parametrize(
+    ("html", "cut"),
+    [
+        ("<ol><li>raz</li><li>dwa</li> </", "</"),
+        ("<ul><li>raz</li><li><strong>dwa</strong></", "</"),
+        ("<p>raz</p><ul><li>dwa</li></ul><p", "<p"),
+        ('<p>raz</p><p>dwa</p><a href="/x', '<a href="/x'),
+    ],
+)
+def test_a_document_cut_off_inside_a_tag_ends_before_that_tag(html: str, cut: str):
+    conversion = convert_html(html)
+    written = json.dumps(conversion.blocks, ensure_ascii=False)
+    assert "<" not in written
+    assert "raz" in written
+    assert "dwa" in written
+    assert [(loss.severity, loss.kind, loss.sample) for loss in conversion.losses] == [
+        (CHANGED, "unfinished_tag_dropped", cut)
+    ]
+    assert conversion.stats["characters_in"] == conversion.stats["characters_out"] == 6
+    # A name cut in the middle is still only the beginning of a tag.
+    assert kinds(convert_html("<p>raz</p></blockq")) == {"unfinished_tag_dropped": 1}
+    # A sign that is not the beginning of a tag is a word like any other.
+    assert nodes(convert_html("<p>mniej niż <"))[0]["content"] == [{"text": "mniej niż <"}]
+    assert nodes(convert_html("<p>koła <29 cali"))[0]["content"] == [{"text": "koła <29 cali"}]
 
 
 FAQ = """

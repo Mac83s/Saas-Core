@@ -1,7 +1,9 @@
 # Tabela w treści i konwerter HTML → bloki
 
 Status: plan memex `saas-core-wielojezycznosc-i-tlumaczenia-ai`, faza PB2
-(2026-10-07). Rozszerza ADR-027 (treść jako bloki) i ADR-056 (edytor na
+(2026-10-07); reguły dla podkreślenia, słów poza miejscem na słowa i linku w
+śródtytule poprawione po pierwszym przebiegu na prawdziwych treściach (PB2c,
+2026-10-08). Rozszerza ADR-027 (treść jako bloki) i ADR-056 (edytor na
 kontrakcie) bez zmiany istniejących schematów. Powód: treści pisane poza
 rdzeniem (wpisy i opisy w HTML) mają trafić do stron i wpisów, a 86 tabel w
 przenoszonych wpisach nie miało w rdzeniu odpowiednika.
@@ -94,6 +96,7 @@ Każdy blok jest przed zwróceniem sprawdzany swoim schematem
 |---|---|
 | tekst, `p`, `div` i inne kontenery | akapity `core.rich_text` v4 |
 | `b`/`strong`, `i`/`em`, `font-weight`/`font-style` w `style` | znaczniki przebiegu |
+| `u`/`ins`, `text-decoration: underline` | na części tekstu pogrubienie; krótki akapit podkreślony w całości — śródtytuł (niżej) |
 | `a href` | link, gdy kontrakt przyjmuje adres (`/ścieżka`, `https://`, `mailto:`, `tel:`, `#kotwica` śródtytułu tego dokumentu); `http://` i `//host` zapisane jako `https://`; `rel` `sponsored`/`ugc`/`nofollow` zachowany |
 | `h1`–`h6` | śródtytuł 2–4 (`h1` → 2, `h5`/`h6` → 4); `id` zgodne z kontraktem zostaje kotwicą, a linki `#stare-id` idą za śródtytułem |
 | `ul`/`ol` | lista do dwóch poziomów; głębsze poziomy spłaszczone do drugiego |
@@ -107,10 +110,76 @@ Każdy blok jest przed zwróceniem sprawdzany swoim schematem
 ### Rozstrzygnięcia
 
 - **`<u>`.** Tekst ma pogrubienie, kursywę i link; podkreślenie w sieci czyta
-  się jak link, więc kontrakt go nie ma i nie dostaje. Akapit w całości
-  pogrubiony i podkreślony to w przenoszonych tekstach śródtytuł — zostaje
-  `h3`. Każde inne podkreślenie znika, słowa zostają
-  (`underline_dropped`).
+  się jak link, więc kontrakt go nie ma i nie dostaje. Zostaje to, co
+  podkreślenie znaczyło. Reguły są ustalone na prawdziwym korpusie (PB2c:
+  16 996 dokumentów w pięciu językach, podkreślenie w 49 824 akapitach i
+  pozycjach list):
+  - **Podkreślona część tekstu to wyróżnienie i zostaje pogrubieniem**
+    (`underline_as_bold`): fraza w zdaniu, początek pozycji listy, cała
+    pozycja, komórka, cytat. Pogrubienie stojące tuż obok łączy się z nim w
+    jeden przebieg. Na słowach już pogrubionych i na linku podkreślenie
+    niczego nie dodaje i znika (`underline_dropped`, szczegół „on bold
+    words” albo „on a link”); znika też tam, gdzie jest miejsce tylko na
+    zwykły tekst — w śródtytule, podpisie, pytaniu i odpowiedzi FAQ
+    (`underline_dropped`, „in a heading” itd.).
+  - **Krótki akapit podkreślony w całości nazywa to, co po nim następuje, i
+    zostaje śródtytułem** (`underline_as_heading`). Warunki, wszystkie naraz:
+    podkreślona jest każda litera i cyfra akapitu albo wiersza między `<br>`
+    (interpunkcja może stać poza podkreśleniem — `<u>Narzędzia</u>:` — a
+    pogrubienie nie przeszkadza); ma najwyżej 100 znaków
+    (`LABEL_MAX_LENGTH`); nie kończy się kropką; nie ma linku ani kursywy;
+    coś po nim w dokumencie stoi. Etykieta na samym końcu niczego nie nazywa
+    i zostaje pogrubionym akapitem, tak samo jak zdanie z kropką albo tekst
+    dłuższy niż próg.
+  - **Poziom śródtytułu**: o jeden niżej niż ostatni śródtytuł `h1`–`h6` nad
+    etykietą (pod `h2` → `h3`, pod `h3` → `h4`, pod `h4` zostaje `h4`). Tekst
+    bez własnych śródtytułów stoi pod `h2` swojej strony albo sekcji, więc
+    etykieta dostaje w nim `h3`. Etykiety nie wchodzą jedna pod drugą.
+  - **Skąd progi.** W korpusie są 3 672 takie akapity (po około 735 w każdym
+    z pięciu języków): średnio 26 znaków, najdłuższy 81; 85% kończy się
+    dwukropkiem, 20 to pytania, żaden nie kończy się kropką, po każdym stoi
+    akapit albo lista. Próg 100 obejmuje wszystkie i zostawia zapas na
+    dłuższe tłumaczenie; kropka i koniec dokumentu to bezpieczniki na teksty,
+    których w tym korpusie nie było. Pozostałe 46 152 podkreślenia to
+    wyróżnienia (40 338 akapitów, 5 814 pozycji list).
+  - Reguła nie dotyczy krótkich akapitów tylko pogrubionych (w tym samym
+    korpusie 4 370 w polskich opisach): pogrubienie zostaje pogrubieniem.
+- **Słowa poza miejscem na słowa.** Lista trzyma tylko pozycje, tabela tylko
+  komórki, a słowa nie przepadają przez znaczniki wokół nich. Słowa wpisane
+  w `ul`/`ol` poza `li` (na przykład po `</li>` zamkniętym za wcześnie)
+  zostają własną pozycją w tym samym miejscu, razem z elementami, między
+  którymi stoją (`list_text_as_item`); pojedynczy element w miejscu pozycji
+  jest czytany jako pozycja (`tag_unwrapped`). Słowa w `table`, `tbody` albo
+  `tr` poza komórką stają akapitem przed tabelą, tak jak pokazuje je
+  przeglądarka (`table_text_as_paragraph`).
+- **Znacznik otwierający bez `>`.** `<b<Rozmiar:</b>`, `<b sztywna rama</b>`,
+  `<liRozmiar: 54 cm</li>`: bez `>` znacznik ciągnie się do końca następnego i
+  przeglądarka nie pokazuje żadnego ze słów między nimi (parser widzi znacznik
+  `b<rozmiar:<` z atrybutami). Nazwa znacznika ani atrybutu nie zawiera `<`,
+  więc taki znacznik jest czytany jako ten, którym był, a reszta jako słowa
+  (`opening_tag_repaired`; szczegół to odczytany znacznik, próbka to surowy
+  zapis). Nazwę wyznaczają kolejno: litery tej samej wielkości przed słowem
+  (`<liRozmiar` → `li`), znacznik, który go zamyka (`<bsztywna rama</b>` →
+  `b`), na końcu najkrótszy znany znacznik, od którego zaczynają się litery.
+  Jeden znak `/`, `.`, `,`, `;`, `:` albo `-` stojący w miejscu `>` jest
+  pomijany; `<` także, chyba że stoi za nim znacznik (`<li<b>Rozmiar</b>` —
+  tu brakuje samego `>`). Znacznik z prawdziwymi atrybutami (`=`), który
+  dopiero po nich wpada na następny, zostaje, jak czyta go przeglądarka: nie
+  ma w nim słów. Znacznik, którego nie da się odczytać, jest stratą
+  `text_dropped` („inside a broken tag”) z surowym zapisem w próbce. W
+  korpusie: 75 dokumentów, same tłumaczenia (de 45, en 26, ru 3, es 1), około
+  1 800 znaków — wszystkie odczytane.
+- **Dokument urwany w środku znacznika.** Koniec `…</li> </`, `…</p><p` albo
+  `…<a href="/x` to początek znacznika, nie słowa: jest odcinany
+  (`unfinished_tag_dropped`, próbka to urwany fragment). Taka pozycja raportu
+  znaczy, że treść została ucięta u źródła i warto ją tam sprawdzić — w
+  korpusie 3 dokumenty. Urwany koniec, w którym po nazwie znacznika stoją
+  słowa bez `=` (`…<pI ostatnie zdanie`), to zepsuty znacznik otwierający,
+  którego słów nie da się odróżnić od atrybutów: strata `text_dropped`.
+- **Link w śródtytule.** Śródtytuł to zwykły tekst, więc link w nim przepada,
+  a słowa zostają. Strata `heading_link_dropped` ma w szczególe cały adres
+  (po `rewrite_link`, nieskrócony), a w próbce tekst śródtytułu — o tym, co z
+  linkiem zrobić, decyduje import. W korpusie 7 wpisów.
 - **`div.question_answer`.** Odpowiedź w `core.faq` to zwykły napis. Grupa
   zostaje blokiem FAQ tylko wtedy, gdy każda odpowiedź to zwykłe akapity w
   granicach bloku (pytanie do 200, odpowiedź do 2000 znaków). Grupa z linkiem,
@@ -133,8 +202,8 @@ liczba wystąpień w dokumencie i próbka (pierwsze słowa albo wartość).
 
 | Waga | Znaczenie | Rodzaje |
 |---|---|---|
-| `lost` | treść przepadła | `tag_dropped` (element usunięty z zawartością: `script`, `iframe`, `form`…), `link_dropped`, `image_dropped`, `text_dropped`, `text_mismatch` |
-| `changed` | wszystko zostało, powiedziane inaczej | `underline_dropped`, `underline_bold_as_heading`, `strikethrough_dropped`, `superscript_flattened`, `subscript_flattened`, `code_mark_dropped`, `tag_unwrapped`, `heading_level_changed`, `heading_marks_dropped`, `heading_too_long`, `line_break_as_paragraph`, `line_break_as_space`, `blocks_flattened`, `blocks_joined`, `list_nesting_flattened`, `list_numbering_dropped`, `list_item_without_text`, `sublists_merged`, `sublist_overflow_promoted`, `table_span_flattened`, `table_column_widths_dropped`, `table_footer_as_rows`, `table_extra_header_rows`, `table_header_cell_as_data`, `table_too_wide`, `table_caption_as_paragraph`, `caption_marks_dropped`, `faq_kept_as_text`, `faq_marks_dropped`, `faq_paragraphs_joined`, `faq_heading_as_title`, `link_upgraded_to_https`, `link_target_dropped`, `link_rel_dropped`, `image_moved_after_paragraph`, `image_alt_shortened`, `preformatted_flattened`, `definition_list_flattened`, `marks_dropped_over_run_limit`, `class_dropped`, `style_dropped`, `attribute_dropped`, `comment_dropped`, `declaration_dropped`, `quote_source_marks_dropped`, `empty_block_dropped`, `stray_end_tag` |
+| `lost` | treść przepadła | `tag_dropped` (element usunięty z zawartością: `script`, `iframe`, `form`…), `link_dropped`, `heading_link_dropped`, `image_dropped`, `text_dropped`, `text_mismatch` |
+| `changed` | wszystko zostało, powiedziane inaczej | `underline_as_bold`, `underline_as_heading`, `underline_dropped`, `list_text_as_item`, `table_text_as_paragraph`, `opening_tag_repaired`, `unfinished_tag_dropped`, `strikethrough_dropped`, `superscript_flattened`, `subscript_flattened`, `code_mark_dropped`, `tag_unwrapped`, `heading_level_changed`, `heading_marks_dropped`, `heading_too_long`, `line_break_as_paragraph`, `line_break_as_space`, `blocks_flattened`, `blocks_joined`, `list_nesting_flattened`, `list_numbering_dropped`, `list_item_without_text`, `sublists_merged`, `sublist_overflow_promoted`, `table_span_flattened`, `table_column_widths_dropped`, `table_footer_as_rows`, `table_extra_header_rows`, `table_header_cell_as_data`, `table_too_wide`, `table_caption_as_paragraph`, `caption_marks_dropped`, `faq_kept_as_text`, `faq_marks_dropped`, `faq_paragraphs_joined`, `faq_heading_as_title`, `link_upgraded_to_https`, `link_target_dropped`, `link_rel_dropped`, `image_moved_after_paragraph`, `image_alt_shortened`, `preformatted_flattened`, `definition_list_flattened`, `marks_dropped_over_run_limit`, `class_dropped`, `style_dropped`, `attribute_dropped`, `comment_dropped`, `declaration_dropped`, `quote_source_marks_dropped`, `empty_block_dropped`, `stray_end_tag` |
 | `split` | jedno stało się kilkoma przez limit | `rich_text_split` (ponad 160 węzłów: cięcie przed ostatnim `h2`, potem `h3`, `h4`, na końcu na limicie), `list_split` (ponad 40 pozycji), `table_split` (ponad 120 wierszy; podpis i wiersz nagłówka powtórzone), `faq_split` (ponad 30 pytań), `paragraph_split` (ponad 64 przebiegi) |
 
 Dwa rachunki zamykają raport. Każdy węzeł tekstu wejścia trafia do bloku albo
@@ -143,6 +212,11 @@ musi równać się liczbie zapisanych; różnica sama jest stratą (`text_droppe
 `text_mismatch`). Luka w konwerterze wychodzi więc jako pozycja raportu, a nie
 jako brakujące słowa. Znaki dopisane przez konwerter (powtórzony nagłówek
 dzielonej tabeli, myślnik pozycji listy bez słów) są odliczane.
+
+`text_dropped` nie jest już wynikiem żadnej reguły: zostaje dla luki w
+konwerterze i dla zepsutego znacznika, którego słów nie da się odczytać. Na
+korpusie PB2c (16 996 dokumentów) obie liczby, `text_dropped` i
+`text_mismatch`, wynoszą 0.
 
 ### Próba na sucho
 
