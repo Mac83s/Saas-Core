@@ -6944,8 +6944,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Remove a content type that has no entries
-         * @description Removes a type without a single entry — a draft counts (`content_type_not_empty`); a type with entries is switched off instead. Its names in addresses become free and its former names stop leading anywhere. A person's decision (`person_required`).
+         * Delete a content type and erase its removed entries
+         * @description A type is deleted only when it has no entry that keeps it — a draft counts (`content_type_not_empty`); a type with entries is switched off instead, or its entries are removed first. Entries a person removed do not keep the type and go with it for good: their texts, versions and publication history are erased and cannot be brought back, so deleting a type that has removed entries takes its name in `confirm_name` (`confirmation_required` without it). The type's categories go with it, its names in addresses become free and its former names stop leading anywhere. A person's decision only — never an integration or the assistant (`person_required`).
          */
         delete: operations["sites_content_type_delete"];
         options?: never;
@@ -7087,6 +7087,26 @@ export interface paths {
          */
         put: operations["sites_collection_policy_set"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/collections/{collection_id}/removal/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What deleting a content type would erase
+         * @description Answers without deleting: whether the type can be deleted, how many entries keep it, how many removed entries and publications would be erased for good, how many categories go with it, the addresses that become free and whether the type's name must be typed to confirm. A type is deleted only when it has no entry that keeps it — a draft counts (`content_type_not_empty`); a type with entries is switched off instead, or its entries are removed first. Entries a person removed do not keep the type and go with it for good: their texts, versions and publication history are erased and cannot be brought back, so deleting a type that has removed entries takes its name in `confirm_name` (`confirmation_required` without it). The type's categories go with it, its names in addresses become free and its former names stop leading anywhere. A person's decision only — never an integration or the assistant (`person_required`).
+         */
+        post: operations["sites_content_type_delete_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7416,6 +7436,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/entries/{entry_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove an entry
+         * @description Removes one entry — one language version of an article; its other language versions stay. It leaves the site at once: its address answers 404 and it is on no list, in no feed, sitemap or `llms.txt`, among no other entry's language versions, in no translation offer and in nothing an integration is shown; a publication planned for later is called off. Nothing is erased — its versions and publications stay as history, hidden — and its slug and its language in the article become free. It cannot be put back from the panel. Works for an entry of a switched-off type too. A person's decision (`person_required`); taking a published entry off the site needs the right to publish.
+         */
+        delete: operations["sites_entry_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/entries/{entry_id}/categories/": {
         parameters: {
             query?: never;
@@ -7487,6 +7527,26 @@ export interface paths {
         put?: never;
         post: operations["sites_entry_publish"];
         delete: operations["sites_entry_withdraw"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/entries/{entry_id}/removal/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What removing an entry would do
+         * @description Answers without removing: whether the entry is on the site and where, whether a planned publication would be called off, and the article's other language versions, which would stay. Removes one entry — one language version of an article; its other language versions stay. It leaves the site at once: its address answers 404 and it is on no list, in no feed, sitemap or `llms.txt`, among no other entry's language versions, in no translation offer and in nothing an integration is shown; a publication planned for later is called off. Nothing is erased — its versions and publications stay as history, hidden — and its slug and its language in the article become free. It cannot be put back from the panel. Works for an entry of a switched-off type too. A person's decision (`person_required`); taking a published entry off the site needs the right to publish.
+         */
+        post: operations["sites_entry_remove_preview"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -11271,6 +11331,28 @@ export interface components {
             slug: string;
             name: string;
         };
+        ContentTypeRemoval: {
+            /** Format: uuid */
+            collection_id: string;
+            /** @description The type's name — what `confirm_name` has to repeat when `confirmation_required`. */
+            name: string;
+            /** @description Whether the type has no entry left that keeps it. */
+            deletable: boolean;
+            /** @description Entries that keep the type, drafts included; remove them first, or switch the type off instead. */
+            entries: number;
+            /** @description Entries a person removed. Deleting the type erases them for good — their texts and publication history cannot be brought back. */
+            removed_entries: number;
+            /** @description Publications of those entries, erased with them. */
+            removed_publications: number;
+            /** @description The type's categories, which go with it. */
+            categories: number;
+            /** @description The type's address per language: the names that become free. */
+            paths: {
+                [key: string]: string;
+            };
+            /** @description Whether deleting needs the type's name in `confirm_name`: it does when removed entries would be erased. */
+            confirmation_required: boolean;
+        };
         ContentTypeRow: {
             collection: components["schemas"]["ContentCollection"];
             /** @description The type's entries in every language, drafts included. */
@@ -11896,6 +11978,32 @@ export interface components {
         EntryCategoriesSave: {
             /** @description The categories of the entry's content type to file it under — the whole set; an empty list takes it out of every category. */
             term_ids: string[];
+        };
+        EntryOtherLanguage: {
+            /** @description Język treści: dwuliterowy kod z rejestru języków platformy, włączony dla firmy. */
+            locale: string;
+            title: string;
+            /** @description `draft`, `published` or `withdrawn`. */
+            state: string;
+        };
+        EntryRemoval: {
+            /** Format: uuid */
+            entry_id: string;
+            title: string;
+            /** @description The language version that is removed. */
+            locale: string;
+            /** @description True once it is gone; false in a preview. */
+            removed: boolean;
+            /** @description Whether visitors can open it today; removing takes it off the site. */
+            published: boolean;
+            /** @description Where it answers today; that address answers 404 once it is removed. */
+            path: string | null;
+            /** @description A publication planned for later, which removing calls off. */
+            scheduled: boolean;
+            /** @description A translation job made this version: where the site translates entries by itself, a later job may make it again. */
+            machine_translation: boolean;
+            /** @description The article's other language versions, which stay as they are. */
+            other_languages: components["schemas"]["EntryOtherLanguage"][];
         };
         EntrySchedule: {
             /** Format: date-time */
@@ -41167,7 +41275,10 @@ export interface operations {
     };
     sites_content_type_delete: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The type's name, typed — required when the type has removed entries, which deleting erases for good. */
+                confirm_name?: string;
+            };
             header?: never;
             path: {
                 collection_id: string;
@@ -41182,6 +41293,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
             };
             403: {
                 headers: {
@@ -41621,6 +41740,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_content_type_delete_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTypeRemoval"];
                 };
             };
             403: {
@@ -42579,6 +42735,43 @@ export interface operations {
             };
         };
     };
+    sites_entry_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryRemoval"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_entry_categories_list: {
         parameters: {
             query?: never;
@@ -42912,6 +43105,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContentEntry"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_entry_remove_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryRemoval"];
                 };
             };
             403: {

@@ -248,3 +248,64 @@ class EntryCategoriesSaveSerializer(serializers.Serializer[dict[str, Any]]):
         help_text="The categories of the entry's content type to file it under — the whole "
         "set; an empty list takes it out of every category.",
     )
+
+
+class EntryOtherLanguageSerializer(serializers.Serializer[dict[str, Any]]):
+    locale = ContentLocaleField()
+    title = serializers.CharField()
+    state = serializers.CharField(help_text="`draft`, `published` or `withdrawn`.")
+
+
+class EntryRemovalSerializer(serializers.Serializer[dict[str, Any]]):
+    entry_id = serializers.UUIDField()
+    title = serializers.CharField()
+    locale = ContentLocaleField(help_text="The language version that is removed.")
+    removed = serializers.BooleanField(help_text="True once it is gone; false in a preview.")
+    published = serializers.BooleanField(
+        help_text="Whether visitors can open it today; removing takes it off the site."
+    )
+    path = serializers.CharField(
+        allow_null=True,
+        help_text="Where it answers today; that address answers 404 once it is removed.",
+    )
+    scheduled = serializers.BooleanField(
+        help_text="A publication planned for later, which removing calls off."
+    )
+    machine_translation = serializers.BooleanField(
+        help_text="A translation job made this version: where the site translates entries "
+        "by itself, a later job may make it again."
+    )
+    other_languages = EntryOtherLanguageSerializer(
+        many=True, help_text="The article's other language versions, which stay as they are."
+    )
+
+
+class ContentTypeRemovalSerializer(serializers.Serializer[dict[str, Any]]):
+    collection_id = serializers.UUIDField()
+    name = serializers.CharField(
+        help_text="The type's name — what `confirm_name` has to repeat when "
+        "`confirmation_required`."
+    )
+    deletable = serializers.BooleanField(
+        help_text="Whether the type has no entry left that keeps it."
+    )
+    entries = serializers.IntegerField(
+        help_text="Entries that keep the type, drafts included; remove them first, or "
+        "switch the type off instead."
+    )
+    removed_entries = serializers.IntegerField(
+        help_text="Entries a person removed. Deleting the type erases them for good — "
+        "their texts and publication history cannot be brought back."
+    )
+    removed_publications = serializers.IntegerField(
+        help_text="Publications of those entries, erased with them."
+    )
+    categories = serializers.IntegerField(help_text="The type's categories, which go with it.")
+    paths = serializers.DictField(
+        child=serializers.CharField(),
+        help_text="The type's address per language: the names that become free.",
+    )
+    confirmation_required = serializers.BooleanField(
+        help_text="Whether deleting needs the type's name in `confirm_name`: it does when "
+        "removed entries would be erased."
+    )

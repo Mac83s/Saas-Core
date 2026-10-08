@@ -1709,9 +1709,23 @@ class EntryScheduleState(models.TextChoices):
     FAILED = "failed", "Nieudana"
 
 
+class _KeptEntries(models.Manager["ContentEntry"]):
+    """Every entry nobody removed. Whatever reads entries — the public router,
+    the panel's lists and counters, the translation sources, the inventory an
+    integration sees — reads them here, so a removed entry is gone from all
+    of them in the same moment and no reader has to remember it."""
+
+    def get_queryset(self) -> models.QuerySet[ContentEntry]:
+        return super().get_queryset().exclude(state=ContentEntryState.REMOVED)
+
+
 class ContentEntry(TenantScopedModel):
     """One article, with its own draft pointer, version and publication, so it
-    moves through the lifecycle independently of its neighbours."""
+    moves through the lifecycle independently of its neighbours.
+
+    `all_objects` leaves out the entries a person removed (`entry_removal`);
+    `with_removed` is every row, for the two things that mean them: removing
+    an entry and erasing the removed ones with their type."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     collection = models.ForeignKey(
@@ -1820,7 +1834,8 @@ class ContentEntry(TenantScopedModel):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    all_objects = models.Manager()
+    all_objects = _KeptEntries()
+    with_removed = models.Manager()
 
     class Meta:
         ordering = ("organization_id", "collection_id", "-published_at", "id")

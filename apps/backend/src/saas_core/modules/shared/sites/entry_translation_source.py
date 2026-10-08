@@ -165,6 +165,17 @@ class EntryTranslationSource:
                 ).exists()
             ):
                 raise ContentTypeArchived
+            # Nor of an entry a person removed: the same two askers, the same
+            # ending — nothing ordered, an item failed at no cost.
+            if (
+                action == "translate"
+                and object_ids
+                and ContentEntry.all_objects.filter(
+                    organization_id=context.organization_id, id__in=set(object_ids)
+                ).count()
+                != len(set(object_ids))
+            ):
+                raise EntryNotFound
 
     def list_objects(
         self,
@@ -259,6 +270,9 @@ class EntryTranslationSource:
                 # that settles the job's credits, and one refusal would hold
                 # the whole job — and its other translations — open for good.
                 if entry.collection.archived_at is not None:
+                    continue
+                # Nor of an entry a person removed since: the same rule.
+                if entry.state == ContentEntryState.REMOVED:
                     continue
                 sibling = _sibling(entry, locale)
                 if (
@@ -395,14 +409,17 @@ def _authorize(context: ContentContext, action: SourceAction, object_ids: Sequen
         SITE_PUBLISH if action in ("publish", "withdraw") else SITE_CONTENT_EDIT, SITES_ENABLED
     )
     wanted = set(object_ids)
-    if wanted and ContentEntry.all_objects.filter(
+    # An entry removed since a job read it is still an entry here: the job's
+    # write must get an answer (`_read`: excluded), not an error — it settles
+    # its credits in the transaction that writes.
+    if wanted and ContentEntry.with_removed.filter(
         organization_id=context.organization_id, id__in=wanted
     ).count() != len(wanted):
         raise EntryNotFound
 
 
 def _entry(context: ContentContext, object_id: UUID, *, lock: bool = False) -> ContentEntry:
-    entries = ContentEntry.all_objects.select_related(
+    entries = ContentEntry.with_removed.select_related(
         "site__current_publication",
         "site__organization",
         "collection",
@@ -500,7 +517,10 @@ def _read(context: ContentContext, entry: ContentEntry, locale: str, basis: Basi
     sibling = _sibling(entry, locale)
     source_entry = group_source(_group(entry), site.default_locale)
     excluded = None
-    if source_entry is None or source_entry.id != entry.id:
+    if entry.state == ContentEntryState.REMOVED:
+        # A person removed it: gone like a withdrawn one, for every basis.
+        excluded = EXCLUDED_WITHDRAWN
+    elif source_entry is None or source_entry.id != entry.id:
         excluded = EXCLUDED_NOT_SOURCE
     elif locale == entry.locale:
         excluded = EXCLUDED_LOCALE_IS_SOURCE

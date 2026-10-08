@@ -12,7 +12,10 @@ from .collection_views import (
     ContentEntryListCreateView,
     ContentEntryMetadataView,
     ContentEntryPublicationView,
+    ContentEntryRemovePreviewView,
+    ContentEntryRemoveView,
     ContentEntryTranslationView,
+    ContentTypeDeletePreviewView,
     ContentTypeDeleteView,
     ContentTypeSettingsPreviewView,
     ContentTypeSettingsView,
@@ -304,6 +307,21 @@ urlpatterns = [
         "collections/<uuid:collection_id>/paths/preview/",
         ContentCollectionPathsPreviewView.as_view(),
         name="collection-paths-preview",
+    ),
+    path(
+        "collections/<uuid:collection_id>/removal/preview/",
+        ContentTypeDeletePreviewView.as_view(),
+        name="content-type-delete-preview",
+    ),
+    path(
+        "entries/<uuid:entry_id>/",
+        ContentEntryRemoveView.as_view(),
+        name="entry",
+    ),
+    path(
+        "entries/<uuid:entry_id>/removal/preview/",
+        ContentEntryRemovePreviewView.as_view(),
+        name="entry-removal-preview",
     ),
     path(
         "collections/<uuid:collection_id>/terms/",

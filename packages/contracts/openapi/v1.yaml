@@ -20696,10 +20696,16 @@ paths:
   /api/v1/sites/collections/{collection_id}/:
     delete:
       operationId: sites_content_type_delete
-      description: Removes a type without a single entry — a draft counts (`content_type_not_empty`);
-        a type with entries is switched off instead. Its names in addresses become
-        free and its former names stop leading anywhere. A person's decision (`person_required`).
-      summary: Remove a content type that has no entries
+      description: 'A type is deleted only when it has no entry that keeps it — a
+        draft counts (`content_type_not_empty`); a type with entries is switched off
+        instead, or its entries are removed first. Entries a person removed do not
+        keep the type and go with it for good: their texts, versions and publication
+        history are erased and cannot be brought back, so deleting a type that has
+        removed entries takes its name in `confirm_name` (`confirmation_required`
+        without it). The type''s categories go with it, its names in addresses become
+        free and its former names stop leading anywhere. A person''s decision only
+        — never an integration or the assistant (`person_required`).'
+      summary: Delete a content type and erase its removed entries
       parameters:
       - in: path
         name: collection_id
@@ -20707,6 +20713,12 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: confirm_name
+        schema:
+          type: string
+        description: The type's name, typed — required when the type has removed entries,
+          which deleting erases for good.
       tags:
       - sites
       security:
@@ -20714,6 +20726,12 @@ paths:
       responses:
         '204':
           description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
         '403':
           content:
             application/json:
@@ -21229,6 +21247,53 @@ paths:
       x-quality-exempt:
         idempotency-key: 'The whole policy is sent each time: a repeat sets the same
           value and changes nothing.'
+  /api/v1/sites/collections/{collection_id}/removal/preview/:
+    post:
+      operationId: sites_content_type_delete_preview
+      description: 'Answers without deleting: whether the type can be deleted, how
+        many entries keep it, how many removed entries and publications would be erased
+        for good, how many categories go with it, the addresses that become free and
+        whether the type''s name must be typed to confirm. A type is deleted only
+        when it has no entry that keeps it — a draft counts (`content_type_not_empty`);
+        a type with entries is switched off instead, or its entries are removed first.
+        Entries a person removed do not keep the type and go with it for good: their
+        texts, versions and publication history are erased and cannot be brought back,
+        so deleting a type that has removed entries takes its name in `confirm_name`
+        (`confirmation_required` without it). The type''s categories go with it, its
+        names in addresses become free and its former names stop leading anywhere.
+        A person''s decision only — never an integration or the assistant (`person_required`).'
+      summary: What deleting a content type would erase
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentTypeRemoval'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/sites/collections/{collection_id}/settings/:
     put:
       operationId: sites_content_type_update
@@ -22347,6 +22412,51 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/entries/{entry_id}/:
+    delete:
+      operationId: sites_entry_remove
+      description: 'Removes one entry — one language version of an article; its other
+        language versions stay. It leaves the site at once: its address answers 404
+        and it is on no list, in no feed, sitemap or `llms.txt`, among no other entry''s
+        language versions, in no translation offer and in nothing an integration is
+        shown; a publication planned for later is called off. Nothing is erased —
+        its versions and publications stay as history, hidden — and its slug and its
+        language in the article become free. It cannot be put back from the panel.
+        Works for an entry of a switched-off type too. A person''s decision (`person_required`);
+        taking a published entry off the site needs the right to publish.'
+      summary: Remove an entry
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryRemoval'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'Nothing is removed twice: a repeat answers 404.'
   /api/v1/sites/entries/{entry_id}/categories/:
     get:
       operationId: sites_entry_categories_list
@@ -22696,6 +22806,53 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/entries/{entry_id}/removal/preview/:
+    post:
+      operationId: sites_entry_remove_preview
+      description: 'Answers without removing: whether the entry is on the site and
+        where, whether a planned publication would be called off, and the article''s
+        other language versions, which would stay. Removes one entry — one language
+        version of an article; its other language versions stay. It leaves the site
+        at once: its address answers 404 and it is on no list, in no feed, sitemap
+        or `llms.txt`, among no other entry''s language versions, in no translation
+        offer and in nothing an integration is shown; a publication planned for later
+        is called off. Nothing is erased — its versions and publications stay as history,
+        hidden — and its slug and its language in the article become free. It cannot
+        be put back from the panel. Works for an entry of a switched-off type too.
+        A person''s decision (`person_required`); taking a published entry off the
+        site needs the right to publish.'
+      summary: What removing an entry would do
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryRemoval'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/sites/entries/{entry_id}/schedule/:
     put:
       operationId: sites_entry_schedule_set
@@ -32613,6 +32770,51 @@ components:
       required:
       - name
       - slug
+    ContentTypeRemoval:
+      type: object
+      properties:
+        collection_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: The type's name — what `confirm_name` has to repeat when `confirmation_required`.
+        deletable:
+          type: boolean
+          description: Whether the type has no entry left that keeps it.
+        entries:
+          type: integer
+          description: Entries that keep the type, drafts included; remove them first,
+            or switch the type off instead.
+        removed_entries:
+          type: integer
+          description: Entries a person removed. Deleting the type erases them for
+            good — their texts and publication history cannot be brought back.
+        removed_publications:
+          type: integer
+          description: Publications of those entries, erased with them.
+        categories:
+          type: integer
+          description: The type's categories, which go with it.
+        paths:
+          type: object
+          additionalProperties:
+            type: string
+          description: 'The type''s address per language: the names that become free.'
+        confirmation_required:
+          type: boolean
+          description: 'Whether deleting needs the type''s name in `confirm_name`:
+            it does when removed entries would be erased.'
+      required:
+      - categories
+      - collection_id
+      - confirmation_required
+      - deletable
+      - entries
+      - name
+      - paths
+      - removed_entries
+      - removed_publications
     ContentTypeRow:
       type: object
       properties:
@@ -34074,6 +34276,74 @@ components:
           maxItems: 10
       required:
       - term_ids
+    EntryOtherLanguage:
+      type: object
+      properties:
+        locale:
+          type: string
+          description: 'Język treści: dwuliterowy kod z rejestru języków platformy,
+            włączony dla firmy.'
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        title:
+          type: string
+        state:
+          type: string
+          description: '`draft`, `published` or `withdrawn`.'
+      required:
+      - locale
+      - state
+      - title
+    EntryRemoval:
+      type: object
+      properties:
+        entry_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        locale:
+          type: string
+          description: The language version that is removed.
+          maxLength: 2
+          minLength: 2
+          pattern: ^[a-z]{2}$
+        removed:
+          type: boolean
+          description: True once it is gone; false in a preview.
+        published:
+          type: boolean
+          description: Whether visitors can open it today; removing takes it off the
+            site.
+        path:
+          type:
+          - string
+          - 'null'
+          description: Where it answers today; that address answers 404 once it is
+            removed.
+        scheduled:
+          type: boolean
+          description: A publication planned for later, which removing calls off.
+        machine_translation:
+          type: boolean
+          description: 'A translation job made this version: where the site translates
+            entries by itself, a later job may make it again.'
+        other_languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntryOtherLanguage'
+          description: The article's other language versions, which stay as they are.
+      required:
+      - entry_id
+      - locale
+      - machine_translation
+      - other_languages
+      - path
+      - published
+      - removed
+      - scheduled
+      - title
     EntrySchedule:
       type: object
       properties:

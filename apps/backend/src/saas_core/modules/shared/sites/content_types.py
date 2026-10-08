@@ -481,26 +481,91 @@ def switch_on_content_type(*, collection_id: UUID, dry_run: bool = False) -> Con
     return result
 
 
+@dataclass(frozen=True, slots=True)
+class ContentTypeRemoval:
+    """Deleting a content type: as done, or — in a preview — as it would be."""
+
+    collection: ContentCollection
+    #: Entries that keep the type: it is deleted only when it has none.
+    entries: int
+    #: Entries a person removed. Deleting the type erases them for good —
+    #: their texts and their publication history — which is why it then asks
+    #: for the type's name.
+    removed_entries: int
+    removed_publications: int
+    #: The type's categories, which go with it.
+    categories: int
+    #: Where the type's list answered per language: the names that become free.
+    paths: dict[str, str]
+    deletable: bool
+    confirmation_required: bool
+    deleted: bool = False
+
+
 @transaction.atomic
-def delete_content_type(*, collection_id: UUID) -> None:
-    """Removes a content type that has no entry at all — a draft counts
-    (`content_type_not_empty`); a type with entries is switched off instead.
-    Its names in addresses become free, its former names stop leading
-    anywhere, and automation grants that named it go with it. Switched on or
-    off alike. A person's decision. Deleting what is already gone is a 404.
+def delete_content_type(
+    *, collection_id: UUID, confirm_name: str = "", dry_run: bool = False
+) -> ContentTypeRemoval:
+    """Removes a content type that has no entry — a draft counts
+    (`content_type_not_empty`); a type with entries is switched off instead,
+    or its entries are removed first, one by one.
+
+    Entries a person removed do not keep the type, and go with it **for
+    good**: their texts, versions and publication history are erased and
+    cannot be brought back. Because of that, deleting a type that has removed
+    entries takes its name typed in `confirm_name` (`confirmation_required`
+    without it); the preview says how many entries and publications would be
+    erased. The type's categories go with it, its names in addresses become
+    free, its former names stop leading anywhere, and automation grants that
+    named it go too. Switched on or off alike.
+
+    A person's decision only — never an integration key or the assistant
+    (`person_required`). Deleting what is already gone is a 404. `dry_run`
+    answers with what would happen and writes nothing.
     """
+    from .entry_removal import assert_erasure_confirmed, erase_removed_entries, removed_entries
+    from .models import ContentEntryPublication, ContentTag
+
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     assert_person_required(context, DELETE_GATE)
-    _site_row, collection = _locked(context, collection_id)
-    if ContentEntry.all_objects.filter(
+    site, collection = _locked(context, collection_id)
+    kept = ContentEntry.all_objects.filter(
         organization_id=context.organization_id, collection_id=collection.id
-    ).exists():
+    ).count()
+    removed = removed_entries(collection)
+    categories = ContentTag.all_objects.filter(
+        organization_id=context.organization_id, taxonomy__collection_id=collection.id
+    ).count()
+    result = ContentTypeRemoval(
+        collection=collection,
+        entries=kept,
+        removed_entries=len(removed),
+        removed_publications=ContentEntryPublication.all_objects.filter(
+            organization_id=context.organization_id, entry_id__in=[entry.id for entry in removed]
+        ).count(),
+        categories=categories,
+        paths={
+            locale: collection_index_path(
+                collection, default_locale=site.default_locale, locale=locale
+            )
+            for locale in _company_locales(site)
+        },
+        deletable=kept == 0,
+        confirmation_required=bool(removed),
+    )
+    if dry_run:
+        return result
+    if kept:
         raise ContentTypeNotEmpty
+    assert_erasure_confirmed(collection, removed, confirm_name)
     metadata = {
         "key": collection.key,
         "name": collection.name,
         "base_path": collection.base_path,
         "locale_paths": dict(collection.locale_paths or {}),
+        "categories": categories,
+        # What was erased with it, kept here because nothing else is.
+        **erase_removed_entries(context, removed),
     }
     target_id = collection.id
     collection.delete()
@@ -511,4 +576,15 @@ def delete_content_type(*, collection_id: UUID) -> None:
         target_type="content_collection",
         target_id=target_id,
         metadata=metadata,
+    )
+    return ContentTypeRemoval(
+        collection=collection,
+        entries=0,
+        removed_entries=result.removed_entries,
+        removed_publications=result.removed_publications,
+        categories=categories,
+        paths=result.paths,
+        deletable=True,
+        confirmation_required=result.confirmation_required,
+        deleted=True,
     )

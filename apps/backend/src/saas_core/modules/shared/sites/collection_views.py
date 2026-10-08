@@ -38,6 +38,7 @@ from .collections import (
 from .content_type_limit import ContentTypesLimit
 from .content_types import (
     SCHEMA_TYPES,
+    ContentTypeRemoval,
     ContentTypeSwitch,
     delete_content_type,
     list_content_types,
@@ -45,6 +46,7 @@ from .content_types import (
     switch_on_content_type,
     update_content_type,
 )
+from .entry_removal import EntryRemoval, remove_entry
 from .models import ContentCollection, ContentEntry, ContentEntryPublication
 from .serializers import (
     AutomationPolicySerializer,
@@ -73,6 +75,7 @@ from .serializers import (
     PageSummarySerializer,
 )
 from .services import set_page_automation_policy
+from .taxonomy_serializers import ContentTypeRemovalSerializer, EntryRemovalSerializer
 from .views import CURSOR_PARAMETER, LIMIT_PARAMETER, _draft_author
 
 IDEMPOTENCY_PARAMETER = OpenApiParameter(
@@ -465,17 +468,50 @@ class ContentTypeSwitchOnView(APIView):
         return Response(_switch_payload(switch_on_content_type(collection_id=collection_id)))
 
 
+_DELETE_RULES = (
+    "A type is deleted only when it has no entry that keeps it — a draft counts "
+    "(`content_type_not_empty`); a type with entries is switched off instead, or its "
+    "entries are removed first. Entries a person removed do not keep the type and go with "
+    "it for good: their texts, versions and publication history are erased and cannot be "
+    "brought back, so deleting a type that has removed entries takes its name in "
+    "`confirm_name` (`confirmation_required` without it). The type's categories go with it, "
+    "its names in addresses become free and its former names stop leading anywhere. A "
+    "person's decision only — never an integration or the assistant (`person_required`)."
+)
+
+
+def _removal_payload(result: ContentTypeRemoval) -> dict[str, Any]:
+    return {
+        "collection_id": str(result.collection.id),
+        "name": result.collection.name,
+        "deletable": result.deletable,
+        "entries": result.entries,
+        "removed_entries": result.removed_entries,
+        "removed_publications": result.removed_publications,
+        "categories": result.categories,
+        "paths": result.paths,
+        "confirmation_required": result.confirmation_required,
+    }
+
+
 class ContentTypeDeleteView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
         operation_id="sites_content_type_delete",
-        summary="Remove a content type that has no entries",
-        description="Removes a type without a single entry — a draft counts "
-        "(`content_type_not_empty`); a type with entries is switched off instead. Its names "
-        "in addresses become free and its former names stop leading anywhere. A person's "
-        "decision (`person_required`).",
+        summary="Delete a content type and erase its removed entries",
+        description=_DELETE_RULES,
         tags=["sites"],
+        parameters=[
+            OpenApiParameter(
+                name="confirm_name",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="The type's name, typed — required when the type has removed "
+                "entries, which deleting erases for good.",
+            )
+        ],
         extensions={
             "x-quality-exempt": {
                 "idempotency-key": "Nothing is removed twice: a repeat answers 404.",
@@ -483,14 +519,115 @@ class ContentTypeDeleteView(APIView):
         },
         responses={
             204: None,
+            400: ProblemDetailsSerializer,
             403: ProblemDetailsSerializer,
             404: ProblemDetailsSerializer,
             409: ProblemDetailsSerializer,
         },
     )
-    def delete(self, _request: Request, collection_id: UUID) -> Response:
-        delete_content_type(collection_id=collection_id)
+    def delete(self, request: Request, collection_id: UUID) -> Response:
+        delete_content_type(
+            collection_id=collection_id,
+            confirm_name=str(request.query_params.get("confirm_name", "")),
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ContentTypeDeletePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_content_type_delete_preview",
+        summary="What deleting a content type would erase",
+        description="Answers without deleting: whether the type can be deleted, how many "
+        "entries keep it, how many removed entries and publications would be erased for "
+        "good, how many categories go with it, the addresses that become free and whether "
+        "the type's name must be typed to confirm. " + _DELETE_RULES,
+        tags=["sites"],
+        request=None,
+        extensions={"x-dry-run": True},
+        responses={
+            200: ContentTypeRemovalSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, _request: Request, collection_id: UUID) -> Response:
+        return Response(
+            _removal_payload(delete_content_type(collection_id=collection_id, dry_run=True))
+        )
+
+
+_ENTRY_REMOVAL_RULES = (
+    "Removes one entry — one language version of an article; its other language versions "
+    "stay. It leaves the site at once: its address answers 404 and it is on no list, in no "
+    "feed, sitemap or `llms.txt`, among no other entry's language versions, in no "
+    "translation offer and in nothing an integration is shown; a publication planned for "
+    "later is called off. Nothing is erased — its versions and publications stay as "
+    "history, hidden — and its slug and its language in the article become free. It "
+    "cannot be put back from the panel. Works for an entry of a switched-off type too. A "
+    "person's decision (`person_required`); taking a published entry off the site needs "
+    "the right to publish."
+)
+
+
+def _entry_removal_payload(result: EntryRemoval) -> dict[str, Any]:
+    return {
+        "entry_id": str(result.entry.id),
+        "title": result.title,
+        "locale": result.locale,
+        "removed": result.removed,
+        "published": result.published,
+        "path": result.path,
+        "scheduled": result.scheduled,
+        "machine_translation": result.machine_translation,
+        "other_languages": list(result.other_languages),
+    }
+
+
+class ContentEntryRemoveView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_entry_remove",
+        summary="Remove an entry",
+        description=_ENTRY_REMOVAL_RULES,
+        tags=["sites"],
+        extensions={
+            "x-quality-exempt": {
+                "idempotency-key": "Nothing is removed twice: a repeat answers 404.",
+            }
+        },
+        responses={
+            200: EntryRemovalSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def delete(self, _request: Request, entry_id: UUID) -> Response:
+        return Response(_entry_removal_payload(remove_entry(entry_id=entry_id)))
+
+
+class ContentEntryRemovePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_entry_remove_preview",
+        summary="What removing an entry would do",
+        description="Answers without removing: whether the entry is on the site and where, "
+        "whether a planned publication would be called off, and the article's other "
+        "language versions, which would stay. " + _ENTRY_REMOVAL_RULES,
+        tags=["sites"],
+        request=None,
+        extensions={"x-dry-run": True},
+        responses={
+            200: EntryRemovalSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, _request: Request, entry_id: UUID) -> Response:
+        return Response(_entry_removal_payload(remove_entry(entry_id=entry_id, dry_run=True)))
 
 
 class ContentEntryListCreateView(APIView):
