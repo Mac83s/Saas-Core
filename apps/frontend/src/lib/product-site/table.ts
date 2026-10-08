@@ -10,7 +10,11 @@
  * browser all read it. The contract is `docs/architecture/product-public-site.md`.
  */
 
-/** The folder of the product's page files: `src/app/[locale]/product-site`. */
+/**
+ * The folder of the product's page files: `src/app/product-site/[locale]`.
+ * Beside `app/[locale]`, not under it, so the pages have a root layout of
+ * the product's own and ship its words, not the panel's whole catalogue.
+ */
 export const SITE_PAGES_SEGMENT = "product-site";
 /** Where an address nobody claims is sent, for the product's own 404. */
 export const SITE_UNCLAIMED_PATH = "/_unclaimed";

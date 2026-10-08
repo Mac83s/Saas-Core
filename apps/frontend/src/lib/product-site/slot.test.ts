@@ -191,7 +191,7 @@ function walkThroughTheProxy(
         const arrived = await visit(location.pathname);
         expect(arrived.status, rule.to).toBe(200);
         expect(arrived.headers.get("x-middleware-rewrite"), rule.to).toMatch(
-          /\/product-site(\/(?!_unclaimed)|$)/,
+          /\/product-site\/[a-z]{2}(\/(?!_unclaimed)|$)/,
         );
       }
     });
@@ -209,7 +209,7 @@ function walkThroughTheProxy(
           // refuses first (a disabled feature's address, an old address).
           expect(response.status, address).toBe(200);
           expect(response.headers.get("x-middleware-rewrite"), address).toMatch(
-            new RegExp(`/${locale}/product-site(/(?!_unclaimed)|$)`),
+            new RegExp(`/product-site/${locale}(/(?!_unclaimed)|$)`),
           );
         }
       }

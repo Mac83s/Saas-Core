@@ -51,7 +51,7 @@ afterEach(() => {
 });
 
 const page = (locale: string, file: string) =>
-  `200 rewrite=http://localhost/${locale}/product-site${file} request[x-next-intl-locale=${locale}]`;
+  `200 rewrite=http://localhost/product-site/${locale}${file} request[x-next-intl-locale=${locale}]`;
 
 describe("a product's public pages on its host (ADR-080)", () => {
   it("answers the home page at / and under each language", async () => {
@@ -166,7 +166,8 @@ describe("a product's public pages on its host (ADR-080)", () => {
 
     for (const address of [
       "/product-site",
-      "/product-site/breeds/labrador",
+      "/product-site/pl",
+      "/product-site/en/breeds/labrador",
       "/en/product-site/breeds/labrador",
     ]) {
       const response = await visit(address);
@@ -180,10 +181,10 @@ describe("a product's public pages on its host (ADR-080)", () => {
 
     for (const address of [
       // The matcher hands these to the proxy for this folder alone.
-      "/en/product-site/breeds/a.b",
+      "/product-site/en/breeds/a.b",
       "/product-site/quiz.html",
-      "/en/%70roduct-site/quiz",
-      "/en/product%2Dsite/breeds/labrador",
+      "/%70roduct-site/en/quiz",
+      "/product%2Dsite/en/breeds/labrador",
     ]) {
       const response = await visit(address);
       expect(response.status, address).toBe(404);
@@ -193,10 +194,10 @@ describe("a product's public pages on its host (ADR-080)", () => {
     // On a customer's host the same address is a path of that site.
     expect(
       (
-        await visit("/en/product-site/breeds/a.b", "studio.example.test")
+        await visit("/product-site/en/breeds/a.b", "studio.example.test")
       ).headers.get("x-middleware-rewrite"),
     ).toBe(
-      "http://studio.example.test/site-renderer/en/product-site/breeds/a.b",
+      "http://studio.example.test/site-renderer/product-site/en/breeds/a.b",
     );
   });
 
@@ -205,10 +206,13 @@ describe("a product's public pages on its host (ADR-080)", () => {
     const { config } = await import("../../proxy");
 
     expect(config.matcher).toContain("/product-site/:path*");
-    expect(config.matcher).toContain("/:locale/product-site/:path*");
+    // Only the folder itself: under a language prefix there is no such folder.
+    expect(
+      config.matcher.filter((entry) => entry.includes("product-site")),
+    ).toEqual(["/product-site/:path*"]);
     for (const host of ["localhost:8080", "studio.example.test"]) {
       for (const address of [
-        "/en/product-site/breeds/a.b",
+        "/product-site/en/breeds/a.b",
         "/product-site/quiz.html",
       ]) {
         // Exactly what an address the matcher skips gets: nothing.
@@ -294,8 +298,7 @@ describe("a product's public pages on its host (ADR-080)", () => {
     // all the same and must not open as an address of its own.
     const before = golden["pl-en-de"]!;
     const now = await walk(proxy);
-    const folder = (key: string) =>
-      / \/(?:[a-z]{2}\/)?product-site(?:\/|$)/.test(key);
+    const folder = (key: string) => / \/product-site(?:\/|$)/.test(key);
     for (const key of Object.keys(before)) {
       if (folder(key) && !key.startsWith("studio.example.test")) {
         expect(now[key], key).toBe("404");
@@ -313,9 +316,9 @@ describe("a product's public pages on its host (ADR-080)", () => {
         }),
       );
     for (const address of [
-      "/en/product-site/breeds/a.b",
+      "/product-site/en/breeds/a.b",
       "/product-site/quiz.html",
-      "/en/%70roduct-site/quiz",
+      "/%70roduct-site/en/quiz",
     ]) {
       expect((await visit(address)).status, address).toBe(404);
     }

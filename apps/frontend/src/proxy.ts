@@ -224,6 +224,5 @@ export const config = {
     // passing the product's table. Where no product declares a table the
     // proxy lets these through untouched (`untouchedAnswer`).
     "/product-site/:path*",
-    "/:locale/product-site/:path*",
   ],
 };

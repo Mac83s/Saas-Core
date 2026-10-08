@@ -79,7 +79,7 @@ const DOTTED_BEFORE =
 
 /**
  * The proxy's matcher lets every address under the folder of a product's
- * page files in, dots included — otherwise `/en/product-site/x/a.b` would
+ * page files in, dots included — otherwise `/product-site/en/x/a.b` would
  * reach a page file without passing the table. Where no product declares a
  * table that folder holds nothing, and such an address goes on untouched,
  * exactly as it did before the matcher knew the folder.
@@ -111,16 +111,15 @@ export function sitePageAnswer(request: NextRequest): Response | null {
   if (!productSiteDeclared) return null;
   const { pathname } = request.nextUrl;
   const [first = "", second = ""] = pathname.split("/").slice(1);
-  const prefixed = (routing.locales as readonly string[]).includes(first);
-  const segment = prefixed ? second : first;
   // The folder of the product's page files is never an address, in any
   // spelling the router would read as its name — also where this profile
   // does not serve the table (the core's marketing is on): the files are in
-  // the build all the same, and the locale middleware would hand a visitor
-  // straight to them.
-  if (decoded(segment) === SITE_PAGES_SEGMENT) {
+  // the build all the same, and a visitor could ask for them by path.
+  if (decoded(first) === SITE_PAGES_SEGMENT) {
     return new NextResponse(null, { status: 404 });
   }
+  const prefixed = (routing.locales as readonly string[]).includes(first);
+  const segment = prefixed ? second : first;
   const site = productSite;
   if (!site) return null;
   if (RESERVED_SEGMENTS.exact.has(segment)) return null;
@@ -146,7 +145,7 @@ export function sitePageAnswer(request: NextRequest): Response | null {
 /** Hands the visit to a page file of the product, in a language. */
 function pageOf(request: NextRequest, locale: string, page: string): Response {
   const rewritten = request.nextUrl.clone();
-  rewritten.pathname = `/${locale}/${SITE_PAGES_SEGMENT}${page === "/" ? "" : page}`;
+  rewritten.pathname = `/${SITE_PAGES_SEGMENT}/${locale}${page === "/" ? "" : page}`;
   // Set, never appended: the visitor's own header must not name the language.
   const forwarded = new Headers(request.headers);
   forwarded.set(LOCALE_HEADER, locale);
