@@ -19,11 +19,14 @@ import {
 } from "react-hook-form";
 import {
   EyeOffIcon,
+  FolderTreeIcon,
   PencilIcon,
   PlusIcon,
   RefreshCwIcon,
   SendIcon,
   SettingsIcon,
+  TagsIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { z } from "zod";
 
@@ -52,6 +55,7 @@ import {
   DataTable,
   RowActions,
   type ColumnDef,
+  type RowAction,
 } from "@saas-core/ui/components/data-table";
 import {
   Field,
@@ -80,6 +84,7 @@ import {
   siteHost,
 } from "./collection-paths";
 import { contentTypeHref, contentTypesHref } from "./content-types-panel";
+import { EntryCategories } from "./entry-categories";
 import { EntryEditor } from "./entry-editor";
 import { EntryMetadata } from "./entry-metadata";
 import { EntrySchedule } from "./entry-schedule";
@@ -87,6 +92,7 @@ import { EntryTags } from "./entry-tags";
 import { EntryTranslations } from "./entry-translations";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { sitesErrorMessage } from "./problem";
+import { RemoveEntryDialog } from "./remove-entry-dialog";
 import { slugFromTitle } from "./slug";
 
 type CollectionValues = {
@@ -127,6 +133,7 @@ export function BlogPanel({
   // The API pages entries by cursor; null once the oldest one is loaded.
   const [entriesCursor, setEntriesCursor] = useState<string | null>(null);
   const [entryId, setEntryId] = useState<string>();
+  const [removing, setRemoving] = useState<ContentEntry>();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
@@ -354,6 +361,14 @@ export function BlogPanel({
     });
   }
 
+  // Behind „…”, for every entry: removing is not the thing to do by habit.
+  const removeAction = (item: ContentEntry, separated = true): RowAction => ({
+    label: t("entryRemoval.action"),
+    icon: <Trash2Icon aria-hidden="true" />,
+    destructive: true,
+    separated,
+    onSelect: () => setRemoving(item),
+  });
   const stateLabel = (item: ContentEntry) =>
     t(item.state === "published" ? "blogStatePublished" : "blogStateDraft");
   const columns: ColumnDef<ContentEntry, unknown>[] = [
@@ -413,22 +428,26 @@ export function BlogPanel({
       meta: { actions: true },
       cell: ({ row: { original: item } }) =>
         collection?.archived ? (
-          // A switched-off type's entry takes one thing: being withdrawn,
-          // so that it does not return with the type (ADR-079 pkt 23).
-          item.state === "published" ? (
-            <RowActions
-              items={[
-                {
-                  label: t("blogWithdraw", { title: item.title }),
-                  icon: <EyeOffIcon aria-hidden="true" />,
-                  inline: true,
-                  destructive: true,
-                  onSelect: () => withdraw(item),
-                },
-              ]}
-              label={t("lists.blogActionsFor", { title: item.title })}
-            />
-          ) : null
+          // A switched-off type's entry takes two things: being withdrawn,
+          // so that it does not return with the type (ADR-079 pkt 23), and
+          // being removed (CT2).
+          <RowActions
+            items={[
+              ...(item.state === "published"
+                ? [
+                    {
+                      label: t("blogWithdraw", { title: item.title }),
+                      icon: <EyeOffIcon aria-hidden="true" />,
+                      inline: true,
+                      destructive: true,
+                      onSelect: () => withdraw(item),
+                    },
+                  ]
+                : []),
+              removeAction(item, false),
+            ]}
+            label={t("lists.blogActionsFor", { title: item.title })}
+          />
         ) : (
           <RowActions
             items={[
@@ -463,6 +482,7 @@ export function BlogPanel({
                       onSelect: () => publish(item),
                     },
                   ]),
+              removeAction(item),
             ]}
             label={t("lists.blogActionsFor", { title: item.title })}
           />
@@ -653,15 +673,34 @@ export function BlogPanel({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {typeId ? (
+              <div className="flex flex-wrap gap-2">
+                {typeId ? (
+                  <Link
+                    className={buttonVariants({
+                      size: "sm",
+                      variant: "outline",
+                    })}
+                    href={contentTypeHref(siteId, typeId, "/settings")}
+                  >
+                    <SettingsIcon aria-hidden="true" />
+                    {t("contentTypes.typeSettings")}
+                  </Link>
+                ) : null}
                 <Link
                   className={buttonVariants({ size: "sm", variant: "outline" })}
-                  href={contentTypeHref(siteId, typeId, "/settings")}
+                  href={contentTypeHref(siteId, collection.id, "/categories")}
                 >
-                  <SettingsIcon aria-hidden="true" />
-                  {t("contentTypes.typeSettings")}
+                  <FolderTreeIcon aria-hidden="true" />
+                  {t("sections.contentTypeCategories.title")}
                 </Link>
-              ) : null}
+                <Link
+                  className={buttonVariants({ size: "sm", variant: "outline" })}
+                  href={contentTypeHref(siteId, collection.id, "/tags")}
+                >
+                  <TagsIcon aria-hidden="true" />
+                  {t("sections.contentTypeTags.title")}
+                </Link>
+              </div>
 
               {!typeId && collections.length > 1 && (
                 <Field>
@@ -883,6 +922,17 @@ export function BlogPanel({
       )}
 
       {entry && !collection?.archived && (
+        <EntryCategories
+          entry={entry}
+          key={`categories-${entry.id}-${entry.categories.map((category) => category.id).join(",")}`}
+          onChanged={async () => {
+            if (collectionId) await loadEntries(collectionId);
+          }}
+          siteId={siteId}
+        />
+      )}
+
+      {entry && !collection?.archived && (
         <EntryTags
           entry={entry}
           key={`tags-${entry.id}-${entry.tags.map((tag) => tag.slug).join(",")}`}
@@ -923,6 +973,19 @@ export function BlogPanel({
           }}
         />
       )}
+      {removing ? (
+        <RemoveEntryDialog
+          entry={removing}
+          key={removing.id}
+          onClose={() => setRemoving(undefined)}
+          onRemoved={(removed) => {
+            setRemoving(undefined);
+            // The editor does not outlive the entry it shows.
+            if (removed.id === entryId) setEntryId(undefined);
+            if (collectionId) void loadEntries(collectionId);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

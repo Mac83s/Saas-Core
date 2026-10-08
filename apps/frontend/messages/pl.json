@@ -1651,6 +1651,10 @@
     "blogPathsReason": "Powód zmiany adresu",
     "blogPathsReasonHint": "Potrzebny, gdy zmieniasz adres, który już działa. Zostaje w historii zmian.",
     "blogPathsReasonRequired": "Ta zmiana przenosi adresy, które już działają. Podaj powód.",
+    "blogPathsTakesOver": "Ta nazwa przekierowuje dziś do innego działu. Po zmianie te przekierowania przestaną działać:",
+    "blogPathsTakeOverConfirm": "Rozumiem — te przekierowania przestaną działać.",
+    "blogPathsTakeOverRequired": "Potwierdź, że przekierowania mają przestać działać.",
+    "blogPathFormer": "Ten adres przekierowuje dziś do innego działu. Zaznacz poniżej, że to przekierowanie ma przestać działać, i zapisz ponownie.",
     "blogPathsSave": "Zapisz adresy",
     "blogPathTaken": "Ten adres ma już inna część strony w tym języku.",
     "blogPathReserved": "Ten adres jest zarezerwowany. Wybierz inny.",
@@ -2605,6 +2609,14 @@
       "integrations": {
         "title": "Integracje",
         "description": "Propozycje zmian od automatyzacji i połączenia z narzędziami zewnętrznymi."
+      },
+      "contentTypeCategories": {
+        "title": "Kategorie",
+        "description": "Kategorie wpisów tego typu treści: nazwy, miejsce w drzewie i adresy stron kategorii."
+      },
+      "contentTypeTags": {
+        "title": "Tagi",
+        "description": "Tagi wspólne dla całej strony: nazwy w różnych językach i adresy ich stron."
       }
     },
     "contentTypes": {
@@ -2688,7 +2700,16 @@
       "deleteDialogBody": "Ten typ nie ma żadnego wpisu. Po usunięciu jego adres będzie wolny dla innego typu treści albo podstrony. Tego nie da się cofnąć.",
       "deleteDialogConfirm": "Usuń typ treści",
       "deleted": "Usunięto typ treści „{name}”.",
-      "deleteOnlyEmpty": "Usunąć można tylko typ bez wpisów."
+      "deleteOnlyEmpty": "Usunąć można tylko typ bez wpisów.",
+      "deleteLoading": "Sprawdzam, co się zmieni…",
+      "deleteBlockedTitle": "Nie można usunąć typu „{name}”",
+      "deleteBlockedBody": "Ten typ treści ma wpisy ({entries}). Najpierw usuń wpisy albo wyłącz typ — wtedy zniknie ze strony, a wpisy zostaną.",
+      "deleteCategories": "Kategorie tego typu ({categories}) zostaną usunięte.",
+      "eraseWarning": "Usunięcie typu „{name}” skasuje na stałe usunięte wpisy tego typu ({removed_entries}): ich treść, wersje i historię publikacji ({removed_publications}). Tego nie da się cofnąć.",
+      "erasePaths": "Adresy typu będą wolne: {paths}.",
+      "eraseConfirmLabel": "Żeby potwierdzić, wpisz nazwę typu: {name}",
+      "eraseConfirm": "Usuń typ i skasuj wpisy",
+      "confirmationRequired": "Wpisz nazwę typu, żeby potwierdzić."
     },
     "contentTypeArchived": "Ten typ treści jest wyłączony. Włącz go, żeby zmieniać i publikować jego wpisy.",
     "slugIsContentType": "Pod tym adresem jest już typ treści tej strony — jego lista wpisów. Wybierz inny adres podstrony albo zmień adres typu treści.",
@@ -2989,6 +3010,98 @@
       "openShort": "Otwórz",
       "confirm": "Opublikuj zmiany",
       "sourceOnly": "Wersje w innych językach znajdziesz w oknie publikacji."
+    },
+    "terms": {
+      "loading": "Wczytywanie…",
+      "actionsFor": "Działania dla {name}",
+      "name": "Nazwa",
+      "parent": "Kategoria nadrzędna",
+      "parentNone": "Brak — najwyższy poziom",
+      "noEntriesYet": "— jeszcze bez wpisów na stronie",
+      "elsewhere": "w innych typach treści: {count}",
+      "edit": "Edytuj",
+      "moveUp": "Przenieś wyżej",
+      "moveDown": "Przenieś niżej",
+      "changeAddress": "Zmień adres…",
+      "remove": "Usuń…",
+      "nameIn": "Nazwa — {language}",
+      "hintAi": "Przetłumaczone automatycznie. Wpisana tu nazwa nie będzie już nadpisywana.",
+      "hintStale": "Nazwa w języku strony zmieniła się od czasu tego tłumaczenia.",
+      "editNote": "Zmianę nazwy i miejsca w drzewie widać na stronie od razu, bez publikowania wpisów.",
+      "appearsAbove": "{count, plural, one {# opublikowany wpis pojawi się od razu na stronach kategorii nadrzędnych.} few {# opublikowane wpisy pojawią się od razu na stronach kategorii nadrzędnych.} many {# opublikowanych wpisów pojawi się od razu na stronach kategorii nadrzędnych.} other {# opublikowanego wpisu pojawi się od razu na stronach kategorii nadrzędnych.}}",
+      "checking": "Sprawdzam, co się zmieni…",
+      "language": "Język",
+      "address": "Adres",
+      "addressHelp": "Adres zmieniaj tylko wtedy, gdy to konieczne — wyszukiwarki znają stary. Stary adres będzie przekierowywać na nowy.",
+      "movedHeading": "Te adresy przestaną odpowiadać i będą przekierowywać:",
+      "movedLine": "{from} → {to}",
+      "reason": "Powód zmiany (zostaje w historii)",
+      "reasonRequired": "Ta zmiana przenosi adresy, które już działają. Podaj powód.",
+      "takeOver": "Adres „{slug}” przekierowuje dziś do „{name}”. Po zmianie to przekierowanie przestanie działać.",
+      "takeOverRequired": "Potwierdź, że przekierowanie ma przestać działać.",
+      "addressSubmit": "Zmień adres",
+      "blockedTitle": "Nie można usunąć „{name}”",
+      "removeConfirm": "Usuń",
+      "removeChildren": "Kategorie, które leżą pod nią ({count}), przejdą poziom wyżej.",
+      "categories": {
+        "intro": "Kategorie porządkują wpisy tego typu treści. Każda ma własną stronę z listą wpisów — razem z wpisami z kategorii, które leżą pod nią. Strona kategorii pojawia się, gdy opublikujesz pierwszy wpis w tej kategorii.",
+        "caption": "Kategorie tego typu treści",
+        "empty": "Ten typ treści nie ma jeszcze kategorii.",
+        "add": "Nowa kategoria",
+        "editTitle": "Edytuj kategorię „{name}”",
+        "addressTitle": "Adres strony kategorii „{name}”",
+        "moved": "Strona tej kategorii w języku {language} ma teraz adres {to}. Stary adres {from} przekierowuje na nowy.",
+        "blockedBody": "Wpisy przypisane w panelu: {drafts}. Opublikowane wpisy, które pokazują ją na stronie: {published}. Zdejmij ją z tych wpisów i opublikuj je ponownie — wtedy da się ją usunąć.",
+        "removeTitle": "Usunąć „{name}”?",
+        "removeBody": "Jej adres będzie wolny."
+      },
+      "tags": {
+        "intro": "Tagi są wspólne dla całej strony: ten sam tag może oznaczać wpisy różnych typów treści. Tagi dodajesz przy wpisie. Tutaj zmienisz nazwę tagu, jego nazwy w innych językach i adres albo usuniesz tag, którego nie nosi żaden wpis.",
+        "caption": "Tagi tej strony",
+        "empty": "Strona nie ma jeszcze tagów. Dodasz je przy wpisie.",
+        "editTitle": "Edytuj tag „{name}”",
+        "addressTitle": "Adres strony tagu „{name}”",
+        "moved": "Strona tego tagu w języku {language} ma teraz adres {to}. Stary adres {from} przekierowuje na nowy.",
+        "blockedBody": "Wpisy przypisane w panelu: {drafts}. Opublikowane wpisy, które pokazują go na stronie: {published}. Zdejmij go z tych wpisów i opublikuj je ponownie — wtedy da się go usunąć.",
+        "removeTitle": "Usunąć tag „{name}”?",
+        "removeBody": "Jego adres będzie wolny."
+      },
+      "errors": {
+        "name_taken": "Obok jest już pozycja o tej nazwie.",
+        "name_invalid": "Nazwa ma od 1 do 120 znaków i przynajmniej jedną literę albo cyfrę.",
+        "too_deep": "Kategorie mają najwyżej 3 poziomy.",
+        "parent_invalid": "Ta kategoria nie może być nadrzędna.",
+        "in_use": "Wpisy są przypisane do tej pozycji. Zdejmij ją z wpisów i opublikuj je ponownie.",
+        "slug_taken": "Ten adres jest już zajęty.",
+        "slug_former": "Ten adres przekierowuje dziś gdzie indziej. Potwierdź, że przekierowanie ma przestać działać.",
+        "slug_invalid": "Adres to małe litery łacińskie, cyfry i pojedyncze łączniki.",
+        "not_of_type": "Ta kategoria należy do innego typu treści.",
+        "not_found": "Nie ma takiej kategorii ani tagu."
+      }
+    },
+    "entryCategories": {
+      "title": "Kategorie",
+      "loading": "Wczytywanie kategorii…",
+      "empty": "Ten typ treści nie ma jeszcze kategorii.",
+      "limit": "Wpis może mieć najwyżej {max, plural, one {# kategorię} few {# kategorie} many {# kategorii} other {# kategorii}}.",
+      "newLabel": "Nowa kategoria",
+      "add": "Dodaj",
+      "save": "Zapisz kategorie",
+      "hint": "Zmianę kategorii widać na stronie po ponownym opublikowaniu wpisu.",
+      "manage": "Zarządzaj kategoriami",
+      "tooMany": "Wpis może mieć najwyżej dziesięć kategorii."
+    },
+    "entryRemoval": {
+      "action": "Usuń wpis…",
+      "loading": "Sprawdzam, co się zmieni…",
+      "title": "Usunąć wpis „{title}”?",
+      "published": "Wpis zniknie ze strony od razu. Adres {path} przestanie odpowiadać, a wpis wypadnie z list, kanału RSS i mapy strony.",
+      "notPublished": "Wpis nie jest na stronie. Zniknie z listy wpisów.",
+      "scheduled": "Zaplanowana publikacja zostanie odwołana.",
+      "otherLanguages": "Usuwasz tylko wersję w języku {language}. Pozostałe wersje językowe zostają: {list}.",
+      "machine": "To tłumaczenie powstało automatycznie. Jeśli strona tłumaczy wpisy sama, może powstać ponownie przy kolejnym tłumaczeniu wpisu źródłowego. Żeby ta wersja nie wracała, wycofaj ją zamiast usuwać.",
+      "irreversible": "Wpisu nie da się przywrócić w panelu.",
+      "confirm": "Usuń wpis"
     }
   },
   "BillingSupport": {

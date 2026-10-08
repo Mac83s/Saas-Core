@@ -67,9 +67,11 @@ export function sectionPathErrors(
           ? t("blogPathReserved")
           : item.code === "redirect_reason_required"
             ? t("blogPathsReasonRequired")
-            : item.code === "invalid" || item.code === "section_path_invalid"
-              ? t("invalidSlug")
-              : item.message;
+            : item.code === "section_path_former"
+              ? t("blogPathFormer")
+              : item.code === "invalid" || item.code === "section_path_invalid"
+                ? t("invalidSlug")
+                : item.message;
     // A refusal that names no field is about the site's own language.
     found[item.field ?? "base_path"] = message;
   }
@@ -122,6 +124,13 @@ export function CollectionPaths({
   const [open, setOpen] = useState(false);
   const [problem, setProblem] = useState<string>();
   const [moved, setMoved] = useState<CollectionPathsResult["moved"]>([]);
+  // Redirects to other sections that the new names would stop (ADR-079
+  // pkt 14): shown before anything is saved, and saved only on a tick.
+  const [takesOver, setTakesOver] = useState<
+    CollectionPathsResult["takes_over"]
+  >([]);
+  const [takeOver, setTakeOver] = useState(false);
+  const [takeOverMissing, setTakeOverMissing] = useState(false);
   const host = siteHost(address);
   const [source, ...others] = pathLocales(collection);
   const schema = useMemo(
@@ -153,6 +162,9 @@ export function CollectionPaths({
   const close = () => {
     setOpen(false);
     setMoved([]);
+    setTakesOver([]);
+    setTakeOver(false);
+    setTakeOverMissing(false);
     setProblem(undefined);
     form.reset(pathValues(collection));
   };
@@ -168,18 +180,27 @@ export function CollectionPaths({
       // Asked first: which addresses that answer today would move.
       const preview = await previewCollectionPaths(collection.id, input);
       setMoved(preview.moved);
+      setTakesOver(preview.takes_over);
       if (!preview.changed) {
         close();
         return;
       }
+      const unconfirmed = preview.takes_over.length > 0 && !takeOver;
+      setTakeOverMissing(unconfirmed);
       if (preview.moved.length > 0 && !input.reason) {
         form.setError("reason", { message: t("blogPathsReasonRequired") });
         return;
       }
-      const saved = await setCollectionPaths(collection.id, input);
+      if (unconfirmed) return;
+      const saved = await setCollectionPaths(collection.id, {
+        ...input,
+        ...(preview.takes_over.length > 0 ? { take_over_former: true } : {}),
+      });
       onSaved(saved.collection);
       setOpen(false);
       setMoved([]);
+      setTakesOver([]);
+      setTakeOver(false);
       form.reset(pathValues(saved.collection));
     } catch (error) {
       const refused = sectionPathErrors(error, t);
@@ -307,6 +328,35 @@ export function CollectionPaths({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          {takesOver.length > 0 && (
+            <div className="space-y-2 rounded-md border p-3">
+              <p className="font-medium">{t("blogPathsTakesOver")}</p>
+              <ul className="space-y-1">
+                {takesOver.map((item) => (
+                  <li className="break-all" key={`${item.locale}${item.path}`}>
+                    {`${host}${item.path} → ${item.name}`}
+                  </li>
+                ))}
+              </ul>
+              <label className="flex items-start gap-2">
+                <input
+                  checked={takeOver}
+                  className="mt-1"
+                  onChange={(event) => {
+                    setTakeOver(event.target.checked);
+                    setTakeOverMissing(false);
+                  }}
+                  type="checkbox"
+                />
+                <span>{t("blogPathsTakeOverConfirm")}</span>
+              </label>
+              {takeOverMissing && (
+                <p className="text-destructive" role="alert">
+                  {t("blogPathsTakeOverRequired")}
+                </p>
+              )}
             </div>
           )}
           <Field data-invalid={Boolean(errors.reason)}>

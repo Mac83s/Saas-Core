@@ -93,6 +93,7 @@ export {
 export type { SiteAppearance } from "./appearance";
 export {
   articleShowsItsTitle,
+  renderArticleCategories,
   renderArticleHeader,
   renderLanguageSwitcher,
   renderMachineNotice,

@@ -91,6 +91,10 @@ export type PanelSectionTab = Pick<
    * „Treści”, where the panel offers content types beyond a site's first;
    * "blog" — today's „Blog”, where it does not. */
   contentTypes?: "list" | "blog";
+  /** Another address whose pages are this entry's too: the blog's categories
+   * and tags stand under `/panel/sites/content/<type>/…` also where the menu
+   * says „Blog” (ADR-079 pkt 9 — the blog has categories on every platform). */
+  under?: string;
   /** A number beside the label, e.g. visits waiting in „Do przydzielenia”. */
   count?: number;
   /** The name as the API gives it, already in the panel's language — an
@@ -236,6 +240,7 @@ export const PANEL_SECTIONS = {
       labelKey: "siteBlog",
       module: "shared.sites",
       contentTypes: "blog",
+      under: "/panel/sites/content",
     },
     // Every page and article against the site's other languages (TL16).
     {
@@ -861,10 +866,14 @@ export function matches(pathname: string, href: string): boolean {
  */
 export function currentPage(
   pathname: string,
-  pages: readonly Pick<PanelSectionTab, "href">[],
+  pages: readonly Pick<PanelSectionTab, "href" | "under">[],
 ): string | undefined {
+  // A page also answers for the address it stands in for (`under`).
   return pages
-    .map((page) => page.href)
-    .filter((href) => matches(pathname, href))
-    .sort((a, b) => b.length - a.length)[0];
+    .flatMap((page) =>
+      [page.href, ...(page.under ? [page.under] : [])]
+        .filter((at) => matches(pathname, at))
+        .map((at) => ({ href: page.href, depth: at.length })),
+    )
+    .sort((a, b) => b.depth - a.depth)[0]?.href;
 }

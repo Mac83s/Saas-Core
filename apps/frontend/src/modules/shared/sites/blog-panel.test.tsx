@@ -22,6 +22,9 @@ const {
   listMediaAssets,
   listContentCollections,
   listContentEntries,
+  listTerms,
+  previewEntryRemoval,
+  removeContentEntry,
   publishContentEntry,
   saveContentEntryDraft,
   scheduleContentEntry,
@@ -46,6 +49,9 @@ const {
   listMediaAssets: vi.fn(),
   listContentCollections: vi.fn(),
   listContentEntries: vi.fn(),
+  listTerms: vi.fn(),
+  previewEntryRemoval: vi.fn(),
+  removeContentEntry: vi.fn(),
   publishContentEntry: vi.fn(),
   saveContentEntryDraft: vi.fn(),
   scheduleContentEntry: vi.fn(),
@@ -77,6 +83,9 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   listMediaAssets,
   listContentCollections,
   listContentEntries,
+  listTerms,
+  previewEntryRemoval,
+  removeContentEntry,
   publishContentEntry,
   saveContentEntryDraft,
   scheduleContentEntry,
@@ -132,6 +141,7 @@ const entry = {
   scheduled_publish_at: null,
   schedule_error: "",
   tags: [],
+  categories: [],
   translation_of: null,
   pending_reason: "",
 };
@@ -149,6 +159,18 @@ beforeEach(() => {
   listMediaAssets.mockResolvedValue({ items: [], next_cursor: null });
   listContentCollections.mockResolvedValue([collection]);
   listContentEntries.mockResolvedValue({ items: [entry], next_cursor: null });
+  // The category card of an opened entry: a type without categories.
+  listTerms.mockResolvedValue({
+    kind: "categories",
+    collection_id: collectionId,
+    taxonomy_id: null,
+    default_locale: "pl",
+    locales: ["pl", "en"],
+    segments: {},
+    max_depth: 3,
+    max_per_entry: 10,
+    terms: [],
+  });
   listEntryTranslations.mockResolvedValue([entry]);
   getPublicLocales.mockResolvedValue(companyLanguages(["pl", "en"]));
   // No translation engine composed, unless a test says otherwise.
@@ -938,4 +960,43 @@ test("loads older entries from the API's cursor and appends them", async () => {
   expect(
     screen.queryByRole("button", { name: "Wczytaj starsze wpisy" }),
   ).toBeNull();
+});
+
+test("removing the entry that is open closes its editor and reads the list again", async () => {
+  previewEntryRemoval.mockResolvedValue({
+    entry_id: entryId,
+    title: "Pierwszy wpis",
+    locale: "pl",
+    removed: false,
+    published: true,
+    path: "/blog/pierwszy-wpis/",
+    scheduled: false,
+    machine_translation: false,
+    other_languages: [],
+  });
+  removeContentEntry.mockResolvedValue({});
+  renderPanel();
+  fireEvent.click(await screen.findByRole("button", { name: /Edytuj/ }));
+  await screen.findByRole("form", { name: "Tytuł, zajawka i autor" });
+  expect(screen.getByText("Kategorie", { selector: "span" })).not.toBeNull();
+  listContentEntries.mockClear();
+  listContentEntries.mockResolvedValue({ items: [], next_cursor: null });
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Działania dla wpisu Pierwszy wpis",
+    }),
+  );
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Usuń wpis…" }));
+  const dialog = await screen.findByRole("dialog");
+  await within(dialog).findByText(/Adres \/blog\/pierwszy-wpis\/ przestanie/);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Usuń wpis" }));
+
+  await waitFor(() => expect(removeContentEntry).toHaveBeenCalledWith(entryId));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("form", { name: "Tytuł, zajawka i autor" }),
+    ).toBeNull(),
+  );
+  expect(listContentEntries).toHaveBeenCalledWith(collectionId);
 });

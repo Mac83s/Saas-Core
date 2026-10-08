@@ -94,6 +94,7 @@ import { DomainPanel } from "./domain-panel";
 import { NavigationEditor } from "./navigation-editor";
 import { PageStudio } from "./page-studio";
 import { PublishDialog } from "./publish-dialog";
+import { CreateCategoryDialog, TermListPanel } from "./term-list-panel";
 import { useCompanyLocales } from "#lib/company-locales";
 import { ProposalsQueue } from "./proposals-queue";
 import { SiteRedirectsCard } from "./page-url";
@@ -120,6 +121,9 @@ export type SitesSection =
   | "content"
   | "contentType"
   | "contentTypeSettings"
+  // A type's categories, and the site's tags as that type shows them (CT2).
+  | "contentTypeCategories"
+  | "contentTypeTags"
   | "translations"
   | "publication"
   | "address"
@@ -194,6 +198,7 @@ export function SitesPanel({
   pageId,
   typeId,
   previewOnOpen = false,
+  contentTypesOffered = true,
 }: {
   canManageBilling?: boolean;
   section?: SitesSection;
@@ -203,6 +208,9 @@ export function SitesPanel({
   typeId?: string;
   /** The list's "Preview": the editor opens with the draft preview. */
   previewOnOpen?: boolean;
+  /** Whether the menu shows „Treści”; where it shows „Blog” instead, the
+   *  pages of one type lead back to the blog. */
+  contentTypesOffered?: boolean;
 }) {
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
@@ -237,6 +245,8 @@ export function SitesPanel({
   // types asked for again after one was added from the header.
   const [contentType, setContentType] = useState<ContentCollection>();
   const [contentTypesReload, setContentTypesReload] = useState(0);
+  // The categories asked for again after one was added from the header.
+  const [categoriesReload, setCategoriesReload] = useState(0);
   const [translationsDecided, setTranslationsDecided] = useState(0);
   // Which site the pages, report and domains on screen belong to: until they
   // arrive the list is loading, not empty, and a page is not yet "gone".
@@ -531,8 +541,14 @@ export function SitesPanel({
   const hasSite = sites.length > 0 || loading;
   const detailsLoading = loading || detailsFor !== selectedSiteId;
   // A page of one content type stands under „Treści”, named after the type.
+  // „Kategorie” and „Tagi” are named for themselves; the type is the eyebrow
+  // that leads back to its entries.
+  const ofTermList =
+    section === "contentTypeCategories" || section === "contentTypeTags";
   const ofContentType =
-    section === "contentType" || section === "contentTypeSettings";
+    section === "contentType" ||
+    section === "contentTypeSettings" ||
+    ofTermList;
   const heading = (
     <PanelPage
       actions={
@@ -553,6 +569,13 @@ export function SitesPanel({
                 router.push(contentTypeHref(selectedSiteId, created.id));
               }}
               siteId={selectedSiteId}
+            />
+          ) : null}
+          {section === "contentTypeCategories" && selectedSiteId && typeId ? (
+            <CreateCategoryDialog
+              key={`${selectedSiteId}-${typeId}`}
+              onCreated={() => setCategoriesReload((value) => value + 1)}
+              typeId={typeId}
             />
           ) : null}
           {section === "translations" && selectedSiteId ? (
@@ -589,27 +612,40 @@ export function SitesPanel({
           ? t("panelEyebrow")
           : section === "page"
             ? t("sections.pages.title")
-            : ofContentType
-              ? t("sections.content.title")
-              : t("title")
+            : ofTermList
+              ? (contentType?.name ??
+                t(
+                  contentTypesOffered
+                    ? "sections.content.title"
+                    : "sections.blog.title",
+                ))
+              : ofContentType
+                ? t("sections.content.title")
+                : t("title")
       }
       eyebrowHref={
         !hasSite
           ? undefined
           : section === "page"
             ? "/panel/sites"
-            : ofContentType
-              ? selectedSiteId
-                ? contentTypesHref(selectedSiteId)
-                : "/panel/sites/content"
-              : undefined
+            : ofTermList && selectedSiteId && typeId
+              ? // Back to the type's entries — which, where the menu says
+                // „Blog”, is the blog screen.
+                contentTypesOffered
+                ? contentTypeHref(selectedSiteId, typeId)
+                : `/panel/sites/blog?site=${selectedSiteId}`
+              : ofContentType
+                ? selectedSiteId
+                  ? contentTypesHref(selectedSiteId)
+                  : "/panel/sites/content"
+                : undefined
       }
       title={
         !hasSite
           ? t("title")
           : section === "page"
             ? (selectedPage?.name ?? t("sections.page.title"))
-            : ofContentType
+            : ofContentType && !ofTermList
               ? (contentType?.name ?? t(`sections.${section}.title`))
               : t(`sections.${section}.title`)
       }
@@ -964,6 +1000,20 @@ export function SitesPanel({
           key={`${selectedSiteId}-${typeId}`}
           onLoaded={setContentType}
           onSwitchedOff={() => router.push(contentTypesHref(selectedSiteId))}
+          siteId={selectedSiteId}
+          typeId={typeId}
+        />
+      ) : null}
+
+      {(section === "contentTypeCategories" || section === "contentTypeTags") &&
+      selectedSiteId &&
+      typeId ? (
+        <TermListPanel
+          address={domains.length ? publicSiteUrl(domains) : null}
+          key={`${selectedSiteId}-${typeId}-${section}`}
+          kind={section === "contentTypeTags" ? "tags" : "categories"}
+          onLoaded={setContentType}
+          reloads={categoriesReload}
           siteId={selectedSiteId}
           typeId={typeId}
         />

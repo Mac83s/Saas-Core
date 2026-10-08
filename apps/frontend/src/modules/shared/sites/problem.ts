@@ -42,6 +42,32 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
       return t("tagsTooMany");
     case "entry_tag_name_invalid":
       return t("tagsNameInvalid");
+    case "entry_too_many_categories":
+      return t("entryCategories.tooMany");
+    case "term_name_taken":
+      return t("terms.errors.name_taken");
+    case "term_name_invalid":
+      return t("terms.errors.name_invalid");
+    case "term_too_deep":
+      return t("terms.errors.too_deep");
+    case "term_parent_invalid":
+      return t("terms.errors.parent_invalid");
+    case "term_in_use":
+      return t("terms.errors.in_use");
+    case "term_slug_taken":
+      return t("terms.errors.slug_taken");
+    case "term_slug_former":
+      return t("terms.errors.slug_former");
+    case "term_slug_invalid":
+      return t("terms.errors.slug_invalid");
+    case "term_not_of_type":
+      return t("terms.errors.not_of_type");
+    case "taxonomy_term_not_found":
+      return t("terms.errors.not_found");
+    case "redirect_reason_required":
+      return t("terms.reasonRequired");
+    case "confirmation_required":
+      return t("contentTypes.confirmationRequired");
     case "entry_schedule_in_past":
       return t("scheduleInPast");
     case "entry_schedule_not_pending":

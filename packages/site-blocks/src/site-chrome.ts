@@ -172,6 +172,29 @@ export function renderArticleHeader(
   );
 }
 
+/** Under an article's text: where it is filed, each category leading to its
+ *  page. Set in the byline's type, so the theme needs nothing more. An
+ *  article filed nowhere draws nothing — no wrapper, no label. */
+export function renderArticleCategories(
+  article: PublishedArticle | null | undefined,
+  label: string,
+) {
+  const categories = article?.categories;
+  if (!categories || categories.length === 0) return null;
+  return h(
+    "div",
+    { className: "site-block site-article-categories" },
+    h(
+      "p",
+      { className: "site-article-byline" },
+      h("span", null, `${label}:`),
+      ...categories.map((category) =>
+        h("a", { href: category.path, key: category.path }, category.name),
+      ),
+    ),
+  );
+}
+
 /** One sentence to the reader of a machine translation nobody has checked
  *  yet, in the page's language. A note, not a landmark; shown only when the
  *  server says so. */

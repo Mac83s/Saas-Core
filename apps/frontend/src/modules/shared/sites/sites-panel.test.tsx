@@ -29,7 +29,9 @@ const {
   listSitePages,
   listSiteDomains,
   listSitePublications,
+  listContentTypes,
   listSites,
+  listTerms,
   publishSite,
   setPageType,
 } = vi.hoisted(() => ({
@@ -42,7 +44,9 @@ const {
   listSitePages: vi.fn(),
   listSiteDomains: vi.fn(),
   listSitePublications: vi.fn(),
+  listContentTypes: vi.fn(),
   listSites: vi.fn(),
+  listTerms: vi.fn(),
   publishSite: vi.fn(),
   setPageType: vi.fn(),
 }));
@@ -58,7 +62,9 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   listSitePages,
   listSiteDomains,
   listSitePublications,
+  listContentTypes,
   listSites,
+  listTerms,
   publishSite,
   setPageType,
   previewSitePublication: vi.fn().mockResolvedValue({
@@ -225,6 +231,8 @@ function renderPanel(
     section?: SitesSection;
     pageId?: string;
     previewOnOpen?: boolean;
+    typeId?: string;
+    contentTypesOffered?: boolean;
   } = {},
 ) {
   return render(
@@ -763,4 +771,93 @@ test("until the pages arrive the list is loading, not empty, and no page is gone
   expect(
     screen.queryByText("Tej podstrony nie ma — mogła zostać usunięta."),
   ).toBeNull();
+});
+
+const blogType = {
+  id: "019ff20d-a000-7000-8000-000000000020",
+  site_id: site.id,
+  key: "blog",
+  name: "Blog",
+  kind: "blog",
+  base_path: "blog",
+  locale_paths: {},
+  paths: { pl: "/blog/" },
+  automation_policy: "manual",
+  show_in_navigation: true,
+  schema_type: "BlogPosting",
+  in_site_feed: true,
+  archived: false,
+  archived_at: null,
+};
+
+function termsOf(kind: "categories" | "tags") {
+  return {
+    kind,
+    collection_id: blogType.id,
+    taxonomy_id: null,
+    default_locale: "pl",
+    locales: ["pl"],
+    segments: {},
+    max_depth: 3,
+    max_per_entry: 10,
+    terms: [],
+  };
+}
+
+test("a type's categories page is titled for itself, leads back to the type's entries and adds categories from its header", async () => {
+  listContentTypes.mockResolvedValue({
+    types: [
+      { collection: blogType, entries: 1, published: 0, locales: ["pl"] },
+    ],
+    limit: { allowed: true, code: "", message: "", offered: true },
+    schema_types: [],
+  });
+  listTerms.mockResolvedValue(termsOf("categories"));
+  renderPanel({ section: "contentTypeCategories", typeId: blogType.id });
+
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Kategorie" }),
+  ).not.toBeNull();
+  // The type is the eyebrow, and the way back.
+  expect(await screen.findByRole("link", { name: "Blog" })).toHaveProperty(
+    "href",
+    expect.stringContaining(
+      `/panel/sites/content/${blogType.id}?site=${site.id}`,
+    ),
+  );
+  expect(
+    await screen.findByText("Ten typ treści nie ma jeszcze kategorii."),
+  ).not.toBeNull();
+  expect(listTerms).toHaveBeenCalledWith(blogType.id, "categories");
+  expect(screen.getByRole("button", { name: "Nowa kategoria" })).not.toBeNull();
+});
+
+test("the tags page has no new-tag action, and where the menu says Blog it leads back to the blog", async () => {
+  listContentTypes.mockResolvedValue({
+    types: [
+      { collection: blogType, entries: 1, published: 0, locales: ["pl"] },
+    ],
+    limit: { allowed: true, code: "", message: "", offered: true },
+    schema_types: [],
+  });
+  listTerms.mockResolvedValue(termsOf("tags"));
+  renderPanel({
+    section: "contentTypeTags",
+    typeId: blogType.id,
+    contentTypesOffered: false,
+  });
+
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Tagi" }),
+  ).not.toBeNull();
+  expect(await screen.findByRole("link", { name: "Blog" })).toHaveProperty(
+    "href",
+    expect.stringContaining(`/panel/sites/blog?site=${site.id}`),
+  );
+  expect(
+    await screen.findByText(
+      "Strona nie ma jeszcze tagów. Dodasz je przy wpisie.",
+    ),
+  ).not.toBeNull();
+  expect(screen.queryByRole("button", { name: /Nowa/ })).toBeNull();
 });

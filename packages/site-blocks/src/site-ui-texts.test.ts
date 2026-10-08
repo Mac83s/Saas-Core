@@ -6,6 +6,7 @@ import { createSiteBlockRegistry } from "./registry";
 import { renderPublishedPage } from "./renderer";
 import {
   articleShowsItsTitle,
+  renderArticleCategories,
   renderArticleHeader,
   renderBreadcrumbs,
   renderLanguageSwitcher,
@@ -334,5 +335,76 @@ describe("machine translation notice", () => {
     expect(
       renderToStaticMarkup(renderPublishedPage(document({}), registry)),
     ).not.toContain("site-machine-notice");
+  });
+});
+
+describe("article categories", () => {
+  const filed = [
+    { name: "Pielęgnacja", path: "/blog/kategoria/pielegnacja/" },
+    { name: "Zima", path: "/blog/kategoria/pielegnacja/zima/" },
+  ];
+  const page = (article: object, locale = "pl") =>
+    renderToStaticMarkup(
+      renderPublishedPage(
+        {
+          kind: "publication" as const,
+          locale,
+          publicationId: "pub-1",
+          snapshotHash: "a".repeat(64),
+          designTokens: {
+            schemaVersion: 1 as const,
+            palette: "blue" as const,
+            typography: "sans" as const,
+            radius: "medium" as const,
+            spacing: "comfortable" as const,
+          },
+          blocks: [
+            {
+              block_type: "core.rich_text" as const,
+              schema_version: 1,
+              data: { text: "Tekst" },
+            },
+          ],
+          article,
+        },
+        createSiteBlockRegistry([coreSiteBlockManifest]),
+      ),
+    );
+
+  it("draws one line under the text: the label and each category as a link", () => {
+    const html = page({ title: "Zima", categories: filed });
+    expect(html).toContain(
+      '<div class="site-block site-article-categories"><p class="site-article-byline">' +
+        "<span>Kategorie:</span>" +
+        '<a href="/blog/kategoria/pielegnacja/">Pielęgnacja</a>' +
+        '<a href="/blog/kategoria/pielegnacja/zima/">Zima</a></p></div>',
+    );
+    // After the text, not before it.
+    expect(html.indexOf("Tekst")).toBeLessThan(
+      html.indexOf("site-article-categories"),
+    );
+  });
+
+  it("says the label in the page's language", () => {
+    expect(page({ title: "Winter", categories: filed }, "de")).toContain(
+      "<span>Kategorien:</span>",
+    );
+    expect(
+      renderToStaticMarkup(
+        renderArticleCategories({ categories: filed }, "Categories"),
+      ),
+    ).toContain("<span>Categories:</span>");
+  });
+
+  it("draws exactly what it drew before for an article filed nowhere", () => {
+    const without = page({ title: "Zima", authorName: "Anna" });
+    // Neither an empty list nor its absence adds a wrapper or a label.
+    expect(page({ title: "Zima", authorName: "Anna", categories: [] })).toBe(
+      without,
+    );
+    expect(without).not.toContain("site-article-categories");
+    expect(without).not.toContain("Kategorie");
+    expect(renderArticleCategories(null, "Kategorie")).toBeNull();
+    expect(renderArticleCategories({ title: "Zima" }, "Kategorie")).toBeNull();
   });
 });

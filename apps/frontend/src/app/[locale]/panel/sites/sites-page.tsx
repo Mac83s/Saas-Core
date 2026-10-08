@@ -1,3 +1,4 @@
+import { offersContentTypes, panelAccess } from "#lib/panel-navigation";
 import { getServerCurrentOrganization } from "#lib/server-auth";
 import {
   SitesPanel,
@@ -14,6 +15,7 @@ export async function sitesPage(
     <SitesPanel
       key={organization?.id ?? "no-organization"}
       canManageBilling={organization?.role === "owner"}
+      contentTypesOffered={offersContentTypes(panelAccess(organization))}
       pageId={page?.pageId}
       previewOnOpen={page?.preview}
       section={section}

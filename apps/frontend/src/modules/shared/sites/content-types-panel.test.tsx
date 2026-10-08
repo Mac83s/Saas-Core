@@ -12,6 +12,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import {
   ApiProblemError,
   type ContentCollection,
+  type ContentTypeRemoval,
   type ContentTypes,
   type ContentTypeSwitch,
 } from "@saas-core/api-client";
@@ -32,6 +33,7 @@ const {
   getPublicLocales,
   listContentTypes,
   previewCollectionPaths,
+  previewContentTypeDelete,
   previewContentTypeSwitchOff,
   setCollectionAutomationPolicy,
   setCollectionNavigation,
@@ -45,6 +47,7 @@ const {
   getPublicLocales: vi.fn(),
   listContentTypes: vi.fn(),
   previewCollectionPaths: vi.fn(),
+  previewContentTypeDelete: vi.fn(),
   previewContentTypeSwitchOff: vi.fn(),
   setCollectionAutomationPolicy: vi.fn(),
   setCollectionNavigation: vi.fn(),
@@ -61,6 +64,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   getPublicLocales,
   listContentTypes,
   previewCollectionPaths,
+  previewContentTypeDelete,
   previewContentTypeSwitchOff,
   setCollectionAutomationPolicy,
   setCollectionNavigation,
@@ -146,6 +150,18 @@ function found(limit: Partial<ContentTypes["limit"]> = {}): ContentTypes {
   };
 }
 
+const deletePreview: ContentTypeRemoval = {
+  collection_id: news.id,
+  name: "Aktualności",
+  deletable: true,
+  entries: 0,
+  removed_entries: 0,
+  removed_publications: 0,
+  categories: 0,
+  paths: { pl: "/aktualnosci/", en: "/en/aktualnosci/" },
+  confirmation_required: false,
+};
+
 const switchPreview: ContentTypeSwitch = {
   collection: projects,
   changed: true,
@@ -212,6 +228,7 @@ beforeEach(() => {
     collection: { ...news, archived: false },
   });
   deleteContentType.mockResolvedValue(undefined);
+  previewContentTypeDelete.mockResolvedValue(deletePreview);
   createContentCollection.mockResolvedValue(projects);
   updateContentType.mockImplementation(
     async (_id: string, input: Partial<ContentCollection>) => ({
@@ -594,4 +611,187 @@ test("the plan's refusal of a new type is about the type, not about its address"
   ).not.toBeNull();
   expect(screen.queryByText("Odmowa po polsku.")).toBeNull();
   expect(screen.queryByLabelText("Adres")).toBeNull();
+});
+
+async function openDeleteDialog() {
+  renderIn(<ContentTypesPanel siteId={siteId} />);
+  await screen.findByText("Realizacje");
+  fireEvent.change(screen.getByLabelText("Pokaż"), {
+    target: { value: "off" },
+  });
+  await screen.findByText("Aktualności");
+  fireEvent.click(
+    within(row("Aktualności")).getByRole("button", {
+      name: "Działania dla typu Aktualności",
+    }),
+  );
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Usuń" }));
+  return screen.findByRole("dialog");
+}
+
+test("deleting a type asks what it takes with it, and names its categories", async () => {
+  previewContentTypeDelete.mockResolvedValue({
+    ...deletePreview,
+    categories: 4,
+  });
+  const dialog = await openDeleteDialog();
+
+  expect(previewContentTypeDelete).toHaveBeenCalledWith(news.id);
+  expect(
+    await within(dialog).findByText(
+      "Kategorie tego typu (4) zostaną usunięte.",
+    ),
+  ).not.toBeNull();
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Usuń typ treści" }),
+  );
+  // Nothing to confirm by name: the call carries only the type.
+  await waitFor(() => expect(deleteContentType).toHaveBeenCalledWith(news.id));
+});
+
+test("a type that has entries cannot be deleted, and the dialog only closes", async () => {
+  previewContentTypeDelete.mockResolvedValue({
+    ...deletePreview,
+    deletable: false,
+    entries: 3,
+  });
+  const dialog = await openDeleteDialog();
+
+  expect(
+    await within(dialog).findByText("Nie można usunąć typu „Aktualności”"),
+  ).not.toBeNull();
+  expect(
+    within(dialog).getByText(
+      "Ten typ treści ma wpisy (3). Najpierw usuń wpisy albo wyłącz typ — wtedy zniknie ze strony, a wpisy zostaną.",
+    ),
+  ).not.toBeNull();
+  // Two buttons carry „Zamknij”: the dialog's corner and its footer.
+  expect(
+    within(dialog).getAllByRole("button", { name: "Zamknij" }),
+  ).not.toHaveLength(0);
+  expect(
+    within(dialog).queryByRole("button", { name: "Usuń typ treści" }),
+  ).toBeNull();
+  expect(deleteContentType).not.toHaveBeenCalled();
+});
+
+test("erasing removed entries takes the type's name typed out before it deletes anything", async () => {
+  previewContentTypeDelete.mockResolvedValue({
+    ...deletePreview,
+    removed_entries: 2,
+    removed_publications: 5,
+    confirmation_required: true,
+  });
+  const dialog = await openDeleteDialog();
+
+  expect(
+    await within(dialog).findByText(
+      "Usunięcie typu „Aktualności” skasuje na stałe usunięte wpisy tego typu (2): ich treść, wersje i historię publikacji (5). Tego nie da się cofnąć.",
+    ),
+  ).not.toBeNull();
+  expect(
+    within(dialog).getByText(
+      "Adresy typu będą wolne: /aktualnosci/, /en/aktualnosci/.",
+    ),
+  ).not.toBeNull();
+  const confirm = within(dialog).getByRole("button", {
+    name: "Usuń typ i skasuj wpisy",
+  }) as HTMLButtonElement;
+  expect(confirm.disabled).toBe(true);
+
+  const field = within(dialog).getByLabelText(
+    "Żeby potwierdzić, wpisz nazwę typu: Aktualności",
+  );
+  fireEvent.change(field, { target: { value: "aktualności" } });
+  expect(confirm.disabled).toBe(true);
+  fireEvent.change(field, { target: { value: "Aktualności" } });
+  expect(confirm.disabled).toBe(false);
+  fireEvent.click(confirm);
+
+  await waitFor(() =>
+    expect(deleteContentType).toHaveBeenCalledWith(news.id, "Aktualności"),
+  );
+});
+
+test("the deletion dialog is accessible and speaks English", async () => {
+  previewContentTypeDelete.mockResolvedValue({
+    ...deletePreview,
+    removed_entries: 1,
+    removed_publications: 1,
+    confirmation_required: true,
+  });
+  renderIn(<ContentTypesPanel siteId={siteId} />, "en");
+  await screen.findByText("Realizacje");
+  fireEvent.change(screen.getByLabelText("Show"), {
+    target: { value: "off" },
+  });
+  await screen.findByText("Aktualności");
+  fireEvent.click(
+    within(row("Aktualności")).getByRole("button", {
+      name: "Actions for the type Aktualności",
+    }),
+  );
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(
+    await within(dialog).findByText(
+      "To confirm, type the type's name: Aktualności",
+    ),
+  ).not.toBeNull();
+  expect(
+    within(dialog).getByRole("button", {
+      name: "Delete the type and erase the entries",
+    }),
+  ).not.toBeNull();
+  expect((await axe.run(dialog)).violations).toHaveLength(0);
+});
+
+test("a name that only redirects to another type is taken on the person's tick", async () => {
+  createContentCollection
+    .mockRejectedValueOnce(
+      problem("validation_error", [
+        {
+          field: "base_path",
+          code: "section_path_former",
+          message: "Adres /realizacje/ przekierowuje dziś do „Prace”.",
+        },
+      ]),
+    )
+    .mockResolvedValueOnce(projects);
+  renderIn(
+    <CreateContentTypeDialog
+      address="https://studio.example.test"
+      defaultLocale="pl"
+      onCreated={vi.fn()}
+      siteId={siteId}
+    />,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Nowy typ treści" }));
+  fireEvent.change(await screen.findByLabelText("Nazwa"), {
+    target: { value: "Realizacje" },
+  });
+  const address = screen.getByLabelText("Adres") as HTMLInputElement;
+  await waitFor(() => expect(address.value).toBe("realizacje"));
+  fireEvent.click(screen.getByRole("button", { name: "Dodaj typ treści" }));
+
+  // Refused, and told why at the address: nothing is taken without a word.
+  const confirm = (await screen.findByLabelText(
+    "Rozumiem — te przekierowania przestaną działać.",
+  )) as HTMLInputElement;
+  expect(
+    screen.getByText(/Ten adres przekierowuje dziś do innego działu\./),
+  ).not.toBeNull();
+  expect(createContentCollection.mock.calls[0]?.[1]).not.toHaveProperty(
+    "take_over_former",
+  );
+
+  fireEvent.click(confirm);
+  fireEvent.click(screen.getByRole("button", { name: "Dodaj typ treści" }));
+
+  await waitFor(() => expect(createContentCollection).toHaveBeenCalledTimes(2));
+  expect(createContentCollection.mock.calls[1]?.[1]).toMatchObject({
+    base_path: "realizacje",
+    take_over_former: true,
+  });
 });

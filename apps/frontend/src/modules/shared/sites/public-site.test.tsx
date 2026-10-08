@@ -574,3 +574,37 @@ test("draws a map block's place and loads the map only when the visitor asks", a
     rendered.container.querySelector("iframe")?.getAttribute("src"),
   ).toContain("https://www.openstreetmap.org/export/embed.html?bbox=");
 });
+
+test("an article filed under categories ends with them as links; one filed nowhere draws nothing extra", async () => {
+  const article = {
+    title: "Jak dbać o włosy zimą",
+    author_name: "Anna Kowalska",
+    published_at: "2026-09-30T22:30:00+00:00",
+    updated_at: "2026-09-30T22:30:00+00:00",
+    timezone: "Europe/Warsaw",
+  };
+  const filed = {
+    ...page,
+    article: {
+      ...article,
+      categories: [
+        { name: "Pielęgnacja", path: "/blog/kategoria/pielegnacja/" },
+      ],
+    },
+  };
+
+  const rendered = render(<PublicSiteRenderer page={filed} />);
+  const line = rendered.container.querySelector(".site-article-categories");
+  expect(line?.textContent).toBe("Kategorie:Pielęgnacja");
+  expect(
+    screen.getByRole("link", { name: "Pielęgnacja" }).getAttribute("href"),
+  ).toBe("/blog/kategoria/pielegnacja/");
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+
+  cleanup();
+  const bare = render(
+    <PublicSiteRenderer page={{ ...page, article }} />,
+  ).container;
+  expect(bare.querySelector(".site-article-categories")).toBeNull();
+  expect(bare.textContent).not.toContain("Kategorie");
+});

@@ -149,6 +149,11 @@ interface PublishedArticle {
   readonly updated_at?: string;
   readonly timezone?: string;
   readonly tags?: readonly { readonly name?: string }[];
+  /** Present only when the entry is filed under categories. */
+  readonly categories?: readonly {
+    readonly name: string;
+    readonly path: string;
+  }[];
 }
 
 export function publicSiteMetadata(page: PublicSitePage): Metadata {
@@ -224,6 +229,9 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
         publishedAt: article.published_at,
         updatedAt: article.updated_at,
         timeZone: article.timezone,
+        ...(article.categories?.length
+          ? { categories: article.categories }
+          : {}),
       },
       // The server's verdict (TL19b): AI text nobody accepted, and the
       // operator's switch on. Absent in older payloads: no notice.

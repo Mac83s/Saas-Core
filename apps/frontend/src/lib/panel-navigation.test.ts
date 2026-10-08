@@ -76,6 +76,19 @@ describe("sekcje menu", () => {
     ]);
     // Search Console is a view of „Widoczność w Google”, not a tab beside it.
     expect(currentPage("/panel/seo/search-console", tabs!)).toBe("/panel/seo");
+    // Where the platform offers no further content types the menu says
+    // „Blog” — and the blog's categories and tags, which every platform has
+    // (ADR-079 pkt 9), are its pages: they have their tabs and light it.
+    const type = "/panel/sites/content/019ff20d-a000-7000-8000-000000000020";
+    for (const page of [`${type}/categories`, `${type}/tags`]) {
+      const shown = sectionTabs(page, OWNER);
+      expect(shown?.map((tab) => tab.href)).toContain("/panel/sites/blog");
+      expect(shown?.map((tab) => tab.href)).not.toContain(
+        "/panel/sites/content",
+      );
+      expect(currentPage(page, shown!)).toBe("/panel/sites/blog");
+    }
+    expect(currentPage("/panel/sites/blog", tabs!)).toBe("/panel/sites/blog");
 
     const website = panelNavigation(OWNER).company.find(
       (item) => item.href === "/panel/sites",

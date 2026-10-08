@@ -89,11 +89,13 @@ test("asks which addresses move, and for a reason, before it saves", async () =>
     collection: renamed,
     moved: [{ locale: "pl", from_path: "/blog/", to_path: "/poradnik/" }],
     changed: true,
+    takes_over: [],
   });
   setCollectionPaths.mockResolvedValue({
     collection: renamed,
     moved: [{ locale: "pl", from_path: "/blog/", to_path: "/poradnik/" }],
     changed: true,
+    takes_over: [],
   });
   renderPaths();
 
@@ -149,11 +151,13 @@ test("saves a name nobody reads yet without a reason", async () => {
     collection: german,
     moved: [],
     changed: true,
+    takes_over: [],
   });
   setCollectionPaths.mockResolvedValue({
     collection: german,
     moved: [],
     changed: true,
+    takes_over: [],
   });
   renderPaths();
 
@@ -210,4 +214,49 @@ test("says a refused name at its own field", async () => {
     await screen.findByText("Użyj małych liter, cyfr i łączników."),
   ).not.toBeNull();
   expect(previewCollectionPaths).not.toHaveBeenCalled();
+});
+
+test("says which redirects to another section stop, and saves only on a tick", async () => {
+  const answer = {
+    collection: renamed,
+    moved: [],
+    changed: true,
+    takes_over: [
+      {
+        locale: "pl",
+        path: "/poradnik/",
+        collection_id: "019ff20d-a000-7000-8000-0000000000aa",
+        name: "Realizacje",
+      },
+    ],
+  };
+  previewCollectionPaths.mockResolvedValue(answer);
+  setCollectionPaths.mockResolvedValue(answer);
+  renderPaths();
+
+  fireEvent.click(screen.getByRole("button", { name: "Zmień adresy" }));
+  fireEvent.change(field("Adres bloga — Polski"), {
+    target: { value: "poradnik" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz adresy" }));
+
+  // Told first: the name leads to another section today.
+  expect(
+    await screen.findByText("studio.example.test/poradnik/ → Realizacje"),
+  ).not.toBeNull();
+  expect(
+    screen.getByText("Potwierdź, że przekierowania mają przestać działać."),
+  ).not.toBeNull();
+  expect(setCollectionPaths).not.toHaveBeenCalled();
+
+  fireEvent.click(
+    screen.getByLabelText("Rozumiem — te przekierowania przestaną działać."),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz adresy" }));
+
+  await waitFor(() => expect(setCollectionPaths).toHaveBeenCalledOnce());
+  expect(setCollectionPaths).toHaveBeenCalledWith(
+    collection.id,
+    expect.objectContaining({ base_path: "poradnik", take_over_former: true }),
+  );
 });

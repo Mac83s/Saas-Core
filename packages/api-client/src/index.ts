@@ -282,6 +282,19 @@ export type ContentEntryMetadataInput =
 export type ContentEntryDraft = components["schemas"]["ContentEntryDraft"];
 export type EntrySchedule = components["schemas"]["EntryScheduleState"];
 export type ContentTag = components["schemas"]["ContentTag"];
+export type ContentEntryCategory =
+  components["schemas"]["ContentEntryCategory"];
+/** A content type's categories, or the site's tags as that type shows them. */
+export type TermList = components["schemas"]["TermList"];
+export type Term = components["schemas"]["Term"];
+/** A change to a term, or what it would change (`moved`, `takes_over`). */
+export type TermChange = components["schemas"]["TermChange"];
+export type TermRemoval = components["schemas"]["TermRemoval"];
+export type EntryRemoval = components["schemas"]["EntryRemoval"];
+export type ContentTypeRemoval = components["schemas"]["ContentTypeRemoval"];
+export type TermKind = TermList["kind"];
+export type TermUpdateInput = components["schemas"]["TermUpdate"];
+export type TermAddressInput = components["schemas"]["TermAddress"];
 export type ContentEntryPublication =
   components["schemas"]["ContentEntryPublication"];
 export type SiteNavigationItem = components["schemas"]["NavigationItem"];
@@ -4589,6 +4602,8 @@ export async function createContentCollection(
     schema_type?: ContentSchemaType;
     /** Whether the entries are in the site's feeds; left out, the kind decides. */
     in_site_feed?: boolean;
+    /** Confirms that the redirect of another section may stop. */
+    take_over_former?: boolean;
   },
   idempotencyKey: string,
 ): Promise<ContentCollection> {
@@ -4601,7 +4616,11 @@ export async function createContentCollection(
         path: { site_id: siteId },
       },
       // A blog unless the caller says what else the type's entries are.
-      body: { ...input, schema_type: input.schema_type ?? "BlogPosting" },
+      body: {
+        ...input,
+        schema_type: input.schema_type ?? "BlogPosting",
+        take_over_former: input.take_over_former ?? false,
+      },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },
@@ -4696,18 +4715,290 @@ export async function switchOnContentType(
   return data;
 }
 
-/** Removes a content type that has no entries. */
-export async function deleteContentType(collectionId: string): Promise<void> {
+/** What deleting a content type would do, without doing it. */
+export async function previewContentTypeDelete(
+  collectionId: string,
+): Promise<ContentTypeRemoval> {
   const csrfToken = await getCsrfToken();
-  const { error, response } = await client.DELETE(
-    "/api/v1/sites/collections/{collection_id}/",
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/collections/{collection_id}/removal/preview/",
     {
       params: { path: { collection_id: collectionId } },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },
   );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Removes a content type that has no entries. Where it has removed entries
+ *  too, which this erases for good, `confirmName` is the type's name. */
+export async function deleteContentType(
+  collectionId: string,
+  confirmName?: string,
+): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/sites/collections/{collection_id}/",
+    {
+      params: {
+        path: { collection_id: collectionId },
+        ...(confirmName === undefined
+          ? {}
+          : { query: { confirm_name: confirmName } }),
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
   if (error || !response.ok) throwProblem(error, response);
+}
+
+/** A content type's categories as a tree, or the site's tags as that type
+ *  shows them. */
+export async function listTerms(
+  collectionId: string,
+  kind: TermKind,
+): Promise<TermList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/collections/{collection_id}/terms/",
+    {
+      params: { path: { collection_id: collectionId }, query: { kind } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Makes a category (under `parentId` when given) or a tag; a tag that
+ *  already exists comes back as it is. */
+export async function createTerm(
+  collectionId: string,
+  input: { kind: TermKind; name: string; parent_id?: string | null },
+): Promise<Term> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/collections/{collection_id}/terms/",
+    {
+      params: { path: { collection_id: collectionId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Renames a term, moves it in the tree or changes its place; only what is
+ *  sent changes. On the site at once. */
+export async function updateTerm(
+  collectionId: string,
+  termId: string,
+  input: TermUpdateInput,
+): Promise<TermChange> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/sites/collections/{collection_id}/terms/{term_id}/",
+    {
+      params: { path: { collection_id: collectionId, term_id: termId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What `updateTerm` would change, without changing it. */
+export async function previewTermUpdate(
+  collectionId: string,
+  termId: string,
+  input: TermUpdateInput,
+): Promise<TermChange> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/collections/{collection_id}/terms/{term_id}/preview/",
+    {
+      params: { path: { collection_id: collectionId, term_id: termId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Sets a term's name in the languages that change; an empty name removes
+ *  that language's. */
+export async function setTermNames(
+  collectionId: string,
+  termId: string,
+  names: Record<string, string>,
+): Promise<TermChange> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/collections/{collection_id}/terms/{term_id}/names/",
+    {
+      params: { path: { collection_id: collectionId, term_id: termId } },
+      body: { names },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Changes a term's address in one language; the old one redirects. */
+export async function setTermAddress(
+  collectionId: string,
+  termId: string,
+  input: TermAddressInput,
+): Promise<TermChange> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/collections/{collection_id}/terms/{term_id}/address/",
+    {
+      params: { path: { collection_id: collectionId, term_id: termId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What `setTermAddress` would move and take over, without doing it. */
+export async function previewTermAddress(
+  collectionId: string,
+  termId: string,
+  input: TermAddressInput,
+): Promise<TermChange> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/collections/{collection_id}/terms/{term_id}/address/preview/",
+    {
+      params: { path: { collection_id: collectionId, term_id: termId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What removing a term would do, without doing it. */
+export async function previewTermRemoval(
+  collectionId: string,
+  termId: string,
+): Promise<TermRemoval> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/collections/{collection_id}/terms/{term_id}/removal/preview/",
+    {
+      params: { path: { collection_id: collectionId, term_id: termId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Removes a term nothing carries. */
+export async function deleteTerm(
+  collectionId: string,
+  termId: string,
+): Promise<TermRemoval> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.DELETE(
+    "/api/v1/sites/collections/{collection_id}/terms/{term_id}/",
+    {
+      params: { path: { collection_id: collectionId, term_id: termId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The categories an entry is filed under in the panel. */
+export async function listEntryCategories(
+  entryId: string,
+): Promise<ContentEntryCategory[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/entries/{entry_id}/categories/",
+    {
+      params: { path: { entry_id: entryId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Replaces the whole set of categories an entry is filed under; the site
+ *  shows the change once the entry is published again. */
+export async function setContentEntryCategories(
+  entryId: string,
+  termIds: string[],
+): Promise<ContentEntryCategory[]> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/entries/{entry_id}/categories/",
+    {
+      params: { path: { entry_id: entryId } },
+      body: { term_ids: termIds },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What removing an entry would do, without doing it. */
+export async function previewEntryRemoval(
+  entryId: string,
+): Promise<EntryRemoval> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/entries/{entry_id}/removal/preview/",
+    {
+      params: { path: { entry_id: entryId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Removes one language version of an entry; the site drops it at once. */
+export async function removeContentEntry(
+  entryId: string,
+): Promise<EntryRemoval> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.DELETE(
+    "/api/v1/sites/entries/{entry_id}/",
+    {
+      params: { path: { entry_id: entryId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
 }
 
 export type AutomationPolicy = "manual" | "proposed" | "automated";
@@ -4737,6 +5028,8 @@ export type CollectionPathsInput = {
   locale_paths: Record<string, string>;
   /** Required when the change moves an address visitors can open today. */
   reason?: string;
+  /** Confirms that the redirect of another section may stop. */
+  take_over_former?: boolean;
 };
 export type CollectionPathsResult =
   components["schemas"]["CollectionPathsResult"];
@@ -4752,7 +5045,11 @@ export async function previewCollectionPaths(
     "/api/v1/sites/collections/{collection_id}/paths/preview/",
     {
       params: { path: { collection_id: collectionId } },
-      body: { ...input, reason: input.reason ?? "" },
+      body: {
+        ...input,
+        reason: input.reason ?? "",
+        take_over_former: input.take_over_former ?? false,
+      },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },
@@ -4772,7 +5069,11 @@ export async function setCollectionPaths(
     "/api/v1/sites/collections/{collection_id}/paths/",
     {
       params: { path: { collection_id: collectionId } },
-      body: { ...input, reason: input.reason ?? "" },
+      body: {
+        ...input,
+        reason: input.reason ?? "",
+        take_over_former: input.take_over_former ?? false,
+      },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },

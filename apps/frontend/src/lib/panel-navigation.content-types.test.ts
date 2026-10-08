@@ -60,6 +60,8 @@ describe("„Treści” w menu strony (ADR-079 pkt 25)", () => {
     const type = "/panel/sites/content/019ff20d-a000-7000-8000-000000000020";
     expect(sectionTabs(type, access)).not.toBeNull();
     expect(sectionTabs(`${type}/settings`, access)).not.toBeNull();
+    expect(sectionTabs(`${type}/categories`, access)).not.toBeNull();
+    expect(sectionTabs(`${type}/tags`, access)).not.toBeNull();
     // /panel/sites/blog still answers (links from translation jobs lead
     // there) and still stands among the site's pages.
     expect(sectionTabs("/panel/sites/blog", access)).not.toBeNull();

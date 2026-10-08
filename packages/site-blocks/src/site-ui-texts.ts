@@ -129,6 +129,8 @@ export interface SiteUiTexts {
   readonly table: string;
   /** Before the day an article's text last changed. */
   readonly updated: string;
+  /** Before the categories an article is filed under. */
+  readonly categories: string;
   /** On a machine translation nobody has checked yet (ADR-071 pkt 17). */
   readonly machineNotice: string;
   /** Appended to an AI image's `alt`. */
@@ -158,6 +160,7 @@ const TEXTS = {
     contents: "Spis treści",
     table: "Tabela",
     updated: "Zaktualizowano",
+    categories: "Kategorie",
     machineNotice:
       "Ten tekst przetłumaczyła maszyna i nikt go jeszcze nie sprawdził.",
     aiImage: " — obraz wygenerowany przez AI",
@@ -274,6 +277,7 @@ const TEXTS = {
     contents: "Contents",
     table: "Table",
     updated: "Updated",
+    categories: "Categories",
     machineNotice:
       "This text was translated by a machine and nobody has checked it yet.",
     aiImage: " — AI-generated image",
@@ -386,6 +390,7 @@ const TEXTS = {
     contents: "Inhalt",
     table: "Tabelle",
     updated: "Aktualisiert",
+    categories: "Kategorien",
     machineNotice:
       "Dieser Text wurde maschinell übersetzt und noch von niemandem geprüft.",
     aiImage: " — KI-generiertes Bild",
@@ -499,6 +504,7 @@ const TEXTS = {
     contents: "Índice",
     table: "Tabla",
     updated: "Actualizado",
+    categories: "Categorías",
     machineNotice:
       "Este texto fue traducido por una máquina y nadie lo ha revisado todavía.",
     aiImage: " — imagen generada por IA",
@@ -611,6 +617,7 @@ const TEXTS = {
     contents: "Содержание",
     table: "Таблица",
     updated: "Обновлено",
+    categories: "Категории",
     machineNotice: "Этот текст переведён машиной, и его ещё никто не проверил.",
     aiImage: " — изображение создано ИИ",
     pauseMotion: "Остановить декоративную анимацию",

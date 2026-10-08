@@ -26,12 +26,14 @@ import {
   createContentCollection,
   deleteContentType,
   listContentTypes,
+  previewContentTypeDelete,
   previewContentTypeSwitchOff,
   switchOffContentType,
   switchOnContentType,
   type ContentCollection,
   type ContentSchemaType,
   type ContentSchemaTypeOption,
+  type ContentTypeRemoval,
   type ContentTypeRow,
   type ContentTypes,
   type ContentTypesLimit,
@@ -90,7 +92,7 @@ type Show = "on" | "off";
 export const contentTypeHref = (
   siteId: string,
   typeId: string,
-  page: "" | "/settings" = "",
+  page: "" | "/settings" | "/categories" | "/tags" = "",
 ) => `/panel/sites/content/${typeId}${page}?site=${siteId}`;
 export const contentTypesHref = (siteId: string) =>
   `/panel/sites/content?site=${siteId}`;
@@ -134,7 +136,6 @@ export function ContentTypesPanel({
   reloads?: number;
 }) {
   const t = useTranslations("Sites");
-  const common = useTranslations("Common");
   const labels = useDataTableLabels();
   const [found, setFound] = useState<ContentTypes>();
   const [show, setShow] = useState<Show>("on");
@@ -393,59 +394,184 @@ export function ContentTypesPanel({
         />
       ) : null}
       {deleting ? (
-        <Dialog
-          onOpenChange={(next) => {
-            if (!next && !busy) setDeleting(undefined);
+        <DeleteTypeDialog
+          collection={deleting}
+          key={deleting.id}
+          onClose={() => setDeleting(undefined)}
+          onDeleted={() => {
+            setNotice(t("contentTypes.deleted", { name: deleting.name }));
+            setDeleting(undefined);
+            setOwn((value) => value + 1);
           }}
-          open
-        >
-          <DialogContent closeLabel={common("close")}>
-            <DialogHeader>
-              <DialogTitle>
-                {t("contentTypes.deleteDialogTitle", { name: deleting.name })}
-              </DialogTitle>
-              <DialogDescription>
-                {t("contentTypes.deleteDialogBody")}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** Deleting a type: asked first what it would take with it. A type with
+ *  entries is not deleted (switch it off); one with removed entries erases
+ *  them for good, which takes its name typed out. */
+function DeleteTypeDialog({
+  collection,
+  onClose,
+  onDeleted,
+}: {
+  collection: ContentCollection;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const t = useTranslations("Sites");
+  const common = useTranslations("Common");
+  const [preview, setPreview] = useState<ContentTypeRemoval>();
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string>();
+
+  useEffect(() => {
+    let current = true;
+    previewContentTypeDelete(collection.id)
+      .then((result) => {
+        if (current) setPreview(result);
+      })
+      .catch((error: unknown) => {
+        if (current) setProblem(contentTypeProblem(error, t));
+      });
+    return () => {
+      current = false;
+    };
+  }, [collection.id, t]);
+
+  async function confirm() {
+    if (!preview) return;
+    setBusy(true);
+    setProblem(undefined);
+    try {
+      if (preview.confirmation_required)
+        await deleteContentType(collection.id, typed);
+      else await deleteContentType(collection.id);
+      onDeleted();
+    } catch (error) {
+      setProblem(contentTypeProblem(error, t));
+      setBusy(false);
+    }
+  }
+
+  const blocked = preview !== undefined && preview.entries > 0;
+  const erasing = preview?.confirmation_required === true;
+  return (
+    <Dialog
+      onOpenChange={(next) => {
+        if (!next && !busy) onClose();
+      }}
+      open
+    >
+      <DialogContent
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
+        closeLabel={common("close")}
+      >
+        <DialogHeader>
+          <DialogTitle>
+            {blocked
+              ? t("contentTypes.deleteBlockedTitle", { name: collection.name })
+              : t("contentTypes.deleteDialogTitle", { name: collection.name })}
+          </DialogTitle>
+          {preview && !blocked && !erasing ? (
+            <DialogDescription>
+              {t("contentTypes.deleteDialogBody")}
+            </DialogDescription>
+          ) : null}
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          {preview === undefined && !problem ? (
+            <p className="text-muted-foreground">
+              {t("contentTypes.deleteLoading")}
+            </p>
+          ) : null}
+          {blocked ? (
+            <p>
+              {t("contentTypes.deleteBlockedBody", {
+                entries: preview.entries,
+              })}
+            </p>
+          ) : null}
+          {preview && !blocked && preview.categories > 0 ? (
+            <p>
+              {t("contentTypes.deleteCategories", {
+                categories: preview.categories,
+              })}
+            </p>
+          ) : null}
+          {preview && !blocked && erasing ? (
+            <>
+              <div
+                className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3"
+                role="alert"
+              >
+                <p>
+                  {t("contentTypes.eraseWarning", {
+                    name: preview.name,
+                    removed_entries: preview.removed_entries,
+                    removed_publications: preview.removed_publications,
+                  })}
+                </p>
+                <p>
+                  {t("contentTypes.erasePaths", {
+                    paths: Object.values(preview.paths).join(", "),
+                  })}
+                </p>
+              </div>
+              <Field>
+                <FieldLabel htmlFor="content-type-erase-name">
+                  {t("contentTypes.eraseConfirmLabel", { name: preview.name })}
+                </FieldLabel>
+                <Input
+                  autoComplete="off"
+                  id="content-type-erase-name"
+                  onChange={(event) => setTyped(event.target.value)}
+                  value={typed}
+                />
+              </Field>
+            </>
+          ) : null}
+          {problem ? (
+            <p className="text-destructive" role="alert">
+              {problem}
+            </p>
+          ) : null}
+        </div>
+        <DialogFooter>
+          {blocked ? (
+            <Button onClick={onClose} variant="outline">
+              {common("close")}
+            </Button>
+          ) : (
+            <>
               <Button
                 disabled={busy}
-                onClick={() => setDeleting(undefined)}
+                onClick={onClose}
+                type="button"
                 variant="outline"
               >
                 {common("cancel")}
               </Button>
               <Button
-                disabled={busy}
-                onClick={() => {
-                  setBusy(true);
-                  setProblem(undefined);
-                  deleteContentType(deleting.id)
-                    .then(() => {
-                      setNotice(
-                        t("contentTypes.deleted", { name: deleting.name }),
-                      );
-                      setOwn((value) => value + 1);
-                    })
-                    .catch((error: unknown) =>
-                      setProblem(contentTypeProblem(error, t)),
-                    )
-                    .finally(() => {
-                      setBusy(false);
-                      setDeleting(undefined);
-                    });
-                }}
+                disabled={
+                  busy || !preview || (erasing && typed !== preview.name)
+                }
+                onClick={() => void confirm()}
                 variant="destructive"
               >
                 <Trash2Icon aria-hidden="true" />
-                {t("contentTypes.deleteDialogConfirm")}
+                {erasing
+                  ? t("contentTypes.eraseConfirm")
+                  : t("contentTypes.deleteDialogConfirm")}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      ) : null}
-    </div>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -632,6 +758,10 @@ export function CreateContentTypeDialog({
   const [problem, setProblem] = useState<string>();
   const [pathEdited, setPathEdited] = useState(false);
   const [feedEdited, setFeedEdited] = useState(false);
+  // The address typed only redirects to another type today: asked to
+  // confirm before it is taken.
+  const [former, setFormer] = useState(false);
+  const [takeOver, setTakeOver] = useState(false);
   const receipt = useRef<MutationReceipt | undefined>(undefined);
   const companyLocales = useCompanyLocales(["pl", "en"]);
   const otherLocales = defaultLocale
@@ -709,6 +839,9 @@ export function CreateContentTypeDialog({
       ...(Object.keys(named).length > 0 ? { locale_paths: named } : {}),
       schema_type: values.schema_type,
       in_site_feed: values.in_site_feed,
+      // Sent only once the person ticked it, having read which redirect
+      // stops (ADR-079 pkt 14).
+      ...(takeOver ? { take_over_former: true } : {}),
     };
     try {
       const created = await createContentCollection(
@@ -720,8 +853,18 @@ export function CreateContentTypeDialog({
       form.reset();
       setPathEdited(false);
       setFeedEdited(false);
+      setFormer(false);
+      setTakeOver(false);
       onCreated(created);
     } catch (error) {
+      // A name that only redirects to another type today: the server names
+      // the address and the type; the person confirms below and saves again.
+      setFormer(
+        error instanceof ApiProblemError &&
+          (error.problem.errors ?? []).some(
+            (item) => item.code === "section_path_former",
+          ),
+      );
       // The plan's or the platform's word is about the type, not about its
       // address; a name the server refuses is said at its field.
       const limited = limitRefusal(error, t);
@@ -833,6 +976,17 @@ export function CreateContentTypeDialog({
                     </InputGroup>
                     <FieldError>{errors.base_path?.message}</FieldError>
                   </Field>
+                  {former ? (
+                    <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                      <input
+                        checked={takeOver}
+                        className="mt-1"
+                        onChange={(event) => setTakeOver(event.target.checked)}
+                        type="checkbox"
+                      />
+                      <span>{t("blogPathsTakeOverConfirm")}</span>
+                    </label>
+                  ) : null}
                   {otherLocales.length > 0 ? (
                     <fieldset className="space-y-3">
                       <legend className="text-sm font-medium">

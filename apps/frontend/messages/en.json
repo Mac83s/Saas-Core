@@ -1651,6 +1651,10 @@
     "blogPathsReason": "Reason for the change",
     "blogPathsReasonHint": "Needed when you change an address that already works. It stays in the change history.",
     "blogPathsReasonRequired": "This change moves addresses that already work. Give a reason.",
+    "blogPathsTakesOver": "This name redirects to another section today. After the change these redirects stop working:",
+    "blogPathsTakeOverConfirm": "I understand — these redirects stop working.",
+    "blogPathsTakeOverRequired": "Confirm that the redirects may stop working.",
+    "blogPathFormer": "This address redirects to another section today. Tick below that the redirect may stop working and save again.",
     "blogPathsSave": "Save addresses",
     "blogPathTaken": "Another part of the site already has this address in this language.",
     "blogPathReserved": "This address is reserved. Choose another one.",
@@ -2605,6 +2609,14 @@
       "integrations": {
         "title": "Integrations",
         "description": "Changes proposed by automation and connections to outside tools."
+      },
+      "contentTypeCategories": {
+        "title": "Categories",
+        "description": "The categories of this content type's entries: their names, their place in the tree and the addresses of their pages."
+      },
+      "contentTypeTags": {
+        "title": "Tags",
+        "description": "Tags shared by the whole site: their names in different languages and the addresses of their pages."
       }
     },
     "contentTypes": {
@@ -2688,7 +2700,16 @@
       "deleteDialogBody": "This type has no entries. Once removed, its address is free for another content type or a page. This cannot be undone.",
       "deleteDialogConfirm": "Remove content type",
       "deleted": "Content type “{name}” removed.",
-      "deleteOnlyEmpty": "Only a type without entries can be removed."
+      "deleteOnlyEmpty": "Only a type without entries can be removed.",
+      "deleteLoading": "Checking what will change…",
+      "deleteBlockedTitle": "The type “{name}” cannot be deleted",
+      "deleteBlockedBody": "This content type has entries ({entries}). Remove the entries first, or switch the type off — it leaves the site and the entries stay.",
+      "deleteCategories": "This type's categories ({categories}) are deleted with it.",
+      "eraseWarning": "Deleting the type “{name}” erases for good the removed entries of this type ({removed_entries}): their text, versions and publication history ({removed_publications}). This cannot be undone.",
+      "erasePaths": "The type's addresses become free: {paths}.",
+      "eraseConfirmLabel": "To confirm, type the type's name: {name}",
+      "eraseConfirm": "Delete the type and erase the entries",
+      "confirmationRequired": "Type the type's name to confirm."
     },
     "contentTypeArchived": "This content type is switched off. Switch it on to edit and publish its entries.",
     "slugIsContentType": "A content type of this site — its list of entries — already has this address. Choose another address for the page or change the content type's address.",
@@ -2989,6 +3010,98 @@
       "openShort": "Open",
       "confirm": "Publish the changes",
       "sourceOnly": "Versions in other languages are shown in the publish dialog."
+    },
+    "terms": {
+      "loading": "Loading…",
+      "actionsFor": "Actions for {name}",
+      "name": "Name",
+      "parent": "Parent category",
+      "parentNone": "None — top level",
+      "noEntriesYet": "— no entries on the site yet",
+      "elsewhere": "in other content types: {count}",
+      "edit": "Edit",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "changeAddress": "Change address…",
+      "remove": "Remove…",
+      "nameIn": "Name — {language}",
+      "hintAi": "Translated automatically. A name typed here is never overwritten again.",
+      "hintStale": "The name in the site's language has changed since this translation.",
+      "editNote": "A new name or place in the tree shows on the site at once, without publishing entries.",
+      "appearsAbove": "{count, plural, one {# published entry will appear at once on the pages of the categories above.} other {# published entries will appear at once on the pages of the categories above.}}",
+      "checking": "Checking what will change…",
+      "language": "Language",
+      "address": "Address",
+      "addressHelp": "Change the address only when you must — search engines know the old one. The old address will redirect to the new one.",
+      "movedHeading": "These addresses will stop answering and redirect:",
+      "movedLine": "{from} → {to}",
+      "reason": "Reason (kept in the history)",
+      "reasonRequired": "This change moves addresses that already work. Give a reason.",
+      "takeOver": "The address “{slug}” redirects to “{name}” today. After the change that redirect stops working.",
+      "takeOverRequired": "Confirm that the redirect may stop.",
+      "addressSubmit": "Change address",
+      "blockedTitle": "“{name}” cannot be removed",
+      "removeConfirm": "Remove",
+      "removeChildren": "The categories under it ({count}) move one level up.",
+      "categories": {
+        "intro": "Categories sort this content type's entries. Each has a page of its own listing its entries — together with those of the categories under it. A category's page appears once you publish the first entry in it.",
+        "caption": "Categories of this content type",
+        "empty": "This content type has no categories yet.",
+        "add": "New category",
+        "editTitle": "Edit the category “{name}”",
+        "addressTitle": "Page address of the category “{name}”",
+        "moved": "This category's page in {language} is now at {to}. The old address {from} redirects to it.",
+        "blockedBody": "Entries filed under it in the panel: {drafts}. Published entries that show it on the site: {published}. Take it off those entries and publish them again — then it can be removed.",
+        "removeTitle": "Remove “{name}”?",
+        "removeBody": "Its address becomes free."
+      },
+      "tags": {
+        "intro": "Tags belong to the whole site: one tag can mark entries of different content types. You add tags on an entry. Here you rename a tag, name it in other languages, change its address, or remove a tag no entry carries.",
+        "caption": "Tags of this site",
+        "empty": "The site has no tags yet. You add them on an entry.",
+        "editTitle": "Edit the tag “{name}”",
+        "addressTitle": "Page address of the tag “{name}”",
+        "moved": "This tag's page in {language} is now at {to}. The old address {from} redirects to it.",
+        "blockedBody": "Entries filed under it in the panel: {drafts}. Published entries that show it on the site: {published}. Take it off those entries and publish them again — then it can be removed.",
+        "removeTitle": "Remove the tag “{name}”?",
+        "removeBody": "Its address becomes free."
+      },
+      "errors": {
+        "name_taken": "There is already one with this name beside it.",
+        "name_invalid": "A name has 1 to 120 characters and at least one letter or digit.",
+        "too_deep": "Categories nest at most 3 levels deep.",
+        "parent_invalid": "That category cannot be the parent.",
+        "in_use": "Entries are filed under it. Take it off the entries and publish them again.",
+        "slug_taken": "This address is already taken.",
+        "slug_former": "This address redirects elsewhere today. Confirm that the redirect may stop.",
+        "slug_invalid": "An address is lower-case Latin letters, digits and single hyphens.",
+        "not_of_type": "This category belongs to another content type.",
+        "not_found": "There is no such category or tag."
+      }
+    },
+    "entryCategories": {
+      "title": "Categories",
+      "loading": "Loading categories…",
+      "empty": "This content type has no categories yet.",
+      "limit": "An entry takes at most {max, plural, one {# category} other {# categories}}.",
+      "newLabel": "New category",
+      "add": "Add",
+      "save": "Save categories",
+      "hint": "A change of categories shows on the site once the entry is published again.",
+      "manage": "Manage categories",
+      "tooMany": "An entry takes at most ten categories."
+    },
+    "entryRemoval": {
+      "action": "Remove entry…",
+      "loading": "Checking what will change…",
+      "title": "Remove the entry “{title}”?",
+      "published": "The entry leaves the site at once. The address {path} stops answering and the entry drops out of the lists, the RSS feed and the sitemap.",
+      "notPublished": "The entry is not on the site. It leaves the list of entries.",
+      "scheduled": "The planned publication is called off.",
+      "otherLanguages": "You remove only the {language} version. The other language versions stay: {list}.",
+      "machine": "This translation was made automatically. If the site translates entries by itself, it may be made again when the source entry is next translated. To keep this version from coming back, withdraw it instead of removing it.",
+      "irreversible": "The entry cannot be brought back from the panel.",
+      "confirm": "Remove entry"
     }
   },
   "BillingSupport": {

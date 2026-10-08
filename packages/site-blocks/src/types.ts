@@ -806,6 +806,12 @@ export interface PublishedArticle {
   readonly updatedAt?: string;
   /** The company's zone, in which those days are counted. */
   readonly timeZone?: string;
+  /** The categories it is filed under, each leading to its page; present
+   *  only when it is filed under some. */
+  readonly categories?: readonly {
+    readonly name: string;
+    readonly path: string;
+  }[];
 }
 
 export interface PublishedPageDocument {

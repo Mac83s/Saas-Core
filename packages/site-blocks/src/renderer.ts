@@ -9,6 +9,7 @@ import {
   type SiteAppearance,
 } from "./appearance";
 import {
+  renderArticleCategories,
   renderArticleHeader,
   renderBreadcrumbs,
   renderLanguageSwitcher,
@@ -223,6 +224,7 @@ function renderDocument(
     imageRendererAt?: (index: number) => BlockImageRenderer | undefined;
   },
   breadcrumbs?: ReactElement | null,
+  articleCategories?: ReactElement | null,
 ): ReactElement {
   const menu = renderNavigation(navigation, navigationLabel);
   // The server knows a block by its position in the publication, whatever
@@ -273,6 +275,8 @@ function renderDocument(
             : { data: answer, render: published?.liveRenderer },
         );
       }),
+      // Under the text, where the article ends.
+      articleCategories ?? null,
       renderPagination(pagination, paginationLabels),
     ),
     appearance ? renderSiteFooter(appearance, appearanceLang) : null,
@@ -415,6 +419,10 @@ export function renderPublishedPage(
     renderBreadcrumbs(
       document.breadcrumbs,
       siteUiTexts(document.locale).breadcrumbs,
+    ),
+    renderArticleCategories(
+      document.article,
+      siteUiTexts(document.locale).categories,
     ),
   );
 }

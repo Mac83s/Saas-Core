@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -16,11 +22,15 @@ const {
   getPublicLocales,
   listContentCollections,
   listContentEntries,
+  previewEntryRemoval,
+  removeContentEntry,
   withdrawContentEntry,
 } = vi.hoisted(() => ({
   getPublicLocales: vi.fn(),
   listContentCollections: vi.fn(),
   listContentEntries: vi.fn(),
+  previewEntryRemoval: vi.fn(),
+  removeContentEntry: vi.fn(),
   withdrawContentEntry: vi.fn(),
 }));
 
@@ -29,6 +39,8 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   getPublicLocales,
   listContentCollections,
   listContentEntries,
+  previewEntryRemoval,
+  removeContentEntry,
   withdrawContentEntry,
 }));
 
@@ -87,6 +99,7 @@ const entry = {
   scheduled_publish_at: null,
   schedule_error: "",
   tags: [],
+  categories: [],
   translation_of: null,
   pending_reason: "",
 };
@@ -178,4 +191,77 @@ test("the blog screen offers the sections that are on, never one switched off", 
     "Blog",
     "Realizacje",
   ]);
+});
+
+test("leads to the type's categories and tags, on its page and on the plain blog screen", async () => {
+  renderPanel(projects.id);
+  await screen.findByText("Wpisy dostępne pod adresem /realizacje/.");
+  expect(screen.getByRole("link", { name: "Kategorie" })).toHaveProperty(
+    "href",
+    expect.stringContaining(
+      `/panel/sites/content/${projects.id}/categories?site=${siteId}`,
+    ),
+  );
+  expect(screen.getByRole("link", { name: "Tagi" })).toHaveProperty(
+    "href",
+    expect.stringContaining(
+      `/panel/sites/content/${projects.id}/tags?site=${siteId}`,
+    ),
+  );
+});
+
+test("the plain blog screen leads to the categories of the blog it shows", async () => {
+  renderPanel();
+  await screen.findByLabelText("Wybierz kolekcję");
+  expect(screen.getByRole("link", { name: "Kategorie" })).toHaveProperty(
+    "href",
+    expect.stringContaining(
+      `/panel/sites/content/${blog.id}/categories?site=${siteId}`,
+    ),
+  );
+  expect(screen.queryByRole("link", { name: "Ustawienia typu" })).toBeNull();
+});
+
+test("an entry of a switched-off type can be removed, beside being withdrawn", async () => {
+  listContentEntries
+    .mockResolvedValueOnce({
+      items: [
+        { ...entry, id: "out", title: "Wpis na stronie", state: "published" },
+        { ...entry, id: "draft", title: "Szkic wpisu", state: "draft" },
+      ],
+      next_cursor: null,
+    })
+    .mockResolvedValue({ items: [], next_cursor: null });
+  previewEntryRemoval.mockResolvedValue({
+    entry_id: "draft",
+    title: "Szkic wpisu",
+    locale: "pl",
+    removed: false,
+    published: false,
+    path: null,
+    scheduled: false,
+    machine_translation: false,
+    other_languages: [],
+  });
+  removeContentEntry.mockResolvedValue({});
+  renderPanel(off.id);
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Działania dla wpisu Szkic wpisu",
+    }),
+  );
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Usuń wpis…" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(
+    await within(dialog).findByText(
+      "Wpis nie jest na stronie. Zniknie z listy wpisów.",
+    ),
+  ).not.toBeNull();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Usuń wpis" }));
+
+  await waitFor(() => expect(removeContentEntry).toHaveBeenCalledWith("draft"));
+  // The list is read again, without the removed entry.
+  await waitFor(() => expect(listContentEntries).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.queryByText("Szkic wpisu")).toBeNull());
 });
