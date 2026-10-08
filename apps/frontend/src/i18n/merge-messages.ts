@@ -18,3 +18,34 @@ export function mergeMessages(core: Messages, extra: Messages): Messages {
   }
   return merged;
 }
+
+/** `core` with each layer laid over it, in order; a missing layer is none. */
+export function layerMessages(
+  core: Messages,
+  layers: readonly (Messages | undefined)[],
+): Messages {
+  return layers.reduce<Messages>(
+    (merged, layer) => (layer ? mergeMessages(merged, layer) : merged),
+    core,
+  );
+}
+
+/**
+ * Where the words of a product's public pages (ADR-080) lie among a
+ * language's messages. A content language beyond the panel's two reads the
+ * English catalogue (`catalogue`), so the product's English words lie under
+ * the guest pages' texts in that language, and its own words in it come
+ * last: a word it lacks in German is English, not a missing key.
+ */
+export function siteLayers(
+  site: Readonly<Partial<Record<string, Messages>>>,
+  locale: string,
+  catalogue: string,
+  guest: Messages,
+): (Messages | undefined)[] {
+  return [
+    catalogue === locale ? undefined : site[catalogue],
+    guest,
+    site[locale],
+  ];
+}

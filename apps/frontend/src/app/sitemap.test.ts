@@ -11,6 +11,9 @@ vi.mock("../marketing/content", async (original) => ({
   ...(await original<typeof import("../marketing/content")>()),
   productHasCatalog: true,
 }));
+// No public pages of a product (ADR-080): in a product's repository the slot
+// may declare some, and this test is about a deployment that has none.
+vi.mock("../product/public-site", () => ({ publicSite: null }));
 
 import { deployment } from "../generated/deployment";
 import sitemap from "./sitemap";

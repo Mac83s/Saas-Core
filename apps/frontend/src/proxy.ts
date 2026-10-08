@@ -6,7 +6,9 @@ import { isPanelLocale, panelLocales, routing } from "#i18n/routing";
 import { deployment } from "./generated/deployment";
 import { marketingSiteEnabled } from "./marketing/enabled";
 import { PUBLIC_SITE_METHOD_HEADER } from "./modules/shared/sites/page-view";
-import { normalizeRequestHostname } from "./proxy-host";
+import { oldAddressAnswer, sitePageAnswer } from "./product-site/answers";
+import { absoluteUrl, normalizeRequestHostname } from "./proxy-host";
+import { GUEST_SEGMENTS, PANEL_SEGMENTS } from "./proxy-segments";
 
 /**
  * Two route groups (TL17). The team's pages speak pl/en and may follow the
@@ -30,24 +32,6 @@ const publicInternationalization = createMiddleware(
     alternateLinks: false,
   }),
 );
-
-/** The first path segment of the team's pages, after any language prefix. */
-const PANEL_SEGMENTS = new Set([
-  "panel",
-  "settings",
-  "invitations",
-  "login",
-  "register",
-  "onboarding",
-  "password-reset",
-  "reset-password",
-  "verify-email",
-]);
-
-/** What a company's guest opens on the platform host: the booking form, a
- *  visit's own page, a company's document. Not marketing — they stay where
- *  the profile switches the marketing off (`features.marketingSite`). */
-const GUEST_SEGMENTS = new Set(["book", "booking", "documents"]);
 
 /** Carries the visitor-facing path across the rewrite into `/site-renderer`,
  *  so the public layout can set `<html lang>` from the published page. */
@@ -86,13 +70,17 @@ export default function proxy(request: NextRequest) {
       request: { headers: forwarded },
     });
   }
+  // An address of the site a product's public pages replaced (ADR-080): one
+  // 308 or a 410, before anything below spells the address canonically.
+  const old = oldAddressAnswer(request);
+  if (old) return old;
   // The platform's own pages have no trailing slash; the other spelling is one
   // 308 away, as Next did before customer sites needed the slash kept. Next
   // wants an absolute Location from a proxy; built from the visitor's own host
   // and the scheme the gateway saw, so it stays on their port.
   if (pathname.length > 1 && pathname.endsWith("/")) {
     return NextResponse.redirect(
-      absolute(
+      absoluteUrl(
         request,
         `${pathname.replace(/\/+$/, "")}${request.nextUrl.search}`,
       ),
@@ -107,6 +95,10 @@ export default function proxy(request: NextRequest) {
   ) {
     return new NextResponse(null, { status: 404 });
   }
+  // A product's own public page, or its 404 (ADR-080). Nothing where the
+  // product declares none: the lines below are then all there is.
+  const page = sitePageAnswer(request);
+  if (page) return page;
   if (!marketingSiteEnabled) {
     // A deployment that shows no marketing of the core on its platform host
     // (`features.marketingSite: false`): the front door is sign-in, and the
@@ -117,7 +109,7 @@ export default function proxy(request: NextRequest) {
     if (segment === "") {
       // Temporary: the profile may switch the marketing back on.
       return NextResponse.redirect(
-        absolute(request, signInPath(prefixed ? first : undefined)),
+        absoluteUrl(request, signInPath(prefixed ? first : undefined)),
         307,
       );
     }
@@ -151,7 +143,7 @@ function localized(request: NextRequest, pathname: string): Response {
   if (prefixed && !isPanelLocale(first)) {
     // A guest language in front of the team's page: the panel's English.
     return NextResponse.redirect(
-      absolute(request, `/en/${rest.join("/")}${request.nextUrl.search}`),
+      absoluteUrl(request, `/en/${rest.join("/")}${request.nextUrl.search}`),
       308,
     );
   }
@@ -173,16 +165,6 @@ function permanent(response: Response): Response {
     moved.headers.append("set-cookie", cookie);
   }
   return moved;
-}
-
-/** Next wants an absolute Location from a proxy; on the visitor's own host. */
-function absolute(request: NextRequest, path: string): URL {
-  const scheme =
-    request.headers.get("x-forwarded-proto") === "https" ? "https" : "http";
-  return new URL(
-    path,
-    `${scheme}://${request.headers.get("host") ?? request.nextUrl.host}`,
-  );
 }
 
 const METADATA_PATHS = new Set(["/sitemap.xml", "/robots.txt"]);

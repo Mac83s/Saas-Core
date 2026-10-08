@@ -4,6 +4,7 @@ import { marketingLocales, routing } from "#i18n/routing";
 import { localizedUrl } from "../marketing/seo";
 import { productCopy, productHasCatalog } from "../marketing/content";
 import { marketingSiteEnabled } from "../marketing/enabled";
+import { productSiteSitemap } from "../product-site/sitemap";
 import { cardLanguages } from "../modules/shared/profiles/catalog-seo";
 import {
   readCatalogLocalesOnServer,
@@ -42,8 +43,9 @@ function inLanguages(
  * the sitemap still lists the product's pages and the catalogue listing.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // A deployment without the core's marketing has none of its pages here.
-  if (!marketingSiteEnabled) return [];
+  // A deployment without the core's marketing has none of its pages here:
+  // the product's own public pages, where it has any (ADR-080).
+  if (!marketingSiteEnabled) return productSiteSitemap();
   const paths = [
     ...PATHS,
     ...(productCopy("pl").pages ?? []).map((page) => `/${page.slug}`),

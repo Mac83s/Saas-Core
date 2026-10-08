@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 
 import en from "../../messages/en.json";
 import pl from "../../messages/pl.json";
-import { mergeMessages } from "./merge-messages";
+import { layerMessages, mergeMessages, siteLayers } from "./merge-messages";
 import { routing } from "./routing";
 
 function keys(value: object, prefix = ""): string[] {
@@ -50,4 +50,35 @@ test("polski nie zgaduje rodzaju osoby, która czyta panel (UX-020)", () => {
   const gendered =
     /\p{L}+(?:łeś|łaś)(?![\p{L}])|\b(?:jesteś|będziesz)\s+(?:zalogowan|gotow|pewn)\p{L}*/iu;
   expect(strings(pl).filter(([, text]) => gendered.test(text))).toEqual([]);
+});
+
+test("słowa publicznych stron produktu leżą na wierzchu, a w języku treści pod spodem jest ich angielski (ADR-080)", () => {
+  const core = { Common: { save: "Save" }, Catalog: { title: "Catalogue" } };
+  const guest = { Catalog: { title: "Katalog (de)" } };
+  const site = {
+    pl: { Site: { menu: "Rasy", quiz: "Quiz" } },
+    en: { Site: { menu: "Breeds", quiz: "Quiz", footer: "About" } },
+    de: { Site: { menu: "Rassen" } },
+  };
+
+  // A content language: the English catalogue, the product's English words,
+  // the guest pages' texts, then the product's own words in it.
+  expect(layerMessages(core, siteLayers(site, "de", "en", guest))).toEqual({
+    Common: { save: "Save" },
+    Catalog: { title: "Katalog (de)" },
+    Site: { menu: "Rassen", quiz: "Quiz", footer: "About" },
+  });
+  // A panel language reads its own catalogue and its own words only.
+  expect(layerMessages(core, siteLayers(site, "en", "en", {}))).toEqual({
+    ...core,
+    Site: { menu: "Breeds", quiz: "Quiz", footer: "About" },
+  });
+  expect(layerMessages(core, siteLayers(site, "pl", "pl", {})).Site).toEqual({
+    menu: "Rasy",
+    quiz: "Quiz",
+  });
+  // A product without public pages changes nothing.
+  expect(
+    layerMessages(core, [undefined, ...siteLayers({}, "de", "en", guest)]),
+  ).toEqual(mergeMessages(mergeMessages(core, {}), guest));
 });

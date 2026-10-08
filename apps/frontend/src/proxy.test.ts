@@ -6,6 +6,10 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("next-intl/middleware", () => ({
   default: () => () => new Response(null, { status: 200 }),
 }));
+// No public pages of a product (ADR-080): in a product's repository the slot
+// may declare some, and these tests are about a deployment that has none.
+vi.mock("./product/public-site", () => ({ publicSite: null }));
+vi.mock("./product/old-addresses", () => ({ oldAddresses: {} }));
 
 import proxy, {
   PUBLIC_SITE_PATH_HEADER,

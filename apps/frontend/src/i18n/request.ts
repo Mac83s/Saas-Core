@@ -2,7 +2,8 @@ import { hasLocale } from "next-intl";
 import { getRequestConfig } from "next-intl/server";
 
 import { product } from "../product";
-import { mergeMessages } from "./merge-messages";
+import { siteMessages } from "../product/site-messages";
+import { layerMessages, siteLayers } from "./merge-messages";
 import { isPanelLocale, routing } from "./routing";
 
 export default getRequestConfig(async ({ requestLocale }) => {
@@ -16,10 +17,10 @@ export default getRequestConfig(async ({ requestLocale }) => {
   const catalogue = isPanelLocale(locale) ? locale : "en";
   const core = (await import(`../../messages/${catalogue}.json`)).default;
   const guest = isPanelLocale(locale) ? {} : await guestMessages(locale);
-  const messages = mergeMessages(
-    mergeMessages(core, product.messages?.[catalogue] ?? {}),
-    guest,
-  );
+  const messages = layerMessages(core, [
+    product.messages?.[catalogue],
+    ...siteLayers(siteMessages, locale, catalogue, guest),
+  ]);
   // Without a zone next-intl formats in the server's, and the containers run
   // in UTC: an 08:00 visit read "06:00". Screens that know the organization's
   // zone pass it themselves.

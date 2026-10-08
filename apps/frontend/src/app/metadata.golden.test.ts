@@ -60,6 +60,7 @@ async function record(variant: Variant) {
     },
   }));
   vi.doMock("../product", () => ({ product: {} }));
+  vi.doMock("../product/public-site", () => ({ publicSite: null }));
   vi.doMock("../modules/shared/profiles/catalog-server", () => ({
     readCatalogLocalesOnServer: async () => ["pl", "en"],
     readCatalogSitemapOnServer: async () => [
@@ -87,6 +88,7 @@ async function record(variant: Variant) {
 afterEach(() => {
   vi.doUnmock("../generated/deployment");
   vi.doUnmock("../product");
+  vi.doUnmock("../product/public-site");
   vi.doUnmock("../modules/shared/profiles/catalog-server");
   vi.resetModules();
 });

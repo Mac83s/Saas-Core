@@ -6,6 +6,9 @@ vi.mock("../modules/shared/profiles/catalog-server", () => ({
 }));
 // A deployment that shows no marketing of the core on its platform host.
 vi.mock("../marketing/enabled", () => ({ marketingSiteEnabled: false }));
+// No public pages of a product (ADR-080): in a product's repository the slot
+// may declare some, and this test is about a deployment that has none.
+vi.mock("../product/public-site", () => ({ publicSite: null }));
 
 import { productHasCatalog } from "../marketing/content";
 import sitemap from "./sitemap";
