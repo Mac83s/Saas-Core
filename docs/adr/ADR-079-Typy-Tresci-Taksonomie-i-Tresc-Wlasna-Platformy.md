@@ -8,8 +8,8 @@ jego odpowiedź z tego samego dnia: blog własny produktu (91 wpisów Puppily, p
 HoofCare i MedPlano) żyje w tym samym systemie treści. Rozstrzygnięcia techniczne:
 agent, pakiet CT0; plan memex `saas-core-typy-tresci`. Druga wersja dokumentu, po
 przeglądzie projektu z kodem (14 uwag — sekcja „Po przeglądzie”) i po scaleniu pakietu
-PC1 (`main` b97403ae). Zbudowana jest faza CT1 (sekcja „Stan budowy”); reszta czeka na
-swoje pakiety.
+PC1 (`main` b97403ae). Zbudowane są fazy CT1, CT2 i CT3 (sekcja „Stan budowy”); reszta
+czeka na swoje pakiety.
 **Data:** 2026-10-08
 
 **Zmienia częściowo** ADR-071 pkt 14 i „Uzupełnienie 2026-10-07” (adresy pozycji per
@@ -581,8 +581,9 @@ Puppily po CT2, CT3, CT4 i PR1.
 | Faza | Stan | Gdzie |
 | --- | --- | --- |
 | CT1 | zbudowana 2026-10-08 | pakiet `pkg-ct1`; migracje `sites` 0053 (schemat) i `billing` 0029 (dane) |
-| CT3 | zbudowana 2026-10-08 (bez kategorii — czekają na CT2) | pakiet `pkg-ct3`; bez migracji; kontrakt dla produktów: `docs/architecture/product-content-read.md` |
-| CT2, CT4–CT6 | czekają | — |
+| CT2 | zbudowana 2026-10-08 | pakiet `pkg-ct2`; migracja `sites` 0054 (schemat); sekcja „Uzupełnienie CT2” |
+| CT3 | zbudowana 2026-10-08 (bez kategorii — do dołożenia po CT2) | pakiet `pkg-ct3`; bez migracji; kontrakt dla produktów: `docs/architecture/product-content-read.md` |
+| CT4–CT6 | czekają | — |
 
 ### Uzupełnienie CT1 (2026-10-08): co kod pokazał inaczej niż projekt
 
@@ -691,6 +692,149 @@ zapisu `_assert_entry_writable`. Zawsze jako złączenie w tym samym zapytaniu
 tenantowym, nigdy osobny odczyt przed nim. Nazwy typu wyłączonego zostają zajęte:
 `_assert_section_names_free`, `page_slug_is_section` i `free_slug` czytają wszystkie
 typy.
+
+### Uzupełnienie CT2 (2026-10-08): co kod pokazał inaczej niż projekt
+
+Zbudowane zgodnie z punktami 2–14, 19, 24–26 i 37, z poprawkami z przeglądu (uwagi 3–6,
+10). Kod: `shared/sites/term_addresses.py` (adresy pozycji — jedyne miejsce, które je
+składa; słownik strony czytany w tenancie), `taxonomies.py` (serwisy),
+`public_archives.py` (archiwa, odnośniki kategorii pod wpisem, resolver),
+`entry_removal.py`. Odstępstwa i doprecyzowania:
+
+1. **Pkt 17 mylił się co do dzisiejszego bloga.** Strona wpisu nie pokazuje dziś tagów
+   jako odnośników — tagi trafiają tylko do Open Graph i słów kluczowych JSON-LD. Każdy
+   odnośnik zmieniałby więc istniejące strony wpisów. Odpowiedź właściciela (08.10,
+   wariant a): pod wpisem są odnośniki do jego **kategorii**, a odpowiedź publiczna niesie
+   `article.categories` tylko wtedy, gdy wpis ma kategorię — wpis bez kategorii odpowiada
+   bajt w bajt jak dotąd. Odnośniki tagów przyjdą z przełącznikiem „pokaż tagi” w CT6.
+   Wpis z `noindex` odnośników do kategorii nie pokazuje (nie ma go na listach archiwów,
+   więc archiwum mogłoby nie odpowiadać).
+2. **Kategorie nie mają przełącznika** (pkt 9 mówił „gdy klient je włączy”). Pierwsza
+   kategoria typu zakłada jego wiersz taksonomii; nie ma stanu „kategorie włączone, żadnej
+   nie ma”, którego ktoś musiałby pilnować.
+3. **Nazwa taksonomii nie idzie do tłumaczenia** (pkt 11, 37 nazywały klucz
+   `taxonomy/<id>`). W wersji 1 nazwy „Kategorie” gość nie widzi nigdzie, więc silnik nie
+   dostaje jej do tłumaczenia i firma za nią nie płaci. Klucz zostaje zarezerwowany dla
+   własnych taksonomii.
+4. **Zamknięcie adresu (pkt 11) — pięć doprecyzowań.**
+   - Adres w języku strony zamyka się przy pierwszej publikacji wpisu z pozycją **w
+     dowolnym języku**: jest też adresem zastępczym w językach bez nazwy, więc wpis
+     angielski wydany jako pierwszy inaczej pozwalałby zmianie polskiej nazwy przesunąć
+     odpowiadające archiwum bez 308.
+   - Razem z kategorią zamykają się adresy **kategorii nad nią**: ich archiwa pokazują
+     jej wpisy, więc odpowiadają od tej samej chwili — przy publikacji wpisu i przy
+     przeniesieniu kategorii, która ma opublikowane wpisy.
+   - „Archiwum w L już odpowiada” czyta się z historii publikacji (także wycofanych i
+     typów wyłączonych) pozycji i kategorii pod nią, nie z tego, co odpowiada w tej
+     sekundzie.
+   - Adres zastępczy nie jest dopisywany do `former_slugs`. Przestrzeń nazw jest jedna
+     (pkt 6), więc klucz pozycji i jej adres w każdym języku prowadzą do niej jednym 308;
+     `former_slugs` niesie tylko adresy, które przestały być jej adresem we wszystkich
+     językach.
+   - Publikacja niczego nie liczy: adres w L powstaje przy przyjęciu nazwy (pod blokadą
+     wiersza strony, którą trzyma każdy zapis tekstów strony), a `publish_entry` tylko
+     stempluje zamknięcie. Oba kroki nigdy nie odmawiają — zajęty adres dostaje
+     przyrostek, a błąd jest logowany — bo działają w transakcji, w której zlecenie
+     tłumaczenia rozlicza kredyty. Cofnięcie zlecenia po zamknięciu adresu zostawia adres.
+5. **Co gość widzi, a co jest „na żywo” (pkt 10).** Istnienie pozycji dla gościa — archiwum,
+   odnośnik, licznik, nazwa w publikacji strony — bierze się wyłącznie z bieżących
+   publikacji wpisów (`carried_terms`); pozycji noszonej tylko przez szkic nie ma. Źródło
+   tekstów strony oferuje do tłumaczenia pozycje **z migawek**, nie z przypisań szkicu
+   (dotąd: z przypisań opublikowanego wpisu). Nazwa pozycji, którą publikacja niesie,
+   jest czytana z wiersza także dla tagów — zmiana nazwy działa od zapisu, jak zmiana
+   nazwy działu; nazwa z migawki zostaje tylko dla tagu, który nie ma wiersza. Dla
+   istniejących danych obie nazwy są równe.
+6. **Klucz tagu liczy dalej `tag_slug`** (składa tylko polskie litery), żeby wpisana nazwa
+   znajdowała tagi sprzed tej fazy; adresy z nazw liczy `slug_from_title`. Wpisana nazwa
+   jest szukana w obu zapisach. Klucz nowej pozycji omija także przestrzeń nazw swojej
+   taksonomii, więc nigdy nie jest cudzym adresem ani dawnym adresem.
+7. **Resolver (pkt 13)** zastępuje `moved_section` (nazwa funkcji została jako wejście, dla
+   pakietu CT3). Rozkłada adres na język, nazwę typu, opcjonalnie slug wpisu albo segment
+   i adres pozycji, opcjonalnie numer strony; rozpoznaje też typ pod **dzisiejszą** nazwą,
+   bo dawna może być tylko dalsza część. Segment innego języka i nazwa typu z innego
+   języka nie są dawnymi adresami — odpowiadają 404, jak dotąd. Kolumna
+   `ContentEntry.former_slugs` powstała tutaj (resolver ją czyta); pisze ją dopiero
+   zmiana adresu wpisu w CT4, razem z regułą pkt 14 dla slugów wpisów.
+8. **Dawna nazwa typu (pkt 14).** Założenie albo przemianowanie typu na nazwę, która dziś
+   tylko przekierowuje do innego typu, odpowiada `section_path_former`; integracja i
+   asystent nie przejmą jej nigdy, osoba — po podglądzie (`takes_over`) polem
+   `take_over_former`. Przejęta nazwa przestaje być dawną we wszystkich językach, którym
+   służyła. Pierwszy adres wpisu zapisany w jego migawce prowadzi do wpisu dalej
+   (ADR-071), dopóki nowy typ czegoś pod nim nie opublikuje.
+9. **Kody odmów:** `term_name_invalid`, `term_name_taken` (ta sama nazwa obok),
+   `term_kind_invalid`, `term_parent_invalid`, `term_too_deep`, `term_slug_invalid`,
+   `term_slug_taken`, `term_slug_former`, `term_not_of_type`, `locale_not_enabled`,
+   `redirect_reason_required`, `taxonomy_segment_invalid`, `taxonomy_segment_reserved`,
+   `taxonomy_segment_source_locale`, `section_path_former`, `confirmation_required` — 400
+   z polem; `entry_too_many_categories` — 400; `term_in_use` — 409;
+   `taxonomy_term_not_found`, `taxonomy_not_found` — 404.
+10. **API** (serwisy z podglądem i audytem; polecenia asystenta — CT5):
+    `GET|POST /sites/collections/{typ}/terms/` (`kind=categories|tags`),
+    `PATCH|DELETE …/terms/{id}/` (+ `preview/`, `removal/preview/`), `PUT …/terms/{id}/names/`,
+    `PUT …/terms/{id}/address/` (+ `preview/`), `PUT …/category-segments/` (+ `preview/`),
+    `GET|PUT /sites/entries/{id}/categories/`, `DELETE /sites/entries/{id}/`
+    (+ `removal/preview/`), `POST /sites/collections/{typ}/removal/preview/`;
+    `DELETE /sites/collections/{typ}/` przyjmuje `confirm_name`. Adres API tagów wpisu bez
+    zmian. Słowo „kategoria” w adresach zmienia się przez API; panel wersji 1 tego nie
+    pokazuje („tylko przydatne opcje”).
+11. **Usuwanie wpisu** (zostawione przez CT1; odpowiedzi właściciela 2a i 3a z 08.10).
+    Osoba usuwa wpis — jedną wersję językową — po potwierdzeniu. Wpis dostaje stan
+    `removed` i znika w tej samej chwili z każdego odczytu: `ContentEntry.all_objects`
+    pomija usunięte, a czyta nim publiczny router, panel, liczniki, źródła tłumaczeń i
+    inwentarz integracji. Adres odpowiada 404 jak po wycofaniu. Wiersze zostają jako
+    historia (wersje, publikacje, przypisania), jak po usuniętej podstronie; slug, miejsce
+    w grupie tłumaczeń i klucz utworzenia są zwalniane. Przycisku „przywróć” nie ma:
+    przywrócenie to zmiana stanu na szkic, nadanie wolnego sluga i dopięcie do grupy z
+    wpisu audytu `sites.entry.removed`. Wersja zrobiona przez zlecenie tłumaczenia może
+    przy kolejnym zleceniu powstać ponownie — potwierdzenie mówi o tym i radzi wycofanie.
+    **Kasowanie:** typ, którego wszystkie wpisy są usunięte, da się usunąć; to kasuje na
+    stałe te wpisy z wersjami, publikacjami i ich zdarzeniami. Tylko osoba (nigdy klucz
+    ani asystent), po wpisaniu nazwy typu (`confirm_name`); wpis audytu
+    `sites.content_type.deleted` niesie liczby i tytuły skasowanych wpisów.
+12. **Zlecenie tłumaczenia a usunięcie.** Źródło `sites.entry` czyta wpis razem z
+    usuniętymi: zapis zlecenia dla wpisu usuniętego po odczycie dostaje odmowę
+    `withdrawn`, a krok publikacji go pomija — bez wyjątku w transakcji rozliczenia.
+    Zamówienie tłumaczenia usuniętego wpisu odpowiada 404. Pozycja zmieniona albo
+    usunięta między odczytem a zapisem zlecenia tekstów strony daje konflikt
+    `source_changed` dla tej strony i języka i nie rusza żadnego adresu.
+13. **Pomiar (ryzyko „projekcja czyta wszystkie wpisy”).** 1 001 wpisów w typie i 2 002 na
+    stronie, baza testowa na tej maszynie: indeks typu 230 ms, archiwum kategorii 231 ms,
+    archiwum tagu 234 ms, wpis 124 ms, sitemapa 157 ms. Indeks i archiwa czytają odtąd
+    tylko swój typ (`published_entries(collection_id=…)`). Nie zmienione: każde żądanie
+    spoza podstron przechodzi wszystkie opublikowane wpisy strony z pełnymi migawkami
+    (`_find_entry`, ok. 110 ms na 2 000 wpisów) — do zawężenia po slugu z migawki w
+    osobnej zmianie.
+14. **Migracja `sites` 0054** — sam schemat: tabela `sites_contenttaxonomy` z wymuszonym
+    RLS, kolumny pozycji i `ContentEntry.former_slugs`, każda z wartością domyślną **w
+    bazie**, więc kod sprzed migracji zakłada tagi także między `migrate` a restartem
+    (inaczej niż 0053). Dzisiejsze tagi i tagi zapisane starym kodem czytają się jako
+    zamknięte na kluczu we wszystkich językach (`LEGACY_TERM_LOCK`). Wycofanie najpierw
+    kasuje kategorie i ich przypisania (zostawione czytałyby się jako tagi), potem
+    kolumny — bezstratne tylko przed pierwszą kategorią.
+15. **Świadkowie.** `tests/golden/sites_blog.json` bez zmiany bajtu; drugi plik,
+    `tests/golden/sites_sections.json`, napisany na kodzie sprzed tej fazy (dwa działy,
+    nazwy per język, dawne nazwy i ich 308, wpis `noindex`, archiwa poniżej progu, adresy,
+    które mają dalej odpowiadać 404). Oba testy tworzą tagi dzisiejszym kodem, więc ich
+    przygotowanie oznacza je jako starsze od migracji (jedna linia) — to dokładnie stan
+    każdego istniejącego tagu. Dwa testy `test_sites_blog_languages` mówią teraz, co robi
+    tag założony dziś: angielskie archiwum pod angielską nazwą i jedno 308 ze starego adresu.
+16. **Ręczne dodanie wersji językowej wpisu** nie kopiuje pozycji — jak dotąd; kopiuje je
+    zlecenie tłumaczenia (wszystkie taksonomie, bez zmiany kodu).
+
+**Kto musi o tym pamiętać** (lista dla następnych faz):
+
+- Każdy publiczny odczyt `sites_contenttag` i `sites_contenttaxonomy` idzie przez
+  `site_vocabulary` (ustawia tenanta z hosta w tej samej transakcji); test kolejności
+  zapytań `test_a_visitors_reads_of_terms_set_the_tenant_the_host_named_first`.
+- „Tagi” znaczą `site_tags()` (pozycje bez taksonomii): migawka `tags`, archiwum tagu,
+  `article.tags`, słowa kluczowe, pole tagów wpisu.
+- Wpisy czyta się przez `ContentEntry.all_objects`; `with_removed` tylko w usuwaniu,
+  kasowaniu i w źródle tłumaczeń `sites.entry`. Złączenia przez relacje (`entry__…`) nie
+  przechodzą przez menedżera — tam, gdzie liczą, wykluczają stan `removed` jawnie.
+- Pozycje blokuje się zawsze w kolejności identyfikatorów (`terms_to_close`, `_terms_of`,
+  `_settle`), a wiersz strony przed wpisem.
+- Adres archiwum składa tylko `term_archive_path`; odczyt dla stron produktu (CT3)
+  bierze z niego części, a „przeniesione” z `moved_address`.
 
 ### Uzupełnienie CT3 (2026-10-08): odczyt dla stron produktu — co kod pokazał inaczej niż projekt
 
