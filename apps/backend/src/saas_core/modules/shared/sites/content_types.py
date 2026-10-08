@@ -293,10 +293,13 @@ def update_content_type(
     in the site's RSS and Atom feeds (`in_site_feed`). A field left out stays.
 
     All three are read when a page is asked for, so the change is on the site
-    at once and nothing is republished: the list's heading, the structured
-    data of every entry, the feeds. The type's addresses are another
-    operation (`set_collection_paths`). `dry_run` validates and answers with
-    the type as it would be, and writes nothing. Answers `(type, changed)`.
+    at once and nothing is republished: the heading of the type's list, the
+    structured data of every entry, the feeds. One place is not: the site's
+    menu names the type as the site's last publication did, so a new name
+    reaches the menu with the site's next publication — like every menu
+    change. The type's addresses are another operation
+    (`set_collection_paths`). `dry_run` validates and answers with the type as
+    it would be, and writes nothing. Answers `(type, changed)`.
     """
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     found = _collection(context, collection_id)

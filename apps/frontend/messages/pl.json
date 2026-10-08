@@ -2659,7 +2659,7 @@
       "notFound": "Tego typu treści nie ma — mógł zostać usunięty.",
       "isOff": "Ten typ treści jest wyłączony: nie ma go na stronie, a jego wpisów nie można zmieniać ani publikować — można je tylko wycofać. Włączysz go na liście typów treści.",
       "detailsTitle": "Nazwa i rodzaj treści",
-      "detailsDescription": "Zmiany widać na stronie od razu, bez publikowania.",
+      "detailsDescription": "Nagłówek listy wpisów, dane dla wyszukiwarek i kanał RSS zmieniają się na stronie od razu. Nazwa w menu strony zmieni się po najbliższej publikacji strony.",
       "save": "Zapisz",
       "saved": "Zapisano ustawienia typu treści.",
       "addressTitle": "Adres",

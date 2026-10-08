@@ -6963,7 +6963,7 @@ export interface paths {
         get?: never;
         /**
          * Change a content type's name, kind of content and place in the feeds
-         * @description `name` is the type's name — the heading of its list on the site; `schema_type` says what its entries are to search engines (`BlogPosting`, `NewsArticle`, `Article`, or `WebPage` for plain pages without an article node); `in_site_feed` whether they are in the site's RSS and Atom feeds. A field left out stays. All three are read when a page is asked for: the change is on the site at once and nothing is republished. The type's addresses are changed by `sites_collection_paths_set`. A switched-off type is refused (`content_type_archived`).
+         * @description `name` is the type's name — the heading of its list on the site; `schema_type` says what its entries are to search engines (`BlogPosting`, `NewsArticle`, `Article`, or `WebPage` for plain pages without an article node); `in_site_feed` whether they are in the site's RSS and Atom feeds. A field left out stays. All three are read when a page is asked for: the heading of the type's list, the structured data and the feeds change at once and nothing is republished. The site's menu is the exception — it names the type as the site's last publication did, so a new name reaches the menu with the site's next publication. The type's addresses are changed by `sites_collection_paths_set`. A switched-off type is refused (`content_type_archived`).
          */
         put: operations["sites_content_type_update"];
         post?: never;
@@ -6984,7 +6984,7 @@ export interface paths {
         put?: never;
         /**
          * Preview a change of a content type's name, kind of content and feeds
-         * @description Validates the values and answers with the type as it would be, without saving. `name` is the type's name — the heading of its list on the site; `schema_type` says what its entries are to search engines (`BlogPosting`, `NewsArticle`, `Article`, or `WebPage` for plain pages without an article node); `in_site_feed` whether they are in the site's RSS and Atom feeds. A field left out stays. All three are read when a page is asked for: the change is on the site at once and nothing is republished. The type's addresses are changed by `sites_collection_paths_set`. A switched-off type is refused (`content_type_archived`).
+         * @description Validates the values and answers with the type as it would be, without saving. `name` is the type's name — the heading of its list on the site; `schema_type` says what its entries are to search engines (`BlogPosting`, `NewsArticle`, `Article`, or `WebPage` for plain pages without an article node); `in_site_feed` whether they are in the site's RSS and Atom feeds. A field left out stays. All three are read when a page is asked for: the heading of the type's list, the structured data and the feeds change at once and nothing is republished. The site's menu is the exception — it names the type as the site's last publication did, so a new name reaches the menu with the site's next publication. The type's addresses are changed by `sites_collection_paths_set`. A switched-off type is refused (`content_type_archived`).
          */
         post: operations["sites_content_type_update_preview"];
         delete?: never;

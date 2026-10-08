@@ -2659,7 +2659,7 @@
       "notFound": "This content type is not there — it may have been removed.",
       "isOff": "This content type is switched off: it is not on the site, and its entries cannot be changed or published — only withdrawn. Switch it on in the list of content types.",
       "detailsTitle": "Name and kind of content",
-      "detailsDescription": "Changes are on the site at once, without publishing.",
+      "detailsDescription": "The heading of the list of entries, the data for search engines and the RSS feed change on the site at once. The name in the site's menu changes with the site's next publication.",
       "save": "Save",
       "saved": "Content type settings saved.",
       "addressTitle": "Address",
