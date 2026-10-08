@@ -63,6 +63,10 @@ def types(conversion: HtmlConversion) -> list[str]:
     return [block["block_type"] for block in conversion.blocks]
 
 
+def _plain_text(node: dict[str, Any]) -> str:
+    return "".join(run["text"] for run in node.get("content", []))
+
+
 def test_the_converter_writes_the_newest_version_of_every_block_it_makes():
     validators = site_block_contracts().validators
     for block_type, version in (
@@ -417,7 +421,8 @@ def test_a_label_stands_one_level_under_the_heading_above_it():
         # One label does not put the next one under itself.
         "<p><u>Też pod h2:</u></p><p>c</p>"
         "<h3>Łańcuch</h3><p><u>Pod h3:</u></p><p>d</p>"
-        "<h4>Ogniwa</h4><p><u>Pod h4, głębiej się nie da:</u></p><p>e</p>"
+        # Under an h4 no level is left: the label stays emphasis.
+        "<h4>Ogniwa</h4><p><u>Pod h4 nie ma już poziomu:</u></p><p>e</p>"
         "<h1>Koła</h1><p><u>Pod h1 zapisanym jako h2:</u></p><p>f</p>"
     )
     assert [
@@ -430,7 +435,6 @@ def test_a_label_stands_one_level_under_the_heading_above_it():
         (3, "Łańcuch"),
         (4, "Pod h3:"),
         (4, "Ogniwa"),
-        (4, "Pod h4, głębiej się nie da:"),
         (2, "Koła"),
         (3, "Pod h1 zapisanym jako h2:"),
     ]
@@ -440,8 +444,17 @@ def test_a_label_stands_one_level_under_the_heading_above_it():
         if loss.kind == "underline_as_heading"
     ] == [
         ("underline_as_heading", "h3", 4),
-        ("underline_as_heading", "h4", 2),
+        ("underline_as_heading", "h4", 1),
     ]
+    assert {
+        "type": "paragraph",
+        "content": [{"text": "Pod h4 nie ma już poziomu:", "bold": True}],
+    } in nodes(conversion)
+    assert kinds(conversion) == {
+        "underline_as_heading": 5,
+        "underline_as_bold": 1,
+        "heading_level_changed": 1,
+    }
 
 
 @pytest.mark.parametrize(
@@ -466,6 +479,108 @@ def test_an_underlined_paragraph_that_is_not_a_label_stays_a_paragraph(paragraph
     assert kinds(conversion) == {"underline_as_bold": 1}
 
 
+def test_a_short_paragraph_bold_from_end_to_end_is_the_same_label_and_a_sub_heading():
+    conversion = convert_html(
+        "<p><b>Najczęstsze usterki hamulców:</b></p><ul><li>klocki</li></ul>"
+        # The colon outside the bold, a numbered one, a line of a paragraph,
+        # bold from a style, a question.
+        "<p><strong>Wymiana dętki</strong>:</p><p>Na poboczu.</p>"
+        "<p><b>3. Smarowanie przerzutek</b></p><p>Kroplą oleju.</p>"
+        "<p><b>Zimą:</b><br>Tylko <b>pod dachem</b>.</p>"
+        '<p style="font-weight: 700">Jak często centrować koło?</p><p>Raz na sezon.</p>'
+        "<h2>Rama</h2><h3>Widelec</h3><p><b>Skok:</b></p><table><tr><td>100 mm</td></tr></table>"
+    )
+    assert [
+        (node["level"], node["anchor"], node["text"])
+        for block in conversion.blocks
+        if block["block_type"] == "core.rich_text"
+        for node in block["data"]["content"]
+        if node["type"] == "heading"
+    ] == [
+        (3, "najczestsze-usterki-hamulcow", "Najczęstsze usterki hamulców:"),
+        (3, "wymiana-detki", "Wymiana dętki:"),
+        (3, "smarowanie-przerzutek", "3. Smarowanie przerzutek"),
+        (3, "zima", "Zimą:"),
+        (3, "jak-czesto-centrowac-kolo", "Jak często centrować koło?"),
+        (2, "rama", "Rama"),
+        (3, "widelec", "Widelec"),
+        (4, "skok", "Skok:"),
+    ]
+    # Bold on a part of a paragraph is what it was.
+    assert nodes(conversion)[7] == {
+        "type": "paragraph",
+        "content": [{"text": "Tylko "}, {"text": "pod dachem", "bold": True}, {"text": "."}],
+    }
+    assert [(loss.severity, loss.kind, loss.detail, loss.count) for loss in conversion.losses] == [
+        (CHANGED, "bold_as_heading", "h3", 5),
+        (CHANGED, "bold_as_heading", "h4", 1),
+        (CHANGED, "line_break_as_paragraph", "", 1),
+    ]
+    assert conversion.stats["characters_in"] == conversion.stats["characters_out"]
+    assert_unique_anchors(conversion.blocks)
+    # An underline on a part of a bold label goes with the rest of its marks.
+    mixed = convert_html("<p><b>Opony <u>bezdętkowe</u>:</b></p><p>Z mlekiem.</p>")
+    assert nodes(mixed)[0]["text"] == "Opony bezdętkowe:"
+    assert [(loss.kind, loss.detail) for loss in mixed.losses] == [
+        ("bold_as_heading", "h3"),
+        ("underline_dropped", "in a heading"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        # A bold sentence is emphasis: a statement, an exclamation.
+        "<p><b>Kask zapinamy pod brodą.</b></p><p>Dalej.</p>",
+        "<p><b>Tak, ale tylko na suchym asfalcie!</b></p><ul><li>raz</li></ul>",
+        # Longer than a label is.
+        f"<p><b>{'Rozwlekła uwaga serwisowa ' * 5}</b></p><p>Dalej.</p>",
+        # A link or italics in it.
+        '<p><b><a href="/serwis/">Cennik serwisu</a></b></p><p>Dalej.</p>',
+        "<p><b><i>Bellis perennis</i></b></p><p>Dalej.</p>",
+        # A bold lead-in with words outside the bold.
+        "<p><b>Uwaga:</b> luźne szprychy</p><p>Dalej.</p>",
+        # It introduces sections with headings of their own, it names none.
+        "<p><b>Napęd ma trzy zespoły:</b></p><h3>Rama</h3><p>Dalej.</p>",
+        # The last words of the text name nothing.
+        "<p>Wcześniej.</p><p><b>Do zobaczenia na trasie</b></p>",
+        # Under an h4 no level is left.
+        "<h4>Ogniwa</h4><p><b>Spinka:</b></p><p>Dalej.</p>",
+        # In a list, a quote or a cell bold is a mark of the words.
+        "<ul><li><b>Spinka:</b></li><li>dwie</li></ul>",
+        "<blockquote><b>Spinka:</b></blockquote><p>Dalej.</p>",
+    ],
+)
+def test_bold_that_is_not_a_label_stays_as_it_was_and_nothing_is_reported(html: str):
+    conversion = convert_html(html)
+    found = [node for node in nodes(conversion) if node["type"] == "heading"]
+    assert [node["text"] for node in found] == [
+        text for text in ("Rama", "Ogniwa") if f">{text}</h" in html
+    ]
+    assert "bold_as_heading" not in kinds(conversion)
+    assert conversion.losses == ()
+    assert conversion.stats["characters_in"] == conversion.stats["characters_out"]
+
+
+def test_bold_the_converter_gave_is_not_a_label():
+    # A definition's term and the header line of a table too wide for a block
+    # are bold because the converter wrote them so.
+    terms = convert_html("<dl><dt>Piasta</dt><dd>Środek koła.</dd></dl>")
+    assert nodes(terms) == [
+        {"type": "paragraph", "content": [{"text": "Piasta", "bold": True}]},
+        {"type": "paragraph", "content": [{"text": "Środek koła."}]},
+    ]
+    wide = convert_html(
+        "<table><tr>"
+        + "".join(f"<th>k{n}</th>" for n in range(13))
+        + "</tr><tr>"
+        + "".join(f"<td>w{n}</td>" for n in range(13))
+        + "</tr></table>"
+    )
+    assert [node["type"] for node in nodes(wide)] == ["paragraph", "paragraph"]
+    assert "bold_as_heading" not in kinds(terms) | kinds(wide)
+
+
 def test_a_label_is_as_long_as_the_limit_and_not_a_character_more():
     at_limit = "Ż" * LABEL_MAX_LENGTH
     assert nodes(convert_html(f"<p><u>{at_limit}</u></p><p>x</p>"))[0]["type"] == "heading"
@@ -479,10 +594,9 @@ def test_a_label_with_nothing_after_it_labels_nothing_and_stays_emphasis():
         {"type": "paragraph", "content": [{"text": "Na koniec:", "bold": True}]},
     ]
     assert kinds(conversion) == {"underline_as_bold": 1}
-    # A table, a rule or questions after it are something to label.
+    # A table or questions after it are something to label.
     for following in (
         "<table><tr><td>a</td></tr></table>",
-        "<hr>",
         '<div class="question_answer"><h3>Czy rdzewieje?</h3><p>Nie.</p></div>',
     ):
         labelled = convert_html(f"<h2>Rama</h2><p><u>Wymiary:</u></p>{following}")
@@ -491,6 +605,48 @@ def test_a_label_with_nothing_after_it_labels_nothing_and_stays_emphasis():
             ("heading", "Wymiary:"),
         ]
         assert len(labelled.blocks) == 2
+    # A rule ends what stood before it, and a heading begins something else.
+    for following in ("<hr><p>Dalej.</p>", "<h3>Koła</h3><p>Dalej.</p>"):
+        closed = convert_html(f"<h2>Rama</h2><p><u>Wymiary:</u></p>{following}")
+        assert nodes(closed)[1] == {
+            "type": "paragraph",
+            "content": [{"text": "Wymiary:", "bold": True}],
+        }
+        assert "underline_as_heading" not in kinds(closed)
+
+
+def test_a_label_right_before_another_label_introduces_a_series_and_stays_as_it_was():
+    conversion = convert_html(
+        "<p><b>Rodzaje hamulców:</b></p>"
+        "<p><b>1. Szczękowe:</b></p><p>Lekkie.</p>"
+        "<p><b>2. Tarczowe:</b></p><ul><li>pewne w deszczu</li></ul>"
+        # The same with an underline first, and three in a row.
+        "<p><u>Rodzaje opon:</u></p><p><b>Szosowe</b></p><p>Wąskie.</p>"
+        "<p><b>Przegląd:</b></p><p><b>Wiosną:</b></p><p><b>Łańcuch</b></p><p>Do wymiany.</p>"
+    )
+    assert [
+        (node["type"], node.get("text") or _plain_text(node)) for node in nodes(conversion)
+    ] == [
+        ("paragraph", "Rodzaje hamulców:"),
+        ("heading", "1. Szczękowe:"),
+        ("paragraph", "Lekkie."),
+        ("heading", "2. Tarczowe:"),
+        ("list", ""),
+        ("paragraph", "Rodzaje opon:"),
+        ("heading", "Szosowe"),
+        ("paragraph", "Wąskie."),
+        ("paragraph", "Przegląd:"),
+        ("paragraph", "Wiosną:"),
+        ("heading", "Łańcuch"),
+        ("paragraph", "Do wymiany."),
+    ]
+    # What introduces the series keeps its mark: bold, or bold for an underline.
+    for index in (0, 5, 8, 9):
+        assert all(run.get("bold") for run in nodes(conversion)[index]["content"])
+    assert [(loss.kind, loss.detail, loss.count) for loss in conversion.losses] == [
+        ("bold_as_heading", "h3", 4),
+        ("underline_as_bold", "in a paragraph", 1),
+    ]
 
 
 def test_marks_from_inline_style_count_and_other_declarations_are_named():

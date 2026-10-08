@@ -33,6 +33,11 @@ Decisions (plan PB2, 2026-10-07):
   is emphasis and becomes bold. A short paragraph underlined from end to end
   (`LABEL_MAX_LENGTH`) names what follows it and becomes a sub-heading one
   level under the heading it stands below.
+- A short paragraph that is bold from end to end is the same label written
+  the other way, and becomes a sub-heading by the same rule. A bold sentence
+  (a full stop, an exclamation mark), a bold line before a heading, before
+  another label or at the end of the text, and bold on a part of a paragraph
+  stay as they are.
 - Words are never left out because of the markup around them. Words written
   in a list outside its items become an item, words in a table outside its
   cells a paragraph before the table, and an opening tag that lost its `>`
@@ -94,9 +99,10 @@ _MAX_FAQ_ANSWER = 2000
 _MAX_FAQ_TITLE = 120
 _MAX_HREF = 500
 
-# A paragraph underlined from end to end is a label for what follows — a
-# sub-heading — when it is no longer than this. On the corpus the rule was set
-# on (3,672 such paragraphs in five languages) the longest had 81 characters.
+# A paragraph underlined or bold from end to end is a label for what follows —
+# a sub-heading — when it is no longer than this. On the corpus the rule was
+# set on (26,469 such paragraphs in five languages) the longest had 96
+# characters, and one in a hundred had more than 63.
 LABEL_MAX_LENGTH: Final = 100
 
 _HREF = re.compile(r"^(?:/(?!/)|https://|mailto:|tel:)")
@@ -499,6 +505,8 @@ class _Converter:
         self.section: int | None = None
         # A label waiting for what it labels: its runs, words and level.
         self.held: tuple[list[dict[str, Any]], str, int] | None = None
+        # Inside a definition's term: bold the converter gave, not the author.
+        self.in_term = False
         self.pending: list[_Piece] = []
         self.figures: list[dict[str, Any]] = []
         # Inside a paragraph a picture is inline: it follows the paragraph.
@@ -808,35 +816,38 @@ class _Converter:
         if not runs:
             return
         text = _text_of(runs)
-        if self.is_label(runs, text):
-            self.release(followed=True)
-            # One level under the heading it stands below; a text without a
-            # heading of its own stands under its page's or section's `h2`.
-            self.held = (runs, text, min((self.section or 2) + 1, 4))
+        # One level under the heading it stands below; a text without a
+        # heading of its own stands under its page's or section's `h2`. Under
+        # an `h4` there is no level left, and a label stays what it was.
+        level = (self.section or 2) + 1
+        if level <= 4 and not self.in_term and self.is_label(runs, text):
+            # A label right before another label introduces a series of
+            # them: like one before a heading, it names nothing itself.
+            self.release(followed=False)
+            self.held = (runs, text, level)
             return
         self.written(runs, text)
 
     def is_label(self, runs: list[dict[str, Any]], text: str) -> bool:
-        """A short paragraph underlined from end to end names what follows it:
-        `<u>Tools:</u>`, `<b><u>2. Tyres</u></b>`. Punctuation may stand
-        outside the underline (`<u>Tools</u>:`). A sentence with its full
-        stop, a link or italics is a text of its own, however short."""
-        return (
-            len(text) <= LABEL_MAX_LENGTH
-            and not text.endswith(".")
-            and any(run.get("_u") for run in runs)
-            and all(
-                "href" not in run
-                and not run.get("italic")
-                and (run.get("_u") or not any(sign.isalnum() for sign in run["text"]))
-                for run in runs
-            )
+        """A short paragraph marked from end to end — underlined, or bold —
+        names what follows it: `<u>Tools:</u>`, `<b>2. Tyres</b>`. Punctuation
+        may stand outside the mark (`<b>Tools</b>:`). A sentence with its full
+        stop or exclamation mark, a link or italics is a text of its own,
+        however short."""
+        if len(text) > LABEL_MAX_LENGTH or text.endswith((".", "!")):
+            return False
+        if any("href" in run or run.get("italic") for run in runs):
+            return False
+        worded = [run for run in runs if any(sign.isalnum() for sign in run["text"])]
+        return bool(worded) and (
+            all(run.get("_u") for run in worded) or all(run.get("bold") for run in worded)
         )
 
     def release(self, *, followed: bool) -> None:
-        """A label waits for what it labels. With something after it, it is a
-        sub-heading; as the last words of the document it labels nothing and
-        is emphasis like any other underline."""
+        """A label waits for what it labels. With a text, a list or a table
+        after it, it is a sub-heading. Before a heading, before another label
+        or as the last words of the document it labels nothing and stays what
+        it was: bold, or an underline that is emphasis like any other."""
         held, self.held = self.held, None
         if held is None:
             return
@@ -844,8 +855,14 @@ class _Converter:
         if not followed:
             self.written(runs, text)
             return
-        self.note(CHANGED, "underline_as_heading", f"h{level}", text)
-        if len({bool(run.get("bold")) for run in runs if run.get("_u")}) > 1:
+        worded = [run for run in runs if any(sign.isalnum() for sign in run["text"])]
+        if all(run.get("_u") for run in worded):
+            self.note(CHANGED, "underline_as_heading", f"h{level}", text)
+        else:
+            self.note(CHANGED, "bold_as_heading", f"h{level}", text)
+            if any(run.get("_u") for run in runs):
+                self.note(CHANGED, "underline_dropped", "in a heading", text)
+        if len({bool(run.get("bold")) for run in worded}) > 1:
             self.note(CHANGED, "heading_marks_dropped", "bold on a part", text)
         self.nodes.append({
             "type": "heading",
@@ -927,6 +944,8 @@ class _Converter:
             self.quote(element, marks)
         elif tag == "hr":
             self.attributes(element)
+            # A rule ends what stood before it: a label there names nothing.
+            self.release(followed=False)
             self.add_block("core.separator", SEPARATOR_VERSION, {"layout": "line"})
         elif tag == "table":
             self.table(element)
@@ -945,7 +964,11 @@ class _Converter:
         elif tag == "dt":
             self.attributes(element, styled=True)
             bold = _Marks(True, marks.italic, marks.underline, marks.href, marks.rel)
+            # Written while the term is open: its bold is not a label's.
+            self.in_term = True
             self.flow(element.children, self.styled(element, bold))
+            self.flush_paragraph()
+            self.in_term = False
         elif tag in _BLOCKS:
             # A paragraph, or a container whose blocks stand on their own.
             if tag not in ("p", "div", "section", "article", "main", "dd"):
@@ -977,6 +1000,8 @@ class _Converter:
         if not text:
             self.note(CHANGED, "empty_block_dropped", element.tag)
             return
+        # A label right before a heading introduces sections, it names none.
+        self.release(followed=False)
         for run in runs:
             if "href" in run:
                 # A heading holds no link. Where it pointed is said in full,
@@ -1412,7 +1437,8 @@ class _Converter:
                     runs.extend(cell["content"])
                 if header_row and index == 0:
                     runs = [{**run, "bold": True} for run in runs]
-                self.paragraph(self.finish(runs))
+                line = self.finish(runs)
+                self.written(line, _text_of(line))
             return
 
         header = (

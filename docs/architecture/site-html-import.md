@@ -1,9 +1,9 @@
 # Tabela w treści i konwerter HTML → bloki
 
 Status: plan memex `saas-core-wielojezycznosc-i-tlumaczenia-ai`, faza PB2
-(2026-10-07); reguły dla podkreślenia, słów poza miejscem na słowa i linku w
-śródtytule poprawione po pierwszym przebiegu na prawdziwych treściach (PB2c,
-2026-10-08). Rozszerza ADR-027 (treść jako bloki) i ADR-056 (edytor na
+(2026-10-07); reguły dla podkreślenia, pogrubionych etykiet, słów poza
+miejscem na słowa i linku w śródtytule ustalone po pierwszym przebiegu na
+prawdziwych treściach (PB2c, 2026-10-08). Rozszerza ADR-027 (treść jako bloki) i ADR-056 (edytor na
 kontrakcie) bez zmiany istniejących schematów. Powód: treści pisane poza
 rdzeniem (wpisy i opisy w HTML) mają trafić do stron i wpisów, a 86 tabel w
 przenoszonych wpisach nie miało w rdzeniu odpowiednika.
@@ -95,8 +95,8 @@ Każdy blok jest przed zwróceniem sprawdzany swoim schematem
 | HTML | Wynik |
 |---|---|
 | tekst, `p`, `div` i inne kontenery | akapity `core.rich_text` v4 |
-| `b`/`strong`, `i`/`em`, `font-weight`/`font-style` w `style` | znaczniki przebiegu |
-| `u`/`ins`, `text-decoration: underline` | na części tekstu pogrubienie; krótki akapit podkreślony w całości — śródtytuł (niżej) |
+| `b`/`strong`, `i`/`em`, `font-weight`/`font-style` w `style` | znaczniki przebiegu; krótki akapit pogrubiony w całości — śródtytuł (reguła etykiety, niżej) |
+| `u`/`ins`, `text-decoration: underline` | na części tekstu pogrubienie; krótki akapit podkreślony w całości — śródtytuł (reguła etykiety, niżej) |
 | `a href` | link, gdy kontrakt przyjmuje adres (`/ścieżka`, `https://`, `mailto:`, `tel:`, `#kotwica` śródtytułu tego dokumentu); `http://` i `//host` zapisane jako `https://`; `rel` `sponsored`/`ugc`/`nofollow` zachowany |
 | `h1`–`h6` | śródtytuł 2–4 (`h1` → 2, `h5`/`h6` → 4); `id` zgodne z kontraktem zostaje kotwicą, a linki `#stare-id` idą za śródtytułem |
 | `ul`/`ol` | lista do dwóch poziomów; głębsze poziomy spłaszczone do drugiego |
@@ -112,7 +112,7 @@ Każdy blok jest przed zwróceniem sprawdzany swoim schematem
 - **`<u>`.** Tekst ma pogrubienie, kursywę i link; podkreślenie w sieci czyta
   się jak link, więc kontrakt go nie ma i nie dostaje. Zostaje to, co
   podkreślenie znaczyło. Reguły są ustalone na prawdziwym korpusie (PB2c:
-  16 996 dokumentów w pięciu językach, podkreślenie w 49 824 akapitach i
+  16 996 dokumentów w pięciu językach, podkreślenie w 49 829 akapitach i
   pozycjach list):
   - **Podkreślona część tekstu to wyróżnienie i zostaje pogrubieniem**
     (`underline_as_bold`): fraza w zdaniu, początek pozycji listy, cała
@@ -123,27 +123,57 @@ Każdy blok jest przed zwróceniem sprawdzany swoim schematem
     zwykły tekst — w śródtytule, podpisie, pytaniu i odpowiedzi FAQ
     (`underline_dropped`, „in a heading” itd.).
   - **Krótki akapit podkreślony w całości nazywa to, co po nim następuje, i
-    zostaje śródtytułem** (`underline_as_heading`). Warunki, wszystkie naraz:
-    podkreślona jest każda litera i cyfra akapitu albo wiersza między `<br>`
-    (interpunkcja może stać poza podkreśleniem — `<u>Narzędzia</u>:` — a
-    pogrubienie nie przeszkadza); ma najwyżej 100 znaków
-    (`LABEL_MAX_LENGTH`); nie kończy się kropką; nie ma linku ani kursywy;
-    coś po nim w dokumencie stoi. Etykieta na samym końcu niczego nie nazywa
-    i zostaje pogrubionym akapitem, tak samo jak zdanie z kropką albo tekst
-    dłuższy niż próg.
-  - **Poziom śródtytułu**: o jeden niżej niż ostatni śródtytuł `h1`–`h6` nad
-    etykietą (pod `h2` → `h3`, pod `h3` → `h4`, pod `h4` zostaje `h4`). Tekst
-    bez własnych śródtytułów stoi pod `h2` swojej strony albo sekcji, więc
-    etykieta dostaje w nim `h3`. Etykiety nie wchodzą jedna pod drugą.
-  - **Skąd progi.** W korpusie są 3 672 takie akapity (po około 735 w każdym
-    z pięciu języków): średnio 26 znaków, najdłuższy 81; 85% kończy się
-    dwukropkiem, 20 to pytania, żaden nie kończy się kropką, po każdym stoi
-    akapit albo lista. Próg 100 obejmuje wszystkie i zostawia zapas na
-    dłuższe tłumaczenie; kropka i koniec dokumentu to bezpieczniki na teksty,
-    których w tym korpusie nie było. Pozostałe 46 152 podkreślenia to
-    wyróżnienia (40 338 akapitów, 5 814 pozycji list).
-  - Reguła nie dotyczy krótkich akapitów tylko pogrubionych (w tym samym
-    korpusie 4 370 w polskich opisach): pogrubienie zostaje pogrubieniem.
+    zostaje śródtytułem** (`underline_as_heading`) — reguła etykiety, niżej.
+  - Pozostałe 46 351 podkreśleń w korpusie to wyróżnienia (40 537 akapitów,
+    5 814 pozycji list).
+- **Etykieta: krótki akapit podkreślony albo pogrubiony w całości.** W
+  przenoszonych tekstach to jeden zapis na dwa sposoby: 54 z 374 ras ma
+  etykiety podkreślone, około 150 innych — takie same pogrubione. Obie stają
+  się śródtytułem tą samą regułą (`underline_as_heading`, `bold_as_heading`;
+  decyzja 2026-10-08, właściciel może ją cofnąć, a ponowny import ją
+  odwraca). Warunki, wszystkie naraz:
+  - podkreślona albo pogrubiona jest każda litera i cyfra akapitu albo
+    wiersza między `<br>` (interpunkcja może stać poza znacznikiem —
+    `<b>Narzędzia</b>:`);
+  - ma najwyżej 100 znaków (`LABEL_MAX_LENGTH`);
+  - nie kończy się kropką ani wykrzyknikiem — zdanie i okrzyk to wyróżnienie,
+    nie nazwa;
+  - nie ma linku ani kursywy;
+  - po nim stoi tekst, lista, tabela albo pytania. Akapit tuż przed
+    śródtytułem `h1`–`h6` albo tuż przed następną etykietą zapowiada rozdziały
+    albo serię („Rodzaje hamulców:” nad „1. Szczękowe:”) i sam niczego nie
+    nazywa; linia `hr` zamyka to, co przed nią; po ostatnim akapicie dokumentu
+    nie ma już nic;
+  - jest poziom, na którym może stanąć: o jeden niżej niż ostatni śródtytuł
+    `h1`–`h6` nad nim (pod `h2` → `h3`, pod `h3` → `h4`); pod `h4` poziomu już
+    nie ma. Tekst bez własnych śródtytułów stoi pod `h2` swojej strony albo
+    sekcji, więc etykieta dostaje w nim `h3`. Etykiety nie wchodzą jedna pod
+    drugą.
+
+  Akapit, który któregoś warunku nie spełnia, zostaje tym, czym był:
+  pogrubienie pogrubieniem (bez pozycji w raporcie), podkreślenie
+  wyróżnieniem. Pogrubienie części akapitu, pozycji listy, komórki i cytatu
+  nie jest etykietą; nie jest nią też pogrubienie, które dał sam konwerter
+  (termin `dt`, wiersz nagłówka tabeli zbyt szerokiej na blok).
+  - **Skąd progi.** W korpusie śródtytułem zostaje 26 469 takich akapitów:
+    3 473 podkreślone (tylko w opisach ras) i 22 996 pogrubionych (opisy ras
+    i 834 we wpisach). Mediana 26 znaków, co setny dłuższy niż 63, najdłuższy
+    96; 87% kończy się dwukropkiem, 10% literą albo cyfrą (numer, temat), po
+    1% nawiasem i pytajnikiem. Próg 100 obejmuje wszystkie i zostawia zapas
+    na dłuższe tłumaczenie.
+  - **Co reguła zostawia akapitem** (cały korpus, pięć języków). Pogrubione
+    w całości — 1 258: 1 077 tuż przed następną etykietą, 80 okrzyków
+    („…!”), 57 zdań z kropką, 18 dłuższych niż 100 znaków, 16 tuż przed
+    śródtytułem, 10 pod `h4`. Podkreślone w całości — 199 (zostają
+    wyróżnieniem): 194 tuż przed następną etykietą, 5 okrzyków.
+  - **Czego reguła nie rozróżnia** (ocena z próbek, nie pomiar; razem około
+    330 z 26 469, czyli 1,2%). Zapowiedź listy napisana jak zdanie („Koło
+    trzeba wycentrować wtedy, gdy:”) ma kształt etykiety i zostaje
+    śródtytułem — około 30 w polskich tekstach, 150 w pięciu językach;
+    odróżnia ją tylko gramatyka danego języka, której konwerter nie zna.
+    Pogrubiona odpowiedź w kształcie „hasło: wartość” — do 150. Trzy etykiety
+    z rzędu — 15: dwie pierwsze zostają pogrubione, trzecia jest śródtytułem.
+    Pojedyncze słowo-uwaga z dwukropkiem („Uwaga:”) — 10.
 - **Słowa poza miejscem na słowa.** Lista trzyma tylko pozycje, tabela tylko
   komórki, a słowa nie przepadają przez znaczniki wokół nich. Słowa wpisane
   w `ul`/`ol` poza `li` (na przykład po `</li>` zamkniętym za wcześnie)
@@ -203,7 +233,7 @@ liczba wystąpień w dokumencie i próbka (pierwsze słowa albo wartość).
 | Waga | Znaczenie | Rodzaje |
 |---|---|---|
 | `lost` | treść przepadła | `tag_dropped` (element usunięty z zawartością: `script`, `iframe`, `form`…), `link_dropped`, `heading_link_dropped`, `image_dropped`, `text_dropped`, `text_mismatch` |
-| `changed` | wszystko zostało, powiedziane inaczej | `underline_as_bold`, `underline_as_heading`, `underline_dropped`, `list_text_as_item`, `table_text_as_paragraph`, `opening_tag_repaired`, `unfinished_tag_dropped`, `strikethrough_dropped`, `superscript_flattened`, `subscript_flattened`, `code_mark_dropped`, `tag_unwrapped`, `heading_level_changed`, `heading_marks_dropped`, `heading_too_long`, `line_break_as_paragraph`, `line_break_as_space`, `blocks_flattened`, `blocks_joined`, `list_nesting_flattened`, `list_numbering_dropped`, `list_item_without_text`, `sublists_merged`, `sublist_overflow_promoted`, `table_span_flattened`, `table_column_widths_dropped`, `table_footer_as_rows`, `table_extra_header_rows`, `table_header_cell_as_data`, `table_too_wide`, `table_caption_as_paragraph`, `caption_marks_dropped`, `faq_kept_as_text`, `faq_marks_dropped`, `faq_paragraphs_joined`, `faq_heading_as_title`, `link_upgraded_to_https`, `link_target_dropped`, `link_rel_dropped`, `image_moved_after_paragraph`, `image_alt_shortened`, `preformatted_flattened`, `definition_list_flattened`, `marks_dropped_over_run_limit`, `class_dropped`, `style_dropped`, `attribute_dropped`, `comment_dropped`, `declaration_dropped`, `quote_source_marks_dropped`, `empty_block_dropped`, `stray_end_tag` |
+| `changed` | wszystko zostało, powiedziane inaczej | `underline_as_bold`, `underline_as_heading`, `bold_as_heading`, `underline_dropped`, `list_text_as_item`, `table_text_as_paragraph`, `opening_tag_repaired`, `unfinished_tag_dropped`, `strikethrough_dropped`, `superscript_flattened`, `subscript_flattened`, `code_mark_dropped`, `tag_unwrapped`, `heading_level_changed`, `heading_marks_dropped`, `heading_too_long`, `line_break_as_paragraph`, `line_break_as_space`, `blocks_flattened`, `blocks_joined`, `list_nesting_flattened`, `list_numbering_dropped`, `list_item_without_text`, `sublists_merged`, `sublist_overflow_promoted`, `table_span_flattened`, `table_column_widths_dropped`, `table_footer_as_rows`, `table_extra_header_rows`, `table_header_cell_as_data`, `table_too_wide`, `table_caption_as_paragraph`, `caption_marks_dropped`, `faq_kept_as_text`, `faq_marks_dropped`, `faq_paragraphs_joined`, `faq_heading_as_title`, `link_upgraded_to_https`, `link_target_dropped`, `link_rel_dropped`, `image_moved_after_paragraph`, `image_alt_shortened`, `preformatted_flattened`, `definition_list_flattened`, `marks_dropped_over_run_limit`, `class_dropped`, `style_dropped`, `attribute_dropped`, `comment_dropped`, `declaration_dropped`, `quote_source_marks_dropped`, `empty_block_dropped`, `stray_end_tag` |
 | `split` | jedno stało się kilkoma przez limit | `rich_text_split` (ponad 160 węzłów: cięcie przed ostatnim `h2`, potem `h3`, `h4`, na końcu na limicie), `list_split` (ponad 40 pozycji), `table_split` (ponad 120 wierszy; podpis i wiersz nagłówka powtórzone), `faq_split` (ponad 30 pytań), `paragraph_split` (ponad 64 przebiegi) |
 
 Dwa rachunki zamykają raport. Każdy węzeł tekstu wejścia trafia do bloku albo
