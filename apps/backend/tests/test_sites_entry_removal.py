@@ -356,3 +356,74 @@ def test_saving_a_draft_of_a_removed_entry_is_not_found() -> None:
         world.client, entry, expected_version=1, text="Jeszcze raz.", idempotency_key="late"
     )
     assert saved.status_code == 404, saved.data
+
+
+def test_erasing_an_entry_with_a_picture_leaves_the_picture_in_the_library(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Media references are append-only: an erased entry's pictures stay the
+    company's, and the erasure does not stumble over them."""
+    from rest_framework.test import APIClient
+
+    from saas_core.modules.core.identity.models import User
+    from saas_core.modules.core.organizations.models import Organization
+    from saas_core.modules.shared.media.models import MediaAsset, MediaReference
+    from test_media_api import MemoryStorage
+    from test_sites_api import create_media_asset
+
+    world = World("removal-media")
+    organization = Organization.objects.get(pk=world.organization_id)
+    user = User.objects.get(pk=_person(world).actor_id)
+    asset = create_media_asset(organization, user)
+    storage = MemoryStorage()
+    storage.objects[asset.object_key] = (b"\x89PNG\r\n\x1a\n", "image/png")
+    monkeypatch.setattr(
+        "saas_core.modules.shared.sites.public_media.get_object_storage", lambda: storage
+    )
+    entry = str(
+        create_entry(world.client, world.projects, slug="ze-zdjeciem", idempotency_key="m").data[
+            "id"
+        ]
+    )
+    saved = world.client.put(
+        f"/api/v1/sites/entries/{entry}/draft/",
+        {
+            "expected_version": 0,
+            "blocks": [
+                {
+                    "block_type": "core.hero",
+                    "schema_version": 3,
+                    "data": {
+                        "title": "Wpis ze zdjęciem",
+                        "image": {"asset_id": str(asset.id), "alt": "Zdjęcie"},
+                    },
+                }
+            ],
+            "media_asset_ids": [str(asset.id)],
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(world.client),
+        HTTP_IDEMPOTENCY_KEY="m-draft",
+    )
+    assert saved.status_code == 201, saved.data
+    world.out(entry)
+
+    def picture() -> int:
+        return int(
+            APIClient()
+            .get(f"/api/v1/public/site/media/{asset.id}/", HTTP_HOST=world.host)
+            .status_code
+        )
+
+    assert picture() == 200
+    references = MediaReference.all_objects.filter(asset_id=asset.id).count()
+    assert references >= 1
+
+    assert _remove(world, entry).status_code == 200
+    # Removed: a visitor gets the picture no more than the entry.
+    assert picture() == 404
+    assert _delete_type(world, world.projects, "Realizacje").status_code == 204
+
+    assert not ContentEntry.with_removed.filter(pk=entry).exists()
+    assert MediaAsset.all_objects.filter(pk=asset.id, deleted_at__isnull=True).exists()
+    assert MediaReference.all_objects.filter(asset_id=asset.id).count() == references

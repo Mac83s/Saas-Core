@@ -29,13 +29,11 @@ from django.utils import timezone
 from rest_framework.exceptions import ErrorDetail, ValidationError
 
 from saas_core.modules.core.identity.models import User
-from saas_core.modules.core.organizations.api import record_resource_references
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import authorize_entitled
 
 from .collections import (
-    ENTRY_VERSION_REFERENCE_OWNER,
     EntryNotFound,
     is_translation_source,
     take_down_entry,
@@ -54,7 +52,7 @@ from .models import (
 )
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED
 from .publication_routing import published_entry_path
-from .services import MEDIA_ASSET_RESOURCE_TYPE, assert_person_required
+from .services import assert_person_required
 from .source_changes import notify_entry_withdrawn
 
 ENTRY_REMOVED = "sites.entry.removed"
@@ -259,15 +257,9 @@ def erase_removed_entries(context: Any, removed: list[ContentEntry]) -> dict[str
         organization_id=context.organization_id, entry_id__in=ids
     )
     counts = {"publications": publications.count(), "versions": versions.count()}
-    # A version's pictures stop being in use by it.
-    for version_id in versions.values_list("id", flat=True):
-        record_resource_references(
-            context=context,
-            resource_type=MEDIA_ASSET_RESOURCE_TYPE,
-            owner_type=ENTRY_VERSION_REFERENCE_OWNER,
-            owner_id=version_id,
-            resource_ids=(),
-        )
+    # The pictures its versions used stay in the company's media library, and
+    # the rows that say a version used them stay too: media references are
+    # append-only (ADR-042), opened only for erasing a whole organization.
     # A translation made from an erased entry is nobody's translation now.
     ContentEntry.with_removed.filter(
         organization_id=context.organization_id, translation_of_id__in=ids
