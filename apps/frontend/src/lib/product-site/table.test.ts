@@ -81,6 +81,38 @@ describe("a product's table of public addresses (ADR-080)", () => {
     });
   });
 
+  it("prefers a name wherever it stands, whatever order the table is written in", () => {
+    const routes = {
+      "/s/[x]/[y]": { pl: "/s/[x]/[y]" },
+      "/s/[x]/end": { pl: "/s/[x]/koniec" },
+      "/s/first/[y]": { pl: "/s/pierwszy/[y]" },
+      "/s": { pl: "/s" },
+      "/s/first/end": { pl: "/s/pierwszy/koniec" },
+    };
+    for (const order of [
+      Object.entries(routes),
+      Object.entries(routes).reverse(),
+    ]) {
+      const mixed = compileProductSite(
+        { routes: Object.fromEntries(order) },
+        options,
+      );
+      expect(mixed.match("/s/pierwszy/koniec")).toMatchObject({
+        route: "/s/first/end",
+      });
+      expect(mixed.match("/s/pierwszy/inny")).toMatchObject({
+        route: "/s/first/[y]",
+      });
+      expect(mixed.match("/s/inny/koniec")).toMatchObject({
+        route: "/s/[x]/end",
+      });
+      expect(mixed.match("/s/inny/jeszcze")).toMatchObject({
+        route: "/s/[x]/[y]",
+        params: { x: "inny", y: "jeszcze" },
+      });
+    }
+  });
+
   it("takes an address in one spelling only", () => {
     for (const address of [
       "/Rasy-Psow/labrador",

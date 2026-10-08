@@ -193,13 +193,19 @@ function fill(parts: Part[], params: SiteParams): string | null {
   return `/${segments.join("/")}`;
 }
 
-/** A static segment answers before a parameter in the same place. */
+/**
+ * A static segment answers before a parameter in the same place. Only rows
+ * of one length ever compete for an address, so length orders first — which
+ * also keeps the comparison one a sort can rely on.
+ */
 function bySpecificity(a: Row, b: Row): number {
-  for (let index = 0; index < a.address.length; index += 1) {
-    const left = a.address[index];
+  if (a.address.length !== b.address.length) {
+    return a.address.length - b.address.length;
+  }
+  for (const [index, left] of a.address.entries()) {
     const right = b.address[index];
-    if (!left || !right) break;
-    if (isParam(left) !== isParam(right)) return isParam(left) ? 1 : -1;
+    if (right && isParam(left) !== isParam(right))
+      return isParam(left) ? 1 : -1;
   }
   return 0;
 }
