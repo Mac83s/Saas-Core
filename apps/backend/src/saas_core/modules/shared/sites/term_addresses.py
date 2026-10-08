@@ -322,6 +322,37 @@ def snapshot_terms(
     )
 
 
+def terms_to_close(
+    *, organization_id: Any, entry_id: Any
+) -> tuple[list[ContentTag], list[ContentTag]]:
+    """What an entry's publication carries, and those with every category
+    above them — whose archives list the entry too, and so answer with it.
+    Both from one read that locks the rows in the order every writer of
+    terms takes them (by id), so two publications sharing a term or a branch
+    of the tree wait for each other, never on each other."""
+    carried = set(
+        ContentTag.all_objects.filter(
+            organization_id=organization_id, entry_links__entry_id=entry_id
+        ).values_list("id", flat=True)
+    )
+    wanted, frontier = set(carried), set(carried)
+    while frontier:
+        frontier = {
+            parent_id
+            for parent_id in ContentTag.all_objects.filter(
+                organization_id=organization_id, pk__in=frontier, parent__isnull=False
+            ).values_list("parent_id", flat=True)
+            if parent_id not in wanted
+        }
+        wanted |= frontier
+    locked = list(
+        ContentTag.all_objects.select_for_update()
+        .filter(organization_id=organization_id, pk__in=wanted)
+        .order_by("pk")
+    )
+    return [term for term in locked if term.pk in carried], locked
+
+
 def close_term_addresses(terms: Iterable[ContentTag], *, default_locale: str, locale: str) -> None:
     """An entry in `locale` carrying these terms goes out: their addresses
     close (ADR-079 pkt 11). The site's language's always — it is also where
@@ -366,4 +397,5 @@ __all__ = [
     "term_locked",
     "term_names",
     "term_slug",
+    "terms_to_close",
 ]

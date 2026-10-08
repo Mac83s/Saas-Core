@@ -92,7 +92,7 @@ from .services import (
     emit_draft_saved_event,
 )
 from .source_changes import notify_entry_published, notify_entry_withdrawn
-from .term_addresses import close_term_addresses, snapshot_terms
+from .term_addresses import close_term_addresses, snapshot_terms, terms_to_close
 
 logger = logging.getLogger(__name__)
 
@@ -1032,12 +1032,9 @@ def publish_entry(
         # publication does not make it so.
         entry.accepted_version = entry.current_draft
         ContentEntry.all_objects.filter(pk=entry.id).update(accepted_version=entry.current_draft)
-    # Locked in key order, as every publication locks them: two entries going
-    # out at once that share a term wait for each other, never on each other.
-    carried = list(
-        ContentTag.all_objects.select_for_update(of=("self",))
-        .filter(organization_id=context.organization_id, entry_links__entry_id=entry.id)
-        .order_by("slug")
+    # What it carries, and — with every category above those — what closes.
+    carried, closing = terms_to_close(
+        organization_id=context.organization_id, entry_id=entry.id
     )
     tags, terms = snapshot_terms(carried)
     snapshot = {
@@ -1099,7 +1096,7 @@ def publish_entry(
     try:
         with transaction.atomic():
             close_term_addresses(
-                carried, default_locale=entry.site.default_locale, locale=entry.locale
+                closing, default_locale=entry.site.default_locale, locale=entry.locale
             )
     except Exception:
         logger.exception("sites.term_addresses_not_closed entry=%s", entry.id)

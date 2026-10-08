@@ -115,9 +115,7 @@ def remove_entry(*, entry_id: UUID, dry_run: bool = False) -> EntryRemoval:
     )
     if entry is None:
         raise EntryNotFound
-    published = (
-        entry.state == ContentEntryState.PUBLISHED and entry.current_publication is not None
-    )
+    published = entry.state == ContentEntryState.PUBLISHED and entry.current_publication is not None
     if published:
         authorize_entitled(SITE_PUBLISH, SITES_ENABLED)
     path = (
@@ -299,9 +297,7 @@ def erase_removed_entries(context: Any, removed: list[ContentEntry]) -> dict[str
     # A version may be the source another was translated from, or the draft
     # another replaced: those pointers go first, or the rows hold each other.
     version_ids = list(versions.values_list("id", flat=True))
-    every_version = ContentEntryVersion.all_objects.filter(
-        organization_id=context.organization_id
-    )
+    every_version = ContentEntryVersion.all_objects.filter(organization_id=context.organization_id)
     every_version.filter(source_version_id__in=version_ids).update(source_version=None)
     every_version.filter(replaces_id__in=version_ids).update(replaces=None)
     versions.delete()

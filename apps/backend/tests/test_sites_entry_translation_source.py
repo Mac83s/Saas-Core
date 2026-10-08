@@ -428,6 +428,57 @@ def test_a_type_switched_off_before_a_job_settles_does_not_hold_the_job(
     assert driver.public_texts(article, "de") == ["[de] Alfa"]
 
 
+def test_an_entry_removed_under_a_running_job_does_not_hold_the_job(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The same gap with a person removing the entry (ADR-079, „Uzupełnienie
+    CT2"): after the job read it and before it writes, and after it wrote and
+    before the part is settled. Both times the source answers — the write
+    with a refusal, the publication step by leaving the article out — instead
+    of raising in the transaction that settles the job's credits."""
+    from saas_core.modules.shared.sites.entry_removal import remove_entry
+
+    driver = SitesEntryDriver()
+    write = type(ENTRY_SOURCE).write
+
+    def removed_then_written(self: Any, *, context: Any, batch: Any) -> Any:
+        with _as(driver.publisher):
+            remove_entry(entry_id=batch.items[0].object_id)
+        return write(self, context=context, batch=batch)
+
+    def written_then_removed(self: Any, *, context: Any, batch: Any) -> Any:
+        outcomes = write(self, context=context, batch=batch)
+        with _as(driver.publisher):
+            remove_entry(entry_id=batch.items[0].object_id)
+        return outcomes
+
+    first = driver.create(["Alfa"])
+    driver.publish(first)
+    monkeypatch.setattr(type(ENTRY_SOURCE), "write", removed_then_written)
+
+    result = _job(driver, first)
+
+    assert result.decisions == [("refused", "withdrawn")]
+    assert not ContentEntry.with_removed.filter(translation_of_id=first).exists()
+
+    second = driver.create(["Beta"])
+    driver.publish(second)
+    monkeypatch.setattr(type(ENTRY_SOURCE), "write", written_then_removed)
+
+    result = _job(driver, second)
+
+    assert result.decisions == [("live", None)]
+    # What the job translated is written and stays a draft: its original is
+    # gone, so nothing of it goes out.
+    made = ContentEntry.all_objects.get(translation_of_id=second)
+    assert (made.state, made.current_publication_id) == (ContentEntryState.DRAFT, None)
+    # And nobody orders a translation of a removed entry.
+    monkeypatch.setattr(type(ENTRY_SOURCE), "write", write)
+    with _as(driver.publisher), pytest.raises(Exception) as refused:
+        ENTRY_SOURCE.authorize(context=driver.publisher, action="translate", object_ids=[second])
+    assert getattr(refused.value, "status_code", None) == 404
+
+
 def test_a_machine_translation_is_never_a_source():
     driver = SitesEntryDriver()
     article = driver.create(["Alfa"])

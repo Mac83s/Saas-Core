@@ -88,6 +88,7 @@ from .term_addresses import (
     TAG_SEGMENT,
     TERM_SLUG_MAX,
     carried_terms,
+    close_term_addresses,
     name_slug,
     pagination_segments,
     taxonomy_segment,
@@ -379,7 +380,10 @@ def _terms_of(
         organization_id=site.organization_id, site_id=site.id, taxonomy=taxonomy
     )
     if lock:
-        rows = rows.select_for_update()
+        # In id order, as every writer of terms locks them (`terms_to_close`).
+        return sorted(
+            rows.select_for_update().order_by("pk"), key=lambda term: (term.position, term.slug)
+        )
     return list(rows.order_by("position", "slug"))
 
 
@@ -492,22 +496,27 @@ def _source_address(
     return slugs
 
 
-def _published_with(site: Site, term: ContentTag) -> Q:
-    """Entries' publications that carry the term: by its id, and — a tag in
-    a snapshot older than `terms` — by its key."""
+def _published_with(term: ContentTag, under: Iterable[ContentTag] = ()) -> Q:
+    """Entries' publications in the term's archive: those that carry it —
+    by its id, and, a tag in a snapshot older than `terms`, by its key — or
+    a category under it."""
     carries = Q(snapshot__terms__contains=[{"id": str(term.id)}])
+    for below in under:
+        carries |= Q(snapshot__terms__contains=[{"id": str(below.id)}])
     if term.taxonomy_id is None:
         carries |= Q(snapshot__terms__isnull=True, snapshot__tags__contains=[{"slug": term.slug}])
     return carries
 
 
-def _archive_answered(site: Site, term: ContentTag, locale: str) -> bool:
+def _archive_answered(
+    site: Site, term: ContentTag, locale: str, under: Iterable[ContentTag] = ()
+) -> bool:
     """Whether the term's archive in a language ever answered a visitor: any
-    publication of an entry in that language carried it, current or not, of
-    a type switched on or off. Asked when a decision must not strand an
-    address a search engine may hold."""
+    publication of an entry in that language carried it or a category now
+    under it, current or not, of a type switched on or off. Asked when a
+    decision must not strand an address a search engine may hold."""
     return ContentEntryPublication.all_objects.filter(
-        _published_with(site, term),
+        _published_with(term, under),
         organization_id=site.organization_id,
         entry__site_id=site.id,
         snapshot__locale=locale,
@@ -591,7 +600,7 @@ def _settle(site: Site, locale: str) -> None:
         siblings = [other for other in terms if other.taxonomy_id == term.taxonomy_id]
         address = _free(wanted, _taken(siblings, term))
         locks = dict(term.slug_locked_at or {})
-        if _archive_answered(site, term, locale):
+        if _archive_answered(site, term, locale, _descendants(term, siblings)):
             locks[locale] = moment
         if slugs.get(locale) == address and locks == (term.slug_locked_at or {}):
             continue
@@ -1061,6 +1070,16 @@ def update_term(
         if other.pk != term.pk and other.position != order[other.pk]:
             ContentTag.all_objects.filter(pk=other.pk).update(position=order[other.pk])
     term.save(update_fields=["name", "parent", "position", "locale_slugs", "updated_at"])
+    if after["parent_id"] != before["parent_id"]:
+        # The categories now above it list its published entries from this
+        # moment: their archives answer, so their addresses close — as at a
+        # publication, in each language those entries are in.
+        above, current = [], by_id.get(term.parent_id) if term.parent_id is not None else None
+        while current is not None and current.pk not in {item.pk for item in above}:
+            above.append(current)
+            current = by_id.get(current.parent_id) if current.parent_id is not None else None
+        for locale in _carriers(term, _descendants(term, siblings), _listed(site, collection)):
+            close_term_addresses(above, default_locale=site.default_locale, locale=locale)
     if renamed:
         # A machine's translation of the old name is no name any more; an
         # address made from it and still open goes with it.
@@ -1171,7 +1190,8 @@ def set_term_names(*, term_id: UUID, collection_id: UUID, names: Mapping[str, st
     moved = tuple(
         {"locale": locale, "from_path": before.paths[locale], "to_path": after.paths[locale]}
         for locale in after.paths
-        if before.paths[locale] != after.paths[locale] and _archive_answered(site, term, locale)
+        if before.paths[locale] != after.paths[locale]
+        and _archive_answered(site, term, locale, _descendants(term, _siblings))
     )
     return TermChange(row=after, changed=True, moved=moved)
 
@@ -1249,7 +1269,7 @@ def change_term_address(
     moved = tuple(
         {"locale": code, "from_path": before.paths[code], "to_path": after_paths[code]}
         for code in changed_locales
-        if _archive_answered(site, term, code)
+        if _archive_answered(site, term, code, _descendants(term, siblings))
     )
     changed = bool(changed_locales) or old_slugs != slugs
     if dry_run or not changed:
