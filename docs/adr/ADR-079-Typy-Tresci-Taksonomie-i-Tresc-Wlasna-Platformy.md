@@ -11,8 +11,8 @@ zbudowane — kod powstaje dopiero po odpowiedziach z sekcji „Pytania do wła�
 
 **Zmienia częściowo** ADR-031 (blok listy wpisów w katalogu sekcji), ADR-071 pkt 14
 (slugi tagów per język) i komentarz modelu `ContentTag` („jedna płaska taksonomia”);
-**rozszerza** ADR-035 §1 i §7, ADR-070 pkt 18 i ADR-077 pkt 2. Fragmenty — w sekcji
-„Zmiany wcześniejszych decyzji”.
+**rozszerza** ADR-035 §1 i §7 oraz ADR-070 pkt 18; limit planu idzie wzorem ADR-071
+pkt 7. Fragmenty — w sekcji „Zmiany wcześniejszych decyzji”.
 
 ## W skrócie dla właściciela
 
@@ -44,9 +44,12 @@ przepisywany.
    „Łazienki” leżą pod „Wnętrzami”. Zyskujemy: przeniesienie kategorii pod inną nie
    rusza żadnego adresu. Oddajemy: hierarchii nie widać w adresie (widać ją w okruszkach
    i w tym, że archiwum nadrzędnej pokazuje też wpisy podrzędnych).
-4. **Dostęp: przełącznik platformy i cecha planu z limitem.** Blog nie wymaga niczego
-   poza stroną. Limit liczy **włączone typy treści na jednej stronie poza pierwszym**.
-   Liczby są Pana; mechanizm — w sekcji „Dostęp”.
+4. **Dostęp: przełącznik platformy i limit w planie.** Blog nie wymaga niczego poza
+   stroną. Limit liczy **włączone typy treści na jednej stronie poza pierwszym** i działa
+   jak limit języków: plan z liczbą ma limit, plan bez liczby go nie ma. Oddajemy: plan,
+   któremu nikt nie wpisał liczby, daje typy bez ograniczeń — dlatego liczby wchodzą do
+   planów, zanim platforma włączy przełącznik. Liczby są Pana; mechanizm — w sekcji
+   „Dostęp”.
 5. **Wersja 1 ma stały wygląd strony wpisu i indeksu** (z kilkoma przełącznikami), bez
    pól własnych, bez szablonów strony wpisu i bez relacji między typami. Dla każdego z
    nich ADR wskazuje miejsce w modelu, tak żeby dodanie go nie wymagało migracji treści
@@ -148,14 +151,16 @@ zaprojektowana tak, żeby kształt danych na VPS nie miał znaczenia (sekcja „
    zawężone do wierszy bez taksonomii). Pozycja taksonomii: klucz unikalny w
    taksonomii — kategoria „porady” i tag „porady” mogą istnieć obok siebie, bo mają
    różne adresy. Adres pozycji w danym języku jest unikalny w taksonomii (sprawdza
-   serwis, jak przy nazwach działów).
+   serwis, jak przy nazwach działów). Skutek dla kodu: klucz przestaje wystarczać do
+   znalezienia tagu, więc każdy dzisiejszy odczyt tagów idzie przez jedno zapytanie
+   „tagi strony” (wiersze bez taksonomii) — lista miejsc w sekcji „Ryzyka”.
 7. **Wpis** dostaje jedno pole: `former_slugs` (pkt 11).
 
 ### Taksonomie
 
 8. **Wersja 1 ma dwa rodzaje:** tagi (płaskie, wspólne dla strony — istnieją) i
    kategorie (hierarchiczne, osobne dla każdego typu, do trzech poziomów). Kategorie
-   powstają, gdy klient je włączy dla typu — także dla bloga, bez żadnej cechy planu.
+   powstają, gdy klient je włączy dla typu — także dla bloga, bez żadnego limitu planu.
    Własnych taksonomii firmy („Lokalizacja”, „Marka”) wersja 1 nie pokazuje w panelu,
    choć tabela z pkt 2 już je mieści; to pytanie 3.
    - Archiwum kategorii nadrzędnej pokazuje też wpisy kategorii podrzędnych.
@@ -222,7 +227,8 @@ dzisiejszym kodzie, zanim cokolwiek się zmieni.
     - przed pierwszą publikacją: wolna, bez śladu;
     - po publikacji: tylko osoba, z powodem (integracja i asystent dostają
       `person_required`, jak przy adresie podstrony i działu). Wpis publikuje się
-      ponownie z tą samą treścią pod nowym adresem, stary slug trafia do
+      ponownie pod nowym adresem **z treścią bieżącej publikacji, nie szkicu** —
+      niewydane poprawki nie wychodzą przy okazji; stary slug trafia do
       `ContentEntry.former_slugs` i odpowiada jednym 308;
     - nowy slug nie może być dawnym ani obecnym slugiem innego wpisu tego typu w tym
       języku.
@@ -266,23 +272,29 @@ dzisiejszym kodzie, zanim cokolwiek się zmieni.
     - Przełącznik wdrożenia `features.contentTypes` w `deployment.json` (jak
       `publicBooking`; brak = wyłączone): czy platforma w ogóle oferuje firmom typy
       poza pierwszym.
-    - Cecha planu `sites.content_types.enabled` (jak `custom_domain.enabled`: plan,
-      który jej nie wymienia, jej nie ma) i limit `sites.content_types.max` (jak
-      `pages.max`: plan bez wartości nie ma limitu).
+    - Miękki limit planu `sites.content_types.additional.max` — ten sam wzór, który
+      właściciel przyjął dla języków (`public_locales.additional.max`, ADR-071 pkt 7):
+      plan z wartością ma limit, plan bez wartości nie ma żadnego. Typy nie są cechą
+      planu (bez nowego klucza w `feature_keys`).
     - **Co liczy limit:** włączone (niezarchiwizowane) typy treści na jednej stronie,
       **poza pierwszym**. Pierwszy typ — blog albo cokolwiek klient założy jako
-      pierwsze — wymaga tylko `sites.enabled`, jak dziś.
-    - Propozycja liczb, **do zmiany przez właściciela**: Profile — bez cechy; Site —
-      cecha, limit 1; Pro — cecha, limit 10. Liczby wchodzą nowymi wersjami planów
-      (migracja danych billing w każdym produkcie, wzór `0025`).
-    - Subskrypcja trzyma wersję planu, którą kupiła, więc istniejący klient dostaje typy
-      po przeniesieniu na nową wersję albo z nadania operatora.
-20. **Strażnik działa tylko przy zakładaniu i przywracaniu typu.** Obniżenie planu,
-    wyłączenie przełącznika platformy i wygaśnięcie subskrypcji niczego nie zdejmują:
-    typy ponad limit dalej odpowiadają gościom i dają się edytować; nie da się tylko
-    założyć kolejnego. To ta sama reguła co przy językach (ADR-071 pkt 7), podstronach
-    i szablonach. Oddajemy: klient może zejść na tańszy plan i zachować typy, które już
-    ma (pytanie 2).
+      pierwsze — wymaga tylko `sites.enabled`, jak dziś. Wartość 0 znaczy „sam blog”.
+    - Propozycja liczb, **do zmiany przez właściciela**: Profile 0, Site 1, Pro 10.
+      Wchodzą nowymi wersjami planów (migracja danych billing w każdym produkcie, wzór
+      `0025`) **przed** włączeniem przełącznika w profilu — plan bez wartości dawałby
+      typy bez ograniczeń.
+    - Subskrypcja trzyma wersję planu, którą kupiła. Subskrypcje na wersjach sprzed tej
+      zmiany nie mają wartości, czyli nie mają limitu, dopóki operator ich nie
+      przeniesie; przed pierwszym płacącym klientem to koszt zerowy, później — lista do
+      przejrzenia przy włączaniu przełącznika.
+20. **Strażnik działa tylko przy zakładaniu i przywracaniu typu**, dokładnie jak strażnik
+    języków: pyta `decide_quota` z `operation=WRITE`; brak wartości — bez limitu; limit
+    wyczerpany — odmowa `quota_exceeded`; każdy inny powód (subskrypcja tylko do
+    odczytu, brak migawki uprawnień) — odmowa `plan_access_denied` z powodem. Obniżenie
+    planu, wyłączenie przełącznika platformy i wygaśnięcie subskrypcji niczego nie
+    zdejmują: typy ponad limit dalej odpowiadają gościom i dają się edytować; nie da się
+    tylko założyć kolejnego. Oddajemy: klient może zejść na tańszy plan i zachować typy,
+    które już ma (pytanie 2).
 21. **Wyłączenie i usunięcie typu.**
     - Usunąć można tylko typ bez żadnego wpisu (także szkicu).
     - Typ z wpisami się **wyłącza** (`archived_at`): to przełącznik dostępności liczony
@@ -292,6 +304,8 @@ dzisiejszym kodzie, zanim cokolwiek się zmieni.
       anulowane z powodem). Nazwy działu zostają zajęte, więc **włączenie przywraca
       wszystko pod tymi samymi adresami od razu**. Wyłączony typ nie liczy się do
       limitu; przywrócenie wymaga wolnego miejsca.
+    - Źródło tłumaczeń `sites.entry` i granty SCR pomijają wpisy wyłączonego typu —
+      żadne zlecenie nie wydaje kredytów na wpis, którego nie da się opublikować.
     - Wyłącza i przywraca tylko osoba; dla asystenta to polecenie wysokiego ryzyka.
 22. **Uprawnienia:** bez nowych. Typy, taksonomie i pozycje zakłada i zmienia
     `site.content.edit`, publikuje `site.publish` — jak dziś dział i wpis. Zmiana
@@ -325,56 +339,79 @@ renderer kreatora (memex `puppily-s-public-site-is-dedicated-coded-views-o`).
 25. **Pisanie.** Treść własna platformy powstaje w panelu workspace'u platformy
     (ADR-077 pkt 2 i 9) — te same typy, wpisy, taksonomie, edytor, harmonogram,
     centrum tłumaczeń i publikacja co u klienta. Nie ma drugiej ścieżki zapisu.
-26. **Jak workspace dostaje typy.** Nie ma planu, więc `provision_platform_workspace`
-    nadaje mu cechę `sites.content_types.enabled` tą samą audytowaną ścieżką co
-    pozostałe (bez limitu). Przełącznik `features.contentTypes` dotyczy oferty dla
-    firm i workspace'u nie obejmuje — produkt może prowadzić własne typy, nie dając ich
-    klientom. Istniejący workspace dostaje nadanie przez ponowne uruchomienie komendy.
+26. **Jak workspace dostaje typy.** Nie ma planu i jest zwolniony z limitu typów tak
+    samo, jak jest zwolniony z limitu języków (ADR-071 pkt 7): operator prowadzi tyle
+    typów, ile potrzebuje, bez nadania i bez zmiany komendy `provision_platform_workspace`.
+    Przełącznik `features.contentTypes` dotyczy oferty dla firm i workspace'u nie
+    obejmuje — produkt może prowadzić własne typy, nie dając ich klientom.
 27. **Odczyt po stronie serwera** — nowy moduł `shared/sites/content_reads.py`, czytający
     te same projekcje co publiczny router (jedna prawda o tym, co jest opublikowane i w
-    jakim języku dostępne):
+    jakim języku dostępne). **Zwraca części adresu, nigdy gotowe ścieżki:** adresy
+    składa produkt, bo jego trasy mają własny kształt (na hoście platformy bez końcowego
+    ukośnika, ADR-071 pkt 10), a funkcje adresów rdzenia znają tylko kształt stron firm.
     - wpis według typu, języka i sluga: tytuł, zajawka, autor, daty, **treść jako bloki**
-      w kontrakcie bloków rdzenia, pozycje z nazwami i adresami w języku czytelnika,
-      opublikowane wersje w innych językach (do hreflang i przełącznika), `noindex`,
-      znacznik tekstu AI i gotowy węzeł JSON-LD wpisu;
+      w kontrakcie bloków rdzenia, pozycje (nazwa i slug w języku czytelnika),
+      opublikowane wersje w innych językach jako pary język–slug (do hreflang i
+      przełącznika), `noindex`, znacznik tekstu AI;
     - lista według typu, opcjonalnie kategorii albo tagu, stronicowana: pozycje listy,
-      liczba stron, wersje językowe listy i znacznik `indexable` (reguła „poniżej trzech
-      wpisów archiwum nie jest indeksowane” zostaje w rdzeniu, produkt ją tylko stosuje);
-    - drzewo pozycji taksonomii z liczbą wpisów;
-    - wykaz do sitemapy: wszystkie wpisy i archiwa z datą zmiany i wersjami językowymi;
-    - dla sluga wpisu lub pozycji, który jest dawnym adresem: odpowiedź „przeniesione
-      do…”, z której produkt robi jedno 308.
+      liczba stron, języki, w których lista ma wpisy (ze slugiem pozycji w każdym), i
+      znacznik `indexable` (reguła „poniżej trzech wpisów archiwum nie jest indeksowane”
+      zostaje w rdzeniu, produkt ją tylko stosuje);
+    - typ: nazwa i segment działu w każdym języku; drzewo pozycji taksonomii z liczbą
+      wpisów;
+    - wykaz do sitemapy: wpisy i archiwa jako (typ, język, slug) z datą zmiany i
+      wersjami językowymi;
+    - węzeł JSON-LD wpisu budowany tą samą funkcją co na stronach firm, **z adresu
+      kanonicznego, który podaje produkt**;
+    - dla sluga wpisu, pozycji albo segmentu działu, który jest dawnym: odpowiedź
+      „przeniesione” z dzisiejszym slugiem — produkt składa z niego adres i robi jedno
+      308.
 28. **Czy to także publiczne API HTTP: tak technicznie, nie jako produkt.** Strony
     produktu renderuje serwer Next.js, osobny proces, więc odczyt jest wystawiony jako
     `GET /api/v1/public/content/…` w OpenAPI (typy dla stron produktu generują się jak
     każde inne) i wołany po stronie serwera, tak jak renderer stron firm woła
     `/api/v1/public/site/`. Zwraca wyłącznie to, co opublikowane, więc nie potrzebuje
-    logowania. Ale w wersji 1 odpowiada **tylko dla treści własnej platformy**
-    (workspace odnajduje istniejąca, zadeklarowana ścieżka sprzed tenanta w
-    `platform_workspace()`; nowe drzwi nie powstają), bez CORS, kluczy i obietnicy
-    stabilności dla obcych. „Headless CMS” dla klientów byłby osobnym produktem (klucze,
-    limity, cennik) — nikt o niego nie prosił; odczyt bierze stronę jako parametr, więc
-    droga zostaje otwarta.
+    logowania. Ale w wersji 1 odpowiada **tylko dla treści własnej platformy**, bez
+    CORS, kluczy i obietnicy stabilności dla obcych. „Headless CMS” dla klientów byłby
+    osobnym produktem (klucze, limity, cennik) — nikt o niego nie prosił; odczyt bierze
+    stronę jako parametr, więc droga zostaje otwarta.
+
+    **Skąd odczyt wie, czyja to treść** — dwie drogi, wybór zależy od pakietu tras
+    produktu:
+    - (wybrana) **host nazywa tenanta**, jak w całym publicznym rendererze: publiczna
+      domena produktu zostaje zweryfikowaną domeną strony workspace'u (ADR-077 pkt 3),
+      serwer Next przekazuje host, a odczyt sprawdza, że to strona workspace'u
+      platformy. Żadnego odczytu sprzed tenanta;
+    - (zapasowa) gdyby zakodowane widoki stały na samym `platformDomain`, który nie jest
+      domeną żadnej strony: workspace odnajduje `platform_workspace()` przez drzwi sprzed
+      tenanta. To nowe użycie drzwi na publicznej ścieżce — wbrew zasadzie, że publiczny
+      renderer ich nie używa — więc wymagałoby jawnego wpisu z powodem w
+      `tests/test_pre_tenant_door.py` i osobnej zgody.
 29. **Co produkt bierze z rdzenia, a co jest jego.**
 
     | Rdzeń (wspólne) | Produkt (własne) |
     | --- | --- |
-    | edytor, wersje, publikacja wpisu, harmonogram | trasy i kształt adresów, strona główna |
-    | typy, taksonomie, pozycje; slugi per język, ich zamykanie i dawne adresy (dane) | odpowiedź 308 na dawny adres (z danych rdzenia) |
+    | edytor, wersje, publikacja wpisu, harmonogram | trasy, strona główna |
+    | części adresu: segment działu, slug wpisu i slug pozycji w każdym języku | złożenie adresu z tych części: prefiks języka, zagnieżdżenie, końcowy ukośnik |
+    | typy, taksonomie, pozycje; zamykanie slugów i dawne slugi (dane) | odpowiedź 308 na dawny adres (z danych rdzenia) |
     | nazwa działu per język (dana, edytowana w panelu) | to, czy i gdzie jej użyje we własnych trasach |
     | silnik i centrum tłumaczeń, kredyty, znacznik tekstu AI | nagłówek, stopka, szablony widoków |
     | kontrakt bloków i ich renderery (`@saas-core/site-blocks`) | układ strony wokół treści |
     | projekcja „co jest opublikowane”, dostępność języków, próg `noindex` | własna sitemapa i kanały (z wykazu rdzenia) |
-    | węzeł JSON-LD wpisu | graf strony: własne `WebSite` i `Organization` |
+    | węzeł JSON-LD wpisu (z adresu podanego przez produkt) | adres kanoniczny i graf strony: własne `WebSite` i `Organization` |
 
     Trasy, stronę główną, sitemapę i przekierowania produktu daje osobny pakiet rdzenia;
     ten ADR ustala tylko, o co te trasy pytają. Renderer kreatora, jego menu i wygląd
-    nie biorą udziału.
-30. **Jedna różnica wobec strony firmy.** Nazwy typów i pozycji w innych językach
-    wychodzą dziś z publikacją strony (`site_texts` w migawce). Strona workspace'u,
-    której nie rysuje kreator, może nie mieć żadnej publikacji — odczyt bierze wtedy
-    przyjęte tłumaczenia nazw wprost. To jedyne miejsce, w którym odczyt produktu
-    różni się od publicznego routera, i ma własny test.
+    nie biorą udziału. Panel wydawcy pokazuje przy wpisie adres złożony przez produkt
+    (z tego samego pakietu); do tego czasu — sam slug.
+30. **Jedna różnica wobec strony firmy.** Wpis odpowiada także wtedy, gdy strona nie ma
+    żadnej publikacji z kreatora, a dostępność jego języka liczy się z języków firmy,
+    nie z migawki strony — tak jest dziś i odczyt tego nie zmienia. Inaczej jest z
+    nazwami typów i pozycji w innych językach: te wychodzą dziś z publikacją strony
+    (`site_texts` w migawce). Strona workspace'u, której nie rysuje kreator, może
+    publikacji nie mieć — odczyt bierze wtedy przyjęte tłumaczenia nazw wprost. To
+    jedyne miejsce, w którym odczyt produktu różni się od publicznego routera, i ma
+    własny test.
 
 ### SCR, asystent, centrum tłumaczeń
 
@@ -416,8 +453,8 @@ renderer kreatora (memex `puppily-s-public-site-is-dedicated-coded-views-o`).
   jednym typem), i zapisuje wynik w `memex ops` — dla porównania po wdrożeniu, nie
   jako warunek.
 - Zmiana zachowania API, jedyna: założenie drugiego typu na stronie wymaga odtąd
-  przełącznika platformy i cechy planu (dziś integracja mogła je założyć bez limitu).
-  Typy już istniejące zostają.
+  przełącznika platformy i miejsca w limicie planu (dziś integracja mogła je założyć
+  bez żadnej bramki). Typy już istniejące zostają.
 
 ## Zmiany wcześniejszych decyzji
 
@@ -431,9 +468,12 @@ renderer kreatora (memex `puppily-s-public-site-is-dedicated-coded-views-o`).
   kolekcja dostaje nazwę „typ treści” i może być wyłączona.
 - **ADR-070 pkt 18:** reguła „slug liczy kod, zamyka pierwsza publikacja” obejmuje
   adresy pozycji taksonomii.
-- **ADR-077 pkt 2:** `provision_platform_workspace` nadaje dodatkowo
-  `sites.content_types.enabled`. Strony publiczne produktu jako zakodowane widoki
-  (zamiast kreatora) rozstrzyga decyzja właściciela i pakiet tras produktu, nie ten ADR.
+- **ADR-071 pkt 7:** bez zmiany — limit typów jest drugim limitem tego samego wzoru
+  (wartość w planie, brak wartości = bez limitu, strażnik tylko przy dodawaniu,
+  workspace platformy zwolniony).
+- **ADR-077:** bez zmiany nadań workspace'u (pkt 2). Strony publiczne produktu jako
+  zakodowane widoki (zamiast kreatora) rozstrzyga decyzja właściciela i pakiet tras
+  produktu, nie ten ADR; stąd pochodzi tylko odczyt, o który te widoki pytają.
 
 ## Fazy
 
@@ -444,7 +484,7 @@ przeglądarce.
 | Faza | Zakres | Szacunek | Co właściciel kliknie |
 | --- | --- | --- | --- |
 | CT1 | Typy treści: bramki i limit, „Treści” w panelu, nowy typ, wyłączenie, `schema_type`, kanał | 2–3 dni | zakłada „Realizacje”, dodaje wpis, otwiera `/realizacje/` i `/en/projects/` |
-| CT2 | Odczyt dla stron produktu (wpis, lista, wersje, sitemapa), nadanie workspace'owi, strona wzorcowa | 2–3 dni | pisze wpis w panelu platformy i widzi go na zakodowanej stronie hosta platformy |
+| CT2 | Odczyt dla stron produktu (wpis, lista, wersje językowe, wykaz do sitemapy), strona wzorcowa | 2–3 dni | pisze wpis w panelu platformy i widzi go na zakodowanej stronie hosta platformy |
 | CT3 | Kategorie i tagi: taksonomia, drzewo, przypisanie, archiwa, adresy per język z 308, filtry w odczycie | 3–4 dni | kategorie w blogu i „Realizacjach”, archiwa w trzech językach |
 | CT4 | Zmiana sluga wpisu, przełączniki wyglądu i karty, blok „Lista wpisów” | 2–3 dni | „Ostatnie realizacje” na stronie głównej; zmiana adresu wpisu z przekierowaniem |
 | CT5 | Polecenia asystenta, inwentarz SCR, `core:update` produktów, wersje planów, kolejka VPS | 2 dni | to samo w HoofCare i MedPlano; odmowa ponad limit planu |
@@ -457,6 +497,13 @@ wpisu 5–8 dni, własne taksonomie 1–2 dni, relacje 2–3 dni.
 - **Klucz a adres pozycji** (pkt 5): pomylenie ich w jednym miejscu kodu gubi wpisy z
   archiwum. Zabezpieczenie: testy złotych adresów archiwów napisane przed zmianą i
   jedna funkcja, która mówi, gdzie odpowiada archiwum.
+- **Kategorie w tabeli tagów** (pkt 3, 6): kategoria i tag mogą mieć ten sam klucz, więc
+  każde miejsce, które dziś szuka tagu po (strona, klucz), musi pytać wyłącznie o
+  wiersze bez taksonomii: `set_entry_tags` (`get_or_create`), odnalezienie tagu w
+  `_find_tag_archive` i `_localized_article`, lista `tags` w migawce z `publish_entry`,
+  `entry_tags`, `_copy_tags`, `site_text_units` i pętla tagów w sitemapie.
+  Zabezpieczenie: jedno nazwane zapytanie „tagi strony” używane we wszystkich tych
+  miejscach i test, że kategoria nigdy nie trafia do `tags` ani do archiwum tagu.
 - **Projekcja czyta wszystkie opublikowane wpisy strony przy każdym żądaniu** indeksu,
   archiwum i sitemapy. Przy kilku typach i tysiącach wpisów to będzie za wolne; CT3
   mierzy to na 1 000 wpisów i w razie potrzeby zawęża zapytanie do typu.
@@ -466,7 +513,9 @@ wpisu 5–8 dni, własne taksonomie 1–2 dni, relacje 2–3 dni.
 - **Zależności:** CT2 zależy od pakietu tras produktu (gdzie stoją zakodowane widoki)
   i od porządków PC1 w `main`; strona wzorcowa CT2 jest odbiorem, nie docelową trasą.
   Pkt 30 trzeba potwierdzić z tym pakietem.
-- **Subskrypcje na starych wersjach planów** nie dostają cechy same (pkt 19).
+- **Subskrypcje na starych wersjach planów** nie mają wartości limitu, czyli nie mają
+  limitu (pkt 19): przed włączeniem przełącznika w profilu operator przegląda je i
+  przenosi.
 
 ## Rozważane alternatywy
 
@@ -482,8 +531,11 @@ wpisu 5–8 dni, własne taksonomie 1–2 dni, relacje 2–3 dni.
   stronie z tagami; odłożone do spłaty długu segmentu `tag`.
 - **Zagnieżdżony adres kategorii** — przeniesienie kategorii ruszałoby adresy
   wszystkich podrzędnych.
-- **Sam limit bez cechy planu („brak liczby = zero”)** — odwraca regułę wszystkich
-  pozostałych limitów (brak = bez limitu) w jednym miejscu.
+- **Cecha planu `sites.content_types.enabled` obok limitu** — plan, który nic nie mówi,
+  nie dawałby typów (bezpieczniejsze domyślnie), ale wymaga nowych wersji wszystkich
+  planów i ręcznego przenoszenia subskrypcji; z tego samego powodu ADR-071 odrzucił
+  cechę `translation.enabled`. **Limit, w którym brak liczby znaczy zero** — odwraca
+  regułę wszystkich pozostałych limitów w jednym miejscu.
 - **Zamrożenie typów ponad limit po obniżeniu planu** — pytanie 2.
 - **Osobne tabele produktu na jego blog** — własny edytor, tłumaczenia, harmonogram i
   SEO w każdym produkcie; właściciel wybrał system wspólny.
@@ -497,12 +549,13 @@ wpisu 5–8 dni, własne taksonomie 1–2 dni, relacje 2–3 dni.
 2. **Obniżenie planu.** (a) typy ponad limit działają dalej, nie da się tylko dodać
    kolejnego — jak języki i podstrony; (b) typy ponad limit przestają przyjmować nowe
    wpisy do czasu wyłączenia któregoś albo powrotu na wyższy plan. Rekomendacja: (a).
-   Przy okazji — liczby z pkt 19 (Site 1, Pro 10) są do zmiany.
+   Przy okazji — liczby z pkt 19 (Profile 0, Site 1, Pro 10) są do zmiany.
 3. **Własne taksonomie firmy.** (a) wersja 1: kategorie i tagi, własne później (model
    gotowy, 1–2 dni); (b) własne taksonomie już w wersji 1. Rekomendacja: (a).
 4. **Kolejność.** (a) po typach najpierw odczyt dla stron produktu (CT2), bo czeka na
    niego 91 wpisów Puppily, potem kategorie; (b) najpierw kategorie i tagi dla klientów.
-   Rekomendacja: (a).
+   Rekomendacja: (a). Samo przeniesienie 91 wpisów to osobny pakiet Puppily, po CT2 —
+   a gdyby wpisy miały nieść kategorie, także po CT3; wtedy (b) przestaje być wolniejsze.
 5. **Kanał RSS a nowe typy.** (a) typy artykułowe wchodzą do kanału strony, pozostałe
    nie, klient może przełączyć; (b) do kanału wchodzi tylko pierwszy typ. Rekomendacja:
    (a).
