@@ -106,8 +106,13 @@ DEFINITION = "modules/core/organizations/pre_tenant.py"
 #: to one of them is a read before a tenant is known just as a line with
 #: `PRE_TENANT_DB` is — and the count above cannot see it: the line it counts
 #: stays where it is, in the module that defines them, however many places
-#: start calling it.
-WORKSPACE_LOOKUPS = frozenset({"platform_workspace", "platform_workspace_id"})
+#: start calling it. The one that provisions the workspace is among them: it
+#: gives back the row it finds, loaded through the door.
+WORKSPACE_LOOKUPS = frozenset({
+    "platform_workspace",
+    "platform_workspace_id",
+    "ensure_platform_workspace",
+})
 #: The block that runs inside that workspace (ADR-080, „Uzupełnienie PR1c").
 #: It asks the lookup itself, so whoever calls it reads before a tenant is
 #: known just the same — it is counted with them.
@@ -132,6 +137,12 @@ DECLARED_WORKSPACE_LOOKUPS: dict[str, tuple[frozenset[str], str]] = {
         frozenset({"in_platform_workspace"}),
         "podaje blok dalej i niczego nie odczytuje: publiczna powierzchnia modułu, "
         "z której bierze go moduł produktu (ADR-080, „Uzupełnienie PR1c”)",
+    ),
+    "modules/shared/billing/management/commands/provision_platform_workspace.py": (
+        frozenset({"ensure_platform_workspace"}),
+        "komenda operatora: zakłada workspace platformy tego wdrożenia albo bierze "
+        "istniejący, żeby nadać mu funkcje i pierwszego operatora — jedyne miejsce, "
+        "które go tworzy; żadnego żądania, żadnej danej od gościa",
     ),
     "modules/shared/model_port/service.py": (
         frozenset({"platform_workspace"}),
@@ -172,7 +183,7 @@ def _workspace_names(source: str) -> set[str]:
       one that passes it on;
     - the defining module taken whole (`import ….platform_workspace`,
       `from …organizations import platform_workspace`): everything in it is
-      then one attribute away, so that counts as both lookups;
+      then one attribute away, so that counts as every lookup;
     - an attribute of any of the names on anything
       (`module.platform_workspace()`);
     - a name spelled in a string, which is how `getattr` reaches it.
@@ -238,7 +249,8 @@ def _workspace_problems(
                     "także w komendzie operatora — użyj bloku: "
                     "`from saas_core.modules.core.organizations.api import "
                     f"{WORKSPACE_BLOCK}` i `with {WORKSPACE_BLOCK}() as organization_id:` "
-                    "(ADR-080, „Uzupełnienie PR1c”; docs/architecture/product-public-site.md §13)."
+                    "(ADR-080, „Uzupełnienie PR1c”; docs/architecture/product-public-site.md "
+                    "§13). Workspace zakłada komenda rdzenia provision_platform_workspace."
                 )
         elif path not in declared:
             problems.append(
@@ -322,6 +334,9 @@ def test_a_products_module_runs_the_block_and_never_names_the_lookup(tmp_path: P
         "modules/vertical/kennel/management/commands/kennel_seed.py": lookup.format(
             name="platform_workspace"
         ),
+        "modules/vertical/kennel/management/commands/kennel_setup.py": lookup.format(
+            name="ensure_platform_workspace"
+        ),
         # The core, quietly: the block and a lookup, undeclared.
         "modules/shared/somebody/reads.py": block,
         "modules/core/somebody/reads.py": lookup.format(name="platform_workspace_id"),
@@ -341,10 +356,15 @@ def test_a_products_module_runs_the_block_and_never_names_the_lookup(tmp_path: P
         "modules/shared/somebody/reads.py",
         "modules/vertical/kennel/breeds.py",
         "modules/vertical/kennel/management/commands/kennel_seed.py",
+        "modules/vertical/kennel/management/commands/kennel_setup.py",
     ]
     for path, named in (
         ("modules/vertical/kennel/breeds.py", "platform_workspace_id"),
         ("modules/vertical/kennel/management/commands/kennel_seed.py", "platform_workspace"),
+        (
+            "modules/vertical/kennel/management/commands/kennel_setup.py",
+            "ensure_platform_workspace",
+        ),
     ):
         # Names what it found, and the block with where it is imported from.
         assert f"({named})" in told[path]
@@ -387,8 +407,8 @@ def test_a_new_caller_of_the_workspace_lookup_is_noticed_however_it_is_written()
     the detector to the ways a caller can be written."""
     package = "saas_core.modules.core.organizations"
     module = f"{package}.platform_workspace"
-    both, one, by_id = set(WORKSPACE_LOOKUPS), {"platform_workspace"}, {"platform_workspace_id"}
-    block = {WORKSPACE_BLOCK}
+    every, one, by_id = set(WORKSPACE_LOOKUPS), {"platform_workspace"}, {"platform_workspace_id"}
+    block, provisioning = {WORKSPACE_BLOCK}, {"ensure_platform_workspace"}
     for source, expected in (
         # The block, from the module's surface, from where it is defined, as
         # an attribute and by its name.
@@ -397,15 +417,18 @@ def test_a_new_caller_of_the_workspace_lookup_is_noticed_however_it_is_written()
         ("with organizations.in_platform_workspace() as found:\n    pass\n", block),
         ("enter = getattr(api, 'in_platform_workspace')\n", block),
         (f"from {module} import in_platform_workspace, platform_workspace_id\n", block | by_id),
+        # The one that provisions it finds it too, and gives the row back.
+        (f"from {module} import ensure_platform_workspace\n", provisioning),
+        ("found, _made = organizations.ensure_platform_workspace()\n", provisioning),
         (f"from {module} import platform_workspace_id\n", by_id),
         (f"from {module} import platform_workspace as find\n", one),
         ("def read():\n    from .platform_workspace import platform_workspace_id\n", by_id),
-        (f"from {module} import *\n", both | block),
+        (f"from {module} import *\n", every | block),
         # Passed on by another module, and taken from there.
         (f"from {package}.api import platform_workspace_id\n", by_id),
         # The defining module taken whole: everything in it is within reach.
-        (f"from {package} import platform_workspace\n", both),
-        (f"import {module} as publisher\n", both),
+        (f"from {package} import platform_workspace\n", every),
+        (f"import {module} as publisher\n", every),
         ("found = organizations.platform_workspace_id()\n", by_id),
         ("found = getattr(module, 'platform_workspace_id')()\n", by_id),
         (f"module = import_module('{module}')\n", one),
@@ -415,7 +438,7 @@ def test_a_new_caller_of_the_workspace_lookup_is_noticed_however_it_is_written()
         # Another function of that module, and a name that only resembles one.
         f"from {package}.platform_workspace import is_platform_workspace\n",
         "platform_workspace = organization.workspace_kind == WorkspaceKind.PLATFORM\n",
-        "def test(platform_workspace_slug):\n    return ensure_platform_workspace()\n",
+        "def test(platform_workspace_slug):\n    return platform_workspace_slug\n",
         "dependencies = [('organizations', '0021_platform_workspace')]\n",
         "default_code = 'platform_workspace_forbidden'\n",
         "raise PlatformWorkspaceMissing\n",

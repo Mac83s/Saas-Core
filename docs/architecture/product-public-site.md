@@ -176,12 +176,22 @@ export default async function NotFound() {
 
 **Strona 404 i jej język.** `not-found.tsx` nie dostaje od Next ani parametrów, ani
 adresu. Język bierze z `getLocale()` (`next-intl/server`): proxy ustawia go z prefiksu
-adresu, o który zapytano — także dla adresu spoza tabeli i dla strony z parametrem,
-która sama wywołała `notFound()` — i nigdy z nagłówka ani ciasteczka gościa (test
+adresu, o który zapytano, i nigdy z nagłówka ani ciasteczka gościa (test
 `answers.test.ts`: „gives … the product's own 404, in that language”). Otoczkę
 renderuje jak każda strona; nie ma własnych wersji językowych, więc przełącznik
-prowadzi do strony głównej w każdym języku (`siteVersions("/")`). Odpowiedź ma status
-404, a `<html lang>` — język adresu.
+prowadzi do strony głównej w każdym języku (`siteVersions("/")`). Strona
+z parametrem, która nie zna wartości, woła `notFound()` tak samo jak `[...rest]`
+i dostaje tę samą stronę 404.
+
+Sprawdzone na zbudowanym stosie pierwszego produktu (2026-10-09, Next 16.2,
+przeglądarka): `/de/nichts`, `/nic-takiego` i `/en/…` odpowiadają **statusem 404**,
+a czytelnik widzi nagłówek, stopkę i słowa 404 produktu w języku adresu, z `<html
+lang>` w tym języku. **Granica, której ten kontrakt nie zdejmuje:** tę stronę rysuje
+przeglądarka. Dokument, który serwer wysyła z `notFound()`, jest pusty (`<html
+id="__next_error__">`, bez `lang` i bez treści) i niesie stronę 404 jako dane — tak
+Next odpowiada na `notFound()` strony renderowanej przy żądaniu, także na stronach
+rdzenia. Status jest poprawny dla wyszukiwarek; czytelnik bez skryptów widzi pustą
+stronę.
 
 **Co daje rdzeń (`SiteDocument`):**
 
@@ -503,9 +513,10 @@ pokazuje i zapisuje dla gościa (rasy, zapis na listę, formularz), należy do
        Breed.all_objects.filter(organization_id=organization_id, …)
    ```
 
-   Moduł produktu **nigdy nie nazywa** `platform_workspace` ani `platform_workspace_id`
-   — test rdzenia `tests/test_pre_tenant_door.py` (produkt dostaje go z rdzeniem i go
-   nie edytuje) pada wtedy z komunikatem, który podaje ten import.
+   Moduł produktu **nigdy nie nazywa** `platform_workspace`, `platform_workspace_id`
+   ani `ensure_platform_workspace` — test rdzenia `tests/test_pre_tenant_door.py`
+   (produkt dostaje go z rdzeniem i go nie edytuje) pada wtedy z komunikatem, który
+   podaje ten import. Workspace zakłada komenda rdzenia `provision_platform_workspace`.
 3. **Komendy operatora idą tą samą drogą, bez wyjątku:** komenda otwiera blok, czyta
    w nim wiersz workspace'u (`Organization.objects.get(pk=organization_id)`), wychodzi
    i dalej prowadzi własne transakcje jak dotąd.

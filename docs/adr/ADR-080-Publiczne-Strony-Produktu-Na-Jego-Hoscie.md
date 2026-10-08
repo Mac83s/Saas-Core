@@ -298,8 +298,9 @@ jest odpowiedzią zaprojektowaną, a nie wyjątkiem. Dlatego:
    Wdrożenie bez workspace'u mówi to wprost: `PlatformWorkspaceMissing` (503).
 2. **Moduł wertykału (`modules/vertical/**`) woła blok bez deklaracji i nigdy nie
    nazywa odnalezienia.** Test `test_pre_tenant_door.py` pada dla modułu produktu,
-   który nazywa `platform_workspace` albo `platform_workspace_id` — importem, atrybutem
-   albo napisem — z komunikatem, który podaje import bloku i jego użycie.
+   który nazywa `platform_workspace`, `platform_workspace_id` albo
+   `ensure_platform_workspace` — importem, atrybutem albo napisem — z komunikatem,
+   który podaje import bloku i jego użycie.
 3. **Moduł `core`, `shared` i każdy inny poza `modules/vertical/` potrzebuje wpisu
    w `DECLARED_WORKSPACE_LOOKUPS` z powodem — za blok tak samo jak za odnalezienie.**
    Rdzeń zostaje zamknięty: nowy odczyt bez hosta w rdzeniu to nadal zmiana, którą
@@ -338,9 +339,11 @@ jest odpowiedzią zaprojektowaną, a nie wyjątkiem. Dlatego:
 **Czego reguła nie obiecuje.** Test czyta drzewo źródeł, które produkt składa
 (rdzeń + własne moduły), więc pilnuje produktu jego własną bramką — produkt, który
 nie uruchamia testów rdzenia, nie jest pilnowany przez nic. Wykrywacz nie zobaczy
-nazwy złożonej dopiero w czasie działania ani `ensure_platform_workspace()` użytego
-jako odnalezienie (funkcja zakłada workspace, gdy go nie ma — w odczycie byłaby
-widocznym błędem). Moduł wertykału może wołać blok także tam, gdzie żądanie ma już
+nazwy złożonej dopiero w czasie działania. Do odnalezień liczy się też
+`ensure_platform_workspace()` — oddaje wiersz, który znalazła, wczytany przez drzwi;
+woła ją jedna komenda rdzenia (`provision_platform_workspace`, z wpisem), a moduł
+produktu, który by ją nazwał, pada jak za każde odnalezienie. Moduł wertykału może
+wołać blok także tam, gdzie żądanie ma już
 swoją firmę; blok niczego wtedy nie wycieka (czyta workspace wydawcy, do którego
 produkt i tak pisze), ale takie użycie jest decyzją produktu, nie tego ADR.
 
