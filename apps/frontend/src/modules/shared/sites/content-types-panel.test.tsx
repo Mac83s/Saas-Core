@@ -525,6 +525,9 @@ test("a type's settings change its name, kind and feed, in English too", async (
   ).toEqual(["Blog posts", "Plain pages"]);
   const save = screen.getByRole("button", { name: "Save" });
   expect(save).toHaveProperty("disabled", true);
+  // The address of projects is not „the blog's address”.
+  expect(screen.getByText("Address in every language")).not.toBeNull();
+  expect(screen.queryByText(/blog's address/i)).toBeNull();
 
   fireEvent.change(name, { target: { value: "Our projects" } });
   fireEvent.click(

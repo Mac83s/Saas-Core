@@ -2654,6 +2654,8 @@
       "create": "Dodaj typ treści",
       "created": "Dodano typ treści „{name}”. Możesz dodać pierwszy wpis.",
       "entriesCaption": "Wpisy typu treści {name}",
+      "pathsTitle": "Adres w każdym języku",
+      "pathsLocaleLabel": "Adres — {language}",
       "typeSettings": "Ustawienia typu",
       "backToList": "Wszystkie typy treści",
       "notFound": "Tego typu treści nie ma — mógł zostać usunięty.",

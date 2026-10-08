@@ -759,7 +759,12 @@ export function CreateContentTypeDialog({
           }}
           open
         >
-          <DialogContent closeLabel={common("close")}>
+          {/* Taller than a laptop's or a phone's screen once the company has
+              three languages: the dialog scrolls instead of losing its buttons. */}
+          <DialogContent
+            className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
+            closeLabel={common("close")}
+          >
             <DialogHeader>
               <DialogTitle>{t("contentTypes.createTitle")}</DialogTitle>
               <DialogDescription>

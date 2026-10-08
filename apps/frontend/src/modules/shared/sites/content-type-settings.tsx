@@ -269,6 +269,7 @@ export function ContentTypeSettings({
             address={address}
             collection={collection}
             key={collection.id}
+            ofType
             onSaved={(updated) => {
               setCollection(updated);
               onLoaded?.(updated);

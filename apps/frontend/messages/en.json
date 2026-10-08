@@ -2654,6 +2654,8 @@
       "create": "Add content type",
       "created": "Content type “{name}” added. You can add its first entry.",
       "entriesCaption": "Entries of the content type {name}",
+      "pathsTitle": "Address in every language",
+      "pathsLocaleLabel": "Address — {language}",
       "typeSettings": "Type settings",
       "backToList": "All content types",
       "notFound": "This content type is not there — it may have been removed.",

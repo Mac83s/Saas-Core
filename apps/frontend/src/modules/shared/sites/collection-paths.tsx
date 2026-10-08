@@ -104,13 +104,20 @@ export function CollectionPaths({
   collection,
   address,
   onSaved,
+  ofType = false,
 }: {
   collection: ContentCollection;
+  /** On a content type's settings (ADR-079): the words say „adres”, not
+   *  „adres bloga” — the type may be projects or news. */
+  ofType?: boolean;
   /** The site's public address, before the section's own part of it. */
   address?: string | null;
   onSaved: (collection: ContentCollection) => void;
 }) {
   const t = useTranslations("Sites");
+  const localeLabel = ofType
+    ? "contentTypes.pathsLocaleLabel"
+    : "blogPathsLocaleLabel";
   const common = useTranslations("Common");
   const [open, setOpen] = useState(false);
   const [problem, setProblem] = useState<string>();
@@ -204,7 +211,7 @@ export function CollectionPaths({
           id={id("heading")}
         >
           <LinkIcon aria-hidden="true" className="size-4" />
-          {t("blogPathsTitle")}
+          {t(ofType ? "contentTypes.pathsTitle" : "blogPathsTitle")}
         </span>
         {!open && (
           <Button
@@ -239,7 +246,7 @@ export function CollectionPaths({
         >
           <Field data-invalid={Boolean(errors.base_path)}>
             <FieldLabel htmlFor={id("base")}>
-              {t("blogPathsLocaleLabel", { language: nativeName(source) })}
+              {t(localeLabel, { language: nativeName(source) })}
             </FieldLabel>
             <InputGroup>
               <InputGroupAddon>
@@ -262,7 +269,7 @@ export function CollectionPaths({
               key={code}
             >
               <FieldLabel htmlFor={id(code)}>
-                {t("blogPathsLocaleLabel", { language: nativeName(code) })}
+                {t(localeLabel, { language: nativeName(code) })}
               </FieldLabel>
               <InputGroup>
                 <InputGroupAddon>
