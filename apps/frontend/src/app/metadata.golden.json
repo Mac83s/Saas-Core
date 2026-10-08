@@ -1,0 +1,379 @@
+{
+  "pl-en with the catalogue": {
+    "sitemap": [
+      {
+        "url": "https://platform.example.test/",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/",
+            "en": "https://platform.example.test/en",
+            "x-default": "https://platform.example.test/"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/en",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/",
+            "en": "https://platform.example.test/en",
+            "x-default": "https://platform.example.test/"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/pricing",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/pricing",
+            "en": "https://platform.example.test/en/pricing",
+            "x-default": "https://platform.example.test/pricing"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/en/pricing",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/pricing",
+            "en": "https://platform.example.test/en/pricing",
+            "x-default": "https://platform.example.test/pricing"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/contact",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/contact",
+            "en": "https://platform.example.test/en/contact",
+            "x-default": "https://platform.example.test/contact"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/en/contact",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/contact",
+            "en": "https://platform.example.test/en/contact",
+            "x-default": "https://platform.example.test/contact"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/katalog",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/katalog",
+            "en": "https://platform.example.test/en/katalog",
+            "x-default": "https://platform.example.test/katalog"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/en/katalog",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/katalog",
+            "en": "https://platform.example.test/en/katalog",
+            "x-default": "https://platform.example.test/katalog"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/katalog/mragowo/salon",
+        "lastModified": "2026-10-03T08:00:00Z",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/katalog/mragowo/salon",
+            "en": "https://platform.example.test/en/katalog/mragowo/salon",
+            "x-default": "https://platform.example.test/katalog/mragowo/salon"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/en/katalog/mragowo/salon",
+        "lastModified": "2026-10-03T08:00:00Z",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/katalog/mragowo/salon",
+            "en": "https://platform.example.test/en/katalog/mragowo/salon",
+            "x-default": "https://platform.example.test/katalog/mragowo/salon"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/katalog/olsztyn/warsztat",
+        "lastModified": "2026-10-02T08:00:00Z",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/katalog/olsztyn/warsztat",
+            "x-default": "https://platform.example.test/katalog/olsztyn/warsztat"
+          }
+        }
+      }
+    ],
+    "robots": {
+      "rules": {
+        "userAgent": "*",
+        "allow": "/",
+        "disallow": [
+          "/panel",
+          "/settings",
+          "/en/panel",
+          "/en/settings",
+          "/api/"
+        ]
+      },
+      "sitemap": "https://platform.example.test/sitemap.xml"
+    }
+  },
+  "pl-en-de with the catalogue": {
+    "sitemap": [
+      {
+        "url": "https://platform.example.test/",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/",
+            "en": "https://platform.example.test/en",
+            "x-default": "https://platform.example.test/"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/en",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/",
+            "en": "https://platform.example.test/en",
+            "x-default": "https://platform.example.test/"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/pricing",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/pricing",
+            "en": "https://platform.example.test/en/pricing",
+            "x-default": "https://platform.example.test/pricing"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/en/pricing",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/pricing",
+            "en": "https://platform.example.test/en/pricing",
+            "x-default": "https://platform.example.test/pricing"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/contact",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/contact",
+            "en": "https://platform.example.test/en/contact",
+            "x-default": "https://platform.example.test/contact"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/en/contact",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/contact",
+            "en": "https://platform.example.test/en/contact",
+            "x-default": "https://platform.example.test/contact"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/katalog",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/katalog",
+            "en": "https://platform.example.test/en/katalog",
+            "x-default": "https://platform.example.test/katalog"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/en/katalog",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/katalog",
+            "en": "https://platform.example.test/en/katalog",
+            "x-default": "https://platform.example.test/katalog"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/katalog/mragowo/salon",
+        "lastModified": "2026-10-03T08:00:00Z",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/katalog/mragowo/salon",
+            "en": "https://platform.example.test/en/katalog/mragowo/salon",
+            "de": "https://platform.example.test/de/katalog/mragowo/salon",
+            "x-default": "https://platform.example.test/katalog/mragowo/salon"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/en/katalog/mragowo/salon",
+        "lastModified": "2026-10-03T08:00:00Z",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/katalog/mragowo/salon",
+            "en": "https://platform.example.test/en/katalog/mragowo/salon",
+            "de": "https://platform.example.test/de/katalog/mragowo/salon",
+            "x-default": "https://platform.example.test/katalog/mragowo/salon"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/de/katalog/mragowo/salon",
+        "lastModified": "2026-10-03T08:00:00Z",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/katalog/mragowo/salon",
+            "en": "https://platform.example.test/en/katalog/mragowo/salon",
+            "de": "https://platform.example.test/de/katalog/mragowo/salon",
+            "x-default": "https://platform.example.test/katalog/mragowo/salon"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/katalog/olsztyn/warsztat",
+        "lastModified": "2026-10-02T08:00:00Z",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/katalog/olsztyn/warsztat",
+            "x-default": "https://platform.example.test/katalog/olsztyn/warsztat"
+          }
+        }
+      }
+    ],
+    "robots": {
+      "rules": {
+        "userAgent": "*",
+        "allow": "/",
+        "disallow": [
+          "/panel",
+          "/settings",
+          "/en/panel",
+          "/en/settings",
+          "/de/panel",
+          "/de/settings",
+          "/api/"
+        ]
+      },
+      "sitemap": "https://platform.example.test/sitemap.xml"
+    }
+  },
+  "pl-en without the catalogue": {
+    "sitemap": [
+      {
+        "url": "https://platform.example.test/",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/",
+            "en": "https://platform.example.test/en",
+            "x-default": "https://platform.example.test/"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/en",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/",
+            "en": "https://platform.example.test/en",
+            "x-default": "https://platform.example.test/"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/pricing",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/pricing",
+            "en": "https://platform.example.test/en/pricing",
+            "x-default": "https://platform.example.test/pricing"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/en/pricing",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/pricing",
+            "en": "https://platform.example.test/en/pricing",
+            "x-default": "https://platform.example.test/pricing"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/contact",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/contact",
+            "en": "https://platform.example.test/en/contact",
+            "x-default": "https://platform.example.test/contact"
+          }
+        }
+      },
+      {
+        "url": "https://platform.example.test/en/contact",
+        "alternates": {
+          "languages": {
+            "pl": "https://platform.example.test/contact",
+            "en": "https://platform.example.test/en/contact",
+            "x-default": "https://platform.example.test/contact"
+          }
+        }
+      }
+    ],
+    "robots": {
+      "rules": {
+        "userAgent": "*",
+        "allow": "/",
+        "disallow": [
+          "/panel",
+          "/settings",
+          "/en/panel",
+          "/en/settings",
+          "/api/"
+        ]
+      },
+      "sitemap": "https://platform.example.test/sitemap.xml"
+    }
+  },
+  "five languages, no marketing": {
+    "sitemap": [],
+    "robots": {
+      "rules": {
+        "userAgent": "*",
+        "allow": "/",
+        "disallow": [
+          "/panel",
+          "/settings",
+          "/en/panel",
+          "/en/settings",
+          "/de/panel",
+          "/de/settings",
+          "/es/panel",
+          "/es/settings",
+          "/ru/panel",
+          "/ru/settings",
+          "/api/"
+        ]
+      },
+      "sitemap": "https://platform.example.test/sitemap.xml"
+    }
+  }
+}
