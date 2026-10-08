@@ -305,7 +305,8 @@ describe("a product's old addresses (ADR-080)", () => {
       expect(site.match(rule.to)?.kind, rule.to).toBe("page");
       expect(compiled.lookup(rule.to), rule.to).toBeNull();
     }
-    expect(compiled.size).toBe(8);
+    expect(compiled.size).toBe(10);
+    expect(compiled.unserved).toBe(0);
   });
 
   it.each([
@@ -342,6 +343,8 @@ describe("a product's old addresses (ADR-080)", () => {
       "a page of the table in another language",
       { moved: { "/en/quiz": "/quiz" } },
     ],
+    ["a page under the default language's prefix", { gone: ["/pl/quiz"] }],
+    ["the home page under the default language's prefix", { gone: ["/pl"] }],
     ["the home page", { gone: ["/"] }],
     ["a language's home page", { gone: ["/de"] }],
     ["the panel", { gone: ["/panel/old"] }],
@@ -356,6 +359,70 @@ describe("a product's old addresses (ADR-080)", () => {
     ["what cannot be decoded", { gone: ["/stara/%E0%A4%A"] }],
   ])("refuses %s", (_name, declared) => {
     expect(rules(declared)).toThrow(ProductSiteError);
+  });
+
+  it("serves a profile the rules that lead into its languages, and is as right for it", () => {
+    const narrow = compileProductSite(fixtureSite, {
+      ...options,
+      locales: ["pl", "en"],
+    });
+
+    // The whole list compiles for a profile without German…
+    const served = compileOldAddresses(
+      fixtureOldAddresses,
+      narrow,
+      RESERVED_SEGMENTS,
+    );
+
+    // …which leaves out the one rule that leads into German, and nothing else.
+    expect(served.unserved).toBe(1);
+    expect(served.size).toBe(9);
+    expect(served.lookup("/de/rassen/labrador")).toBeNull();
+    expect(served.lookup("/rasy/labrador-retriever")).toEqual({
+      kind: "moved",
+      to: "/rasy-psow/labrador",
+    });
+    // A gone address under a language the profile lacks reads the default.
+    expect(served.lookup("/de/laden")).toEqual({ kind: "gone", locale: "pl" });
+  });
+
+  it("holds a rule to every language the table names, whichever profile compiles it", () => {
+    const narrow = compileProductSite(fixtureSite, {
+      ...options,
+      locales: ["pl", "en"],
+    });
+    const forNarrow = (declared: ProductOldAddresses) => () =>
+      compileOldAddresses(declared, narrow, RESERVED_SEGMENTS);
+
+    // Wrong in German is wrong here too, though German is not served here.
+    expect(forNarrow({ moved: { "/a": "/de/hunderassen/Labrador" } })).toThrow(
+      /canonical spelling/,
+    );
+    expect(forNarrow({ moved: { "/a": "/de/keine-seite" } })).toThrow(
+      /canonical spelling/,
+    );
+    expect(forNarrow({ gone: ["/de/hunderassen"] })).toThrow(
+      /address of the page/,
+    );
+    expect(
+      forNarrow({
+        moved: { "/a": "/de/hunderassen/b", "/de/hunderassen/b": "/quiz" },
+      }),
+    ).toThrow(/chain or a loop/);
+  });
+
+  it("lets the old site's prefixed spelling of an entry be a rule", () => {
+    // Without the rule `/pl/rasy-psow/x` is one 308 to `/rasy-psow/x`; with
+    // it, one 308 to wherever the entry lives now.
+    const renamed = compileOldAddresses(
+      { moved: { "/pl/rasy-psow/owczarek": "/rasy-psow/owczarek-niemiecki" } },
+      site,
+      RESERVED_SEGMENTS,
+    );
+    expect(renamed.lookup("/pl/rasy-psow/owczarek/")).toEqual({
+      kind: "moved",
+      to: "/rasy-psow/owczarek-niemiecki",
+    });
   });
 
   it("lets a rule lie over a section's pattern: a renamed entry", () => {

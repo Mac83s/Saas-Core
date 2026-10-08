@@ -5,24 +5,59 @@ import type {
   CompiledSite,
   SiteParams,
   SiteSitemapEntry,
+  SiteVersion,
   SiteVersions,
 } from "#lib/product-site/table";
 import { deployment } from "../../generated/deployment";
 import { openGraphLocale } from "../../marketing/seo";
+import { productOldAddresses } from "./old-addresses";
 import { productSite } from "./site";
 
 const origin = `https://${deployment.product.platformDomain}`;
 
 type Alternates = { canonical: string; languages: Record<string, string> };
 
-/** hreflang for every language the page exists in, and x-default: the
+/**
+ * A page's address in each language it answers in today: the table's
+ * versions without any address an old-address rule answers instead. The one
+ * filter behind hreflang, the sitemap and the language switch, so the page's
+ * head, its switch and the sitemap name the same addresses.
+ */
+function answering(
+  site: CompiledSite,
+  rules: CompiledOldAddresses | null,
+  route: string,
+  params?: SiteParams | SiteVersions,
+): SiteVersion[] {
+  return site
+    .versions(route, params)
+    .filter((version) => !rules?.lookup(version.path));
+}
+
+/**
+ * The language switch of a page (ADR-080): its address in every language it
+ * answers in, from the table. Server side only — it reads the old-address
+ * rules, which stay out of a page's bundle; a client component is handed
+ * the result.
+ */
+export function siteVersions(
+  route: string,
+  params?: SiteParams | SiteVersions,
+): SiteVersion[] {
+  if (!productSite) {
+    throw new Error("This deployment serves no public pages of the product.");
+  }
+  return answering(productSite, productOldAddresses, route, params);
+}
+
+/** hreflang for every language the page answers in, and x-default: the
  *  default language's version, or the first where it has none. */
 function languagesOf(
   site: CompiledSite,
   route: string,
   params?: SiteParams | SiteVersions,
 ): Record<string, string> {
-  const versions = site.versions(route, params);
+  const versions = answering(site, productOldAddresses, route, params);
   const base =
     versions.find((version) => version.locale === site.defaultLocale) ??
     versions[0];
@@ -103,9 +138,7 @@ export function siteSitemapLines(
       );
       return [];
     }
-    const versions = site
-      .versions(entry.route, entry.params)
-      .filter((version) => !rules?.lookup(version.path));
+    const versions = answering(site, rules, entry.route, entry.params);
     const base =
       versions.find((version) => version.locale === site.defaultLocale) ??
       versions[0];

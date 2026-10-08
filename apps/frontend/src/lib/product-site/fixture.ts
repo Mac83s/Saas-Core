@@ -35,6 +35,10 @@ export const fixtureOldAddresses: ProductOldAddresses = {
     "/Poradnik/Żywienie szczeniaka": "/poradnik/zywienie",
     // Written percent-encoded, as lists exported from other tools come.
     "/blog/%C5%BBywienie-psa": "/poradnik/zywienie",
+    // The old site spelled Polish with its prefix; the new one does not.
+    "/pl/rasy/labrador-retriever": "/rasy-psow/labrador",
+    // Into German: served only by a profile that offers German.
+    "/de/rassen/labrador": "/de/hunderassen/labrador",
   },
   gone: ["/sklep", "/en/shop/old-offer", "/de/laden"],
 };

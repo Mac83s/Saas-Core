@@ -120,6 +120,26 @@ describe("a product's public pages on its host (ADR-080)", () => {
     );
   });
 
+  it("corrects the prefix and a trailing slash together, in one redirect", async () => {
+    const { visit } = await load();
+
+    for (const [address, target] of [
+      ["/pl/rasy-psow/labrador/?tab=care", "/rasy-psow/labrador?tab=care"],
+      ["/pl/", "/"],
+      ["/pl/quiz//", "/quiz"],
+    ]) {
+      const response = await visit(address!);
+      expect(response.status, address).toBe(308);
+      expect(response.headers.get("location"), address).toBe(
+        `http://localhost:8080${target}`,
+      );
+    }
+    // A slash alone stays the platform host's own rule: one step as well.
+    expect(
+      (await visit("/en/dog-breeds/labrador/")).headers.get("location"),
+    ).toBe("http://localhost:8080/en/dog-breeds/labrador");
+  });
+
   it.each([
     ["/en/rasy-psow/labrador", "en"],
     ["/dog-breeds/labrador", "pl"],
@@ -155,6 +175,58 @@ describe("a product's public pages on its host (ADR-080)", () => {
     }
   });
 
+  it("does not answer that folder in any spelling the router would read, dots included", async () => {
+    const { visit } = await load();
+
+    for (const address of [
+      // The matcher hands these to the proxy for this folder alone.
+      "/en/product-site/breeds/a.b",
+      "/product-site/quiz.html",
+      "/en/%70roduct-site/quiz",
+      "/en/product%2Dsite/breeds/labrador",
+    ]) {
+      const response = await visit(address);
+      expect(response.status, address).toBe(404);
+      expect(response.headers.get("x-middleware-rewrite"), address).toBeNull();
+      expect(response.headers.get("x-middleware-next"), address).toBeNull();
+    }
+    // On a customer's host the same address is a path of that site.
+    expect(
+      (
+        await visit("/en/product-site/breeds/a.b", "studio.example.test")
+      ).headers.get("x-middleware-rewrite"),
+    ).toBe(
+      "http://studio.example.test/site-renderer/en/product-site/breeds/a.b",
+    );
+  });
+
+  it("is handed that folder by the matcher, and lets it go untouched where no table is declared", async () => {
+    const { proxy, visit } = await load({ site: null, rules: {} });
+    const { config } = await import("../../proxy");
+
+    expect(config.matcher).toContain("/product-site/:path*");
+    expect(config.matcher).toContain("/:locale/product-site/:path*");
+    for (const host of ["localhost:8080", "studio.example.test"]) {
+      for (const address of [
+        "/en/product-site/breeds/a.b",
+        "/product-site/quiz.html",
+      ]) {
+        // Exactly what an address the matcher skips gets: nothing.
+        expect(describeResponse(await visit(address, host)), address).toBe(
+          "200 next",
+        );
+      }
+    }
+    // The feeds a language prefix may carry reached the proxy before, and
+    // still take the path they took.
+    expect(
+      (await visit("/product-site/rss.xml", "studio.example.test")).headers.get(
+        "x-middleware-rewrite",
+      ),
+    ).toBe("http://studio.example.test/site-renderer/product-site/rss.xml");
+    expect(await walk(proxy)).toEqual(golden["five languages, no marketing"]);
+  });
+
   it("leaves the platform's media and the api's neighbours alone", async () => {
     const { visit } = await load();
 
@@ -186,9 +258,15 @@ describe("a product's public pages on its host (ADR-080)", () => {
       (key) => now[key] !== before[key],
     );
     // Every panel, guest, metadata and customer-site address answers as it
-    // did; what changed was a 404 or the way to sign-in.
+    // did; what changed was a 404, the way to sign-in, or a redirect that
+    // now reaches a product page's address in one step instead of two.
     for (const key of changed) {
-      expect(before[key], key).toMatch(/^(404$|307 location=\S+\/login$)/);
+      if (before[key]!.startsWith("308 ")) {
+        expect(now[key], key).toMatch(/^308 /);
+        expect(key, key).toMatch(/ \/pl\/$/);
+      } else {
+        expect(before[key], key).toMatch(/^(404$|307 location=\S+\/login$)/);
+      }
     }
     expect(changed.some((key) => key.includes("studio.example.test"))).toBe(
       false,
@@ -226,6 +304,21 @@ describe("a product's public pages on its host (ADR-080)", () => {
       }
     }
     expect(Object.keys(before).filter(folder).length).toBeGreaterThan(0);
+    // Dots and encoded spellings as well: a page file there would render
+    // with links this profile cannot write.
+    const visit = (address: string) =>
+      proxy(
+        new NextRequest(`http://localhost${address}`, {
+          headers: { host: "localhost:8080" },
+        }),
+      );
+    for (const address of [
+      "/en/product-site/breeds/a.b",
+      "/product-site/quiz.html",
+      "/en/%70roduct-site/quiz",
+    ]) {
+      expect((await visit(address)).status, address).toBe(404);
+    }
   });
 
   it("stays off, with the panel alive, when the table cannot be served", async () => {

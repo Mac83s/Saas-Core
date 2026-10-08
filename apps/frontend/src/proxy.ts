@@ -6,7 +6,12 @@ import { isPanelLocale, panelLocales, routing } from "#i18n/routing";
 import { deployment } from "./generated/deployment";
 import { marketingSiteEnabled } from "./marketing/enabled";
 import { PUBLIC_SITE_METHOD_HEADER } from "./modules/shared/sites/page-view";
-import { oldAddressAnswer, sitePageAnswer } from "./lib/product-site/answers";
+import {
+  oldAddressAnswer,
+  sitePageAnswer,
+  spellingAnswer,
+  untouchedAnswer,
+} from "./lib/product-site/answers";
 import { absoluteUrl, normalizeRequestHostname } from "./proxy-host";
 import { GUEST_SEGMENTS, PANEL_SEGMENTS } from "./proxy-segments";
 
@@ -50,6 +55,10 @@ export default function proxy(request: NextRequest) {
   if (pathname === "/site-renderer" || pathname.startsWith("/site-renderer/")) {
     return new NextResponse(null, { status: 404 });
   }
+  // An address the matcher lets in only for the folder of a product's page
+  // files (ADR-080), where no product declares any: as if it had not.
+  const untouched = untouchedAnswer(request);
+  if (untouched) return untouched;
   const hostname = normalizeRequestHostname(request.headers.get("host"));
   if (!isControlHostname(hostname)) {
     const rewritten = request.nextUrl.clone();
@@ -71,8 +80,9 @@ export default function proxy(request: NextRequest) {
     });
   }
   // An address of the site a product's public pages replaced (ADR-080): one
-  // 308 or a 410, before anything below spells the address canonically.
-  const old = oldAddressAnswer(request);
+  // 308 or a 410, before anything below spells the address canonically —
+  // and a product page that needs two corrections gets both in one 308.
+  const old = oldAddressAnswer(request) ?? spellingAnswer(request);
   if (old) return old;
   // The platform's own pages have no trailing slash; the other spelling is one
   // 308 away, as Next did before customer sites needed the slash kept. Next
@@ -209,5 +219,11 @@ export const config = {
     "/:locale/llms.txt",
     "/sitemap.xml",
     "/robots.txt",
+    // The folder of a product's page files (ADR-080), dots included: an
+    // address with a dot would otherwise reach a page file there without
+    // passing the product's table. Where no product declares a table the
+    // proxy lets these through untouched (`untouchedAnswer`).
+    "/product-site/:path*",
+    "/:locale/product-site/:path*",
   ],
 };

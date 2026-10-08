@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { deployment } from "../../generated/deployment";
+import { productOldAddressesProblem } from "../../lib/product-site/old-addresses";
+import { productSiteProblem } from "../../lib/product-site/site";
 import { RECHECK_AFTER_MS } from "./recheck";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +23,13 @@ export const dynamic = "force-dynamic";
  * able to ask is different: a backend that is down or still starting says
  * nothing about this bundle — it neither fails liveness on its own nor clears
  * a mismatch already seen.
+ *
+ * The other thing only a deploy check can stop: a product's table of public
+ * addresses, or its list of old addresses, that cannot be served as written
+ * (ADR-080). The process keeps the panel up and switches the broken part
+ * off, which nobody would notice — the home page goes back to sign-in, a few
+ * thousand redirects answer 404. So it is said here, and a rebuild that
+ * waits for this address fails loudly.
  */
 let mismatch: { backend: string; since: number; checkedAt: number } | null =
   null;
@@ -69,6 +78,26 @@ export async function GET() {
           "Obraz frontendu i backendu pochodzą z różnych drzew: " +
           `frontend ${deployment.profileHash}, backend ${mismatch.backend}.`,
         since: new Date(mismatch.since).toISOString(),
+      },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const off = productSiteProblem
+    ? { status: "product_site_off", problem: productSiteProblem }
+    : productOldAddressesProblem
+      ? {
+          status: "product_old_addresses_off",
+          problem: productOldAddressesProblem,
+        }
+      : null;
+  if (off !== null) {
+    return NextResponse.json(
+      {
+        status: off.status,
+        detail:
+          "Produkt deklaruje publiczne strony albo stare adresy, których nie da się obsłużyć: " +
+          off.problem.message,
       },
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );

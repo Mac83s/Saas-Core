@@ -55,6 +55,52 @@ export function oldAddressAnswer(request: NextRequest): Response | null {
 }
 
 /**
+ * A product page asked for under the default language's prefix *and* with a
+ * trailing slash: one 308 to its address, not one per correction. Any other
+ * address keeps the proxy's own slash rule.
+ */
+export function spellingAnswer(request: NextRequest): Response | null {
+  const { pathname } = request.nextUrl;
+  if (!productSite || pathname.length < 2 || !pathname.endsWith("/")) {
+    return null;
+  }
+  const match = productSite.match(pathname.replace(/\/+$/, ""));
+  if (match?.kind !== "canonical") return null;
+  return NextResponse.redirect(
+    absoluteUrl(request, `${match.path}${request.nextUrl.search}`),
+    308,
+  );
+}
+
+/** The addresses with a dot the proxy has always been handed: feeds, the
+ *  language models' file, the sitemap and robots. */
+const DOTTED_BEFORE =
+  /^\/(?:[^/]+\/)?(?:rss\.xml|atom\.xml|llms\.txt)$|^\/(?:sitemap\.xml|robots\.txt)$/;
+
+/**
+ * The proxy's matcher lets every address under the folder of a product's
+ * page files in, dots included — otherwise `/en/product-site/x/a.b` would
+ * reach a page file without passing the table. Where no product declares a
+ * table that folder holds nothing, and such an address goes on untouched,
+ * exactly as it did before the matcher knew the folder.
+ */
+export function untouchedAnswer(request: NextRequest): Response | null {
+  const { pathname } = request.nextUrl;
+  if (productSiteDeclared) return null;
+  if (!pathname.includes(".") || DOTTED_BEFORE.test(pathname)) return null;
+  return NextResponse.next();
+}
+
+/** A path segment as the router will read it. */
+function decoded(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+/**
  * The product's page for an address, or its own 404 for one nobody claims.
  * `null` for the team's, a guest's and the platform's own addresses, and for
  * `/` while the product has no home page (the front door stays sign-in) —
@@ -67,11 +113,12 @@ export function sitePageAnswer(request: NextRequest): Response | null {
   const [first = "", second = ""] = pathname.split("/").slice(1);
   const prefixed = (routing.locales as readonly string[]).includes(first);
   const segment = prefixed ? second : first;
-  // The folder of the product's page files is never an address — also where
-  // this profile does not serve the table (the core's marketing is on): the
-  // files are in the build all the same, and the locale middleware would
-  // hand a visitor straight to them.
-  if (segment === SITE_PAGES_SEGMENT) {
+  // The folder of the product's page files is never an address, in any
+  // spelling the router would read as its name — also where this profile
+  // does not serve the table (the core's marketing is on): the files are in
+  // the build all the same, and the locale middleware would hand a visitor
+  // straight to them.
+  if (decoded(segment) === SITE_PAGES_SEGMENT) {
     return new NextResponse(null, { status: 404 });
   }
   const site = productSite;

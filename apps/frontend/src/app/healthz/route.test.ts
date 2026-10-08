@@ -123,4 +123,37 @@ describe("healthz", () => {
 
     expect((await GET()).status).toBe(200);
   });
+
+  it.each([
+    [
+      "product_site_off",
+      { site: new Error("table: two pages at one address") },
+    ],
+    [
+      "product_old_addresses_off",
+      { rules: new Error("old address /a: a chain or a loop") },
+    ],
+  ])(
+    "odmawia (%s), gdy publicznych stron produktu nie da się obsłużyć (ADR-080)",
+    async (status, problem) => {
+      vi.stubGlobal("fetch", backendHealth(deployment.profileHash));
+      vi.doMock("../../lib/product-site/site", () => ({
+        productSiteProblem: "site" in problem ? problem.site : null,
+      }));
+      vi.doMock("../../lib/product-site/old-addresses", () => ({
+        productOldAddressesProblem: "rules" in problem ? problem.rules : null,
+      }));
+
+      const { GET } = await loadRoute();
+      const response = await GET();
+      vi.doUnmock("../../lib/product-site/site");
+      vi.doUnmock("../../lib/product-site/old-addresses");
+
+      // The process serves the panel; the deploy check must not pass.
+      expect(response.status).toBe(503);
+      const body = await response.json();
+      expect(body.status).toBe(status);
+      expect(body.detail).toContain(Object.values(problem)[0]!.message);
+    },
+  );
 });

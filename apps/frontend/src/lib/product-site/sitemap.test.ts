@@ -201,6 +201,32 @@ describe("a public page's canonical and hreflang (ADR-080)", () => {
     expect(alternates.canonical).toBe(`${origin}/de/hunderassen/b`);
   });
 
+  it("leave out a language whose address an old-address rule answers, as the sitemap does", async () => {
+    const { seo } = await load();
+    // The Polish name of this entry was renamed: `/rasy-psow/owczarek` is a
+    // rule now, and no page head or language switch may still name it.
+    const params = {
+      pl: { slug: "owczarek" },
+      en: { slug: "german-shepherd" },
+    };
+
+    expect(seo.siteVersions("/breeds/[slug]", params)).toEqual([
+      { locale: "en", path: "/en/dog-breeds/german-shepherd" },
+    ]);
+    expect(
+      seo.siteAlternates({ route: "/breeds/[slug]", locale: "en", params })
+        .languages,
+    ).toEqual({
+      en: `${origin}/en/dog-breeds/german-shepherd`,
+      "x-default": `${origin}/en/dog-breeds/german-shepherd`,
+    });
+    expect(
+      seo
+        .siteVersions("/breeds/[slug]", { slug: "labrador" })
+        .map((version) => version.locale),
+    ).toEqual(["pl", "en", "de"]);
+  });
+
   it("refuse a page in a language it has no address in", async () => {
     const { seo } = await load();
 

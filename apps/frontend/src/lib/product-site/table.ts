@@ -92,6 +92,13 @@ export type SiteMatch =
 export type SiteVersion = { locale: string; path: string };
 
 export type CompiledSite = {
+  /**
+   * The same table as if the profile offered every language it names. A list
+   * of old addresses is checked against this one, so it is right or wrong
+   * whichever profile compiles it; a profile then serves the rules that lead
+   * into its own languages.
+   */
+  declared: CompiledSite;
   /** The languages the product's pages may speak, in the profile's order. */
   locales: readonly string[];
   defaultLocale: string;
@@ -124,7 +131,10 @@ export type OldAddress =
   | { kind: "gone"; locale: string };
 
 export type CompiledOldAddresses = {
+  /** The rules this profile answers. */
   size: number;
+  /** The rules left out here: they lead into a language the profile lacks. */
+  unserved: number;
   /** The rule of a visitor's path as the URL carries it, if any. */
   lookup(pathname: string): OldAddress | null;
   /** Each rule's source as compared, for a check that walks all of them. */
@@ -233,6 +243,26 @@ export function compileProductSite(
   definition: ProductPublicSite,
   options: SiteOptions,
 ): CompiledSite {
+  const named = Object.values(definition.routes).flatMap((addresses) =>
+    typeof addresses === "string" ? [] : Object.keys(addresses),
+  );
+  const every = [...new Set([...options.locales, ...named])];
+  const served = build(definition, options);
+  const all =
+    every.length === options.locales.length
+      ? served
+      : build(definition, { ...options, locales: every });
+  // The reading in every language declares itself.
+  const declared = all as CompiledSite;
+  declared.declared = declared;
+  return served === all ? declared : Object.assign(served, { declared });
+}
+
+/** The table as one set of languages reads it. */
+function build(
+  definition: ProductPublicSite,
+  options: SiteOptions,
+): Omit<CompiledSite, "declared"> {
   const { locales, defaultLocale, reserved } = options;
   if (!locales.includes(defaultLocale)) {
     throw new ProductSiteError(
@@ -327,7 +357,7 @@ export function compileProductSite(
     return path === null ? null : spell(locale, path);
   }
 
-  const site: CompiledSite = {
+  const site: Omit<CompiledSite, "declared"> = {
     locales,
     defaultLocale,
     routes: [...byRoute.keys()],
@@ -422,7 +452,19 @@ export function compileOldAddresses(
   site: CompiledSite,
   reserved: ReservedSegments,
 ): CompiledOldAddresses {
+  // Checked against every language the table names, so the verdict does not
+  // depend on the profile; served from the profile's own.
+  const all = site.declared;
+  const sources = new Set<string>();
   const table = new Map<string, OldAddress>();
+
+  /** The page an address is, in its canonical spelling or under the default
+   *  language's prefix; `null` for an address of no page. */
+  function pageAt(path: string): string | null {
+    const found = all.match(path);
+    if (found?.kind === "canonical") return pageAt(found.path);
+    return found?.route ?? null;
+  }
 
   function source(written: string): string {
     const what = `old address "${written}"`;
@@ -453,9 +495,21 @@ export function compileOldAddresses(
       reserved,
       what,
     );
-    if (table.has(normalized)) {
+    // A rule answers before the pages do, so one written over a page that
+    // has no parameter would take that page away — in any language the table
+    // names, and in the spelling with the default language's prefix too,
+    // which is owed a redirect to the page. Over a parameter's value it is
+    // the point: a renamed entry of a section.
+    const route = pageAt(normalized);
+    if (route !== null && !all.hasParams(route)) {
+      throw new ProductSiteError(
+        `${what}: it is the address of the page ${route}`,
+      );
+    }
+    if (sources.has(normalized)) {
       throw new ProductSiteError(`${what}: declared twice`);
     }
+    sources.add(normalized);
     return normalized;
   }
 
@@ -467,40 +521,35 @@ export function compileOldAddresses(
       locale: site.locales.includes(first) ? first : site.defaultLocale,
     });
   }
-  const moved = Object.entries(rules.moved ?? {});
-  for (const [written, to] of moved) {
-    table.set(source(written), { kind: "moved", to });
-  }
+  const moved = Object.entries(rules.moved ?? {}).map(
+    ([written, to]) => [written, to, source(written)] as const,
+  );
   // Only once every source is known can a target be told from one.
-  for (const [written, to] of moved) {
+  let unserved = 0;
+  for (const [written, to, normalized] of moved) {
     const what = `old address "${written}"`;
-    if (site.match(to)?.kind !== "page") {
+    if (all.match(to)?.kind !== "page") {
       throw new ProductSiteError(
         `${what}: its target "${to}" is not an address of the table in its canonical spelling`,
       );
     }
-    if (table.has(normalizeOldAddress(to) ?? "")) {
+    if (sources.has(normalizeOldAddress(to) ?? "")) {
       throw new ProductSiteError(
         `${what}: its target "${to}" is an old address itself — a chain or a loop`,
       );
     }
-  }
-  // A rule answers before the pages do, so one written over a page that has
-  // no parameter would take that page away. Over a parameter's value it is
-  // the point: a renamed entry of a section.
-  for (const route of site.routes) {
-    if (site.hasParams(route)) continue;
-    for (const { path } of site.versions(route)) {
-      if (table.has(normalizeOldAddress(path) ?? "")) {
-        throw new ProductSiteError(
-          `old address "${path}" is the address of the page ${route}`,
-        );
-      }
+    // A right rule into a language this profile does not offer: left out
+    // here, not an error — the list is one for all the product's profiles.
+    if (site.match(to)?.kind === "page") {
+      table.set(normalized, { kind: "moved", to });
+    } else {
+      unserved += 1;
     }
   }
 
   return {
     size: table.size,
+    unserved,
     lookup(pathname) {
       const key = normalizeOldAddress(pathname);
       return key === null ? null : (table.get(key) ?? null);
