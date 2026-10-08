@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from django.http import HttpRequest, HttpResponse, HttpResponseNotFound
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseNotFound
 from django.views import View
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.exceptions import NotFound
@@ -191,5 +191,7 @@ class PublicContentMediaView(View):
     def get(self, request: HttpRequest, asset_id: UUID, variant: str = "") -> HttpResponse:
         try:
             return serve_content_media(asset_id=asset_id, variant=variant)
-        except NotFound:
+        except (NotFound, Http404):
+            # One answer for every refusal: also where the row says a picture
+            # is ready and its bytes are not in storage (`media_response`).
             return HttpResponseNotFound()

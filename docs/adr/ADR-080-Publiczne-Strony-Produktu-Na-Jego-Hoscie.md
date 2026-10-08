@@ -273,7 +273,12 @@ platformy dostaje tę samą regułę dla źródeł workspace'u platformy
 miniatury 9,5 ms (mediana z 60 różnych zdjęć, p90 12,7 ms, razem z odczytem z magazynu
 plików), z czego pytanie do źródła 0,9 ms; odmowa 5,3 ms. Samo zapytanie o 374 wiersze
 to 0,13 ms w bazie, o jeden — 0,08 ms. Tańsze pytanie oszczędziłoby poniżej
-milisekundy na żądaniu, które przeglądarka dzięki `immutable` zadaje raz. Liczba
+milisekundy na żądaniu, które przeglądarka dzięki `immutable` zadaje raz. **Ten sam
+nagłówek ogranicza wycofanie:** zdjęcie wycofanego rekordu przestaje odpowiadać od
+razu, ale kopia już pobrana zostaje w przeglądarce i w pamięciach pośrednich nawet
+przez rok (`Cache-Control: public, max-age=31536000, immutable`, wspólny dla zdjęć
+wpisów i rekordów, na stronie firmy i na hoście platformy). Ten pakiet nagłówka nie
+zmienia — jedna decyzja dla obu ścieżek jest w planie jako osobna sprawa. Liczba
 zapytań jednego żądania nie zależy od wielkości odpowiedzi źródła (ma test); rośnie
 o jedno z każdym zarejestrowanym źródłem, które serwuje zdjęcia.
 
@@ -319,12 +324,17 @@ jest odpowiedzią zaprojektowaną, a nie wyjątkiem. Dlatego:
 **Co blok gwarantuje poza kolejnością** (każde ma test, `test_platform_workspace_block.py`):
 
 - *Nie zostawia ustawienia po sobie.* `SET LOCAL` przeżywa zwolnienie punktu zapisu.
-  Blok wywołany w czyjejś otwartej transakcji czyta ustawienie przy wejściu
-  i przywraca je przy wyjściu; zakończony wyjątkiem jest wycofany do punktu zapisu
-  razem z ustawieniem. Wywołany samodzielnie (widok, komenda) jest jedną transakcją
-  i nie płaci tych dwóch zapytań. To pierwszy przełącznik tenanta oddany kodowi
-  produktu do wołania skądkolwiek — pozostałe `set_local_organization_id` w rdzeniu
-  stoją w miejscach, które rdzeń sam ułożył.
+  Blok wywołany w czyjejś otwartej transakcji — wewnątrz `atomic()` albo przy
+  wyłączonym autocommicie (przegląd: sam `in_atomic_block` tego drugiego nie widzi) —
+  czyta ustawienie przy wejściu i przywraca je przy wyjściu, także po wyjątku
+  (`tenant_setting_kept`). Wywołany samodzielnie (widok, komenda) jest jedną
+  transakcją i nie płaci tych dwóch zapytań. To pierwszy przełącznik tenanta oddany
+  kodowi produktu do wołania skądkolwiek — pozostałe `set_local_organization_id`
+  w rdzeniu stoją w miejscach, które rdzeń sam ułożył.
+- *Odczyt zdjęć ma te same maniery.* `serve_content_media` pyta źródła — kod produktu —
+  więc przywraca ustawienie żądania i ukrywa kontekst zalogowanego gościa tak jak blok
+  (te same dwie funkcje); każda odmowa tej ścieżki, także gdy plik zniknął z magazynu,
+  jest tą samą pustą odpowiedzią 404.
 - *Zalogowany gość zostaje gościem.* Sesja panelu jedzie z każdym żądaniem tego
   samego originu, więc gość zalogowany do własnej firmy ma na publicznych stronach
   produktu jej `TenantContext`. W bloku kontekst cudzej firmy jest ukryty: serwis,
@@ -334,12 +344,20 @@ jest odpowiedzią zaprojektowaną, a nie wyjątkiem. Dlatego:
   każdemu, kto jest zalogowany do panelu.
 - *Identyfikator może wyjść z bloku.* Wartość nie jest tajemnicą ani uprawnieniem:
   każdy późniejszy odczyt i tak ustawia tenant sam, a tabele z RLS bez ustawienia nie
-  oddają nic.
+  oddają nic. Blok jest wygodą, nie płotem.
+- *„Policz w bloku, nigdy nie rób w nim `yield`.”* Generator zawieszony w bloku
+  oddawałby sterowanie wywołującemu z tenantem platformy i ukrytym kontekstem gościa.
+  Test pada za `yield` pod `with in_platform_workspace()` i podaje linię; przepuszcza
+  funkcję `@contextmanager`, która blok owija. Czego blok nie pilnuje: serwis wywołany
+  w nim, który we własnym `atomic()` ustawi innego tenanta, zostawia resztę bloku pod
+  tym tenantem (wyjście i tak oddaje wywołującemu jego ustawienie).
 
 **Czego reguła nie obiecuje.** Test czyta drzewo źródeł, które produkt składa
 (rdzeń + własne moduły), więc pilnuje produktu jego własną bramką — produkt, który
 nie uruchamia testów rdzenia, nie jest pilnowany przez nic. Wykrywacz nie zobaczy
-nazwy złożonej dopiero w czasie działania. Do odnalezień liczy się też
+nazwy złożonej dopiero w czasie działania, identyfikatora podanego dalej pod własną
+nazwą ani pliku dołożonego pod `modules/vertical/` w drzewie samego rdzenia (rdzeń
+nie ma tam żadnego). Do odnalezień liczy się też
 `ensure_platform_workspace()` — oddaje wiersz, który znalazła, wczytany przez drzwi;
 woła ją jedna komenda rdzenia (`provision_platform_workspace`, z wpisem), a moduł
 produktu, który by ją nazwał, pada jak za każde odnalezienie. Moduł wertykału może

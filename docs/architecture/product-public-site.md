@@ -237,8 +237,10 @@ Pozostałe zasady:
 - **Strona z parametrem odpowiada `notFound()` na wartość, której nie zna.** Tabela
   sprawdza tylko kształt adresu; czy rasa istnieje, wie strona.
 - Kodowanych adresów nie pisze się ręcznie (§5). Odnośnik do panelu albo logowania
-  to `Link` z `#i18n/navigation` (lint rdzenia odrzuca `<a href="/panel">`
-  i `<a href="/login">`, w każdym języku). Panel mówi po polsku i angielsku (§3): na
+  to `Link` z `#i18n/navigation` (lint rdzenia — reguła
+  `@next/next/no-html-link-for-pages` z zestawu Next — odrzuca `<a href="/panel">`
+  i `<a href="/login">`, także `/en/login` i `/de/login`; sprawdzone na pliku strony
+  produktu, 2026-10-09). Panel mówi po polsku i angielsku (§3): na
   stronie w języku spoza pl/en podaj odnośnikowi `locale="en"`
   (`isPanelLocale(locale) ? undefined : "en"` z `#i18n/routing`), inaczej pisze
   `/de/login` i prowadzi przez jedno 308. Podaj mu też `prefetch={false}`: strona
@@ -510,7 +512,7 @@ pokazuje i zapisuje dla gościa (rasy, zapis na listę, formularz), należy do
    )
 
    with in_platform_workspace() as organization_id:
-       Breed.all_objects.filter(organization_id=organization_id, …)
+       breeds = list(Breed.all_objects.filter(organization_id=organization_id, …))
    ```
 
    Moduł produktu **nigdy nie nazywa** `platform_workspace`, `platform_workspace_id`
@@ -531,19 +533,30 @@ pokazuje i zapisuje dla gościa (rasy, zapis na listę, formularz), należy do
 - **Wdrożenie bez workspace'u mówi to wprost:** `PlatformWorkspaceMissing`
   (`APIException`, 503, kod `platform_workspace_missing`). Widok może ją przepuścić
   albo zamienić na własną odpowiedź; komenda zamienia ją na `CommandError`.
-- **Wywołany w czyjejś otwartej transakcji** jest jej punktem zapisu. Ustawienie
-  tenanta przeżywa zwolnienie punktu zapisu, więc blok przy wyjściu przywraca
-  ustawienie, które zastał — następne zapytanie wywołującego nie idzie jako platforma.
-  Blok zakończony wyjątkiem jest wycofywany do punktu zapisu razem z ustawieniem.
+- **Wywołany w czyjejś otwartej transakcji** — wewnątrz `atomic()` albo przy
+  wyłączonym autocommicie — jest jej punktem zapisu. Ustawienie tenanta przeżywa
+  zwolnienie punktu zapisu, więc blok przy wyjściu przywraca ustawienie, które zastał —
+  także po wyjątku — i następne zapytanie wywołującego nie idzie jako platforma.
 - **Zalogowany gość jest w bloku nadal gościem.** Sesja panelu jedzie z każdym
   żądaniem tego samego originu, więc gość zalogowany do własnej firmy ma na stronach
   produktu jej kontekst. W bloku kontekst cudzej firmy jest ukryty
   (`require_tenant_context()` odmawia jak anonimowemu); kontekst członka samego
   workspace'u zostaje.
-- **Identyfikator może wyjść z bloku.** Czytnik, który sam ustawia tenant dla podanego
-  identyfikatora, i komenda z własnymi transakcjami (jedna na rekord, przebieg próbny
-  z wycofaniem) biorą go z bloku i pracują dalej po swojemu — nie trzeba zamykać
-  całej pracy w jednej transakcji bloku.
+- **Policz w bloku, nigdy nie rób w nim `yield`.** Generator zawieszony w bloku
+  (`with in_platform_workspace(): yield wiersz`) oddaje sterowanie wywołującemu
+  z ustawionym tenantem platformy i ukrytym kontekstem gościa — zapytania wywołującego
+  między dwiema wartościami idą jako platforma. A zapytanie zbudowane w bloku
+  i odczytane po nim (leniwy `QuerySet`) czyta się już w tenancie wywołującego i nie
+  znajduje nic. Zrób w bloku listę i oddaj ją po wyjściu. Test rdzenia pada za `yield`
+  w bloku i podaje linię; przepuszcza tylko funkcję `@contextmanager`, która owija
+  blok — ona sama jest blokiem, w który wywołujący wchodzi przez `with`.
+- **Blok nie pilnuje tego, co w nim działa.** Serwis wywołany w bloku, który we
+  własnym `atomic()` ustawi innego tenanta, zostawia resztę bloku pod tym tenantem;
+  wyjście z bloku i tak przywraca ustawienie wywołującego.
+- **Blok jest wygodą, nie płotem.** Identyfikator wychodzi z niego celowo: czytnik,
+  który sam ustawia tenant dla podanego identyfikatora, i komenda z własnymi
+  transakcjami (jedna na rekord, przebieg próbny z wycofaniem) biorą go z bloku
+  i pracują dalej po swojemu. Wiersze firm rozdziela RLS, z blokiem czy bez niego.
 - Nie zastępuje kontekstu tenanta w panelu: żądanie, które ma już swoją firmę,
   czyta ją jak dotąd.
 
@@ -582,24 +595,34 @@ with workspace_scope(organization=organization, operator_email=…):   # jak dot
 - Odpowiada wyłącznie kopia (`thumbnail`, `preview`) zdjęcia gotowego, należącego do
   workspace'u i zwróconego przez źródło. Zdjęcie niezadeklarowane, cudze i nieistniejące
   dają **to samo 404**; oryginał — 404.
-- Źródło jest pytane przy każdym żądaniu zdjęcia (rekord na żywo: wycofana rasa znika
-  od razu). Zmierzone na stosie z 374 zdjęciami pod rolą aplikacji: pytanie do źródła
-  0,9 ms z 9,5 ms całego żądania miniatury (mediana) — rejestr nie potrzebuje
-  tańszego pytania „czy ten jeden”. Odpowiedź ma `Cache-Control: public,
-  max-age=31536000, immutable`, więc przeglądarka pyta o dane zdjęcie raz.
+- Źródło jest pytane przy każdym żądaniu zdjęcia, które dociera do serwera: zdjęcie
+  wycofanego rekordu **przestaje odpowiadać od razu**. Zmierzone na stosie z 374
+  zdjęciami pod rolą aplikacji: pytanie do źródła 0,9 ms z 9,5 ms całego żądania
+  miniatury (mediana) — rejestr nie potrzebuje tańszego pytania „czy ten jeden”.
+- **Wycofanie nie cofa kopii już pobranych.** Odpowiedź ma `Cache-Control: public,
+  max-age=31536000, immutable` (jak każde opublikowane zdjęcie: nowe zdjęcie to nowy
+  identyfikator), więc kopia, którą przeglądarka albo pamięć pośrednia po drodze już
+  pobrała, zostaje w niej nawet przez rok i nikt o nią serwera nie zapyta. Kto musi
+  zdjęcie naprawdę zdjąć z widoku, nie może na tym polegać. Jedna decyzja o tym
+  nagłówku dla obu ścieżek (strona firmy i host platformy) jest zapisana w planie
+  jako osobna sprawa; ten kontrakt go nie zmienia.
 - Strona firmy na własnym hoście serwuje zdjęcia swoich rekordów tą samą regułą, jak
   dotąd (`public_media`).
 
 ### 13.3. Kto czego pilnuje
 
 - `tests/test_pre_tenant_door.py` — moduł wertykału woła blok bez deklaracji i pada za
-  nazwanie odnalezienia (także w komendzie); moduł `core` albo `shared` pada za jedno
-  i drugie, dopóki nie zostanie zadeklarowany w rdzeniu z powodem; pięć plików
-  publicznego renderera nie może nazwać niczego z tego.
+  nazwanie odnalezienia (także w komendzie) oraz za `yield` w bloku; moduł `core` albo
+  `shared` pada za blok i za odnalezienie, dopóki nie zostanie zadeklarowany w rdzeniu
+  z powodem; pięć plików publicznego renderera nie może nazwać niczego z tego. Czego
+  ten test nie złapie, jest wypisane w nim samym (nazwa złożona w czasie działania,
+  identyfikator podany dalej pod własną nazwą).
 - `tests/test_platform_workspace_block.py` — kolejność zapytań bloku, przywrócenie
-  ustawienia, ukrycie cudzego kontekstu, brak workspace'u.
-- `tests/test_sites_content_media_sources.py` — reguła zdjęć i `SET LOCAL` przed
-  pytaniem do źródła.
+  ustawienia (także przy wyłączonym autocommicie), ukrycie cudzego kontekstu, brak
+  workspace'u.
+- `tests/test_sites_content_media_sources.py` — reguła zdjęć, `SET LOCAL` przed
+  pytaniem do źródła, żądanie zalogowanego gościa zostawione, jak było, i ta sama
+  odmowa, gdy plik zniknął z magazynu.
 - **Tego testy nie wiedzą:** baza testowa łączy się właścicielem tabel i omija RLS —
   test trzyma kolejność zapytań, nie to, że rola aplikacji widzi wiersze. To pokazuje
   uruchomiony stos: `/media/<id zdjęcia opublikowanego rekordu>/thumbnail` na hoście

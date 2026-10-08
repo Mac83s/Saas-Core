@@ -20,13 +20,21 @@ from uuid import UUID
 
 import pytest
 from django.core.cache import cache
-from django.db import connection
+from django.db import connection, transaction
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations import public_sources
 from saas_core.modules.core.organizations.api import PublicSource
+from saas_core.modules.core.organizations.context import (
+    TenantContext,
+    activate_tenant_context,
+    current_tenant_context,
+    local_organization_setting,
+    set_local_organization_id,
+)
 from saas_core.modules.shared.media.models import MediaAsset
+from saas_core.modules.shared.sites.content_reads import ContentNotFound, serve_content_media
 from test_media_api import MemoryStorage
 from test_sites_api import create_media_asset
 from test_sites_content_reads import PNG, Publisher, _hero, _names, _read
@@ -79,6 +87,8 @@ class Records:
     def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self.shown: set[UUID] = set()
         self.asked: list[UUID] = []
+        #: Whose membership was in force each time the source was asked.
+        self.asked_as: list[Any] = []
         # The whole registry, for this test only: a source left behind would
         # answer in every later test of the process, and the sources of
         # whatever product composes this tree are not what is tested here.
@@ -90,6 +100,7 @@ class Records:
 
     def served(self, organization_id: UUID) -> set[UUID]:
         self.asked.append(organization_id)
+        self.asked_as.append(current_tenant_context())
         # A read of a table that forces row-level security, by the company:
         # what a product's source does with its own table.
         return set(
@@ -229,8 +240,11 @@ def test_the_tenant_is_set_before_the_source_is_asked(
         assert _names(statements[index], guide.organization)
     # Nothing in either request names the other company: its picture is
     # refused by the workspace's own filters, not by a look at whose it is.
+    # (But for the one statement that gives this test's own transaction the
+    # tenant setting it had before each read — the company's, as it happens.)
     for sql in statements:
-        assert not _names(sql, company.organization), sql
+        if not sql.startswith("SELECT set_config('app.organization_id'"):
+            assert not _names(sql, company.organization), sql
 
 
 def test_a_picture_costs_the_same_however_many_the_source_shows(
@@ -261,16 +275,91 @@ def test_a_picture_costs_the_same_however_many_the_source_shows(
     reads = [sql for sql in among_many if sql.startswith("SELECT")]
     # The door, the workspace's row and its site; then, with the tenant set,
     # one question to the source and the picture's row. (Each further source
-    # that serves pictures adds one question of its own.)
-    assert [next(table for table in TABLES if f'FROM "{table}"' in sql) for sql in reads] == [
+    # that serves pictures adds one question of its own.) Around them, only
+    # because a test runs inside a transaction: the tenant setting found is
+    # read first and put back last — a request on its own pays neither.
+    assert [
+        next((table for table in TABLES if f'FROM "{table}"' in sql), sql.split("(")[0])
+        for sql in reads
+    ] == [
+        "SELECT current_setting",
         "organizations_organization",
         "organizations_organization",
         "sites_site",
         "media_mediaasset",
         "media_mediaasset",
+        "SELECT set_config",
     ]
     # A copy of a declared picture never searches the published snapshots.
     assert not any('"sites_contententrypublication"' in sql for sql in among_many)
+
+
+def test_a_signed_in_visitors_request_is_left_as_it_was(
+    monkeypatch: pytest.MonkeyPatch, storage: MemoryStorage
+) -> None:
+    """A picture's address is asked with the panel's session when the reader
+    is signed in — to their own company. The read sets the workspace's tenant
+    and asks a product's source; neither may be done as that company, and
+    neither may be left behind in the request."""
+    guide = Publisher("media-source-visitor")
+    company = Publisher("media-source-visitor-company")
+    records = Records(monkeypatch)
+    of_record = _picture(storage, guide.organization, guide.user)
+    records.shown = {of_record.id}
+    guide.enter()
+    theirs = TenantContext(
+        organization_id=company.organization.id,
+        membership_id=company.organization.id,
+        actor_id=company.user.id,
+        role_key="owner",
+        permissions=frozenset(),
+    )
+
+    with transaction.atomic(), activate_tenant_context(theirs):
+        set_local_organization_id(company.organization.id)
+        served = serve_content_media(asset_id=of_record.id, variant="thumbnail")
+        after_served = (local_organization_setting(), current_tenant_context())
+        # Refused after the workspace was found and its tenant set.
+        with pytest.raises(ContentNotFound):
+            serve_content_media(asset_id=UUID(NOBODY), variant="thumbnail")
+        after_refused = (local_organization_setting(), current_tenant_context())
+
+    assert served.status_code == 200
+    assert after_served == (str(company.organization.id), theirs)
+    assert after_refused == (str(company.organization.id), theirs)
+    # The source was asked about the workspace, as nobody's member.
+    assert set(records.asked) == {guide.organization.id}
+    assert records.asked_as == [None, None]
+
+    # The same through the address, with the company's own session.
+    records.asked_as.clear()
+    signed_in = company.client.get(f"/api/v1/public/content/media/{of_record.id}/thumbnail/")
+    assert _answer(signed_in) == (200, b"thumbnail", "image/webp")
+    assert records.asked_as == [None]
+
+
+def test_a_picture_whose_bytes_are_gone_is_refused_like_any_other(
+    monkeypatch: pytest.MonkeyPatch, storage: MemoryStorage
+) -> None:
+    """The row says the picture is ready and the object store has no such
+    object: the visitor is told what they are told about nobody's id — not
+    the framework's own page for a missing address."""
+    guide = Publisher("media-source-bytes")
+    records = Records(monkeypatch)
+    of_record = _picture(storage, guide.organization, guide.user)
+    in_entry = _picture(storage, guide.organization, guide.user)
+    guide.entry("ze-zdjeciem", blocks=_hero(in_entry), media=[str(in_entry.id)])
+    records.shown = {of_record.id}
+    guide.enter()
+    assert _copy(of_record).status_code == 200
+    assert _original(in_entry).status_code == 200
+    nobody = _copy(NOBODY)
+
+    storage.objects.clear()
+
+    assert _answer(_copy(of_record)) == _answer(nobody)
+    assert _answer(_original(in_entry)) == _answer(nobody)
+    assert _answer(_copy(in_entry, "preview")) == _answer(nobody)
 
 
 def test_a_companys_own_site_serves_as_it_did(

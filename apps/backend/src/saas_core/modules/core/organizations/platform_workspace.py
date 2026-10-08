@@ -32,16 +32,11 @@ from typing import Any
 from uuid import UUID
 
 from django.conf import settings
-from django.db import IntegrityError, connection, transaction
+from django.db import IntegrityError, transaction
 from rest_framework.exceptions import APIException
 
 from .audit import record_audit
-from .context import (
-    local_organization_setting,
-    only_tenant_context_of,
-    restore_local_organization_setting,
-    set_local_organization_id,
-)
+from .context import set_local_organization_id, tenant_block
 from .models import (
     Organization,
     OrganizationAuditAction,
@@ -124,7 +119,7 @@ def in_platform_workspace() -> Iterator[UUID]:
     request at all. Instead of naming the lookup above, such code writes
 
         with in_platform_workspace() as organization_id:
-            Row.all_objects.filter(organization_id=organization_id)…
+            rows = list(Row.all_objects.filter(organization_id=organization_id))
 
     - The block is one transaction with the workspace's tenant set, so the
       tables that force row-level security answer in it — and only with the
@@ -133,12 +128,26 @@ def in_platform_workspace() -> Iterator[UUID]:
     - Run inside somebody's open transaction, the block is a savepoint of it,
       and a tenant setting outlives the release of a savepoint: the setting
       found on the way in is put back on the way out, so the caller's next
-      statement does not run as the platform. (A block that fails is rolled
-      back to its savepoint, and the setting with it.)
+      statement does not run as the platform (`tenant_setting_kept`).
     - A visitor signed in to the panel is still a visitor here: their own
       company's context is hidden inside the block.
-    - The identifier may leave the block — a command reads the workspace's
-      row here and then runs its own transactions, each setting its tenant.
+
+    What it does not do:
+
+    - **Evaluate inside, never `yield` inside.** A generator suspended in the
+      block hands control back with the platform's tenant still set and the
+      visitor's context still hidden; a queryset built here and read after
+      it is read in the caller's tenant and finds nothing. Make the list in
+      the block and give it back after. (A `@contextmanager` that wraps the
+      block is a block itself; the guard lets that one `yield` through.)
+    - It does not watch what runs in it. A service called here that opens
+      its own `atomic()` and sets another tenant leaves the rest of the
+      block running as that tenant; the way out still puts the caller's own
+      setting back.
+    - It is a convenience, not a fence. The identifier leaves the block by
+      design — a command reads the workspace's row here and then runs its
+      own transactions, each setting its tenant — and what keeps a tenant's
+      rows apart is row-level security, with or without this block.
 
     Who may call this is pinned in `tests/test_pre_tenant_door.py`: a
     product's vertical modules by design, the core's own only by declaration.
@@ -146,14 +155,8 @@ def in_platform_workspace() -> Iterator[UUID]:
     organization_id = platform_workspace_id()
     if organization_id is None:
         raise PlatformWorkspaceMissing
-    # Only asked where there is a transaction to leave changed.
-    found = local_organization_setting() if connection.in_atomic_block else None
-    with only_tenant_context_of(organization_id):
-        with transaction.atomic():
-            set_local_organization_id(organization_id)
-            yield organization_id
-        if found is not None:
-            restore_local_organization_setting(found)
+    with tenant_block(organization_id):
+        yield organization_id
 
 
 def is_platform_workspace(organization: Organization | Any) -> bool:

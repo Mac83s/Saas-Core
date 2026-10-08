@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from uuid import UUID
 
-from django.db import connection
+from django.db import DatabaseError, connection, transaction
 
 from .models import Membership
 
@@ -213,3 +213,49 @@ def restore_local_organization_setting(value: str) -> None:
     transaction: a setting made inside a savepoint outlives its release."""
     with connection.cursor() as cursor:
         cursor.execute("SELECT set_config('app.organization_id', %s, true)", [value])
+
+
+@contextmanager
+def tenant_setting_kept() -> Iterator[None]:
+    """Whatever the block sets `app.organization_id` to, the caller has back
+    what it had.
+
+    `SET LOCAL` lasts to the end of the transaction, not of the savepoint it
+    was made in. Work that sets a tenant inside somebody's open transaction
+    would leave the rest of that transaction running as that tenant; this
+    reads the setting on the way in and puts it back on the way out.
+
+    Nothing is asked where no transaction is open — the work's own
+    transaction then ends, and its setting with it. A transaction is open
+    inside `atomic()` and also where the caller switched autocommit off: the
+    work's `atomic()` is only a savepoint there too.
+    """
+    if not (connection.in_atomic_block or not connection.get_autocommit()):
+        yield
+        return
+    found = local_organization_setting()
+    try:
+        yield
+    except BaseException:
+        # A savepoint rolled back took its setting with it, but one released
+        # earlier in the work did not. Where the whole transaction is lost
+        # the setting is lost with it, and there is nothing to ask.
+        with suppress(DatabaseError):
+            restore_local_organization_setting(found)
+        raise
+    restore_local_organization_setting(found)
+
+
+@contextmanager
+def tenant_block(organization_id: UUID) -> Iterator[None]:
+    """One transaction inside that organization's tenant, leaving nothing of
+    it behind: the caller's own tenant setting is put back
+    (`tenant_setting_kept`) and nobody's membership of another organization
+    is in force meanwhile (`only_tenant_context_of`).
+
+    For the places that enter a tenant no request named — the platform's
+    workspace on its own host. A request that has its tenant sets it as ever.
+    """
+    with tenant_setting_kept(), only_tenant_context_of(organization_id), transaction.atomic():
+        set_local_organization_id(organization_id)
+        yield

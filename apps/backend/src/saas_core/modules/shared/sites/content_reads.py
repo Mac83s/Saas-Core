@@ -43,7 +43,11 @@ from django.db.models import Q, QuerySet
 from django.http import HttpResponse
 from rest_framework.exceptions import ErrorDetail, NotFound, ValidationError
 
-from saas_core.modules.core.organizations.context import set_local_organization_id
+from saas_core.modules.core.organizations.context import (
+    only_tenant_context_of,
+    set_local_organization_id,
+    tenant_setting_kept,
+)
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.platform_workspace import platform_workspace_id
 from saas_core.modules.core.organizations.public_sources import served_media_ids
@@ -840,28 +844,34 @@ def serve_content_media(*, asset_id: UUID, variant: str = "") -> HttpResponse:
 
     The same answer whether the asset is somebody else's, nobody's, or the
     workspace's own that neither rule names."""
-    workspace = _workspace()
-    with transaction.atomic():
-        # A source reads its own tables, and they force row-level security
-        # as media does: asked before the tenant is set, the application's
-        # role sees no row there and every such picture would answer 404.
-        set_local_organization_id(workspace.organization_id)
-        if not (
-            # A copy asks the sources first: a list page's dozens of
-            # thumbnails are then answered by one small read each, and never
-            # wait for the search of every published snapshot.
-            (variant and asset_id in served_media_ids(workspace.organization_id))
-            or _published(workspace)
-            .filter(
-                current_publication__snapshot__locale__in=sorted(workspace.available),
-                current_publication__snapshot__media_asset_ids__contains=[str(asset_id)],
-            )
-            .exists()
-        ):
-            raise ContentNotFound
-        asset = MediaAsset.all_objects.filter(
-            pk=asset_id,
-            organization_id=workspace.organization_id,
-            state=MediaAssetState.READY,
-        ).first()
+    # The read sets the workspace's tenant, and a signed-in visitor's browser
+    # sends the panel's session along with a picture's address: whatever
+    # tenant the request had set is put back, and the visitor's own company
+    # is not who a source is asked as (as `in_platform_workspace` does).
+    with tenant_setting_kept():
+        workspace = _workspace()
+        with only_tenant_context_of(workspace.organization_id), transaction.atomic():
+            # A source reads its own tables, and they force row-level
+            # security as media does: asked before the tenant is set, the
+            # application's role sees no row there and every such picture
+            # would answer 404.
+            set_local_organization_id(workspace.organization_id)
+            if not (
+                # A copy asks the sources first: a list page's dozens of
+                # thumbnails are then answered by one small read each, and
+                # never wait for the search of every published snapshot.
+                (variant and asset_id in served_media_ids(workspace.organization_id))
+                or _published(workspace)
+                .filter(
+                    current_publication__snapshot__locale__in=sorted(workspace.available),
+                    current_publication__snapshot__media_asset_ids__contains=[str(asset_id)],
+                )
+                .exists()
+            ):
+                raise ContentNotFound
+            asset = MediaAsset.all_objects.filter(
+                pk=asset_id,
+                organization_id=workspace.organization_id,
+                state=MediaAssetState.READY,
+            ).first()
     return media_response(asset, variant)

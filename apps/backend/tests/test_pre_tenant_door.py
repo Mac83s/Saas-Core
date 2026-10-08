@@ -14,6 +14,7 @@ direction.
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterator
 from importlib import import_module
 from pathlib import Path
 
@@ -118,6 +119,9 @@ WORKSPACE_LOOKUPS = frozenset({
 #: known just the same — it is counted with them.
 WORKSPACE_BLOCK = "in_platform_workspace"
 WORKSPACE_NAMES = WORKSPACE_LOOKUPS | {WORKSPACE_BLOCK}
+#: What makes a function that yields a block of its own rather than a
+#: generator somebody reads at leisure.
+CONTEXT_MANAGERS = frozenset({"contextmanager", "asynccontextmanager"})
 WORKSPACE_LOOKUP_DEFINITION = "modules/core/organizations/platform_workspace.py"
 
 #: A product's own modules. Its public pages stand on the platform's host,
@@ -126,6 +130,18 @@ WORKSPACE_LOOKUP_DEFINITION = "modules/core/organizations/platform_workspace.py"
 #: there and nowhere else. So the block is theirs to call without a line in
 #: this file — a product may not edit a file of the core (ADR-049) — and the
 #: lookups are never theirs to name, in a view or in a command.
+#:
+#: What this does not catch, said plainly:
+#: - a file put under `modules/vertical/` in the core's own tree — the core
+#:   ships none there, and one that appeared would pass as a product's;
+#: - a name put together while the program runs (two strings joined, an
+#:   f-string, bytes decoded) or taken out of `sys.modules`;
+#: - an answer handed on: a module that may ask giving the identifier to one
+#:   that may not, under a name of its own;
+#: - the door's alias written as a literal (`.using("pre_tenant")`) instead
+#:   of the constant the first count looks for.
+#: A product is held to it by its own gate running this file; a product that
+#: does not run the core's tests is held to nothing.
 PRODUCT_MODULES = "modules/vertical/"
 
 #: Who of the core may ask, by which name, and why. A module is on this list
@@ -248,9 +264,12 @@ def _workspace_problems(
                     f"wprost ({', '.join(named)}). Moduł wertykału nie nazywa go nigdy, "
                     "także w komendzie operatora — użyj bloku: "
                     "`from saas_core.modules.core.organizations.api import "
-                    f"{WORKSPACE_BLOCK}` i `with {WORKSPACE_BLOCK}() as organization_id:` "
-                    "(ADR-080, „Uzupełnienie PR1c”; docs/architecture/product-public-site.md "
-                    "§13). Workspace zakłada komenda rdzenia provision_platform_workspace."
+                    f"{WORKSPACE_BLOCK}` i `with {WORKSPACE_BLOCK}() as organization_id:`. "
+                    "Komenda, która potrzebuje wiersza organizacji, czyta go w bloku "
+                    "(`Organization.objects.get(pk=organization_id)`), wychodzi i prowadzi "
+                    "własne transakcje jak dotąd (ADR-080, „Uzupełnienie PR1c”; "
+                    "docs/architecture/product-public-site.md §13). Workspace zakłada "
+                    "komenda rdzenia provision_platform_workspace."
                 )
         elif path not in declared:
             problems.append(
@@ -269,6 +288,78 @@ def _workspace_problems(
         for path in sorted(set(declared) - set(usage))
     )
     return problems
+
+
+def _yields_inside_the_block(source: str) -> list[int]:
+    """The lines where a function gives control away from inside the block:
+    a `yield` under `with in_platform_workspace()`.
+
+    A generator suspended there hands control back to its caller with the
+    platform's tenant still set and a signed-in visitor's own context still
+    hidden — the caller's statements between two values run as the platform.
+    The block is known by its name, by the name it was imported under, or as
+    an attribute of anything. A function defined inside the block is another
+    scope and is looked at by itself; a `@contextmanager` that wraps the
+    block is a block itself, entered and left by its caller's `with`, and is
+    let through.
+    """
+    tree = ast.parse(source)
+    names = {WORKSPACE_BLOCK} | {
+        alias.asname
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+        if alias.name == WORKSPACE_BLOCK and alias.asname
+    }
+    functions = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+
+    def own(node: ast.AST) -> Iterator[ast.AST]:
+        for child in ast.iter_child_nodes(node):
+            if not isinstance(child, functions):
+                yield child
+                yield from own(child)
+
+    def enters(item: ast.withitem) -> bool:
+        call = item.context_expr
+        if not isinstance(call, ast.Call):
+            return False
+        function = call.func
+        return (isinstance(function, ast.Name) and function.id in names) or (
+            isinstance(function, ast.Attribute) and function.attr == WORKSPACE_BLOCK
+        )
+
+    def wraps(function: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+        return any(
+            (isinstance(decorator, ast.Name) and decorator.id in CONTEXT_MANAGERS)
+            or (isinstance(decorator, ast.Attribute) and decorator.attr in CONTEXT_MANAGERS)
+            for decorator in function.decorator_list
+        )
+
+    found: set[int] = set()
+    for function in ast.walk(tree):
+        if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)) or wraps(function):
+            continue
+        for node in own(function):
+            if isinstance(node, (ast.With, ast.AsyncWith)) and any(map(enters, node.items)):
+                found |= {
+                    inner.lineno
+                    for inner in own(node)
+                    if isinstance(inner, (ast.Yield, ast.YieldFrom))
+                }
+    return sorted(found)
+
+
+def _suspended_blocks(root: Path = SOURCE) -> list[str]:
+    """One line per `yield` inside the block, saying what to write instead."""
+    return [
+        f"{path.relative_to(root).as_posix()}:{line}: `yield` wewnątrz "
+        f"`with {WORKSPACE_BLOCK}()` — generator zawieszony w bloku oddaje sterowanie "
+        "wywołującemu z ustawionym tenantem platformy i ukrytym kontekstem zalogowanego "
+        "gościa. Policz wynik w bloku (`list(…)`) i oddaj go po wyjściu; `yield` w bloku "
+        "wolno tylko funkcji `@contextmanager`, która sama jest blokiem."
+        for path in sorted(root.rglob("*.py"))
+        for line in _yields_inside_the_block(path.read_text(encoding="utf-8"))
+    ]
 
 
 def test_only_the_declared_places_read_before_a_tenant() -> None:
@@ -297,7 +388,7 @@ def test_only_the_declared_places_look_the_platform_workspace_up() -> None:
     the core does. A product's own module calls the block without a line
     here and fails for naming a lookup — with what to write instead."""
     declared = {path: names for path, (names, _reason) in DECLARED_WORKSPACE_LOOKUPS.items()}
-    problems = _workspace_problems(_workspace_usage(), declared)
+    problems = _workspace_problems(_workspace_usage(), declared) + _suspended_blocks()
 
     assert not problems, (
         "Kto sięga po workspace platformy bez hosta, rozjechał się z regułą "
@@ -372,6 +463,8 @@ def test_a_products_module_runs_the_block_and_never_names_the_lookup(tmp_path: P
             told[path]
         )
         assert "with in_platform_workspace() as organization_id:" in told[path]
+        # And how a command gets the row it used to get from the lookup.
+        assert "Organization.objects.get(pk=organization_id)" in told[path]
         assert "DECLARED_WORKSPACE_LOOKUPS" not in told[path]
     for path in ("modules/shared/somebody/reads.py", "modules/core/somebody/reads.py"):
         assert "DECLARED_WORKSPACE_LOOKUPS" in told[path]
@@ -386,6 +479,71 @@ def test_a_products_module_runs_the_block_and_never_names_the_lookup(tmp_path: P
         problem.startswith("modules/shared/somebody/reads.py: nazywa in_platform_workspace")
         for problem in _workspace_problems(_workspace_usage(tmp_path), declared)
     )
+
+
+def test_nothing_yields_from_inside_the_block(tmp_path: Path) -> None:
+    """„Evaluate inside, never yield inside." A product's reader written as a
+    generator would run its caller — a signed-in customer's request, say —
+    under the platform's tenant between two values. The guard names the line;
+    a `@contextmanager` around the block is the one `yield` it lets through,
+    because its caller enters and leaves it as it would the block."""
+    surface = "from saas_core.modules.core.organizations.api import in_platform_workspace"
+    tree = {
+        "modules/vertical/kennel/readers.py": (
+            f"{surface}\n\n\n"
+            "def breeds():\n"
+            "    with in_platform_workspace() as organization_id:\n"
+            "        for row in rows(organization_id):\n"
+            "            yield row\n"  # line 7
+        ),
+        "modules/vertical/kennel/pages.py": (
+            f"{surface} as publisher\n"
+            "from saas_core.modules.core.organizations import api\n\n\n"
+            "def pages():\n"
+            "    with publisher():\n"
+            "        yield from every()\n"  # line 7
+            "\n\n"
+            "async def later():\n"
+            "    with api.in_platform_workspace() as organization_id:\n"
+            "        if organization_id:\n"
+            "            yield organization_id\n"  # line 13
+        ),
+        # What a product writes instead, and the wrapper that is a block.
+        "modules/vertical/kennel/site_forms.py": (
+            "from contextlib import contextmanager\n\n"
+            f"{surface}\n\n\n"
+            "@contextmanager\n"
+            "def publisher():\n"
+            "    with in_platform_workspace() as organization_id:\n"
+            "        yield organization_id\n"
+            "\n\n"
+            "def breeds():\n"
+            "    with in_platform_workspace() as organization_id:\n"
+            "        found = list(rows(organization_id))\n"
+            "    yield from found\n"
+            "\n\n"
+            "def names():\n"
+            "    with in_platform_workspace() as organization_id:\n"
+            "        def each():\n"
+            "            yield organization_id\n"
+            "        return list(each())\n"
+        ),
+    }
+    for relative, source in tree.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source, encoding="utf-8")
+
+    problems = _suspended_blocks(tmp_path)
+
+    assert [problem.split(": ", 1)[0] for problem in problems] == [
+        "modules/vertical/kennel/pages.py:7",
+        "modules/vertical/kennel/pages.py:13",
+        "modules/vertical/kennel/readers.py:7",
+    ]
+    for problem in problems:
+        assert "`yield` wewnątrz `with in_platform_workspace()`" in problem
+        assert "list(" in problem and "@contextmanager" in problem
 
 
 def test_the_block_is_what_the_modules_surface_offers_and_the_lookups_are_not() -> None:

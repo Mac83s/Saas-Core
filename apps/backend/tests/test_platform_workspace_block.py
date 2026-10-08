@@ -21,7 +21,7 @@ from typing import Any
 from uuid import UUID
 
 import pytest
-from django.db import connection, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test.utils import CaptureQueriesContext
 
 from saas_core.modules.core.organizations.api import (
@@ -155,13 +155,25 @@ def test_the_callers_own_tenant_is_put_back_when_the_block_ends() -> None:
             transaction.set_rollback(True)
         assert local_organization_setting() == str(company.id)
 
-        # Blocks inside one another end where each began.
+        # The block does not watch what runs in it: a service called there
+        # that sets another tenant in its own `atomic()` leaves the rest of
+        # the block running as that tenant. Blocks inside one another end
+        # where each began, and the way out gives the caller its own back.
+        other = _organization("block-nested-other")
         with in_platform_workspace():
             with transaction.atomic():
-                set_local_organization_id(company.id)
+                set_local_organization_id(other.id)
+            assert local_organization_setting() == str(other.id)
             with in_platform_workspace():
-                pass
-            assert local_organization_setting() == str(company.id)
+                assert local_organization_setting() == str(workspace.id)
+            assert local_organization_setting() == str(other.id)
+        assert local_organization_setting() == str(company.id)
+
+        # A failure the block's own code caught and went on from.
+        with in_platform_workspace():
+            with pytest.raises(IntegrityError), transaction.atomic():
+                _organization("block-nested-other")
+            assert local_organization_setting() == str(workspace.id)
         assert local_organization_setting() == str(company.id)
 
 
@@ -196,6 +208,33 @@ def test_on_its_own_the_block_is_one_transaction_and_asks_nothing_more() -> None
     assert "set_config" not in " ".join(statements)
     # Nothing is left behind on the connection.
     assert local_organization_setting() == ""
+
+
+@pytest.mark.django_db(transaction=True)
+def test_a_caller_with_autocommit_off_gets_its_tenant_back_too() -> None:
+    """With autocommit switched off a transaction is open although nobody
+    entered `atomic()` — a command may work that way. The block's own
+    `atomic()` is then a savepoint of it, exactly as inside `atomic()`, and
+    the setting is put back just the same (review of 09.10: it was not)."""
+    workspace = _organization("block-manual", platform=True)
+    company = _organization("block-manual-company")
+    transaction.set_autocommit(False)
+    try:
+        assert not connection.in_atomic_block
+        with connection.cursor() as cursor:
+            cursor.execute("SET LOCAL app.organization_id = %s", [str(company.id)])
+        with in_platform_workspace():
+            assert local_organization_setting() == str(workspace.id)
+        after = local_organization_setting()
+        with pytest.raises(RuntimeError), in_platform_workspace():
+            raise RuntimeError
+        after_failure = local_organization_setting()
+        transaction.rollback()
+    finally:
+        transaction.set_autocommit(True)
+
+    assert after == str(company.id)
+    assert after_failure == str(company.id)
 
 
 def test_nothing_set_before_the_block_is_nothing_set_after_it() -> None:
