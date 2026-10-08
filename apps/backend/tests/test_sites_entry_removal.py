@@ -429,3 +429,29 @@ def test_erasing_an_entry_with_a_picture_leaves_the_picture_in_the_library(
     assert not ContentEntry.with_removed.filter(pk=entry).exists()
     assert MediaAsset.all_objects.filter(pk=asset.id, deleted_at__isnull=True).exists()
     assert MediaReference.all_objects.filter(asset_id=asset.id).count() == references
+
+
+def test_an_organization_with_categories_and_removed_entries_can_be_erased() -> None:
+    """Erasing a company deletes every row of it — a removed entry too, which
+    no reader of entries sees, and a tree of categories holding each other."""
+    from saas_core.modules.core.organizations.erasure import erase_organization
+    from saas_core.modules.core.organizations.models import Organization
+
+    world = World("removal-company")
+    top = world.category(world.projects, "Wnętrza")
+    under = world.category(world.projects, "Łazienki", top)
+    kept = world.entry(world.projects, "dom-a", categories=(under,), tags=("Porady",))
+    gone = world.entry(world.projects, "dom-b", categories=(top,))
+    assert world.names(world.projects, under, en="Bathrooms").status_code == 200
+    assert _remove(world, gone).status_code == 200
+    organization = Organization.objects.get(pk=world.organization_id)
+
+    receipt = erase_organization(
+        organization=organization, requested_by=None, reason="Synthetic test"
+    )
+
+    assert receipt.row_counts["sites.ContentTaxonomy"] == 1
+    assert receipt.row_counts["sites.ContentEntry"] == 3
+    for model in (ContentEntry.with_removed, ContentTag.all_objects, ContentTaxonomy.all_objects):
+        assert not model.filter(organization_id=organization.id).exists()
+    assert not ContentEntryPublication.all_objects.filter(entry_id__in=[kept, gone]).exists()
