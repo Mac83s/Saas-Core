@@ -59,6 +59,15 @@ def clear_login_throttle() -> None:
     cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def a_platform_that_offers_no_further_types(settings: Any) -> None:
+    """What these tests start from, whatever the profile they run under says:
+    no content types beyond the first unless a test asks for the offer
+    (`content_types_offered`), and companies that speak Polish and English."""
+    settings.CONTENT_TYPES_OFFERED = False
+    settings.SITES_SUPPORTED_LOCALES = ("pl", "en")
+
+
 def _send(client: Any, method: str, url: str, payload: dict[str, Any] | None = None) -> Any:
     return getattr(client, method)(
         url, payload or {}, format="json", HTTP_X_CSRFTOKEN=csrf_value(client)

@@ -117,7 +117,9 @@ test("wydawca: stan strony i części strony pod nazwami z menu — bez dnia, �
   expect(screen.queryByText("lista na start")).not.toBeInTheDocument();
   expect(tiles()).toEqual([
     ["/panel/sites", "Podstrony"],
-    ["/panel/sites/blog", "Blog"],
+    // „Treści”: the workspace runs content types whatever companies are
+    // offered (ADR-079 pkt 28).
+    ["/panel/sites/content", "Treści"],
     ["/panel/sites/translations", "Tłumaczenia"],
     ["/panel/sites/address", "Adres i domeny"],
   ]);
