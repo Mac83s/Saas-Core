@@ -883,13 +883,18 @@ def _find_named(name: str, tags: Sequence[ContentTag]) -> ContentTag | None:
     finds `drewno` once that tag answers at `wood`. Every spelling of the
     slug is tried: keys older than categories fold Polish letters only, and
     an address made before apostrophes were dropped has a hyphen for one."""
-    spellings = {tag_slug(name), name_slug(name), earlier_name_slug(name)} - {""}
-    for tag in tags:
-        if tag.slug in spellings:
-            return tag
-    for tag in tags:
-        if spellings & set((tag.locale_slugs or {}).values()):
-            return tag
+    # The spellings a name had before apostrophes were dropped come first, so a
+    # tag the name found then is still the one it finds: „Owner's” means
+    # `owner-s` even when „Owners” (`owners`, the new spelling) came first.
+    earlier = {tag_slug(name), earlier_name_slug(name)} - {""}
+    later = {name_slug(name)} - {""} - earlier
+    for spellings in (earlier, later):
+        for tag in tags:
+            if tag.slug in spellings:
+                return tag
+        for tag in tags:
+            if spellings & set((tag.locale_slugs or {}).values()):
+                return tag
     return None
 
 

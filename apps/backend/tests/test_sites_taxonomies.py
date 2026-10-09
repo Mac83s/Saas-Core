@@ -680,6 +680,34 @@ def test_an_apostrophe_is_dropped_from_a_new_address_and_no_stored_one_moves() -
     assert tags.count() == before
 
 
+def test_a_name_finds_the_tag_it_found_before_apostrophes_were_dropped() -> None:
+    """„Owner's” is `owner-s` on a site that also has „Owners” (`owners`): the
+    spelling the name had before wins, whichever tag stands first in the list."""
+    from saas_core.modules.shared.sites import taxonomies
+
+    world = World("tax-apostrophe-twins")
+    terms = f"/api/v1/sites/collections/{world.projects}/terms/"
+    ids = {
+        name: _send(world.client, "post", terms, {"kind": "tags", "name": name}).json()["id"]
+        for name in ("Owner's", "Owners")
+    }
+    assert ids["Owner's"] != ids["Owners"]
+    assert ContentTag.all_objects.get(pk=ids["Owner's"]).slug == "owner-s"
+    for first in ("Owner's", "Owners"):
+        for position, name in enumerate((first, "Owners" if first == "Owner's" else "Owner's")):
+            ContentTag.all_objects.filter(pk=ids[name]).update(position=position)
+        for name, tag_id in ids.items():
+            again = _send(world.client, "post", terms, {"kind": "tags", "name": name})
+            assert again.json()["id"] == tag_id
+            # The lookup every writer uses (`set_entry_tags`, the import).
+            tags = list(
+                ContentTag.all_objects.filter(
+                    site_id=world.site_id, taxonomy__isnull=True
+                ).order_by("position", "slug")
+            )
+            assert str(taxonomies._find_named(name, tags).pk) == tag_id  # type: ignore[union-attr]
+
+
 def _job_writes(world: World, texts: dict[str, str], *, read: Any = None) -> tuple[Any, str]:
     """A translation job writes site texts in English as the engine would:
     what it read (now, or `read` taken earlier), then its texts, live."""
