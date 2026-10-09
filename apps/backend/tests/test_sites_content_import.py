@@ -61,6 +61,7 @@ from saas_core.modules.shared.sites.models import (
     ContentImportRecord,
     ContentTag,
 )
+from saas_core.modules.shared.sites.taxonomies import create_term
 from test_sites_api import (
     CleanTemplateMediaScanner,
     TemplateMediaStorage,
@@ -1828,11 +1829,14 @@ _FORESEEN = {
 
 
 @contextmanager
-def _the_services_asked_anyway() -> Iterator[None]:
+def _the_services_asked_anyway() -> Iterator[list[str]]:
     """The import as it would be if its plan foresaw nothing: every address
     and former address the plan left out is handed to the service after all,
     and every term the plan refused in a service's name is sent to it. The
-    plan itself is untouched — it is put back the moment before the writes."""
+    plan itself is untouched — it is put back the moment before the writes.
+    After the writes, the service is asked for every merged id's name: it must
+    answer the term the plan says the id stands for (the list it yields)."""
+    wrong: list[str] = []
     put_back: list[Callable[[], None]] = []
     met, foresee, apply = content_import._met, content_import._foresee, content_import._apply
 
@@ -1863,11 +1867,31 @@ def _the_services_asked_anyway() -> Iterator[None]:
         for step in put_back:
             step()
         apply(plan, context)
+        for term in plan.terms.values():
+            collection = plan.types.get(term.type_key)
+            if term.same_as is None or term.line.refused or collection is None:
+                continue
+            kind = "categories" if term.kind == "category" else "tags"
+            parent = term.spec.get("parent")
+            above = (
+                content_import._standing_for(plan.terms["category", str(parent)]).term_id
+                if parent is not None
+                else None
+            )
+            row, _created = create_term(
+                collection_id=collection.id,
+                kind=kind,
+                name=str(term.spec["names"][plan.default_locale]).strip(),
+                parent_id=above,
+            )
+            held = content_import._standing_for(term)
+            if row.term.id != held.term_id:
+                wrong.append(f"{term.kind} {term.spec['id']} stands for {held.spec['id']}")
 
     content_import._met, content_import._foresee = asking_met, asking_foresee
     content_import._apply = asking_apply
     try:
-        yield
+        yield wrong
     finally:
         content_import._met, content_import._foresee = met, foresee
         content_import._apply = apply
@@ -1901,8 +1925,11 @@ def _disagreements(company: Company, seed: int) -> list[str]:
                     )
             transaction.set_rollback(True)
         cache.clear()
-        with transaction.atomic(), _the_services_asked_anyway():
+        with transaction.atomic(), _the_services_asked_anyway() as wrong:
             asked = company.run(document, apply=True)
+            found.extend(
+                f"{where} asked for a merged id, the service answered another: {w}" for w in wrong
+            )
             for plan_line, line in zip(planned.lines, asked.lines, strict=True):
                 expected = Counter(_codes(plan_line))
                 for code in _codes(plan_line):
