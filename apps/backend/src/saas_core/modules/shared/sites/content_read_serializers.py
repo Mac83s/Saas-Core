@@ -66,6 +66,12 @@ class PublicContentEntrySerializer(serializers.Serializer[dict[str, Any]]):
     image = PublicContentImageSerializer(
         allow_null=True, help_text="The first picture the body shows, or null."
     )
+    cover = PublicContentImageSerializer(
+        allow_null=True,
+        help_text="The picture the body opens with — the first thing of its first block of "
+        "text — or null. A page that draws it itself, above the title, asks `SiteEntryBody` "
+        "to leave it out (`withoutCover`). When set it is the same picture as `image`.",
+    )
     image_sizes = serializers.DictField(
         child=PublicImageSizeSerializer(),
         help_text="The stored size of the body's pictures, by media asset id; one of unknown "
@@ -134,14 +140,27 @@ class PublicContentListItemSerializer(serializers.Serializer[dict[str, Any]]):
     published_at = serializers.DateTimeField(allow_null=True)
     updated_at = serializers.DateTimeField()
     image = PublicContentImageSerializer(allow_null=True)
+    cover = PublicContentImageSerializer(
+        allow_null=True,
+        help_text="The picture the entry's body opens with, or null — as on the entry.",
+    )
     terms = PublicContentTermSerializer(many=True)
+
+
+class PublicContentListTermSerializer(PublicContentTermSerializer):
+    versions = PublicContentVersionSerializer(
+        many=True,
+        help_text="The term's list in each language it answers in — this one included, the "
+        "site's own first — as (language, slug), like an entry's `versions`: what a language "
+        "switch and `hreflang` of the term's page need. The same languages as `languages`.",
+    )
 
 
 class PublicContentListSerializer(serializers.Serializer[dict[str, Any]]):
     type = serializers.CharField()
     locale = ContentLocaleField(help_text=LOCALE)
     name = serializers.CharField(help_text="The type's name in the language read.")
-    term = PublicContentTermSerializer(
+    term = PublicContentListTermSerializer(
         allow_null=True, help_text="The term the list is of, or null: all of the type."
     )
     items = PublicContentListItemSerializer(many=True)

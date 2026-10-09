@@ -400,11 +400,38 @@ def _first_picture(blocks: Any, published: set[str]) -> dict[str, str] | None:
     return first(blocks)
 
 
-def _pictures(workspace: _Workspace, entry_ids: list[UUID]) -> dict[UUID, dict[str, str] | None]:
-    """The first picture of each of a page's entries: the only part of a list
-    that needs the bodies, read for that page's entries alone."""
+def _cover(blocks: Any, published: set[str]) -> dict[str, str] | None:
+    """The picture the body opens with: the first thing of its first block,
+    when that block is text and the thing is a picture in it. An import puts
+    a post's cover there, and a page that draws it above the title asks the
+    body to leave it out (`SiteEntryBody`, `withoutCover`). A picture
+    further down, or one that belongs to another kind of block (a hero's),
+    is no cover."""
+    first = blocks[0] if isinstance(blocks, list) and blocks else None
+    if not isinstance(first, dict) or first.get("block_type") != "core.rich_text":
+        return None
+    content = (first.get("data") or {}).get("content")
+    node = content[0] if isinstance(content, list) and content else None
+    image = node.get("image") if isinstance(node, dict) and node.get("type") == "figure" else None
+    if not isinstance(image, dict):
+        return None
+    asset_id = image.get("asset_id")
+    if not isinstance(asset_id, str) or asset_id not in published:
+        return None
+    return {"asset_id": asset_id, "alt": str(image.get("alt") or "")}
+
+
+def _pictures(
+    workspace: _Workspace, entry_ids: list[UUID]
+) -> dict[UUID, dict[str, dict[str, str] | None]]:
+    """The first picture of each of a page's entries, and the one its body
+    opens with: the only part of a list that needs the bodies, read for that
+    page's entries alone."""
     return {
-        entry_id: _first_picture(blocks, {str(asset_id) for asset_id in media or []})
+        entry_id: {
+            "image": _first_picture(blocks, {str(asset_id) for asset_id in media or []}),
+            "cover": _cover(blocks, {str(asset_id) for asset_id in media or []}),
+        }
         for entry_id, blocks, media in _published(workspace)
         .filter(pk__in=entry_ids)
         .values_list(
@@ -415,7 +442,9 @@ def _pictures(workspace: _Workspace, entry_ids: list[UUID]) -> dict[UUID, dict[s
     }
 
 
-def _item(item: _Listed, naming: _Naming, picture: dict[str, str] | None) -> dict[str, Any]:
+def _item(
+    item: _Listed, naming: _Naming, pictures: Mapping[str, dict[str, str] | None]
+) -> dict[str, Any]:
     return {
         "locale": item.locale,
         "slug": item.slug,
@@ -424,7 +453,8 @@ def _item(item: _Listed, naming: _Naming, picture: dict[str, str] | None) -> dic
         "author_name": item.author_name,
         "published_at": item.published_at,
         "updated_at": item.changed_at,
-        "image": picture,
+        "image": pictures.get("image"),
+        "cover": pictures.get("cover"),
         "terms": naming.terms(item.tags, item.categories),
     }
 
@@ -616,8 +646,12 @@ def read_entries(
             "type": collection.key,
             "locale": locale,
             "name": naming.names.get(f"collection/{collection.id}") or collection.name,
-            "term": asked.term if asked is not None else None,
-            "items": [_item(item, naming, pictures.get(item.entry_id)) for item in window],
+            "term": (
+                {**asked.term, "versions": asked.versions(workspace.default_locale, languages)}
+                if asked is not None
+                else None
+            ),
+            "items": [_item(item, naming, pictures.get(item.entry_id) or {}) for item in window],
             "page": page,
             "pages": pages,
             "total": len(entries),
@@ -655,11 +689,30 @@ class _Asked:
     key: str
     #: A category's id and those of the categories under it.
     ids: frozenset[str]
+    #: The term's row; none for a tag that only snapshots still name.
+    row: Term | None
 
     def lists(self, item: _Listed) -> bool:
         if self.key:
             return any(key == self.key for key, _name in item.tags)
         return _in_category(item, self.ids)
+
+    def versions(self, default_locale: str, languages: Iterable[str]) -> list[dict[str, str]]:
+        """The term's list in each language it answers in, as (language,
+        slug) — this one too, the site's own first, like an entry's
+        `versions`: a language switch and `hreflang` need no further read.
+        A tag without a row answers under its key everywhere."""
+        return [
+            {
+                "locale": code,
+                "slug": (
+                    term_slug(self.row, default_locale=default_locale, locale=code)
+                    if self.row is not None
+                    else self.key
+                ),
+            }
+            for code in languages
+        ]
 
 
 def _asked_term(naming: _Naming, of_type: list[_Listed], taxonomy: str, asked: str) -> _Asked:
@@ -682,13 +735,13 @@ def _asked_term(naming: _Naming, of_type: list[_Listed], taxonomy: str, asked: s
             (name for item in of_type for term_id, name in item.categories if term_id == found.id),
             "",
         )
-        return _Asked(naming.category(found, published), "", _under(naming, found))
+        return _Asked(naming.category(found, published), "", _under(naming, found), found)
     key = found.slug if found is not None else asked
     name = next((name for item in of_type for slug, name in item.tags if slug == key), None)
     if name is None:
         # No listed entry of the type carries it.
         raise ContentNotFound
-    return _Asked(naming.tag(key, name), key, frozenset())
+    return _Asked(naming.tag(key, name), key, frozenset(), naming.tags.get(key))
 
 
 # -- an entry ------------------------------------------------------------------
@@ -908,6 +961,7 @@ def read_entry(
             "timezone": timezone,
             "blocks": blocks,
             "image": picture,
+            "cover": _cover(blocks, set(media)),
             "image_sizes": {
                 asset_id: {"width": fact.width, "height": fact.height}
                 for asset_id, fact in facts.items()

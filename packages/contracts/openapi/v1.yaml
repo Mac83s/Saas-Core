@@ -45744,6 +45744,14 @@ components:
           - $ref: '#/components/schemas/PublicContentImage'
           - type: 'null'
           description: The first picture the body shows, or null.
+        cover:
+          oneOf:
+          - $ref: '#/components/schemas/PublicContentImage'
+          - type: 'null'
+          description: The picture the body opens with — the first thing of its first
+            block of text — or null. A page that draws it itself, above the title,
+            asks `SiteEntryBody` to leave it out (`withoutCover`). When set it is
+            the same picture as `image`.
         image_sizes:
           type: object
           additionalProperties:
@@ -45802,6 +45810,7 @@ components:
       - ai_media_ids
       - author_name
       - blocks
+      - cover
       - excerpt
       - image
       - image_sizes
@@ -45884,7 +45893,7 @@ components:
           description: The type's name in the language read.
         term:
           oneOf:
-          - $ref: '#/components/schemas/PublicContentTerm'
+          - $ref: '#/components/schemas/PublicContentListTerm'
           - type: 'null'
           description: 'The term the list is of, or null: all of the type.'
         items:
@@ -45980,12 +45989,19 @@ components:
           oneOf:
           - $ref: '#/components/schemas/PublicContentImage'
           - type: 'null'
+        cover:
+          oneOf:
+          - $ref: '#/components/schemas/PublicContentImage'
+          - type: 'null'
+          description: The picture the entry's body opens with, or null — as on the
+            entry.
         terms:
           type: array
           items:
             $ref: '#/components/schemas/PublicContentTerm'
       required:
       - author_name
+      - cover
       - excerpt
       - image
       - locale
@@ -46019,6 +46035,35 @@ components:
       - taxonomy
       - term
       - type
+    PublicContentListTerm:
+      type: object
+      properties:
+        taxonomy:
+          type: string
+          description: 'The taxonomy the term belongs to: `tag` — the site''s tags,
+            shared by its types; `category` — the type''s own categories, a tree.'
+        slug:
+          type: string
+          description: The term's part of an address in the language read; ask a list
+            by it. It may differ per language, and a list asked by another one answers
+            `moved`.
+        name:
+          type: string
+          description: 'The term''s name in the language read: its accepted translation,
+            else the name it was published under.'
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicContentVersion'
+          description: 'The term''s list in each language it answers in — this one
+            included, the site''s own first — as (language, slug), like an entry''s
+            `versions`: what a language switch and `hreflang` of the term''s page
+            need. The same languages as `languages`.'
+      required:
+      - name
+      - slug
+      - taxonomy
+      - versions
     PublicContentSitemap:
       type: object
       properties:

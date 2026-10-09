@@ -17165,6 +17165,8 @@ export interface components {
             }[];
             /** @description The first picture the body shows, or null. */
             image: components["schemas"]["PublicContentImage"] | null;
+            /** @description The picture the body opens with — the first thing of its first block of text — or null. A page that draws it itself, above the title, asks `SiteEntryBody` to leave it out (`withoutCover`). When set it is the same picture as `image`. */
+            cover: components["schemas"]["PublicContentImage"] | null;
             /** @description The stored size of the body's pictures, by media asset id; one of unknown size is left out. */
             image_sizes: {
                 [key: string]: components["schemas"]["PublicImageSize"];
@@ -17213,7 +17215,7 @@ export interface components {
             /** @description The type's name in the language read. */
             name: string;
             /** @description The term the list is of, or null: all of the type. */
-            term: components["schemas"]["PublicContentTerm"] | null;
+            term: components["schemas"]["PublicContentListTerm"] | null;
             items: components["schemas"]["PublicContentListItem"][];
             page: number;
             pages: number;
@@ -17244,6 +17246,8 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
             image: components["schemas"]["PublicContentImage"] | null;
+            /** @description The picture the entry's body opens with, or null — as on the entry. */
+            cover: components["schemas"]["PublicContentImage"] | null;
             terms: components["schemas"]["PublicContentTerm"][];
         };
         PublicContentListMoved: {
@@ -17252,6 +17256,16 @@ export interface components {
             locale: string;
             taxonomy: string | null;
             term: string | null;
+        };
+        PublicContentListTerm: {
+            /** @description The taxonomy the term belongs to: `tag` — the site's tags, shared by its types; `category` — the type's own categories, a tree. */
+            taxonomy: string;
+            /** @description The term's part of an address in the language read; ask a list by it. It may differ per language, and a list asked by another one answers `moved`. */
+            slug: string;
+            /** @description The term's name in the language read: its accepted translation, else the name it was published under. */
+            name: string;
+            /** @description The term's list in each language it answers in — this one included, the site's own first — as (language, slug), like an entry's `versions`: what a language switch and `hreflang` of the term's page need. The same languages as `languages`. */
+            versions: components["schemas"]["PublicContentVersion"][];
         };
         PublicContentSitemap: {
             /** @description Every listed entry, one item per group of language versions. */

@@ -1308,6 +1308,19 @@ robił inaczej, niż mówił.
    przyjęty: dwie nazwy różniące się tylko apostrofem („Dogs”, „Dog's”) czytają się
    odtąd tak samo — nowa kategoria o drugiej z nich obok pierwszej jest odmawiana jak
    „Porady” obok „porady”, a wpisana jako tag znajduje tag pierwszej.
+3. **Odczyt mówi, kiedy treść zaczyna się od zdjęcia** (zostawione przez CT4 pkt 21).
+   Wpis i pozycja listy niosą `cover`: zdjęcie będące pierwszą rzeczą pierwszego bloku
+   tekstu (tam import kładzie okładkę) albo `null`; `SiteEntryBody` przyjmuje
+   `withoutCover` i pomija wtedy dokładnie to zdjęcie. Reguła jest jedna, czytana z dwóch
+   stron: serwer mówi, czy okładka jest, komponent zdejmuje pierwszą rzecz pierwszego
+   bloku tylko wtedy. Flaga zamiast obiektu odrzucona: strona i tak potrzebuje
+   identyfikatora i opisu, żeby narysować zdjęcie nad tytułem.
+4. **Lista pozycji niesie adresy pozycji w językach, w których odpowiada**
+   (`list.term.versions`, jak `entry.versions`) — z tego, co odczyt już wie; strona
+   kategorii albo tagu nie pyta cztery razy więcej po przełącznik języka i `hreflang`.
+   Obie zmiany są dopisaniem pól: istniejące pola i odpowiedzi `moved`/`not-found` bez
+   zmian; trzy testy kontraktu, które porównywały odpowiedź co do klucza, dostały
+   nowe klucze i nic poza nimi.
 
 ## Ryzyka
 

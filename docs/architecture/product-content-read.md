@@ -99,6 +99,7 @@ const result = await contentEntry({ type: "poradnik", locale, slug, canonicalUrl
 | `timezone` | strefa wydawcy (IANA): dzień, który widzi czytelnik, liczy się w niej |
 | `blocks` | treść jako bloki rdzenia — rysuje je `SiteEntryBody` (§6) |
 | `image` | pierwsze zdjęcie treści `{ asset_id, alt }` albo `null` |
+| `cover` | zdjęcie, **od którego treść się zaczyna** — pierwsza rzecz pierwszego bloku tekstu — `{ asset_id, alt }` albo `null`. Tam trafia okładka wpisu z importu. Strona, która rysuje je sama (nad tytułem), prosi `SiteEntryBody` o pominięcie go (§6). Zdjęcie dalej w tekście albo zdjęcie innego bloku (np. hero) okładką nie jest; gdy `cover` jest, to to samo zdjęcie co `image` |
 | `image_sizes`, `ai_media_ids` | fakty o zdjęciach, których potrzebuje `SiteEntryBody` |
 | `terms` | pozycje wpisu `{ taxonomy, slug, name }` — tagi (`tag`), potem kategorie (`category`) w kolejności drzewa; nazwa i `slug` w języku wpisu |
 | `versions` | opublikowane wersje językowe `{ locale, slug }`, **ta wersja też**, język strony pierwszy |
@@ -119,8 +120,8 @@ const filed = await contentEntries({ type: "poradnik", locale, taxonomy: "catego
 | Pole `list` | Co to jest |
 |---|---|
 | `type`, `locale`, `name` | klucz typu, język i nazwa typu w tym języku |
-| `term` | pozycja, której lista dotyczy (`{ taxonomy, slug, name }`), albo `null` |
-| `items` | wpisy strony, od najnowszego: `locale`, `slug`, `title`, `excerpt`, `author_name`, `published_at`, `updated_at`, `image`, `terms` |
+| `term` | pozycja, której lista dotyczy (`{ taxonomy, slug, name, versions }`), albo `null`. `versions` to adres tej listy w każdym języku, w którym odpowiada — `{ locale, slug }`, **ta wersja też**, język strony pierwszy, te same języki co `languages` — jak `versions` wpisu: przełącznik języka i `hreflang` strony kategorii albo tagu nie potrzebują kolejnych odczytów |
+| `items` | wpisy strony, od najnowszego: `locale`, `slug`, `title`, `excerpt`, `author_name`, `published_at`, `updated_at`, `image`, `cover` (jak przy wpisie), `terms` |
 | `page`, `pages`, `total` | bieżąca strona, liczba stron, liczba wpisów na całej liście w tym języku |
 | `timezone` | strefa wydawcy (IANA), jak przy wpisie: dzień na karcie liczy się w niej |
 | `languages` | języki, w których ta lista odpowiada — do `hreflang` listy |
@@ -288,6 +289,7 @@ export default async function Page({ params }) {
 
 ```tsx
 <SiteEntryBody entry={entry} className="guide-body" />
+<SiteEntryBody entry={entry} withoutCover />   {/* okładkę rysuje strona */}
 ```
 
 - Rysuje **same bloki** komponentami rdzenia (`@saas-core/site-blocks`): tekst, tabele,
@@ -298,6 +300,10 @@ export default async function Page({ params }) {
   tekstem, gdy serwer tak mówi (`machine_text.notice`).
 - **Pomija** formularz kontaktowy i bloki rekordów na żywo (noclegi): za tą stroną nie
   stoi strona firmy, do której formularz by pisał.
+- Z `withoutCover` pomija też zdjęcie, od którego treść się zaczyna — to, które odczyt
+  nazywa `cover` — i tylko je: treść, która nie zaczyna się od zdjęcia (`cover: null`),
+  jest rysowana cała. Strona nie musi sama wycinać pierwszego bloku ani zgadywać, czy
+  jest nim okładka.
 - Style bloków są częścią `@saas-core/ui/globals.css` (importuje go układ produktu,
   ADR-080 §4) i są pisane pod `.site-theme`. Opakowanie to
   `.site-theme.site-theme--embedded`: wysokość, tło, kolor tekstu i czcionkę bierze ze

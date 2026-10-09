@@ -323,6 +323,8 @@ export type PublicContentListAnswer =
   components["schemas"]["PublicContentListAnswer"];
 export type PublicContentListItem =
   components["schemas"]["PublicContentListItem"];
+export type PublicContentListTerm =
+  components["schemas"]["PublicContentListTerm"];
 export type PublicContentSitemap =
   components["schemas"]["PublicContentSitemap"];
 export type PublicContentTerm = components["schemas"]["PublicContentTerm"];

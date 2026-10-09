@@ -125,4 +125,55 @@ describe("an entry's body inside a product's own page (ADR-079)", () => {
     );
     expect(screen.queryByRole("note")).toBeNull();
   });
+
+  it("leaves out the picture the body opens with when the page draws it itself", () => {
+    const opening = {
+      ...entry,
+      blocks: [
+        {
+          block_type: "core.rich_text",
+          schema_version: 4,
+          data: {
+            content: [
+              {
+                type: "figure",
+                image: { asset_id: picture, alt: "Szczeniak przy misce" },
+              },
+              {
+                type: "paragraph",
+                content: [{ text: "Tekst pod zdjęciem." }],
+              },
+            ],
+          },
+        },
+      ],
+      cover: { asset_id: picture, alt: "Szczeniak przy misce" },
+    };
+
+    // As published by default: nothing is taken out unasked.
+    const whole = render(<SiteEntryBody entry={opening} />);
+    expect(whole.container.querySelectorAll("img")).toHaveLength(1);
+    whole.unmount();
+
+    const { container } = render(
+      <SiteEntryBody entry={opening} withoutCover />,
+    );
+    expect(container.querySelector("img")).toBeNull();
+    expect(screen.getByText("Tekst pod zdjęciem.")).toBeTruthy();
+
+    // A body that opens with words keeps every picture, asked or not: the
+    // server said there is no cover, and the first thing is no picture.
+    const words = {
+      ...opening,
+      blocks: [
+        {
+          ...opening.blocks[0],
+          data: { content: [...opening.blocks[0].data.content].reverse() },
+        },
+      ],
+      cover: null,
+    };
+    const kept = render(<SiteEntryBody entry={words} withoutCover />);
+    expect(kept.container.querySelectorAll("img")).toHaveLength(1);
+  });
 });

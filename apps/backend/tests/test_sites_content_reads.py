@@ -30,6 +30,7 @@ from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.models import Organization, WorkspaceKind
 from saas_core.modules.core.organizations.platform_workspace import platform_workspace_slug
+from saas_core.modules.shared.sites.html_blocks import convert_html
 from saas_core.modules.shared.sites.models import (
     ContentCollection,
     ContentEntry,
@@ -492,7 +493,12 @@ def test_lists_page_filter_by_term_and_say_when_a_term_is_too_thin_to_index() ->
     assert _read("types/poradnik/entries/", locale="pl", page_size=2, page=4).status_code == 404
     # Fewer than three entries: the core's rule, which the product applies.
     assert (_slugs(thin), thin.data["list"]["indexable"]) == (["wpis-2", "wpis-1"], False)
-    assert thin.data["list"]["term"] == {"taxonomy": "tag", "slug": "rzadki", "name": "Rzadki"}
+    assert thin.data["list"]["term"] == {
+        "taxonomy": "tag",
+        "slug": "rzadki",
+        "name": "Rzadki",
+        "versions": [{"locale": "pl", "slug": "rzadki"}],
+    }
     assert thin.data["list"]["languages"] == ["pl"]
     assert (wide.data["list"]["total"], wide.data["list"]["indexable"]) == (5, True)
     assert wide.data["list"]["languages"] == ["pl", "en"]
@@ -510,6 +516,7 @@ def test_lists_page_filter_by_term_and_say_when_a_term_is_too_thin_to_index() ->
         "published_at",
         "updated_at",
         "image",
+        "cover",
         "terms",
     }
     for query in (
@@ -626,7 +633,18 @@ def test_a_types_categories_are_read_as_a_tree_with_lists_per_language() -> None
     wide = listed("pl", "category", "pielegnacja").json()["list"]
     assert [item["slug"] for item in wide["items"]] == ["wpis-3", "wpis-2", "wpis-1"]
     assert (wide["total"], wide["indexable"], wide["languages"]) == (3, True, ["pl", "en"])
-    assert wide["term"] == {"taxonomy": "category", "slug": "pielegnacja", "name": "Pielęgnacja"}
+    # Where its list answers, by language — the address it has in each: one
+    # read gives a category page its language switch and its `hreflang`.
+    assert wide["term"] == {
+        "taxonomy": "category",
+        "slug": "pielegnacja",
+        "name": "Pielęgnacja",
+        "versions": [
+            {"locale": "pl", "slug": "pielegnacja"},
+            {"locale": "en", "slug": "pielegnacja"},
+        ],
+    }
+    assert [version["locale"] for version in wide["term"]["versions"]] == wide["languages"]
     thin = listed("pl", "category", "siersc").json()["list"]
     assert ([item["slug"] for item in thin["items"]], thin["indexable"]) == (
         ["wpis-2", "wpis-1"],
@@ -645,9 +663,16 @@ def test_a_types_categories_are_read_as_a_tree_with_lists_per_language() -> None
     hidden = _read("types/poradnik/entries/pl/ukryty/").json()["entry"]
     assert hidden["terms"] == [{"taxonomy": "category", "slug": "zywienie", "name": "Żywienie"}]
     # English, by the English address; any other name of the term says where.
-    assert [item["slug"] for item in listed("en", "category", "coat").json()["list"]["items"]] == [
-        "entry-1"
+    in_english = listed("en", "category", "coat").json()["list"]
+    assert [item["slug"] for item in in_english["items"]] == ["entry-1"]
+    # The same from either language, each under its own address.
+    assert in_english["term"]["versions"] == [
+        {"locale": "pl", "slug": "siersc"},
+        {"locale": "en", "slug": "coat"},
     ]
+    assert listed("pl", "category", "siersc").json()["list"]["term"]["versions"] == (
+        in_english["term"]["versions"]
+    )
     assert listed("en", "category", "siersc").json() == {
         "list": None,
         "moved": {"type": "poradnik", "locale": "en", "taxonomy": "category", "term": "coat"},
@@ -800,6 +825,10 @@ def test_names_in_another_language_need_no_publication_of_the_builder_site() -> 
     # one, which is also its key — the list says where it answers now.
     by_name = _read("types/poradnik/entries/", locale="en", taxonomy="tag", term="tips").json()
     assert by_name["moved"] is None and by_name["list"]["term"]["slug"] == "tips"
+    assert by_name["list"]["term"]["versions"] == [
+        {"locale": "pl", "slug": "porady"},
+        {"locale": "en", "slug": "tips"},
+    ]
     by_key = _read("types/poradnik/entries/", locale="en", taxonomy="tag", term="porady").json()
     assert by_key == {
         "list": None,
@@ -902,6 +931,39 @@ def test_a_deployment_without_a_publisher_reads_nothing() -> None:
     assert _site_page(company.host, "/poradnik/wspolny/").status_code == 200
 
 
+def test_an_entry_and_its_card_say_when_the_body_opens_with_a_picture() -> None:
+    """An import puts a post's cover first in its text, and a product draws
+    it above the title: the read says which picture that is, so the page
+    need not take the body apart to find out."""
+    guide = Publisher("read-cover")
+    asset = guide.picture()
+
+    def body(html: str) -> list[dict[str, Any]]:
+        return list(convert_html(html, image_assets={"a.jpg": str(asset.id)}).blocks)
+
+    picture = '<img src="a.jpg" alt="Szczeniak">'
+    for slug, html in (
+        ("otwiera", f"{picture}<p>Tekst pod zdjęciem.</p>"),
+        ("dalej", f"<p>Najpierw słowa.</p>{picture}<p>Potem reszta.</p>"),
+        ("bez", "<p>Same słowa.</p>"),
+    ):
+        guide.entry(slug, blocks=body(html), media=[str(asset.id)] if "img" in html else None)
+    guide.enter()
+
+    shown = {"asset_id": str(asset.id), "alt": "Szczeniak"}
+    covers = {
+        slug: (entry["image"], entry["cover"])
+        for slug in ("otwiera", "dalej", "bez")
+        for entry in [_read(f"types/poradnik/entries/pl/{slug}/").json()["entry"]]
+    }
+    assert covers == {"otwiera": (shown, shown), "dalej": (shown, None), "bez": (None, None)}
+    cards = _read("types/poradnik/entries/", locale="pl").json()["list"]["items"]
+    assert {card["slug"]: (card["image"], card["cover"]) for card in cards} == covers
+    # The body itself is as published: nothing is taken out of the answer.
+    opening = _read("types/poradnik/entries/pl/otwiera/").json()["entry"]["blocks"][0]
+    assert opening["data"]["content"][0]["image"]["asset_id"] == str(asset.id)
+
+
 def test_another_companys_content_is_never_read(monkeypatch: pytest.MonkeyPatch) -> None:
     company, company_asset = _twin("read-company")
     guide = Publisher("read-publisher")
@@ -936,8 +998,12 @@ def test_another_companys_content_is_never_read(monkeypatch: pytest.MonkeyPatch)
     entry = answers[4].data["entry"]
     assert entry["blocks"][0]["data"]["title"] == "Platformy"
     assert entry["image"] == {"asset_id": str(asset.id), "alt": "Szczeniak"}
+    # A hero's picture is the first the body shows, and no cover: the body
+    # does not open with a picture of its text.
+    assert entry["cover"] is None
     assert _slugs(answers[2]) == ["wspolny"]
     assert answers[2].data["list"]["items"][0]["image"] == entry["image"]
+    assert answers[2].data["list"]["items"][0]["cover"] is None
     told = json.dumps([answer.json() for answer in answers[:6]], ensure_ascii=False)
     for theirs in ("Firmow", "firmow", "tylko-firmy", str(company_asset.id)):
         assert theirs not in told, theirs
