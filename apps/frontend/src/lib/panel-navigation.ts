@@ -793,9 +793,20 @@ export function mobileTabs(access: PanelAccess): PanelNavEntry[] {
   const known = [...WORK, ...COMPANY, SETTINGS, ...(product.navigation ?? [])];
   const named = (product.mobileTabs ?? []).flatMap((href) => {
     // By the entry's own address: the menu may open a section on its first
-    // page the person can see, which is another address.
+    // page the person can see, which is another address. So the address may
+    // also be any page of the entry's section. Not by label: a platform
+    // workspace's menu gives the same screen a label of its own.
     const item = known.find((one) => one.href === href);
-    const entry = item && menu.find((one) => one.labelKey === item.labelKey);
+    const section = item?.section
+      ? sectionPages(item.section, access).map((page) => page.href)
+      : [];
+    const entry = menu.find(
+      (one) =>
+        one.href === href ||
+        one.pages?.some((page) => page.href === href) ||
+        section.includes(one.href) ||
+        (item !== undefined && one.labelKey === item.labelKey),
+    );
     return entry ? [entry] : [];
   });
   return [...new Set([...named, ...work])].slice(0, MOBILE_TABS);

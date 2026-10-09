@@ -52,4 +52,18 @@ describe("dolny pasek na telefonie (UX-083)", () => {
     slot.product = { mobileTabs: ["/panel/nowhere", "/panel/sites"] };
     expect(labels(OWNER)).toEqual(["website", "today", "calendar"]);
   });
+
+  it("pracownia platformy: nazwana treść wchodzi na pasek mimo innej nazwy w menu", () => {
+    slot.product = {
+      mobileTabs: ["/panel/sites", "/panel", "/panel/calendar"],
+    };
+    // A platform workspace's content entry is the website under its own
+    // label, so the bar must find it by address, not by label.
+    const publisher: PanelAccess = { ...OWNER, publisher: true };
+    const bar = mobileTabs(publisher);
+    expect(bar[0].labelKey).toBe("platformContent");
+    expect(bar[1].labelKey).toBe("today");
+    // A company still gets its named tabs, in the product's order.
+    expect(labels(OWNER)).toEqual(["website", "today", "calendar"]);
+  });
 });
