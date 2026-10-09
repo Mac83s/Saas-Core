@@ -10,7 +10,8 @@ import { SiteState } from "./site-state";
 const { api, slot } = vi.hoisted(() => ({
   api: {
     getPublicLocales: vi.fn(),
-    listContentCollections: vi.fn(),
+    listContentTypes: vi.fn(),
+    // The builder's own lists: the card must ask for none of them.
     listSiteDomains: vi.fn(),
     listSitePages: vi.fn(),
     listSitePublications: vi.fn(),
@@ -35,18 +36,19 @@ const SITE = {
   id: "site-one",
   name: "Puppily",
   default_locale: "pl",
+  // The builder site was published once: the card says nothing of it.
   current_publication_id: "publication-two",
 };
-const page = (version: number, published: number | null) => ({
-  id: `page-${version}-${published}`,
-  version,
-  published_version: published,
-});
-const domain = (hostname: string, kind: string, status: string) => ({
-  hostname,
-  kind,
-  status,
-  is_canonical: kind === "custom" && status === "verified",
+const type = (
+  name: string,
+  entries: number,
+  published: number,
+  archived = false,
+) => ({
+  collection: { id: name, name, archived },
+  entries,
+  published,
+  locales: ["pl"],
 });
 
 function renderState(
@@ -67,27 +69,26 @@ function renderState(
 /** Every address a card could send the reader to. */
 const hrefs = (container: HTMLElement) =>
   [...container.querySelectorAll("a")].map((link) => link.getAttribute("href"));
+const facts = (container: HTMLElement) =>
+  Object.fromEntries(
+    [...container.querySelectorAll("dt")].map((term) => [
+      term.textContent,
+      term.nextElementSibling?.textContent,
+    ]),
+  );
 
 beforeEach(() => {
   vi.clearAllMocks();
   slot.productSite = {};
   api.listSites.mockResolvedValue({ items: [SITE] });
-  api.listSitePages.mockResolvedValue({
-    items: [page(3, 3), page(2, 2), page(5, 4), page(1, null)],
-  });
-  api.listSiteDomains.mockResolvedValue({
-    items: [
-      domain("puppily.app.example", "platform", "verified"),
-      domain("puppily.example", "custom", "verified"),
+  api.listContentTypes.mockResolvedValue({
+    types: [
+      type("Blog", 5, 3),
+      type("Poradniki", 2, 1),
+      // Switched off: it shows nothing to anybody, and is not counted.
+      type("Archiwum", 7, 7, true),
     ],
   });
-  api.listSitePublications.mockResolvedValue({
-    items: [
-      { id: "publication-two", created_at: "2026-10-07T12:30:00Z" },
-      { id: "publication-one", created_at: "2026-10-01T08:00:00Z" },
-    ],
-  });
-  api.listContentCollections.mockResolvedValue([{ id: "blog", name: "Blog" }]);
   api.getPublicLocales.mockResolvedValue({
     public_locales: ["pl", "en", "de"],
     offered: [
@@ -98,14 +99,12 @@ beforeEach(() => {
   });
 });
 
-test("mówi, w jakim stanie jest strona, słowami „Podstron”, i gdzie widać to, co opublikowano", async () => {
+test("mówi, co platforma napisała i gdzie widać to, co opublikowano — bez słowa o podstronach, publikacji witryny i domenach", async () => {
   const { container } = renderState();
 
   expect(
-    await screen.findByRole("heading", { level: 2, name: "Puppily" }),
+    await screen.findByRole("heading", { level: 2, name: "Treści platformy" }),
   ).toBeInTheDocument();
-  // Published, with two pages whose saved content readers do not see yet.
-  expect(screen.getByText("Zmiany nieopublikowane")).toBeInTheDocument();
   // The product's own host — the one the panel is on — and never the
   // builder site's: no host serves that one (ADR-079 pkt 29).
   expect(
@@ -113,27 +112,30 @@ test("mówi, w jakim stanie jest strona, słowami „Podstron”, i gdzie widać
       `Opublikowane wpisy pokazuje serwis pod adresem ${window.location.host}.`,
     ),
   ).toBeInTheDocument();
-  expect(container).not.toHaveTextContent("puppily.example");
-  expect(container).not.toHaveTextContent("puppily.app.example");
-  const facts = Object.fromEntries(
-    [...container.querySelectorAll("dt")].map((term) => [
-      term.textContent,
-      term.nextElementSibling?.textContent,
-    ]),
-  );
-  expect(facts).toEqual({
-    "Ostatnia publikacja": "7 paź 2026, 14:30",
-    Podstrony: "4 podstrony2 czekają na publikację",
-    Blog: "Blog",
+  expect(facts(container)).toEqual({
+    "Typy treści": "Blog, Poradniki",
+    Wpisy: "7 wpisów4 opublikowane",
     Języki: "Polski, English, Deutsch",
   });
-  // Published, and still nothing to open: the card links nowhere.
-  expect(
-    screen.queryByRole("link", { name: "Otwórz opublikowaną stronę" }),
-  ).not.toBeInTheDocument();
+  // Nothing of the site builder: no state of a site, no pages, no
+  // publication of a site, no domain — and nothing to open.
+  for (const word of [
+    "Opublikowana",
+    "Zmiany nieopublikowane",
+    "Jeszcze nieopublikowana",
+    "Ostatnia publikacja",
+    "Podstrony",
+    "podstron",
+    "domena",
+    "Puppily",
+  ])
+    expect(container).not.toHaveTextContent(word);
   expect(hrefs(container)).toEqual([]);
-  // Nothing here waits for DNS.
-  expect(screen.queryByText(/Własna domena/)).not.toBeInTheDocument();
+  // It asks for what „Treści” asks for, and for none of the builder's lists.
+  expect(api.listContentTypes).toHaveBeenCalledWith("site-one");
+  expect(api.listSitePages).not.toHaveBeenCalled();
+  expect(api.listSitePublications).not.toHaveBeenCalled();
+  expect(api.listSiteDomains).not.toHaveBeenCalled();
 
   const results = await axe.run(container, {
     rules: { "color-contrast": { enabled: false } },
@@ -141,111 +143,70 @@ test("mówi, w jakim stanie jest strona, słowami „Podstron”, i gdzie widać
   expect(results.violations).toEqual([]);
 });
 
-test("strona bez publikacji: „Jeszcze nieopublikowana”, bez odnośnika do strony, z domeną, która czeka", async () => {
-  api.listSites.mockResolvedValue({
-    items: [{ ...SITE, current_publication_id: null }],
-  });
-  api.listSitePages.mockResolvedValue({ items: [] });
-  api.listSitePublications.mockResolvedValue({ items: [] });
-  api.listContentCollections.mockResolvedValue([]);
-  api.listSiteDomains.mockResolvedValue({
-    items: [
-      domain("puppily.app.example", "platform", "verified"),
-      domain("puppily.example", "custom", "pending"),
-    ],
-  });
+test("bez typów i wpisów mówi to wprost", async () => {
+  api.listContentTypes.mockResolvedValue({ types: [] });
   const { container } = renderState();
 
-  expect(
-    await screen.findByText("Jeszcze nieopublikowana"),
-  ).toBeInTheDocument();
-  expect(container).not.toHaveTextContent("puppily.app.example");
-  expect(screen.getByText("Jeszcze nie publikowano")).toBeInTheDocument();
-  expect(screen.getByText("0 podstron")).toBeInTheDocument();
-  expect(screen.getByText("Nie założono")).toBeInTheDocument();
-  expect(
-    screen.queryByRole("link", { name: "Otwórz opublikowaną stronę" }),
-  ).not.toBeInTheDocument();
-  expect(
-    screen.getByText(/Własna domena puppily\.example czeka na weryfikację\./),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByRole("link", { name: "Otwórz „Adres i domeny”" }),
-  ).toHaveAttribute("href", "/panel/sites/address");
-  // The one link of the card stays inside the panel.
-  expect(hrefs(container)).toEqual(["/panel/sites/address"]);
-
-  const results = await axe.run(container, {
-    rules: { "color-contrast": { enabled: false } },
+  expect(await screen.findByText("Nie założono")).toBeInTheDocument();
+  expect(facts(container)).toEqual({
+    "Typy treści": "Nie założono",
+    Wpisy: "0 wpisów",
+    Języki: "Polski, English, Deutsch",
   });
-  expect(results.violations).toEqual([]);
 });
 
-test("everything published reads “Published”, in English too; a failed DNS check is named", async () => {
-  api.listSitePages.mockResolvedValue({ items: [page(3, 3)] });
-  api.listSiteDomains.mockResolvedValue({
-    items: [
-      domain("puppily.app.example", "platform", "verified"),
-      domain("puppily.example", "custom", "failed"),
-    ],
-  });
-  renderState(englishMessages, "en");
-
-  expect(await screen.findByText("Published")).toBeInTheDocument();
-  expect(screen.getByText("1 page")).toBeInTheDocument();
-  expect(screen.queryByText(/wait for publication/)).not.toBeInTheDocument();
-  expect(
-    screen.getByText(
-      /Your own domain puppily\.example did not pass the DNS check\./,
-    ),
-  ).toBeInTheDocument();
-});
-
-test("where the product has no public pages the card names no host at all", async () => {
+test("in English too; where the product has no public pages the card names no host at all", async () => {
   slot.productSite = null;
+  api.listContentTypes.mockResolvedValue({ types: [type("Blog", 1, 1)] });
   const { container } = renderState(englishMessages, "en");
 
   expect(
-    await screen.findByText(
-      "This site has no address of its own. Published entries are shown by the service's own pages.",
+    await screen.findByRole("heading", { level: 2, name: "Platform content" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "Published entries are shown by the service's own pages. This service has none yet.",
     ),
   ).toBeInTheDocument();
   expect(container).not.toHaveTextContent(window.location.host);
-  expect(container).not.toHaveTextContent("puppily.example");
-  expect(
-    screen.queryByRole("link", { name: "Open published website" }),
-  ).not.toBeInTheDocument();
+  expect(facts(container)).toEqual({
+    "Content types": "Blog",
+    Entries: "1 entry1 published",
+    Languages: "Polski, English, Deutsch",
+  });
 });
 
-test("bez strony prowadzi do jej założenia i o nic więcej nie pyta", async () => {
+test("bez miejsca na treści prowadzi do „Treści”, gdzie się je zakłada, i o nic więcej nie pyta", async () => {
   api.listSites.mockResolvedValue({ items: [] });
-  renderState();
+  const { container } = renderState();
 
   expect(
     await screen.findByRole("heading", {
       level: 2,
-      name: "Strona jeszcze nie istnieje",
+      name: "Nie ma tu jeszcze treści",
     }),
   ).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Utwórz stronę" })).toHaveAttribute(
+  // Not „Podstrony”: that address is gone from a publisher's panel.
+  expect(screen.getByRole("link", { name: "Zacznij" })).toHaveAttribute(
     "href",
-    "/panel/sites",
+    "/panel/sites/content",
   );
-  expect(api.listSitePages).not.toHaveBeenCalled();
+  expect(hrefs(container)).toEqual(["/panel/sites/content"]);
+  expect(api.listContentTypes).not.toHaveBeenCalled();
   expect(api.getPublicLocales).not.toHaveBeenCalled();
 });
 
 test("nieudany odczyt mówi o tym i daje ponowić", async () => {
-  api.listSiteDomains.mockRejectedValueOnce(new Error("offline"));
+  api.listContentTypes.mockRejectedValueOnce(new Error("offline"));
   renderState();
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Nie udało się wczytać stanu strony.",
+    "Nie udało się wczytać stanu treści.",
   );
   fireEvent.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
   await waitFor(() =>
     expect(
-      screen.getByRole("heading", { level: 2, name: "Puppily" }),
+      screen.getByRole("heading", { level: 2, name: "Treści platformy" }),
     ).toBeInTheDocument(),
   );
 });

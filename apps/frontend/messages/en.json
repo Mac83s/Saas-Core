@@ -517,6 +517,7 @@
     "signedIn": "Signed in as",
     "calendar": "Calendar",
     "website": "Website",
+    "platformContent": "Platform content",
     "messages": "Messages",
     "integrations": "Integrations",
     "team": "Team",
@@ -619,11 +620,10 @@
     "dayFailed": "Could not load the visits. Refresh the page.",
     "dayLoading": "Loading visits…",
     "dayMore": "{count, plural, one {# more visit in the calendar} other {# more visits in the calendar}}",
-    "descriptionPublisher": "The state of your site, and below it shortcuts to its parts.",
-    "publisherPagesDescription": "Create and edit pages and see what waits for publication.",
-    "publisherContentDescription": "The blog and the other content types: entries are published independently of the rest of the site.",
-    "publisherTranslationsDescription": "Every page and every entry in the site's other languages.",
-    "publisherAddressDescription": "The platform address, your own domain and its verification."
+    "descriptionPublisher": "The platform's content, and below it shortcuts to working on it.",
+    "publisherContentDescription": "Content types and their entries: each entry is written, scheduled and published on its own.",
+    "publisherTranslationsDescription": "Every entry, and the names of content types, categories and tags, in the other languages.",
+    "publisherLanguagesDescription": "The languages the platform writes and publishes in."
   },
   "GettingStarted": {
     "title": "Getting started",
@@ -661,26 +661,21 @@
     "show": "Show"
   },
   "SiteState": {
-    "title": "Your site",
-    "loading": "Loading the site's state…",
-    "failed": "The site's state could not be loaded.",
+    "title": "Platform content",
+    "loading": "Loading the state of the content…",
+    "failed": "The state of the content could not be loaded.",
     "retry": "Try again",
-    "emptyTitle": "There is no site yet",
-    "emptyBody": "Start with a name and an address. Pages, a blog and more languages come later.",
-    "emptyAction": "Create the site",
+    "emptyTitle": "There is no content here yet",
+    "emptyBody": "Start with the language you write in. Content types, entries and more languages come later.",
+    "emptyAction": "Start",
     "shownAt": "Published entries are shown by the service at {host}.",
-    "noOwnAddress": "This site has no address of its own. Published entries are shown by the service's own pages.",
-    "publication": "Last publication",
-    "neverPublished": "Not published yet",
-    "pages": "Pages",
-    "pagesCount": "{count, plural, one {# page} other {# pages}}",
-    "pagesWaiting": "{count, plural, one {# waits for publication} other {# wait for publication}}",
-    "blog": "Blog",
-    "blogNone": "Not set up",
-    "languages": "Languages",
-    "domainPending": "Your own domain {hostname} is waiting for verification.",
-    "domainFailed": "Your own domain {hostname} did not pass the DNS check.",
-    "domainAction": "Open “Address and domains”"
+    "noProductPages": "Published entries are shown by the service's own pages. This service has none yet.",
+    "types": "Content types",
+    "typesNone": "Not set up",
+    "entries": "Entries",
+    "entriesCount": "{count, plural, one {# entry} other {# entries}}",
+    "entriesPublished": "{count, plural, other {# published}}",
+    "languages": "Languages"
   },
   "TeamPage": {
     "eyebrow": "Team",
@@ -1329,7 +1324,16 @@
     "eyebrow": "Eyebrow label",
     "panelEyebrow": "Sites and publishing",
     "title": "Your website",
+    "titlePublisher": "Platform content",
     "description": "Write your pages, check they are ready, and publish them when they are.",
+    "descriptionPublisher": "The platform's content types and entries. What you publish is shown by the service's own pages.",
+    "publisherStart": {
+      "title": "Start with the language",
+      "description": "Choose the language you write in. More languages are switched on in “Settings” → “Languages”, and entries are translated in “Translations”. This choice cannot be changed later.",
+      "language": "Language of the content",
+      "action": "Start writing",
+      "siteName": "Platform content"
+    },
     "planRequiredTitle": "Choose a plan first",
     "planRequiredDescription": "You can create a website after saving a payment method and starting the free trial. Begin with a Profile or choose a full website.",
     "planRequiredOwnerDescription": "This business does not have website access yet. Ask the organization owner to choose a plan.",
@@ -2589,11 +2593,13 @@
       },
       "blog": {
         "title": "Blog",
-        "description": "The site's blog posts: drafts, scheduled and published."
+        "description": "The site's blog posts: drafts, scheduled and published.",
+        "descriptionPublisher": "The blog's entries: drafts, scheduled and published."
       },
       "content": {
         "title": "Content",
-        "description": "The site's content types: the blog and whatever you add beside it — projects or news, for example. Each type has its own address and its own entries."
+        "description": "The site's content types: the blog and whatever you add beside it — projects or news, for example. Each type has its own address and its own entries.",
+        "descriptionPublisher": "The platform's content types: the blog and whatever you add beside it — guides or news, for example. Published entries are shown by the service's own pages."
       },
       "contentType": {
         "title": "Entries",
@@ -2605,7 +2611,8 @@
       },
       "translations": {
         "title": "Translations",
-        "description": "Pages, articles, the header and footer, the card and the services in the site's other languages: what is translated, what waits for a decision and what is missing."
+        "description": "Pages, articles, the header and footer, the card and the services in the site's other languages: what is translated, what waits for a decision and what is missing.",
+        "descriptionPublisher": "Entries, and the names of content types, categories and tags, in the other languages: what is translated, what waits for a decision and what is missing."
       },
       "publication": {
         "title": "Publishing",
@@ -2728,6 +2735,7 @@
     "pageNotFound": "This page is not here — it may have been deleted.",
     "translationsCentre": {
       "caption": "Pages and articles in the site's other languages",
+      "captionPublisher": "Entries in the other languages",
       "colPage": "Page",
       "colEntry": "Article",
       "colActions": "Actions",
@@ -2767,8 +2775,10 @@
       "retry": "Try again",
       "colOther": "Content",
       "kindOther": "Header and footer, card, services",
+      "kindOtherPublisher": "Names of content types, categories and tags",
       "emptyOther": "There are no texts to translate here yet.",
       "otherHint": "The header and footer are translated here (“Edit”). The card and service names are translated where they are edited: “Edit” leads there.",
+      "otherHintPublisher": "The names of content types, categories and tags are translated here (“Edit”).",
       "preview": "Preview",
       "previewOf": "Preview: {name} — {language}",
       "openPublic": "Open on site",

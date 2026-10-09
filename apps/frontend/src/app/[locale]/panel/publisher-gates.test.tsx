@@ -6,7 +6,10 @@ import type { OrganizationSummary } from "@saas-core/api-client";
  * What the API refuses a platform workspace whatever the role — invitations
  * and a plan (ADR-077 pkt 2) — and a module outside its list (pkt 9), the
  * panel does not open there either: the pages answer „Nie ma takiej strony”.
- * A company's pages are drawn.
+ * So do the site builder's screens (ADR-079 pkt 29) — pages and their
+ * editor, the menu, the site's publication, its address, the enquiries its
+ * forms bring — though the API behind them stays open: no host serves the
+ * workspace's builder site. A company's pages are drawn.
  */
 const { server } = vi.hoisted(() => ({
   server: { organization: null as unknown },
@@ -38,10 +41,19 @@ vi.mock("../../../marketing/content", () => ({
   productCopy: () => ({ pricing: { features: {} } }),
 }));
 vi.mock("#components/panel/panel-page", () => ({ PanelPage: () => null }));
+vi.mock("../../../modules/shared/sites", () => ({ SitesPanel: () => null }));
+vi.mock("../../../modules/shared/notifications", () => ({
+  NotificationsPanel: () => null,
+}));
 vi.mock("#lib/organization-types", async (original) => ({
   ...(await original<typeof import("#lib/organization-types")>()),
   modulesFor: () =>
-    new Set(["core.organizations", "shared.billing", "shared.seo"]),
+    new Set([
+      "core.organizations",
+      "shared.billing",
+      "shared.seo",
+      "shared.sites",
+    ]),
   typeRole: () => null,
 }));
 
@@ -50,6 +62,18 @@ const { default: CalendarLayout } = await import("./calendar/layout");
 const { default: BillingPage } = await import("./settings/billing/page");
 const { default: CreditsPage } = await import("./settings/credits/page");
 const { default: SeoPage } = await import("./seo/page");
+const { default: SitePagesPage } = await import("./sites/page");
+const { default: SitePageEditorPage } =
+  await import("./sites/pages/[pageId]/page");
+const { default: SiteMenuPage } = await import("./sites/menu/page");
+const { default: SitePublicationPage } =
+  await import("./sites/publication/page");
+const { default: SiteAddressPage } = await import("./sites/address/page");
+const { default: InquiriesPage } = await import("./notifications/page");
+const { default: ContentPage } = await import("./sites/content/page");
+const { default: TranslationsPage } = await import("./sites/translations/page");
+const { default: SiteIntegrationsPage } =
+  await import("./sites/integrations/page");
 
 function organization(kind: string): OrganizationSummary {
   return {
@@ -65,7 +89,11 @@ function organization(kind: string): OrganizationSummary {
     version: 1,
     membership_status: "active",
     role: "owner",
-    permissions: ["organization.members.read", "organization.billing.manage"],
+    permissions: [
+      "organization.members.read",
+      "organization.billing.manage",
+      "site.content.edit",
+    ],
     active: true,
   };
 }
@@ -76,6 +104,24 @@ const pages = {
   "Plan i płatności": () => BillingPage(),
   Kredyty: () => CreditsPage(),
   "Widoczność w Google": () => SeoPage(),
+  // The site builder's screens (ADR-079 pkt 29).
+  Podstrony: () => SitePagesPage(),
+  "Edytor podstrony": () =>
+    SitePageEditorPage({
+      params: Promise.resolve({ pageId: "page-one" }),
+      searchParams: Promise.resolve({}),
+    }),
+  Menu: () => SiteMenuPage(),
+  Publikacja: () => SitePublicationPage(),
+  "Adres i domeny": () => SiteAddressPage(),
+  "Zapytania ze strony": () => InquiriesPage(),
+};
+
+// What a publisher keeps of „Strona internetowa”: both panels draw them.
+const kept = {
+  Treści: () => ContentPage(),
+  Tłumaczenia: () => TranslationsPage(),
+  Integracje: () => SiteIntegrationsPage(),
 };
 
 beforeEach(() => {
@@ -90,5 +136,16 @@ test.each(Object.keys(pages) as (keyof typeof pages)[])(
 
     server.organization = organization("business");
     await expect(pages[name]()).resolves.toBeTruthy();
+  },
+);
+
+test.each(Object.keys(kept) as (keyof typeof kept)[])(
+  "„%s”: zostaje wydawcy i firmie",
+  async (name) => {
+    server.organization = organization("platform");
+    await expect(kept[name]()).resolves.toBeTruthy();
+
+    server.organization = organization("business");
+    await expect(kept[name]()).resolves.toBeTruthy();
   },
 );

@@ -99,6 +99,7 @@ vi.mock("../product", () => ({
 }));
 
 const {
+  menuEntryFor,
   mobileTabs,
   panelAccess,
   panelNavigation,
@@ -178,35 +179,65 @@ describe("workspace platformy: panel wydawcy (ADR-077 pkt 9)", () => {
     expect(PUBLISHER_MODULES).not.toContain("shared.image-generation");
   });
 
-  it("menu: strona pod „Pracą” z wpisami produktu, „Wiadomości” i „Ustawienia” pod „Firmą”", () => {
+  it("menu: „Treści platformy” pod „Pracą” z wpisami produktu, „Ustawienia” pod „Firmą” — bez „Wiadomości”", () => {
     const menu = panelNavigation(publisher);
-    expect(keys(menu.work)).toEqual(["today", "website", "breeds"]);
-    expect(keys(menu.company)).toEqual(["messages", "reports", "settings"]);
+    expect(keys(menu.work)).toEqual(["today", "platformContent", "breeds"]);
+    expect(keys(menu.company)).toEqual(["reports", "settings"]);
     expect(menu.platform).toEqual([]);
     expect(
       hrefs(panelNavigation({ ...publisher, operatorLevel: 1 }).platform),
     ).toEqual(["/panel/platform"]);
   });
 
-  it("strona ma swoje części bez „Widoczności w Google”, „Wiadomości” to same zapytania", () => {
+  it("„Treści platformy” to treści, tłumaczenia i integracje — bez ekranów kreatora stron (ADR-079 pkt 29)", () => {
     const menu = panelNavigation(publisher);
-    const website = menu.work.find((item) => item.labelKey === "website")!;
-    expect(website.group).toBe("work");
+    const content = menu.work.find(
+      (item) => item.labelKey === "platformContent",
+    )!;
+    expect(content.group).toBe("work");
     // „Treści”, though this profile offers companies no content types: the
     // switch is about companies, the workspace runs its own (ADR-079 pkt 28).
-    expect(hrefs(website.pages!)).toEqual([
-      "/panel/sites",
-      "/panel/sites/menu",
+    // No pages, menu, publication of a site or address: no host serves the
+    // workspace's builder site.
+    expect(hrefs(content.pages!)).toEqual([
       "/panel/sites/content",
       "/panel/sites/translations",
-      "/panel/sites/publication",
-      "/panel/sites/address",
       "/panel/sites/integrations",
     ]);
-    const messages = menu.company.find((item) => item.labelKey === "messages")!;
-    expect(messages.href).toBe("/panel/notifications");
-    expect(messages.pages).toBeUndefined();
-    expect(sectionTabs("/panel/notifications", publisher)).toBeNull();
+    // The entry opens its first page — not „Podstrony”, which is gone.
+    expect(content.href).toBe("/panel/sites/content");
+    expect(hrefs(sectionTabs("/panel/sites/translations", publisher)!)).toEqual(
+      hrefs(content.pages!),
+    );
+  });
+
+  it("żaden wpis menu nie prowadzi do ekranu kreatora ani do zapytań z jego formularzy", () => {
+    const menu = panelNavigation({ ...publisher, operatorLevel: 1 });
+    const offered = [...menu.work, ...menu.company, ...menu.platform].flatMap(
+      (item) => [item.href, ...(item.pages ?? []).map((page) => page.href)],
+    );
+    for (const gone of [
+      "/panel/sites",
+      "/panel/sites/menu",
+      "/panel/sites/publication",
+      "/panel/sites/address",
+      "/panel/notifications",
+    ])
+      expect(offered).not.toContain(gone);
+    expect(
+      offered.filter((href) => href.startsWith("/panel/sites/pages")),
+    ).toEqual([]);
+  });
+
+  it("nagłówek strony bierze nazwę z menu wydawcy, a w firmie z menu firmy", () => {
+    expect(menuEntryFor("/panel/sites/content", publisher)?.labelKey).toBe(
+      "platformContent",
+    );
+    expect(menuEntryFor("/panel/sites/content")?.labelKey).toBe("website");
+    expect(
+      menuEntryFor("/panel/sites/content", panelAccess(organization()))
+        ?.labelKey,
+    ).toBe("website");
   });
 
   it("ustawienia: dane, języki, historia, konto i zakładka produktu — bez usług, rezerwacji, dokumentów i API", () => {
@@ -251,8 +282,12 @@ describe("workspace platformy: panel wydawcy (ADR-077 pkt 9)", () => {
       expect(offered.filter((href) => href.startsWith(refused))).toEqual([]);
   });
 
-  it("dolny pasek telefonu: wpis produktu, „Dziś” i strona — kalendarza z listy produktu tu nie ma", () => {
-    expect(keys(mobileTabs(publisher))).toEqual(["breeds", "today", "website"]);
+  it("dolny pasek telefonu: wpis produktu, „Dziś” i treści — kalendarza z listy produktu tu nie ma", () => {
+    expect(keys(mobileTabs(publisher))).toEqual([
+      "breeds",
+      "today",
+      "platformContent",
+    ]);
   });
 
   it("bez prawa do treści strony zostaje „Dziś” i to, co wnosi produkt", () => {
@@ -268,28 +303,32 @@ describe("workspace platformy: panel wydawcy (ADR-077 pkt 9)", () => {
     expect(keys(menu.company)).toEqual(["reports", "settings"]);
   });
 
-  it("ustawienia: tylko grupy modułów wydawcy i obszary, w których coś zostało", () => {
+  it("ustawienia: tylko grupy modułów wydawcy i obszary, w których coś zostało — bez zapytań z formularza kreatora", () => {
     const group = (key: string, module: string, area: string) =>
       ({ key, module, area }) as never;
     const area = (key: string) => ({ key, page: null }) as never;
     const schema = {
-      areas: [area("privacy"), area("inventory"), area("site-inquiries")],
+      areas: [
+        area("privacy"),
+        area("inventory"),
+        area("site-inquiries"),
+        area("translation"),
+      ],
       groups: [
         group("booking.retention", "shared.booking", "privacy"),
         group("sites.retention", "shared.sites", "privacy"),
         group("inventory.alerts", "shared.inventory", "inventory"),
         group("sites.inquiries", "shared.sites", "site-inquiries"),
+        group("translation.settings", "shared.translation", "translation"),
       ],
     };
     const shown = panelSettings(schema, publisher);
+    // Who is told of an enquiry and how long one is kept are about a builder
+    // site's contact form, which this workspace has none of (ADR-079 pkt 29).
     expect(shown.groups.map((item) => item.key)).toEqual([
-      "sites.retention",
-      "sites.inquiries",
+      "translation.settings",
     ]);
-    expect(shown.areas.map((item) => item.key)).toEqual([
-      "privacy",
-      "site-inquiries",
-    ]);
+    expect(shown.areas.map((item) => item.key)).toEqual(["translation"]);
     // A company's settings are the schema itself.
     expect(panelSettings(schema, panelAccess(organization()))).toBe(schema);
   });

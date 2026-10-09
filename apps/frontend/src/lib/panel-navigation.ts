@@ -95,6 +95,11 @@ export type PanelSectionTab = Pick<
    * and tags stand under `/panel/sites/content/<type>/…` also where the menu
    * says „Blog” (ADR-079 pkt 9 — the blog has categories on every platform). */
   under?: string;
+  /** A screen of the site builder — the site's pages, its menu, its own
+   * publication, its address. Not in the platform's own workspace (ADR-079
+   * pkt 29): no host serves its builder site, so its panel is about the
+   * content the product's pages show and offers none of these. */
+  builder?: true;
   /** A number beside the label, e.g. visits waiting in „Do przydzielenia”. */
   count?: number;
   /** The name as the API gives it, already in the panel's language — an
@@ -224,8 +229,18 @@ export const PANEL_SECTIONS = {
   // The site's own pages first, then its reach (ADR-057; decision 7, 30.09).
   // The editor, /panel/sites/pages/<id>, belongs to "Podstrony".
   website: [
-    { href: "/panel/sites", labelKey: "sitePages", module: "shared.sites" },
-    { href: "/panel/sites/menu", labelKey: "siteMenu", module: "shared.sites" },
+    {
+      href: "/panel/sites",
+      labelKey: "sitePages",
+      module: "shared.sites",
+      builder: true,
+    },
+    {
+      href: "/panel/sites/menu",
+      labelKey: "siteMenu",
+      module: "shared.sites",
+      builder: true,
+    },
     // One of the two (ADR-079 pkt 25): the site's content types with the
     // blog first, or the blog alone where the platform offers nothing
     // beside it. /panel/sites/blog answers in both.
@@ -252,11 +267,13 @@ export const PANEL_SECTIONS = {
       href: "/panel/sites/publication",
       labelKey: "sitePublication",
       module: "shared.sites",
+      builder: true,
     },
     {
       href: "/panel/sites/address",
       labelKey: "siteAddress",
       module: "shared.sites",
+      builder: true,
     },
     {
       href: "/panel/sites/integrations",
@@ -403,6 +420,16 @@ function publisherUses(module: string): boolean {
 }
 
 /**
+ * The groups of `shared.sites` that are about a builder site's contact form —
+ * who is told of an enquiry, how long one is kept. A platform workspace has
+ * no such form (ADR-079 pkt 29), so its „Ustawienia” leave them out.
+ */
+const BUILDER_SETTINGS: readonly string[] = [
+  "sites.inquiries",
+  "sites.retention",
+];
+
+/**
  * The settings a panel draws — its menu's areas, the generic page, the
  * search. A company's are the schema as the API gives it. A platform
  * workspace's are the groups of the modules it is offered and the areas that
@@ -414,8 +441,10 @@ export function panelSettings(
   access: Pick<PanelAccess, "publisher" | "modules">,
 ): SettingsSchema {
   if (!access.publisher) return schema;
-  const groups = schema.groups.filter((group) =>
-    access.modules.includes(group.module),
+  const groups = schema.groups.filter(
+    (group) =>
+      access.modules.includes(group.module) &&
+      !BUILDER_SETTINGS.includes(group.key),
   );
   return {
     ...schema,
@@ -588,15 +617,19 @@ const PLATFORM: PanelNavItem = {
 
 /**
  * A platform workspace's menu (ADR-077 pkt 9), in place of the company's
- * `WORK` and `COMPANY`: the site is the daily work, so it stands under „Praca”
- * and on the phone's bottom bar; „Wiadomości” is what the site's forms bring
- * in. There is no team — nobody is invited there, an editor is an operator
- * added by `provision_platform_workspace` — and nothing that takes a plan.
- * The product's entries, „Ustawienia” and „Platforma” follow as in a company.
+ * `WORK` and `COMPANY`: the platform's own content is the daily work, so it
+ * stands under „Praca” and on the phone's bottom bar. It is the company's
+ * „Strona internetowa” without the builder's screens (`builder`, ADR-079 pkt
+ * 29) and under the name of what is left — content types and their entries,
+ * translations, integrations. There is no „Wiadomości”: an enquiry comes from
+ * a form on a builder page, and no host serves this workspace's. There is no
+ * team — nobody is invited there, an editor is an operator added by
+ * `provision_platform_workspace` — and nothing that takes a plan. The
+ * product's entries, „Ustawienia” and „Platforma” follow as in a company.
  */
 const PUBLISHER: Record<"work" | "company", PanelNavItem[]> = {
-  work: [TODAY, { ...WEBSITE, group: "work" }],
-  company: [{ ...MESSAGES, module: "shared.sites" }],
+  work: [TODAY, { ...WEBSITE, group: "work", labelKey: "platformContent" }],
+  company: [],
 };
 
 /** Whether the deployment's profile switches a feature on (`deployment.json`). */
@@ -636,9 +669,11 @@ export function allows(
     stays?: PanelSectionTab["stays"];
     feature?: PanelSectionTab["feature"];
     contentTypes?: PanelSectionTab["contentTypes"];
+    builder?: PanelSectionTab["builder"];
   },
 ): boolean {
   if (item.module && !access.modules.includes(item.module)) return false;
+  if (item.builder && access.publisher) return false;
   if (item.feature && !profileOffers(item.feature)) return false;
   if (
     item.contentTypes &&
@@ -841,12 +876,19 @@ function genericSettingsPage(pathname: string): boolean {
  * The menu entry a page stands under — its name is the page's eyebrow (R1,
  * UX-003): one source for the menu and the page, the deepest entry first.
  */
-export function menuEntryFor(pathname: string): PanelNavItem | undefined {
+export function menuEntryFor(
+  pathname: string,
+  access?: Pick<PanelAccess, "publisher">,
+): PanelNavItem | undefined {
   const fromProduct = (product.navigation ?? []).map((item): PanelNavItem => ({
     ...item,
     group: item.group ?? "work",
   }));
-  return [...WORK, ...COMPANY, ...fromProduct, SETTINGS, PLATFORM]
+  // A platform workspace's entries carry its own names (`PUBLISHER`).
+  const core = access?.publisher
+    ? [...PUBLISHER.work, ...PUBLISHER.company]
+    : [...WORK, ...COMPANY];
+  return [...core, ...fromProduct, SETTINGS, PLATFORM]
     .filter((item) => isActive(pathname, item))
     .sort((a, b) => b.href.length - a.href.length)[0];
 }

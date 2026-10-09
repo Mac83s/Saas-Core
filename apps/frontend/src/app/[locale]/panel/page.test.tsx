@@ -102,26 +102,41 @@ beforeEach(() => {
   server.organization = null;
 });
 
-test("wydawca: stan strony i części strony pod nazwami z menu — bez dnia, „Na start”, planu i zespołu", async () => {
-  server.organization = organization("platform");
+test("wydawca: stan treści i skróty do pisania pod nazwami z menu — bez dnia, „Na start”, planu, zespołu i ekranów kreatora", async () => {
+  server.organization = organization("platform", [
+    ...OWNER,
+    "organization.settings.manage",
+  ]);
   await view();
 
   expect(
     screen.getByRole("heading", { level: 1, name: "Dzień dobry, Anna" }),
   ).toBeInTheDocument();
   expect(
-    screen.getByText("Stan Twojej strony, a pod nim skróty do jej części."),
+    screen.getByText("Treści platformy, a pod nimi skróty do pracy nad nimi."),
   ).toBeInTheDocument();
   expect(screen.getByText("stan strony")).toBeInTheDocument();
   expect(screen.queryByText("agenda dnia")).not.toBeInTheDocument();
   expect(screen.queryByText("lista na start")).not.toBeInTheDocument();
+  // No „Podstrony” and no „Adres i domeny”: no host serves the workspace's
+  // builder site (ADR-079 pkt 29), so no shortcut leads to its screens.
   expect(tiles()).toEqual([
-    ["/panel/sites", "Podstrony"],
     // „Treści”: the workspace runs content types whatever companies are
     // offered (ADR-079 pkt 28).
     ["/panel/sites/content", "Treści"],
     ["/panel/sites/translations", "Tłumaczenia"],
-    ["/panel/sites/address", "Adres i domeny"],
+    // The languages the content is written in: the workspace's own setting.
+    ["/panel/settings/languages", "Języki"],
+  ]);
+});
+
+test("wydawca bez prawa do ustawień nie dostaje skrótu do języków", async () => {
+  server.organization = organization("platform");
+  await view();
+
+  expect(tiles()).toEqual([
+    ["/panel/sites/content", "Treści"],
+    ["/panel/sites/translations", "Tłumaczenia"],
   ]);
 });
 

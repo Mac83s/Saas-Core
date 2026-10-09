@@ -89,16 +89,25 @@ export function useObjectName() {
       : of.label;
 }
 
-/** Where a translated object's text can be read and changed by hand. */
-export function translationPlace(of: {
-  source_key: string;
-  object_id: string;
-  locale: string;
-  scope: string;
-}): string | undefined {
+/**
+ * Where a translated object's text can be read and changed by hand.
+ * `publisher`: in the platform's own workspace a builder page has no such
+ * place — its panel has no page editor (ADR-079 pkt 29).
+ */
+export function translationPlace(
+  of: {
+    source_key: string;
+    object_id: string;
+    locale: string;
+    scope: string;
+  },
+  publisher = false,
+): string | undefined {
   switch (of.source_key) {
     case "sites.page":
-      return `/panel/sites/pages/${of.object_id}?language=${of.locale}`;
+      return publisher
+        ? undefined
+        : `/panel/sites/pages/${of.object_id}?language=${of.locale}`;
     case "sites.entry":
       return of.scope
         ? `/panel/sites/blog?site=${of.scope}`

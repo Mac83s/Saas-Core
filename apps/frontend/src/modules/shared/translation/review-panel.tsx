@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@saas-core/ui/components/dialog";
+import { usePublisher } from "#components/panel/panel-access";
 import { PanelPage } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { nativeName } from "#lib/company-locales";
@@ -89,6 +90,7 @@ export function TranslationReviewPanel({
   website?: boolean;
 }) {
   const t = useTranslations("Translations.review");
+  const publisher = usePublisher();
   const nav = useTranslations("DashboardNav");
   const skipped = useTranslations("Sites.languageMode.skipped");
   const objectName = useObjectName();
@@ -362,7 +364,7 @@ export function TranslationReviewPanel({
       meta: { actions: true },
       cell: ({ row: { original: row } }) => {
         const items: RowAction[] = [];
-        const place = translationPlace(row);
+        const place = translationPlace(row, publisher);
         // Its text waits only here: reading it comes before the decision.
         if (row.comparable)
           items.push({

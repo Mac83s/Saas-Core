@@ -9,6 +9,8 @@ import { NotificationsPanel } from "../../../../modules/shared/notifications";
 /**
  * Wiadomości › Zapytania ze strony. Without the right to them this is where
  * the automatic notifications show instead, so the menu's single page works.
+ * Not in a platform workspace: an enquiry comes from a form on a builder
+ * page, and no host serves its builder site (ADR-079 pkt 29).
  */
 export default async function NotificationsPage() {
   const [t, inquiries, organization] = await Promise.all([
@@ -26,7 +28,8 @@ export default async function NotificationsPage() {
       module: "shared.notifications",
       permission: "notifications.manage",
     });
-  if (!canReadSiteInquiries && !canManageNotifications) notFound();
+  if (access.publisher || (!canReadSiteInquiries && !canManageNotifications))
+    notFound();
   return (
     <PanelPage
       description={

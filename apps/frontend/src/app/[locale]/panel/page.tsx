@@ -2,10 +2,8 @@ import {
   ArrowRightIcon,
   CalendarDaysIcon,
   CreditCardIcon,
-  FileTextIcon,
   Globe2Icon,
   LanguagesIcon,
-  LinkIcon,
   NewspaperIcon,
   PackageIcon,
   UsersIcon,
@@ -56,18 +54,14 @@ export default async function PanelHomePage() {
   // Who plans the team's day sets the company up too; everybody else gets
   // their own day and their own things (UX-023).
   const plans = can("booking.appointment.manage");
-  // A platform workspace's start (ADR-077 pkt 9): the site's state, then the
-  // site's own screens under the names the menu gives them. Nothing of a
-  // company's start applies there — no day, no „Na start”, no plan, no team.
+  // A platform workspace's start (ADR-077 pkt 9): what it has written, then
+  // the screens it writes on, under the names the menu gives them. Nothing of
+  // a company's start applies there — no day, no „Na start”, no plan, no team
+  // — and nothing of the site builder: no host serves its builder site
+  // (ADR-079 pkt 29), so no shortcut leads to pages, a menu or an address.
   const publisher = access.publisher === true;
   const site = modules.has("shared.sites") && can("site.content.edit");
   const publisherActions = [
-    {
-      href: "/panel/sites",
-      icon: FileTextIcon,
-      title: nav("sitePages"),
-      description: t("publisherPagesDescription"),
-    },
     // The platform's workspace runs content types whatever companies are
     // offered (ADR-079 pkt 28): its menu says „Treści”, and so does its start.
     {
@@ -82,12 +76,18 @@ export default async function PanelHomePage() {
       title: nav("siteTranslations"),
       description: t("publisherTranslationsDescription"),
     },
-    {
-      href: "/panel/sites/address",
-      icon: LinkIcon,
-      title: nav("siteAddress"),
-      description: t("publisherAddressDescription"),
-    },
+    // The languages the content is written in are the workspace's own
+    // setting (ADR-071 pkt 4), not a screen of the site.
+    ...(can("organization.settings.manage")
+      ? [
+          {
+            href: "/panel/settings/languages",
+            icon: Globe2Icon,
+            title: nav("sectionLanguages"),
+            description: t("publisherLanguagesDescription"),
+          },
+        ]
+      : []),
   ];
   const companyActions = [
     modules.has("shared.sites") && can("site.content.edit")

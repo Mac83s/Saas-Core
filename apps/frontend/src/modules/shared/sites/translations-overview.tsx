@@ -46,6 +46,7 @@ import {
 import { Link } from "#i18n/navigation";
 import { nativeName } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { usePublisher } from "#components/panel/panel-access";
 import { SOURCE_KINDS, translationPlace } from "../translation/job-words";
 import { AutomationHeld } from "../translation/held-demand";
 import { TranslationJobsBar } from "../translation/jobs-bar";
@@ -77,6 +78,10 @@ const STATES: Record<Kind, readonly CellState[]> = {
 };
 
 const KINDS = ["page", "entry", "other"] as const satisfies readonly Kind[];
+/** The platform's own workspace translates what it writes — entries, and the
+ *  names of its types, categories and tags. Its builder pages are served at
+ *  no host (ADR-079 pkt 29): they are neither listed nor ordered here. */
+const PUBLISHER_KINDS = ["entry", "other"] as const satisfies readonly Kind[];
 
 /** The site's own texts have no page of their own: they open in a sheet. */
 const SITE_TEXTS = "sites.site_texts";
@@ -123,9 +128,12 @@ function rowTargets(row: Row): TranslationTarget[] {
 
 /** Everything of the site — pages, articles, its own texts, the card and
  *  the services — that has a language to translate. */
-async function siteTargets(siteId: string): Promise<TranslationTarget[]> {
+async function siteTargets(
+  siteId: string,
+  kinds: readonly Kind[],
+): Promise<TranslationTarget[]> {
   const targets: TranslationTarget[] = [];
-  for (const kind of KINDS) {
+  for (const kind of kinds) {
     let cursor: string | null = null;
     do {
       const answer: TranslationOverview = await getSiteTranslationOverview(
@@ -160,6 +168,7 @@ export function TranslateSiteAction({
   const t = useTranslations("Sites");
   const reasonText = useReasonText();
   const offer = useTranslationOffer();
+  const publisher = usePublisher();
   const [targets, setTargets] = useState<TranslationTarget[]>();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -178,7 +187,10 @@ export function TranslateSiteAction({
     setBusy(true);
     setMessage("");
     try {
-      const found = await siteTargets(siteId);
+      const found = await siteTargets(
+        siteId,
+        publisher ? PUBLISHER_KINDS : KINDS,
+      );
       if (found.length === 0) {
         setMessage(t("translationsCentre.nothingToTranslate"));
         return;
@@ -380,7 +392,11 @@ export function TranslationsOverview({
   const reasonText = useReasonText();
   const labels = useDataTableLabels();
   const offer = useTranslationOffer();
-  const [kind, setKind] = useState<Kind>("page");
+  // The list opens on pages; in the platform's own workspace, which has no
+  // builder screens, on entries — and pages are not among its kinds.
+  const publisher = usePublisher();
+  const firstKind: Kind = publisher ? "entry" : "page";
+  const [kind, setKind] = useState<Kind>(firstKind);
   const [locale, setLocale] = useState("");
   const [state, setState] = useState<CellState | "">("");
   const [answer, setAnswer] = useState<Answer>();
@@ -453,7 +469,7 @@ export function TranslationsOverview({
   const rows = answer?.rows ?? [];
   const shown = answer?.locales ?? [];
   const activeFilters =
-    (kind !== "page" ? 1 : 0) + (locale ? 1 : 0) + (state ? 1 : 0);
+    (kind !== firstKind ? 1 : 0) + (locale ? 1 : 0) + (state ? 1 : 0);
 
   async function loadMore(cursor: string) {
     setLoadingMore(true);
@@ -480,7 +496,9 @@ export function TranslationsOverview({
   }
 
   const kindOf = (row: Row) =>
-    review(`kinds.${SOURCE_KINDS[row.source_key] ?? "other"}`);
+    publisher && row.source_key === SITE_TEXTS
+      ? t("kindOtherPublisher")
+      : review(`kinds.${SOURCE_KINDS[row.source_key] ?? "other"}`);
 
   function askToAccept(row: Row, cell: Cell) {
     if (!cell.review_id || cell.review_version == null) return;
@@ -657,12 +675,15 @@ export function TranslationsOverview({
               });
         } else {
           // A card and the services are translated where they are edited.
-          const place = translationPlace({
-            source_key: row.source_key,
-            object_id: row.id,
-            locale: "",
-            scope: "",
-          });
+          const place = translationPlace(
+            {
+              source_key: row.source_key,
+              object_id: row.id,
+              locale: "",
+              scope: "",
+            },
+            publisher,
+          );
           if (place)
             items.push({
               label: t("edit"),
@@ -732,7 +753,7 @@ export function TranslationsOverview({
       ) : null}
       <DataTable
         activeFilters={activeFilters}
-        caption={t("caption")}
+        caption={t(publisher ? "captionPublisher" : "caption")}
         columns={columns}
         // Rows of the previous query never stand under the new one's columns.
         data={loading ? [] : rows}
@@ -740,7 +761,7 @@ export function TranslationsOverview({
           activeFilters ? (
             <Button
               onClick={() => {
-                setKind("page");
+                setKind(firstKind);
                 setLocale("");
                 setState("");
               }}
@@ -763,9 +784,11 @@ export function TranslationsOverview({
               }}
               value={kind}
             >
-              <option value="page">{t("kindPage")}</option>
+              {publisher ? null : <option value="page">{t("kindPage")}</option>}
               <option value="entry">{t("kindEntry")}</option>
-              <option value="other">{t("kindOther")}</option>
+              <option value="other">
+                {t(publisher ? "kindOtherPublisher" : "kindOther")}
+              </option>
             </DataTableFilter>
             {(siteLocales?.length ?? 0) > 1 ? (
               <DataTableFilter
@@ -819,7 +842,9 @@ export function TranslationsOverview({
         <p className="text-sm text-muted-foreground">{t("entryHint")}</p>
       ) : null}
       {kind === "other" ? (
-        <p className="text-sm text-muted-foreground">{t("otherHint")}</p>
+        <p className="text-sm text-muted-foreground">
+          {t(publisher ? "otherHintPublisher" : "otherHint")}
+        </p>
       ) : null}
       {answer?.cursor && !loading ? (
         <Button

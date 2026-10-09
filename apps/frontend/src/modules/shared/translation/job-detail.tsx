@@ -31,6 +31,7 @@ import {
   DialogTitle,
 } from "@saas-core/ui/components/dialog";
 import { Progress } from "@saas-core/ui/components/progress";
+import { usePublisher } from "#components/panel/panel-access";
 import { PanelPage } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { nativeName } from "#lib/company-locales";
@@ -63,6 +64,7 @@ type Asking = {
 export function TranslationJobDetail({ jobId }: { jobId: string }) {
   const t = useTranslations("Translations.jobs");
   const review = useTranslations("Translations.review");
+  const publisher = usePublisher();
   const objectName = useObjectName();
   const format = useFormatter();
   const labels = useDataTableLabels();
@@ -324,7 +326,7 @@ export function TranslationJobDetail({ jobId }: { jobId: string }) {
       header: t("colActions"),
       meta: { actions: true },
       cell: ({ row: { original: item } }) => {
-        const place = translationPlace(item);
+        const place = translationPlace(item, publisher);
         return place ? (
           <RowActions
             items={[

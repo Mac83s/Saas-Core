@@ -517,6 +517,7 @@
     "signedIn": "Zalogowano jako",
     "calendar": "Kalendarz",
     "website": "Strona internetowa",
+    "platformContent": "Treści platformy",
     "messages": "Wiadomości",
     "integrations": "Integracje",
     "team": "Zespół",
@@ -619,11 +620,10 @@
     "dayFailed": "Nie udało się wczytać wizyt. Odśwież stronę.",
     "dayLoading": "Wczytywanie wizyt…",
     "dayMore": "{count, plural, one {Jeszcze # wizyta w kalendarzu} few {Jeszcze # wizyty w kalendarzu} other {Jeszcze # wizyt w kalendarzu}}",
-    "descriptionPublisher": "Stan Twojej strony, a pod nim skróty do jej części.",
-    "publisherPagesDescription": "Twórz i edytuj podstrony, sprawdzaj, co czeka na publikację.",
-    "publisherContentDescription": "Blog i pozostałe typy treści: wpisy publikujesz niezależnie od reszty strony.",
-    "publisherTranslationsDescription": "Każda podstrona i każdy wpis w pozostałych językach strony.",
-    "publisherAddressDescription": "Adres na platformie, własna domena i jej weryfikacja."
+    "descriptionPublisher": "Treści platformy, a pod nimi skróty do pracy nad nimi.",
+    "publisherContentDescription": "Typy treści i ich wpisy: każdy wpis piszesz, planujesz i publikujesz osobno.",
+    "publisherTranslationsDescription": "Każdy wpis oraz nazwy typów treści, kategorii i tagów w pozostałych językach.",
+    "publisherLanguagesDescription": "Języki, w których platforma pisze i publikuje treści."
   },
   "GettingStarted": {
     "title": "Na start",
@@ -661,26 +661,21 @@
     "show": "Pokaż"
   },
   "SiteState": {
-    "title": "Twoja strona",
-    "loading": "Wczytujemy stan strony…",
-    "failed": "Nie udało się wczytać stanu strony.",
+    "title": "Treści platformy",
+    "loading": "Wczytujemy stan treści…",
+    "failed": "Nie udało się wczytać stanu treści.",
     "retry": "Spróbuj ponownie",
-    "emptyTitle": "Strona jeszcze nie istnieje",
-    "emptyBody": "Zacznij od nazwy i adresu. Podstrony, blog i kolejne języki dodasz potem.",
-    "emptyAction": "Utwórz stronę",
+    "emptyTitle": "Nie ma tu jeszcze treści",
+    "emptyBody": "Zacznij od języka, w którym piszesz. Typy treści, wpisy i kolejne języki dodasz potem.",
+    "emptyAction": "Zacznij",
     "shownAt": "Opublikowane wpisy pokazuje serwis pod adresem {host}.",
-    "noOwnAddress": "Ta witryna nie ma własnego adresu. Opublikowane wpisy pokazują własne strony serwisu.",
-    "publication": "Ostatnia publikacja",
-    "neverPublished": "Jeszcze nie publikowano",
-    "pages": "Podstrony",
-    "pagesCount": "{count, plural, one {# podstrona} few {# podstrony} many {# podstron} other {# podstrony}}",
-    "pagesWaiting": "{count, plural, one {# czeka na publikację} few {# czekają na publikację} many {# czeka na publikację} other {# czeka na publikację}}",
-    "blog": "Blog",
-    "blogNone": "Nie założono",
-    "languages": "Języki",
-    "domainPending": "Własna domena {hostname} czeka na weryfikację.",
-    "domainFailed": "Własna domena {hostname} nie przeszła sprawdzenia DNS.",
-    "domainAction": "Otwórz „Adres i domeny”"
+    "noProductPages": "Opublikowane wpisy pokazują własne strony serwisu. Ten serwis jeszcze ich nie ma.",
+    "types": "Typy treści",
+    "typesNone": "Nie założono",
+    "entries": "Wpisy",
+    "entriesCount": "{count, plural, one {# wpis} few {# wpisy} many {# wpisów} other {# wpisu}}",
+    "entriesPublished": "{count, plural, one {# opublikowany} few {# opublikowane} many {# opublikowanych} other {# opublikowanego}}",
+    "languages": "Języki"
   },
   "TeamPage": {
     "eyebrow": "Zespół",
@@ -1329,7 +1324,16 @@
     "eyebrow": "Etykieta nad tytułem",
     "panelEyebrow": "Witryna i publikacja",
     "title": "Twoja witryna",
+    "titlePublisher": "Treści platformy",
     "description": "Twórz podstrony, sprawdzaj ich gotowość i publikuj, gdy są gotowe.",
+    "descriptionPublisher": "Typy treści i wpisy platformy. To, co opublikujesz, pokazują własne strony serwisu.",
+    "publisherStart": {
+      "title": "Zacznij od języka",
+      "description": "Wybierz język, w którym piszesz treści. Kolejne języki włączysz w „Ustawieniach” → „Języki”, a wpisy przetłumaczysz w „Tłumaczeniach”. Tego wyboru nie da się potem zmienić.",
+      "language": "Język treści",
+      "action": "Zacznij pisać",
+      "siteName": "Treści platformy"
+    },
     "planRequiredTitle": "Najpierw wybierz plan",
     "planRequiredDescription": "Witrynę utworzysz dopiero po zapisaniu metody płatności i uruchomieniu okresu próbnego. Zacznij od Profilu lub wybierz pełną witrynę.",
     "planRequiredOwnerDescription": "Ta firma nie ma jeszcze dostępu do witryny. Poproś właściciela organizacji o wybranie planu.",
@@ -2589,11 +2593,13 @@
       },
       "blog": {
         "title": "Blog",
-        "description": "Wpisy bloga witryny: szkice, zaplanowane i opublikowane."
+        "description": "Wpisy bloga witryny: szkice, zaplanowane i opublikowane.",
+        "descriptionPublisher": "Wpisy bloga: szkice, zaplanowane i opublikowane."
       },
       "content": {
         "title": "Treści",
-        "description": "Typy treści na stronie: blog i to, co dodasz obok niego — na przykład realizacje albo aktualności. Każdy typ ma własny adres i własne wpisy."
+        "description": "Typy treści na stronie: blog i to, co dodasz obok niego — na przykład realizacje albo aktualności. Każdy typ ma własny adres i własne wpisy.",
+        "descriptionPublisher": "Typy treści platformy: blog i to, co dodasz obok niego — na przykład poradniki albo aktualności. Opublikowane wpisy pokazują własne strony serwisu."
       },
       "contentType": {
         "title": "Wpisy",
@@ -2605,7 +2611,8 @@
       },
       "translations": {
         "title": "Tłumaczenia",
-        "description": "Podstrony, wpisy, nagłówek i stopka, wizytówka i usługi w pozostałych językach strony: co jest przetłumaczone, co czeka na decyzję, a czego brakuje."
+        "description": "Podstrony, wpisy, nagłówek i stopka, wizytówka i usługi w pozostałych językach strony: co jest przetłumaczone, co czeka na decyzję, a czego brakuje.",
+        "descriptionPublisher": "Wpisy oraz nazwy typów treści, kategorii i tagów w pozostałych językach: co jest przetłumaczone, co czeka na decyzję, a czego brakuje."
       },
       "publication": {
         "title": "Publikacja",
@@ -2728,6 +2735,7 @@
     "pageNotFound": "Tej podstrony nie ma — mogła zostać usunięta.",
     "translationsCentre": {
       "caption": "Podstrony i wpisy w pozostałych językach strony",
+      "captionPublisher": "Wpisy w pozostałych językach",
       "colPage": "Podstrona",
       "colEntry": "Wpis",
       "colActions": "Działania",
@@ -2767,8 +2775,10 @@
       "retry": "Spróbuj ponownie",
       "colOther": "Treść",
       "kindOther": "Nagłówek i stopka, wizytówka, usługi",
+      "kindOtherPublisher": "Nazwy typów treści, kategorii i tagów",
       "emptyOther": "Nie ma tu jeszcze tekstów do tłumaczenia.",
       "otherHint": "Nagłówek i stopkę tłumaczysz tutaj („Edytuj”). Wizytówkę i nazwy usług — tam, gdzie się je edytuje: „Edytuj” prowadzi do właściwego miejsca.",
+      "otherHintPublisher": "Nazwy typów treści, kategorii i tagów tłumaczysz tutaj („Edytuj”).",
       "preview": "Podgląd",
       "previewOf": "Podgląd: {name} — {language}",
       "openPublic": "Otwórz na stronie",

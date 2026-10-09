@@ -6,6 +6,7 @@ import { cn } from "@saas-core/ui/lib/utils";
 
 import { routing } from "#i18n/routing";
 import { menuEntryFor, PANEL_SECTIONS } from "#lib/panel-navigation";
+import { usePublisher } from "./panel-access";
 
 // The address as the browser has it: a page's eyebrow is mounted with the
 // page, so a navigation brings a new one. On the server there is none yet,
@@ -45,7 +46,14 @@ export function PanelEyebrow({
     browserPath,
     noPath,
   );
-  const entry = pathname ? menuEntryFor(withoutLocale(pathname)) : undefined;
+  // A platform workspace's menu names its entries itself (ADR-077 pkt 9).
+  const publisher = usePublisher();
+  const entry = pathname
+    ? menuEntryFor(
+        withoutLocale(pathname),
+        publisher ? { publisher } : undefined,
+      )
+    : undefined;
   const text = entry
     ? typeof title === "string" && title === t(entry.labelKey)
       ? t(entry.group)
