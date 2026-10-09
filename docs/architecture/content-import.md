@@ -246,4 +246,7 @@ daty w dokumencie kolejne uruchomienie ją publikuje. Późniejsza edycja w pane
   odpowiada trzy razy z rzędu, import przestaje go pytać: wpisy czekające na zdjęcia są
   w raporcie i wejdą przy kolejnym uruchomieniu.
 - Liczba zapytań planu nie rośnie z liczbą wpisów ani pozycji (księga, wpisy, slugi
-  i przypisania są czytane po jednym zapytaniu na cały dokument).
+  i przypisania są czytane po jednym zapytaniu na cały dokument; słownik strony, klucze
+  wszystkich pozycji i teksty strony w każdym języku — po jednym). Jeden wyjątek: gdy
+  nowszy dokument zmienia adres pozycji, którą strona już ma, plan pyta raz na taki adres,
+  czy stary odpowiadał gościowi (wtedy zostaje jako dawny).
