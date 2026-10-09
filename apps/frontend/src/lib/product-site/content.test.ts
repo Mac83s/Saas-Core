@@ -83,6 +83,26 @@ describe("a product's page reads an entry (ADR-079)", () => {
     expect(result).toEqual({ kind: "entry", entry });
   });
 
+  it("is cached only for as long as the page says", async () => {
+    const { content } = await load();
+    fetched.mockImplementation(async () => json({ entry, moved: null }));
+
+    await content.contentEntry({
+      type: "breeds",
+      locale: "en",
+      slug: "german-shepherd",
+      revalidate: 300,
+    });
+    await content.contentEntries({ type: "breeds", locale: "en" });
+    await content.contentTypes({ revalidate: 60 });
+
+    expect(fetched.mock.calls.map((call) => call[1])).toEqual([
+      { next: { revalidate: 300 } },
+      { cache: "no-store" },
+      { next: { revalidate: 60 } },
+    ]);
+  });
+
   it("sends the address it gives the entry when it wants the JSON-LD nodes", async () => {
     const { content, seo } = await load();
     fetched.mockResolvedValue(json({ entry, moved: null }));

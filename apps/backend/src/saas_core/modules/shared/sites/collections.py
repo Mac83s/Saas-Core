@@ -1105,15 +1105,17 @@ def _edited_translation(
         # A text an import brought (`ImportedText`): its fields keep saying
         # who wrote them, and the edit is named beside them — a model's text
         # a person corrected is still, in part, a model's (ADR-071 pkt 17).
-        if context.acting_via:
-            return {}
-        at = timezone.now().isoformat()
         return {
             "units": {
                 **previous.units,
                 IMPORT_EDIT: {
                     "text": "",
-                    "provenance": {"origin": ORIGIN_HUMAN, "at": at},
+                    "provenance": {
+                        # The assistant's edit is a model's, as in the
+                        # translation branch below.
+                        "origin": ORIGIN_AI if context.acting_via else ORIGIN_HUMAN,
+                        "at": timezone.now().isoformat(),
+                    },
                 },
             }
         }

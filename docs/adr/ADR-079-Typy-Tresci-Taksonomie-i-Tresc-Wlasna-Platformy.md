@@ -1193,6 +1193,52 @@ Zbudowane punkty 13 (część wpisu), 14, 16 i 34. Kod: `shared/sites/entry_addr
    kontrakty bloków, sloty prawdziwych zdjęć, przestrzeń nazw słownika, skaner mediów
    i limit magazynu.
 
+Po przeglądzie przed scaleniem (2026-10-09):
+
+10. **„Był publiczny, nie jest” to zawsze decyzja człowieka.** Import nie publikuje
+    ponownie wpisu, który ma `published_at` i nie jest publiczny — niezależnie od tego,
+    kto go opublikował (księga tego nie rozstrzyga: człowiek mógł opublikować
+    wstrzymaną wersję i ją wycofać).
+11. **`changed_at` z przyszłości** jest zastępowane datą publikacji, nie chwilą
+    uruchomienia — inaczej każde uruchomienie dawałoby nową publikację, wpis historii
+    i zdarzenie. Ponowna publikacja oryginału bez zmiany tekstu nie zawiadamia silnika
+    tłumaczeń (`notify_entry_published` porównuje bloki, tytuł i zajawkę), więc nie
+    kosztuje kredytów; publikacja ze zmienionym tekstem zawiadamia go jak każda inna.
+12. **Znacznik tekstu maszynowego przeżywa edycję asystenta** (`import/edit` z `ai`),
+    a pole bez słów nie mówi nic o pochodzeniu (wersja bez zajawki nie staje się
+    „mieszana” przez `fields.excerpt`).
+13. **Pozycja, którą strona już ma, jest przejmowana jawnie.** Plan dopasowuje ją po
+    nazwie tak, jak zrobiłby to serwis (`_find_named` dla tagów; nazwa i rodzic dla
+    kategorii), mówi o tym w „NEEDS A LOOK” (`term_adopted`) i zmienia w niej tylko to,
+    czego nie miała: nazwy w brakujących językach i dawne adresy. Dwie pozycje dokumentu
+    o tej samej nazwie w języku strony to jedna pozycja (`term_merged`); ta sama nazwa
+    tylko w innym języku — dwie, druga z numerem w adresie (`name_shared`).
+14. **Tabela zapisana jako linie tekstu wstrzymuje wersję** jak strata treści
+    (`table_too_wide`), a tabela podzielona jest zawsze pokazana (`table_split`).
+15. **Slug wpisu nie ma słów zarezerwowanych** — sprawdzone testem, nie założeniem: wpis
+    (i dawny slug) o nazwie segmentu taksonomii, słowa stronicowania albo kanału, w każdym
+    języku, niczego nie zasłania i niczego nie przechwytuje (wpis ma dwa segmenty pod
+    typem, archiwum i dalsza strona listy — trzy).
+16. **Usunięty wpis nie trzyma slugów:** `former_slugs` zostają w wierszu jako historia
+    (na dzień, gdy usunięty wpis da się przywrócić), ale każdy, kto pyta „czyj to slug”,
+    czyta menedżerem `all_objects`, który usuniętych nie widzi. Czyszczenie przy usunięciu
+    odrzucone: zabrałoby przywróceniu to, z czego ma odtworzyć przekierowania.
+17. **To, czego już nie ma, powstaje ponownie i raport to mówi** (`made_again`):
+    pozycja usunięta w panelu, wersja skasowana razem z typem.
+18. **Wersja źródłowa jest zapisywana pierwsza** (`source_locale`, potem język strony):
+    w grupie bez wersji w języku strony najstarszy wpis jest dla silnika źródłem.
+    Zapis wznowiony po zakleszczeniu zaczyna od stanu z planu, nie od wierszy cofniętej
+    próby.
+19. **HTML w polu tekstowym odrzuca wersję** (`markup_in_title`, `markup_in_excerpt`;
+    dla nazw pozycji `markup_in_name`) — serwis nie zapisuje po cichu znaczników, które
+    karta i opis w wyszukiwarce pokazałyby dosłownie.
+20. **Pola, których rdzeń nie ma, zostają w księdze razem z tekstem** (`fields.<nazwa>.text`
+    wersji; `fields` pozycji per język): gdy rdzeń dostanie takie pole (tytuł i opis SEO,
+    opis kategorii), wypełni je z księgi bez pierwotnego dokumentu.
+21. **Odczyt dla stron produktu:** lista niesie `timezone` wydawcy jak wpis; klient
+    (`#lib/product-site/content`) przyjmuje opcjonalne `revalidate`. Znacznik „treść
+    zaczyna się od zdjęcia” i opcja pominięcia go w `SiteEntryBody` — do planu.
+
 **Czego testy nie dowodzą** (baza testowa omija RLS): że rola aplikacji widzi i zapisuje
 wiersze księgi, pozycji, mediów i audytu wyłącznie organizacji operatora. Test trzyma
 kolejność: każda transakcja importu zaczyna się od `SET LOCAL` z tą organizacją, żadne

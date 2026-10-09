@@ -29,7 +29,13 @@
       "slugs": {
         "pl": "pielegnacja"
       },
-      "former_slugs": ["pielegnacja-psa"]
+      "former_slugs": ["pielegnacja-psa"],
+      "fields": {
+        "description": {
+          "pl": "Wszystko o pielęgnacji psa.",
+          "en": "All about caring for a dog."
+        }
+      }
     },
     {
       "id": "cat-coat",
@@ -133,7 +139,13 @@
           "status": "published",
           "published_at": "2023-03-14T08:30:00+01:00",
           "changed_at": "2025-02-01T10:00:00+01:00",
-          "origin": "human"
+          "origin": "human",
+          "fields": {
+            "seo_title": {
+              "origin": "human",
+              "text": "Czesanie psa krok po kroku"
+            }
+          }
         },
         {
           "locale": "en",
@@ -172,7 +184,8 @@
             "meta_description": {
               "origin": "ai",
               "model": "fixture-translator-1",
-              "source_sha256": "638a85600a948c122999d0cfb6b264c6d6188bc782f0aac5cf8dfe0ad881df18"
+              "source_sha256": "638a85600a948c122999d0cfb6b264c6d6188bc782f0aac5cf8dfe0ad881df18",
+              "text": "How to brush a dog in ten minutes."
             }
           }
         },

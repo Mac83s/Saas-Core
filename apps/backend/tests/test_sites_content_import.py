@@ -828,7 +828,13 @@ def test_the_command_refuses_what_is_ambiguous_before_reading_anything_else(
         document={**document, "default_locale": "en"}, site=company.site_id, apply=True
     )
     broken = {**document, "entries": [{"id": "x", "type": "poradnik", "versions": []}]}
-    assert "entries/0/versions" in stopped(document=broken, site=company.site_id, apply=True)
+    assert "entries „x”: versions" in stopped(document=broken, site=company.site_id, apply=True)
+    # A problem names the entry, the language and the value — here an old
+    # address in another script, which the product redirects by itself.
+    cyrillic = copy.deepcopy(document)
+    cyrillic["entries"][0]["versions"][4]["former_slugs"] = ["как-расчёсывать"]
+    told = stopped(document=cyrillic, site=company.site_id, apply=True)
+    assert "entries „post-1” (ru): former_slugs/0 — 'как-расчёсывать' does not match" in told
     assert "is named twice" in stopped(
         document={**document, "tags": [*document["tags"], document["tags"][0]]},
         site=company.site_id,
@@ -1138,6 +1144,459 @@ def test_the_plan_says_what_the_run_would_meet_outside_the_document(
         assert _codes(lines["post-8:en"]) == ["version_exists"]
         assert lines["post-8:pl"].action == UNCHANGED
     assert ContentEntry.all_objects.get(slug="bathing-again").title == "By hand"
+
+
+# -- what the review found ---------------------------------------------------------
+
+
+def test_what_a_person_took_off_the_site_stays_off_whoever_published_it(
+    tmp_path: Path, library: Any
+) -> None:
+    company = Company("import-off", tmp_path)
+    document = company.document()
+    document["entries"] = document["entries"][:1]
+    accepted = document["entries"][0]["versions"][0].pop("accept_losses")
+    company.run(document, apply=True)
+    polish = _entry(company, "post-1")
+    # Held by the import; published, and then withdrawn, by a person.
+    assert polish.state == ContentEntryState.DRAFT
+    url = f"/api/v1/sites/entries/{polish.id}/publication/"
+    assert _send(company.client, "post", url).status_code == 201
+    assert _send(company.client, "delete", url).status_code in (200, 204)
+    document["entries"][0]["versions"][0]["accept_losses"] = accepted
+
+    for apply in (False, True):
+        line = _lines(company.run(document, apply=apply))["post-1:pl"]
+        assert (line.action, line.publication) == (KEPT, KEPT)
+        assert "withdrawn_in_panel" in _codes(line)
+    assert _entry(company, "post-1").state == ContentEntryState.WITHDRAWN
+    assert ContentEntryPublication.all_objects.filter(entry_id=polish.id).count() == 1
+
+
+def test_a_date_of_change_ahead_of_now_publishes_nothing_again(
+    tmp_path: Path, library: Any
+) -> None:
+    company = Company("import-future", tmp_path)
+    document = company.document()
+    document["entries"] = [entry for entry in document["entries"] if entry["id"] == "post-2"]
+    document["entries"][0]["versions"][0]["changed_at"] = "2031-01-01T10:00:00+01:00"
+    first = _lines(company.run(document, apply=True))["post-2:pl"]
+    assert "changed_at_future" in _codes(first) and first.publication == "publish"
+    bath = _entry(company, "post-2")
+    assert bath.current_publication is not None
+    # The publication date stands in for a date that cannot be right.
+    assert bath.current_publication.snapshot["changed_at"] == "2022-06-01T12:00:00+02:00"
+    for _run in range(2):
+        again = _lines(company.run(document, apply=True))["post-2:pl"]
+        assert (again.action, again.publication) == (UNCHANGED, "published")
+    assert ContentEntryPublication.all_objects.filter(entry_id=bath.id).count() == 1
+
+
+def test_only_fields_that_have_words_say_who_wrote_the_text(tmp_path: Path, library: Any) -> None:
+    company = Company("import-empty-field", tmp_path)
+    document = company.document()
+    document["entries"] = [entry for entry in document["entries"] if entry["id"] == "post-2"]
+    version = document["entries"][0]["versions"][0]
+    version.pop("excerpt", None)
+    version["origin"] = "human"
+    version["fields"] = {"excerpt": {"origin": "ai", "model": "m"}}
+    company.run(document, apply=True)
+    bath = _entry(company, "post-2")
+    assert bath.current_publication is not None and bath.current_draft is not None
+    assert bath.current_publication.snapshot["origin"] == {
+        "origin": "human",
+        "machine": False,
+        "reviewed": True,
+    }
+    assert sorted(bath.current_draft.units) == ["import/body", "import/title"]
+
+
+def test_the_assistants_edit_of_an_imported_machine_text_keeps_the_mark(
+    tmp_path: Path, library: Any
+) -> None:
+    from uuid import uuid7
+
+    from saas_core.modules.core.organizations.context import acting_context
+    from saas_core.modules.shared.sites.collections import publish_entry, save_entry_draft
+
+    company = Company("import-assistant", tmp_path)
+    document = company.document()
+    document["entries"] = document["entries"][:1]
+    company.run(document, apply=True)
+    english = _entry(company, "post-1", "en")
+    assert english.current_draft is not None
+    membership = Membership.objects.select_related("role").get(
+        organization=company.organization, user=company.user
+    )
+    person = context_from_membership(membership)
+    assistant = acting_context(person, via="assistant", ref=f"conversation:{uuid7()}")
+    blocks = copy.deepcopy(english.current_draft.blocks)
+    blocks[0]["data"]["content"][1]["text"] = "Choosing a brush"
+    with activate_tenant_context(assistant):
+        saved, _created = save_entry_draft(
+            entry_id=english.id,
+            expected_version=english.version,
+            blocks=blocks,
+            idempotency_key="assistant-edit",
+        )
+    assert saved.units is not None
+    assert saved.units["import/edit"]["provenance"]["origin"] == "ai"
+    assert saved.units["import/body"]["provenance"]["origin"] == "ai"
+    with activate_tenant_context(person):
+        publish_entry(entry_id=english.id, idempotency_key="after-assistant")
+    english = _entry(company, "post-1", "en")
+    assert english.current_publication is not None
+    assert english.current_publication.snapshot["origin"] == {
+        "origin": "ai",
+        "machine": True,
+        "reviewed": False,
+    }
+
+
+def test_a_term_the_site_already_has_is_adopted_openly_and_left_as_it_is(
+    tmp_path: Path, library: Any
+) -> None:
+    company = Company("import-adopt", tmp_path)
+    client = company.client
+    document = company.document()
+    document["entries"] = document["entries"][:2]
+    document["categories"] = document["categories"][:4]
+    document["categories"][0]["slugs"] = {"pl": "pielegnacja-psow"}
+    # The site has the type, a category and a tag of the document's names
+    # already — a person's, each with a word of its own in English.
+    made = _send(
+        client,
+        "post",
+        f"/api/v1/sites/{company.site_id}/collections/",
+        {"key": "poradnik", "name": "Poradnik", "kind": "blog", "base_path": "poradnik"},
+    )
+    assert made.status_code == 201, made.data
+    type_id = made.data["id"]
+    terms = f"/api/v1/sites/collections/{type_id}/terms/"
+    care = _send(client, "post", terms, {"kind": "categories", "name": "Pielęgnacja"}).json()["id"]
+    puppies = _send(client, "post", terms, {"kind": "tags", "name": "Szczenięta"}).json()["id"]
+    assert (
+        _send(client, "put", f"{terms}{care}/names/", {"names": {"en": "Grooming"}}).status_code
+        == 200
+    )
+    assert (
+        _send(client, "put", f"{terms}{puppies}/names/", {"names": {"en": "Pups"}}).status_code
+        == 200
+    )
+
+    planned = company.run(document)
+    done = company.run(document, apply=True)
+    for report in (planned, done):
+        categories, tags = _lines(report, "category"), _lines(report, "tag")
+        assert _lines(report, "type")["poradnik"].action == UNCHANGED
+        for line in (categories["cat-care"], tags["tag-puppies"]):
+            # Said beforehand, with exactly what changes: the names it lacked.
+            assert line.action == KEPT
+            assert {"term_adopted", "name_kept"} <= set(_codes(line))
+            assert line.changes[0] == "adopted"
+            assert "name in de" in line.changes and "name in en" not in line.changes
+        assert "address_kept" in _codes(categories["cat-care"])
+        assert "former addresses" in categories["cat-care"].changes
+        assert categories["cat-coat"].action == CREATE
+        assert "NEEDS A LOOK" in format_report(report) and "[term_adopted]" in format_report(report)
+    # One term each, as before; a person's English names and addresses stand.
+    assert ContentTag.all_objects.filter(name="Pielęgnacja").count() == 1
+    assert ContentTag.all_objects.filter(name="Szczenięta").count() == 1
+    rows = {row["name"]: row for row in client.get(f"{terms}?kind=categories").json()["terms"]}
+    assert rows["Pielęgnacja"]["names"]["en"]["text"] == "Grooming"
+    assert rows["Pielęgnacja"]["names"]["de"]["text"] == "Pflege"
+    assert rows["Pielęgnacja"]["slugs"]["en"] == "grooming"
+    assert rows["Pielęgnacja"]["slugs"]["pl"] == "pielegnacja"
+    assert rows["Sierść"]["parent_id"] == care
+    tag_rows = {row["name"]: row for row in client.get(f"{terms}?kind=tags").json()["terms"]}
+    assert tag_rows["Szczenięta"]["names"]["en"]["text"] == "Pups"
+    # From now on it is in the ledger: the next run finds it there and says
+    # no more than that the English name is a person's.
+    again = _lines(company.run(document, apply=True), "category")["cat-care"]
+    assert "term_adopted" not in _codes(again) and "name_kept" in _codes(again)
+
+
+def test_terms_that_read_the_same_are_said_not_merged_or_refused_in_silence(
+    tmp_path: Path, library: Any
+) -> None:
+    company = Company("import-same-names", tmp_path)
+    document = company.document()
+    by_id = {entry["id"]: entry for entry in document["entries"]}
+    document["categories"] = document["categories"][:4]
+    document["tags"] = [
+        {"id": "tag-a", "names": {"pl": "Porady", "en": "Tips"}},
+        # The same word in the site's language: one tag in the site.
+        {"id": "tag-b", "names": {"pl": "porady", "en": "Advice"}},
+        # Another tag that reads the same in English only: two tags.
+        {"id": "tag-c", "names": {"pl": "Wskazówki", "en": "Tips"}},
+    ]
+    first, second = copy.deepcopy(by_id["post-2"]), copy.deepcopy(by_id["post-8"])
+    first["tags"], second["tags"] = ["tag-a", "tag-b", "tag-c"], ["tag-b"]
+    document["entries"] = [first, second]
+
+    for apply in (False, True):
+        report = company.run(document, apply=apply)
+        tags = _lines(report, "tag")
+        assert _codes(tags["tag-b"]) == ["term_merged"]
+        assert "tag-a" in tags["tag-b"].notes[0].text
+        assert _codes(tags["tag-c"]) == ["name_shared"]
+        assert "[term_merged]" in format_report(report) and "[name_shared]" in format_report(report)
+        assert all(not line.refused for line in _lines(report).values())
+    found = {tag.name: tag for tag in ContentTag.all_objects.filter(taxonomy__isnull=True)}
+    assert set(found) == {"Porady", "Wskazówki"}
+    # Entries filed under either id carry the one tag; the merged id's own
+    # English name is not applied.
+    assert {
+        link.tag.name
+        for link in ContentEntryTag.all_objects.filter(entry=_entry(company, "post-2"))
+    } >= {"Porady", "Wskazówki"}
+    assert [
+        link.tag.name
+        for link in ContentEntryTag.all_objects.filter(
+            entry=_entry(company, "post-8"), tag__taxonomy__isnull=True
+        )
+    ] == ["Porady"]
+    collection = ContentCollection.all_objects.get(site_id=company.site_id, key="poradnik")
+    rows = {
+        row["name"]: row
+        for row in company.client.get(
+            f"/api/v1/sites/collections/{collection.id}/terms/?kind=tags"
+        ).json()["terms"]
+    }
+    assert rows["Porady"]["names"]["en"]["text"] == "Tips"
+    # Both read „Tips” in English; the second one's address there has a number.
+    assert rows["Wskazówki"]["names"]["en"]["text"] == "Tips"
+    assert (rows["Porady"]["slugs"]["en"], rows["Wskazówki"]["slugs"]["en"]) == ("tips", "tips-2")
+    assert company.run(document, apply=True).counts()["tag"] == {UNCHANGED: 3}
+
+
+def test_a_table_written_out_as_lines_holds_the_version_and_a_split_one_is_shown(
+    tmp_path: Path, library: Any
+) -> None:
+    company = Company("import-tables", tmp_path)
+    document = company.document()
+    by_id = {entry["id"]: entry for entry in document["entries"]}
+    document["categories"] = document["categories"][:4]
+    wide, long = copy.deepcopy(by_id["post-2"]), copy.deepcopy(by_id["post-8"])
+    cells = "".join(f"<td>k{index}</td>" for index in range(13))
+    wide["versions"][0]["body"] = {"html": f"<table><tr>{cells}</tr><tr>{cells}</tr></table>"}
+    rows = "".join(f"<tr><td>w{index}</td><td>x</td></tr>" for index in range(130))
+    long["versions"][0]["body"] = {"html": f"<table>{rows}</table>"}
+    document["entries"] = [wide, long]
+
+    for apply in (False, True):
+        report = company.run(document, apply=apply)
+        lines = _lines(report)
+        # Too wide for a table block: every row becomes a line of text. A
+        # reader sees that, so it is held like a loss of content.
+        held = lines["post-2:pl"]
+        assert (held.action, held.publication) == (HELD, HELD)
+        assert any(
+            note.level == "warning" and "table_too_wide ×1 (13 columns)" in note.text
+            for note in held.notes
+        )
+        # Split in two because of its length: published, and shown.
+        split = lines["post-8:pl"]
+        assert split.publication in ("publish", "published")
+        assert any(note.level == "warning" and "table_split" in note.text for note in split.notes)
+        text = format_report(report)
+        assert "entry post-2 pl „Kąpiel psa”: [body_changed] body changed: table_too_wide" in text
+        assert "entry post-8 pl „Kąpiel psa”: [body_split] body split: table_split" in text
+    assert _entry(company, "post-2").state == ContentEntryState.DRAFT
+    assert _entry(company, "post-8").state == ContentEntryState.PUBLISHED
+    # The document accepts it: out it goes.
+    wide["versions"][0]["accept_losses"] = ["table_too_wide"]
+    assert _lines(company.run(document, apply=True))["post-2:pl"].publication == "publish"
+    assert _entry(company, "post-2").state == ContentEntryState.PUBLISHED
+
+
+def test_markup_in_a_plain_field_refuses_the_version_before_anything_is_written(
+    tmp_path: Path, library: Any
+) -> None:
+    company = Company("import-markup", tmp_path)
+    document = company.document()
+    by_id = {entry["id"]: entry for entry in document["entries"]}
+    document["categories"] = document["categories"][:4]
+    document["categories"][3]["names"]["en"] = "<b>Health</b>"
+    excerpt, title, plain = (copy.deepcopy(by_id[key]) for key in ("post-2", "post-8", "post-5"))
+    excerpt["versions"][0]["excerpt"] = "<p>Ciepła woda i spokój.</p>"
+    excerpt["categories"] = ["cat-care"]
+    title["versions"][0]["title"] = "Kąpiel &amp; suszenie"
+    # A sign that is no markup stays a sign.
+    plain["versions"][0]["title"] = "Zabawki < 20 zł & inne"
+    document["entries"] = [excerpt, title, plain]
+
+    for apply in (False, True):
+        report = company.run(document, apply=apply)
+        lines = _lines(report)
+        assert _codes(lines["post-2:pl"]) == ["markup_in_excerpt"]
+        assert "„<p>”" in lines["post-2:pl"].notes[0].text
+        assert _codes(lines["post-8:pl"]) == ["markup_in_title"]
+        assert not lines["post-5:pl"].refused
+        assert _codes(_lines(report, "category")["cat-health"]) == ["markup_in_name"]
+    assert not ContentImportRecord.all_objects.filter(external_id__in=["post-2", "post-8"]).exists()
+    assert _entry(company, "post-5").title == "Zabawki < 20 zł & inne"
+
+
+def test_what_the_core_has_no_field_for_is_kept_with_its_words(
+    tmp_path: Path, library: Any
+) -> None:
+    company = Company("import-extra", tmp_path)
+    document = company.document()
+    document["entries"] = document["entries"][:1]
+    document["categories"] = document["categories"][:4]
+    company.run(document, apply=True)
+
+    def kept(kind: str, external_id: str, locale: str = "") -> dict[str, Any]:
+        record = ContentImportRecord.all_objects.get(
+            kind=kind, external_id=external_id, locale=locale
+        )
+        return dict(record.fields)
+
+    assert kept("entry", "post-1", "pl")["seo_title"] == {
+        "origin": "human",
+        "text": "Czesanie psa krok po kroku",
+    }
+    english = kept("entry", "post-1", "en")["meta_description"]
+    assert english["text"] == "How to brush a dog in ten minutes."
+    assert english["origin"] == "ai" and len(english["source_sha256"]) == 64
+    assert kept("category", "cat-care")["extra"] == {
+        "description": {"pl": "Wszystko o pielęgnacji psa.", "en": "All about caring for a dog."}
+    }
+    # A newer document changes only those words: the ledger follows, and
+    # nothing of the entry or the category is written or published.
+    newer = copy.deepcopy(document)
+    newer["entries"][0]["versions"][0]["fields"]["seo_title"]["text"] = "Jak czesać psa"
+    newer["categories"][0]["fields"]["description"]["pl"] = "Nowy opis."
+    polish = _entry(company, "post-1")
+    report = company.run(newer, apply=True)
+    line = _lines(report)["post-1:pl"]
+    assert (line.action, line.changes, line.publication) == (
+        UPDATE,
+        ["record of origins"],
+        "published",
+    )
+    assert _lines(report, "category")["cat-care"].changes == ["record of other fields"]
+    assert kept("entry", "post-1", "pl")["seo_title"]["text"] == "Jak czesać psa"
+    assert kept("category", "cat-care")["extra"]["description"]["pl"] == "Nowy opis."
+    after = _entry(company, "post-1")
+    assert (after.version, after.current_publication_id) == (
+        polish.version,
+        polish.current_publication_id,
+    )
+    # The core's own fields carry no `text` of their own.
+    wrong = copy.deepcopy(document)
+    wrong["entries"][0]["versions"][0]["fields"]["title"] = {"text": "x"}
+    assert "fields/title" in document_problems(wrong)[0]
+
+
+def test_what_an_earlier_run_made_and_is_gone_is_said_when_it_is_made_again(
+    tmp_path: Path, library: Any
+) -> None:
+    company = Company("import-gone", tmp_path)
+    document = company.document()
+    by_id = {entry["id"]: entry for entry in document["entries"]}
+    document["categories"] = document["categories"][:4]
+    document["entries"] = [by_id["post-2"]]
+    document["tags"].append({"id": "tag-unused", "names": {"pl": "Nieużywany"}})
+    company.run(document, apply=True)
+    # A person deletes a tag nothing carries; and the ledger remembers a
+    # version whose entry was erased with its type (here: a row that is gone).
+    collection = ContentCollection.all_objects.get(site_id=company.site_id, key="poradnik")
+    unused = ContentTag.all_objects.get(name="Nieużywany")
+    gone = _send(
+        company.client, "delete", f"/api/v1/sites/collections/{collection.id}/terms/{unused.id}/"
+    )
+    assert gone.status_code in (200, 204), gone.data
+    ContentImportRecord.all_objects.create(
+        organization=company.organization,
+        site_id=company.site_id,
+        source="core-fixture",
+        kind="entry",
+        external_id="post-8",
+        locale="pl",
+        object_id=uuid4(),
+        fields={},
+        created_by=company.user,
+    )
+    document["entries"].append(by_id["post-8"])
+
+    for apply in (False, True):
+        report = company.run(document, apply=apply)
+        tag, entry = _lines(report, "tag")["tag-unused"], _lines(report)["post-8:pl"]
+        assert (tag.action, _codes(tag)) == (CREATE, ["made_again"])
+        assert tag.notes[0].level == "warning"
+        assert entry.action == CREATE and "made_again" in _codes(entry)
+        assert "[made_again]" in format_report(report)
+    assert ContentTag.all_objects.filter(name="Nieużywany").exists()
+    assert _entry(company, "post-8").state == ContentEntryState.PUBLISHED
+
+
+def test_the_source_version_is_written_first_and_a_stopped_write_begins_again_cleanly(
+    tmp_path: Path, library: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from saas_core.modules.shared.sites import content_import
+    from saas_core.modules.shared.sites.collections import group_source
+
+    company = Company("import-source-first", tmp_path)
+    document = company.document()
+    document["categories"], document["tags"] = [], []
+    # No version in the site's language, and the source is not the first
+    # language of the list.
+    document["entries"] = [
+        {
+            "id": "abroad",
+            "type": "poradnik",
+            "source_locale": "en",
+            "versions": [
+                {
+                    "locale": locale,
+                    "title": title,
+                    "body": {"html": f"<p>{title}.</p>"},
+                    "status": "published",
+                    "published_at": "2025-01-01T10:00:00+01:00",
+                    "origin": origin,
+                }
+                for locale, title, origin in (
+                    ("de", "Nur auf Deutsch", "ai"),
+                    ("en", "Written in English", "human"),
+                )
+            ],
+        }
+    ]
+    # The database stops the first attempt half-way, after the entry rows
+    # were made: the second attempt must not hold on to them.
+    monkeypatch.setattr(content_import.time, "sleep", lambda _seconds: None)
+    real = content_import.save_entry_draft
+    stopped: list[int] = []
+
+    class _State(Exception):
+        sqlstate = "40P01"
+
+    def deadlocked(**arguments: Any) -> Any:
+        if not stopped:
+            stopped.append(1)
+            error = OperationalError("deadlock detected")
+            error.__cause__ = _State()
+            raise error
+        return real(**arguments)
+
+    monkeypatch.setattr(content_import, "save_entry_draft", deadlocked)
+    report = company.run(document, apply=True)
+
+    assert report.retries == 1
+    assert {key: line.action for key, line in _lines(report).items()} == {
+        "abroad:de": CREATE,
+        "abroad:en": CREATE,
+    }
+    entries = list(ContentEntry.with_removed.filter(organization=company.organization))
+    assert sorted(entry.locale for entry in entries) == ["de", "en"]
+    english = _entry(company, "abroad", "en")
+    assert english.state == ContentEntryState.PUBLISHED
+    # The original is the group's oldest entry: what a translation engine
+    # takes for the source where the site's own language has no version.
+    assert group_source(entries, "pl") == english
+    assert company.run(document, apply=True).counts()["entry"] == {UNCHANGED: 2}
 
 
 # -- the schema ------------------------------------------------------------------------

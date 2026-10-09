@@ -45911,6 +45911,10 @@ components:
             minLength: 2
             pattern: ^[a-z]{2}$
           description: The languages this list answers in, the site's own first.
+        timezone:
+          type: string
+          description: 'The publisher''s time zone (IANA), as on an entry: the day
+            a card shows is the day it was there.'
         indexable:
           type: boolean
           description: 'False for a term''s list too short to be a page of its own
@@ -45925,6 +45929,7 @@ components:
       - page
       - pages
       - term
+      - timezone
       - total
       - type
     PublicContentListAnswer:

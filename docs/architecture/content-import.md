@@ -70,6 +70,14 @@ Trzy rzeczy, o które pierwszy prawdziwy dokument potknie się najczęściej:
   `image_dropped`, a wersja wchodzi jako szkic.
 - **Odnośnik w nagłówku** jest przez konwerter gubiony (słowa zostają):
   `heading_link_dropped`. Bez tego rodzaju w `accept_losses` wersja wchodzi jako szkic.
+- **Tabela szersza niż 12 kolumn** jest zapisywana jako linie tekstu (`table_too_wide`):
+  słowa zostają, ale czytelnik nie widzi już tabeli, więc wersja też wchodzi jako szkic,
+  dopóki dokument tego nie przyjmie. Tabela dłuższa niż 120 wierszy jest dzielona
+  (`table_split`): publikowana, ale zawsze wypisana w „NEEDS A LOOK”.
+- **Tytuł i zajawka to czysty tekst.** HTML w nich (znacznik albo encja, np. `<p>`,
+  `&amp;`) odrzuca wersję (`markup_in_title`, `markup_in_excerpt`) — pokazałby się
+  czytelnikowi litera po literze na karcie i w wyniku wyszukiwania. To samo dotyczy nazw
+  kategorii i tagów (`markup_in_name`). Sam znak `<` albo `&` w zdaniu jest w porządku.
 
 Najważniejsze reguły (pełny opis każdego pola jest w schemacie):
 
@@ -77,7 +85,8 @@ Najważniejsze reguły (pełny opis każdego pola jest w schemacie):
 | --- | --- |
 | `source`, `id` | `source` to przestrzeń nazw identyfikatorów. Ten sam `source` i `id` w kolejnym dokumencie znaczy „ten sam obiekt” — także gdy uruchamia go inna osoba. |
 | typ | Istniejący znajdowany jest po `key` i nie jest zmieniany. Brakujący powstaje (potrzebne `name` i `base_path`); działa oferta wdrożenia i limit planu. |
-| kategoria, tag | Nazwy per język wchodzą jako **tekst człowieka** (silnik tłumaczeń ich nie nadpisze). `slugs` wolno podać tylko w części języków — w pozostałych adres liczy się z nazwy. Rodzic przed dzieckiem, najwyżej trzy poziomy. |
+| kategoria, tag | Nazwy per język wchodzą jako **tekst człowieka** (silnik tłumaczeń ich nie nadpisze). `slugs` wolno podać tylko w części języków — w pozostałych adres liczy się z nazwy. Rodzic przed dzieckiem, najwyżej trzy poziomy. `fields` niesie to, na co rdzeń nie ma pola, per język (`{"description": {"pl": "…"}}`) — trafia do księgi. |
+| ta sama nazwa | **Pozycja, którą strona już ma** (tag o tej nazwie, kategoria o tej nazwie w tym samym miejscu drzewa), jest przejmowana, nie dublowana — jawnie: `term_adopted` w „NEEDS A LOOK” mówi, co się w niej zmieni. Import dopisuje jej tylko brakujące nazwy w innych językach i dawne adresy; istniejących nazw i adresów nie rusza (`name_kept`, `address_kept`). **Dwie pozycje dokumentu o tej samej nazwie w języku strony** to na stronie jedna pozycja (`term_merged`): drugi identyfikator wskazuje pierwszą, a jego własne nazwy i adresy nie są stosowane. **Ta sama nazwa tylko w innym języku** (`name_shared`): obie pozycje zostają, druga dostaje w tym języku adres z numerem (`tips-2`). |
 | wersje językowe | Jeden wpis dokumentu to jedna grupa tłumaczeń; każda wersja jest własnym wpisem. Kategorie i tagi wpisu dostaje każda wersja. Wersja w języku, którego strona nie ma, jest odrzucana (pozostałe wchodzą). **Tłumaczenia wchodzą razem ze źródłem, nie przed nim:** gdy wersja źródłowa (`source_locale`, domyślnie język strony) jest odrzucona i nie ma jej jeszcze na stronie, pozostałe nowe wersje wpisu czekają (`source_refused`). Wersji w języku, którą wpis już ma, a której import nie zrobił (ręczna, z silnika tłumaczeń), import nie rusza (`version_exists`). |
 | `slug` | Pominięty — liczony z tytułu funkcją rdzenia (cyrylica zapisana alfabetem łacińskim), unikalny w typie i języku; kolejny wpis o tym samym tytule dostaje `-2`. |
 | `former_slugs` | Same końcówki dawnych adresów (nie całe ścieżki — te należą do tabeli starych adresów produktu). Każda odpowiada jednym 308. Końcówka, pod którą dziś odpowiada inny wpis, jest pomijana z ostrzeżeniem: żywy adres zawsze wygrywa. |
@@ -85,7 +94,7 @@ Najważniejsze reguły (pełny opis każdego pola jest w schemacie):
 | zdjęcia | `cover` — zdjęcie pokazywane jako pierwsze w treści (karta na liście, podgląd linku); `images` — plik dla każdego `<img src>` z HTML, kluczem jest dokładnie ten `src`. JPEG, PNG, WebP. |
 | `status` | Import publikuje tylko to, co ma `published` — i nigdy niczego nie wycofuje. |
 | `published_at`, `changed_at` | Patrz §5. Zawsze ze strefą; `published_at` nie może być w przyszłości. |
-| `origin`, `fields` | Patrz §4. |
+| `origin`, `fields` | Patrz §4. Pole, którego rdzeń nie ma (`seo_title`, `seo_description`), niesie swój tekst w `fields.<nazwa>.text` — księga trzyma go razem z pochodzeniem i odciskami. |
 | `accept_losses` | Rodzaje strat konwertera, które w tej wersji nie wstrzymują publikacji (patrz §3). |
 
 ## 3. Raport
@@ -115,9 +124,11 @@ Odrzucenia, które raport nazywa kodem: `locale_not_enabled`, `type_unknown`,
 `picture_missing`, `picture_outside`, `picture_unsupported`, `picture_too_large`,
 `picture_refused`, `library_unavailable` (rola operatora bez `media.manage` albo plan
 bez biblioteki mediów — wiadomo już w przebiegu próbnym), `source_refused`,
-`version_exists`, `body_unreadable`, `body_invalid`, `body_empty`, `term_unknown`,
+`version_exists`, `markup_in_title`, `markup_in_excerpt`, `markup_in_name`,
+`body_unreadable`, `body_invalid`, `body_empty`, `term_unknown`,
 `parent_unknown`, `published_at_missing`, `published_at_future`, `date_invalid`,
-`write_failed`. Ostrzeżenia: `translation_stale`, `held_for_losses`,
+`write_failed`. Ostrzeżenia: `term_adopted`, `term_merged`, `name_shared`, `made_again`,
+`translation_stale`, `held_for_losses`,
 `published_at_implausible`, `former_slug_live`, `former_slug_claimed`, `*_kept`,
 `withdrawn_in_panel`, `removed_in_panel`, `not_republished`, `source_edited_in_panel`.
 
@@ -126,8 +137,9 @@ wersji: rodzaj, liczba, przykład (np. `body lost: heading_link_dropped ×1
 (https://…) — e.g. „Jak wybrać szczotkę”`). Strata rodzaju `lost` (zgubiona treść:
 odnośnik w nagłówku, zdjęcie bez pliku albo opisu, usunięty znacznik) **wstrzymuje
 publikację tej wersji** — wchodzi jako szkic — chyba że dokument wymieni ten rodzaj w
-`accept_losses`. Zmiany zapisu (`changed`: podkreślenie jako pogrubienie, `h1` jako
-`h2`, scalone komórki tabeli) i podziały (`split`) publikacji nie wstrzymują.
+`accept_losses`; tak samo `table_too_wide`. Pozostałe zmiany zapisu (`changed`:
+podkreślenie jako pogrubienie, `h1` jako `h2`, scalone komórki tabeli) i podziały
+(`split`) publikacji nie wstrzymują; `table_split` jest mimo to w „NEEDS A LOOK”.
 
 **Czego przebieg próbny nie wie:** werdyktu skanera i tego, czy plik da się przetworzyć
 jako zdjęcie (sprawdza istnienie, typ po nagłówku pliku i rozmiar), czy zdjęcia zmieszczą
@@ -151,6 +163,8 @@ wtedy odrzucany z `write_failed` i wchodzi przy kolejnym uruchomieniu).
   policzony przez autora dokumentu; gdy go brak, import liczy SHA-256 z bajtów UTF-8
   pola dokładnie tak, jak stoi w dokumencie (`body`: napis `html`, a dla bloków JSON
   z posortowanymi kluczami bez spacji).
+- Pole bez słów (wersja bez zajawki) nie mówi nic o pochodzeniu tekstu: jego `origin`
+  nie wchodzi do znacznika wersji.
 - Gdy `source_sha256` tłumaczenia różni się od odcisku źródła, raport oznacza pole jako
   `translation_stale` („do ponownego tłumaczenia”), a księga zapisuje `stale`. Gdy
   człowiek zmienił w panelu tekst źródłowy po imporcie, każde tłumaczenie tej grupy
@@ -183,7 +197,15 @@ daty w dokumencie kolejne uruchomienie ją publikuje. Późniejsza edycja w pane
   `--overwrite-edits <id wpisu>`.
 - Wpis, w którym jest cokolwiek od człowieka, **nie jest publikowany przez import**:
   zmiany importu czekają w szkicu razem z jego zmianami (`not_republished`).
-- Wpis usunięty w panelu nie powstaje ponownie; wycofany zostaje wycofany.
+- Wpis usunięty w panelu nie powstaje ponownie. Wpis, który był publiczny, a nie jest,
+  **zostaje wycofany — ktokolwiek go wcześniej opublikował** (import nigdy nie wycofuje,
+  więc „był, nie ma” to zawsze decyzja człowieka): `withdrawn_in_panel`.
+- **Czego już nie ma, powstaje ponownie — i raport mówi to wprost** (`made_again` w
+  „NEEDS A LOOK”): pozycja, którą ktoś usunął w panelu, jest zakładana od nowa; wersja
+  wpisu skasowana razem ze swoim typem treści powstaje od nowa i jest publikowana, jeśli
+  dokument tak mówi. Kto tego nie chce, usuwa obiekt z dokumentu.
+- `changed_at` z przyszłości jest zastępowane datą publikacji (`changed_at_future`) —
+  nie „teraz”, bo wtedy każde uruchomienie publikowałoby wpis ponownie.
 
 ## 7. Transakcje, błędy, skala
 

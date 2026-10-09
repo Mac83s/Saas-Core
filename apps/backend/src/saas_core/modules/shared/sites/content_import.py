@@ -112,6 +112,7 @@ from .models import (
 )
 from .rich_content import assert_unique_anchors
 from .taxonomies import (
+    _find_named,
     change_term_address,
     create_term,
     list_terms,
@@ -121,7 +122,7 @@ from .taxonomies import (
     set_term_names,
     update_term,
 )
-from .term_addresses import ENTRY_TERMS_MAX, KIND_CATEGORIES, KIND_TAGS
+from .term_addresses import ENTRY_TERMS_MAX, KIND_CATEGORIES, KIND_TAGS, name_slug
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +160,12 @@ _MAGIC = (
 )
 ORIGINS = (ORIGIN_HUMAN, ORIGIN_AI, ORIGIN_IMPORT)
 TEXT_FIELDS = ("title", "excerpt", "body")
+_MARKUP = re.compile(r"</?[A-Za-z][^<>]*>|&(?:[A-Za-z]{2,8}|#\d{1,6}|#x[0-9A-Fa-f]{1,6});")
+#: What the converter does to a table that a reader sees, though no word is
+#: lost: reported for a look, and the first holds the version back like a
+#: loss of content (a table written out as lines of text is no table).
+TABLE_LOOK_KINDS = frozenset({"table_too_wide", "table_split"})
+HOLDING_KINDS = frozenset({"table_too_wide"})
 
 
 class ImportStopped(Exception):
@@ -417,6 +424,12 @@ class _Term:
     slugs: dict[str, str] = field(default_factory=dict)
     former: list[str] = field(default_factory=list)
     ledger: dict[str, Any] = field(default_factory=dict)
+    #: The site held a term of this name that no run of this import made.
+    adopted: bool = False
+    #: Another term of the document that the site holds as the same one.
+    same_as: _Term | None = None
+    #: Something of an existing term changes, the ledger's row at least.
+    write: bool = False
 
 
 @dataclass(slots=True)
@@ -443,6 +456,9 @@ class _Version:
     set_published_at: bool = False
     imported: ImportedText | None = None
     ledger: dict[str, Any] = field(default_factory=dict)
+    #: The entry and the ledger's row as the plan found them — what a write
+    #: begun again after a deadlock starts from.
+    found: tuple[ContentEntry | None, ContentImportRecord | None] = (None, None)
     #: Only the ledger's row changes: what the document says of the text.
     record_only: bool = False
 
@@ -495,11 +511,30 @@ class _Plan:
         return self.namespaces.setdefault((type_key, locale), _Namespace())
 
 
+def _where(document: Any, path: Sequence[Any]) -> str:
+    """A place in the document as a person finds it: the object's own id and
+    language rather than its position in a list."""
+    parts = [str(part) for part in path]
+    if len(path) < 2 or path[0] not in ("entries", "categories", "tags", "types"):
+        return "/".join(parts) or "(document)"
+    try:
+        item = document[path[0]][path[1]]
+        name = item.get("key" if path[0] == "types" else "id", path[1])
+        label = f"{path[0]} „{name}”"
+        rest = list(path[2:])
+        if rest[:1] == ["versions"] and len(rest) > 1:
+            label += f" ({item['versions'][rest[1]].get('locale', rest[1])})"
+            rest = rest[2:]
+    except (AttributeError, IndexError, KeyError, TypeError):
+        return "/".join(parts)
+    return label + (": " + "/".join(str(part) for part in rest) if rest else "")
+
+
 def document_problems(document: Any) -> list[str]:
     """What keeps the document from being a `content-import.v1` at all."""
     validator = Draft202012Validator(DOCUMENT_SCHEMA)
     problems = [
-        f"{'/'.join(str(part) for part in error.absolute_path) or '(document)'}: {error.message}"
+        f"{_where(document, list(error.absolute_path))} — {error.message}"
         for error in sorted(
             validator.iter_errors(document),
             key=lambda item: [str(part) for part in item.absolute_path],
@@ -710,6 +745,14 @@ def _slugs_in_use(
 # -- terms
 
 
+def _markup(text: str) -> str:
+    """The first piece of HTML in a text that is shown as typed — a tag or a
+    character reference — or nothing. A title, an excerpt or a name holding
+    one would show it to readers letter by letter."""
+    found = _MARKUP.search(text)
+    return found.group(0) if found else ""
+
+
 def _plan_terms(plan: _Plan, document: Mapping[str, Any]) -> None:
     first_type = next(
         (key for key, line in plan.type_lines.items() if not line.refused),
@@ -732,6 +775,77 @@ def _plan_terms(plan: _Plan, document: Mapping[str, Any]) -> None:
             term = _plan_term(plan, str(kind), spec, type_key, current)
             plan.terms[str(kind), str(spec["id"])] = term
             plan.report.lines.append(term.line)
+    _names_shared(plan)
+
+
+def _vocabulary(term: _Term) -> tuple[str, str]:
+    """Which terms a term's names are told apart among: the site's tags, or
+    one type's categories."""
+    return (term.kind, term.type_key if term.kind == ContentImportKind.CATEGORY else "")
+
+
+def _names_shared(plan: _Plan) -> None:
+    """Two different terms of one vocabulary that read the same in a
+    language other than the site's: both stay, and the report says which —
+    readers would see two archives under one name."""
+    seen: dict[tuple[str, str, str, str], _Term] = {}
+    for term in plan.terms.values():
+        if term.line.refused or term.same_as is not None:
+            continue
+        for locale, name in term.spec["names"].items():
+            if locale == plan.default_locale or locale not in plan.locales:
+                continue
+            key = (*_vocabulary(term), str(locale), name_slug(str(name)))
+            other = seen.setdefault(key, term)
+            if other is not term:
+                term.line.note(
+                    WARNING,
+                    "name_shared",
+                    f"Its name in {locale}, „{name}”, is also the name of „{other.spec['id']}”: "
+                    "two different terms that read the same there. Both are kept; the second "
+                    "one's address in that language gets a number.",
+                )
+
+
+def _same_named(plan: _Plan, term: _Term, name: str) -> _Term | None:
+    """An earlier term of the document that the site would hold as the same
+    one: same vocabulary, same place in the tree, same name in the site's
+    language (by its slug — „Porady” and „porady” are one tag)."""
+    wanted = name_slug(name)
+    for other in plan.terms.values():
+        if (
+            other is not term
+            and not other.line.refused
+            and other.same_as is None
+            and _vocabulary(other) == _vocabulary(term)
+            and other.spec.get("parent") == term.spec.get("parent")
+            and name_slug(str(other.spec["names"].get(plan.default_locale, ""))) == wanted
+        ):
+            return other
+    return None
+
+
+def _already_there(
+    plan: _Plan, term: _Term, name: str, current: Mapping[tuple[str, str], Any]
+) -> Any | None:
+    """A term the site holds that `create_term` would answer with instead of
+    making one: a tag the name means, or a category of that name in the same
+    place of the tree."""
+    scope = term.type_key if term.kind == ContentImportKind.CATEGORY else ""
+    rows = [row for (key, _id), row in current.items() if key == scope]
+    if term.kind == ContentImportKind.TAG:
+        tag = _find_named(name, [row.term for row in rows])
+        return next((row for row in rows if tag is not None and row.term.pk == tag.pk), None)
+    parent = term.spec.get("parent")
+    above: UUID | None = None
+    if parent is not None:
+        above = plan.terms[str(ContentImportKind.CATEGORY), str(parent)].term_id
+        if above is None:
+            # Under a category this run makes: nothing can be there yet.
+            return None
+    return next(
+        (row for row in rows if row.term.parent_id == above and row.term.name == name), None
+    )
 
 
 def _plan_term(
@@ -748,6 +862,13 @@ def _plan_term(
     if default not in names:
         line.refuse("name_missing", f"No name in the site's language ({default}).")
         return term
+    for locale, name in names.items():
+        if _markup(name):
+            line.refuse(
+                "markup_in_name",
+                f"Its name in {locale} holds HTML („{_markup(name)}”); a name is shown as typed.",
+            )
+            return term
     if not type_key or plan.type_lines[type_key].refused:
         line.refuse("type_refused", "Its content type is refused (see the type's line).")
         return term
@@ -779,20 +900,43 @@ def _plan_term(
     term.ledger = {
         "names": {locale: _hash(name) for locale, name in names.items()},
         "slugs": dict(wanted_slugs),
+        # What the document says of the term that the core has no field for
+        # (a description, say), kept as given.
+        "extra": dict(spec.get("fields") or {}),
     }
     if found is None:
-        term.create = True
-        term.names = {locale: name for locale, name in names.items() if locale != default}
-        term.slugs = wanted_slugs
-        term.former = [str(slug) for slug in spec.get("former_slugs") or []]
-        line.action = CREATE
-        line.changes = [f"names in {', '.join(sorted(names))}"]
+        twin = _same_named(plan, term, names[default])
+        if twin is not None:
+            term.same_as = twin
+            term.term_id = twin.term_id
+            line.note(
+                WARNING,
+                "term_merged",
+                f"In {default} it has the name of „{twin.spec['id']}” („{names[default]}”): the "
+                "site holds one term for both. This id stands for that term; its own names in "
+                "other languages and its addresses are not applied.",
+            )
+            return term
         if record is not None:
-            line.note(INFO, "made_again", "What an earlier run made is gone; it is made again.")
-        return term
-    assert record is not None
+            line.note(
+                WARNING,
+                "made_again",
+                "An earlier run made this term and it is no longer in the site (somebody "
+                "deleted it): it is made again.",
+            )
+        found = _already_there(plan, term, names[default], current)
+        if found is None:
+            term.create = True
+            term.names = {locale: name for locale, name in names.items() if locale != default}
+            term.slugs = wanted_slugs
+            term.former = [str(slug) for slug in spec.get("former_slugs") or []]
+            line.action = CREATE
+            line.changes = [f"names in {', '.join(sorted(names))}"]
+            return term
+        term.adopted, record = True, None
     term.term_id, term.record = found.term.id, record
-    written = record.fields.get("names") or {}
+    fields = record.fields if record is not None else {}
+    written = fields.get("names") or {}
     for locale, name in names.items():
         have = (
             found.term.name
@@ -806,7 +950,7 @@ def _plan_term(
             line.note(
                 WARNING,
                 "name_kept",
-                f"The name in {locale} was changed in the panel („{have}”); the document's "
+                f"The name in {locale} is „{have}” in the site — a person's; the document's "
                 f"„{name}” is not applied.",
             )
             term.ledger["names"][locale] = written.get(locale, "")
@@ -814,16 +958,19 @@ def _plan_term(
             term.rename = name
         else:
             term.names[locale] = name
-    asked = record.fields.get("slugs") or {}
+    asked = fields.get("slugs") or {}
     for locale, slug in wanted_slugs.items():
         have = str(found.slugs.get(locale, ""))
         if have == slug:
             continue
-        if asked.get(locale) == slug or (locale in asked and have != asked[locale]):
-            # Already asked for once, and it is something else today: a
-            # person's address (or one the vocabulary could not give).
+        if term.adopted or asked.get(locale) == slug or (locale in asked and have != asked[locale]):
+            # A term the import did not make, or an address asked for once
+            # that is something else today: a person's address (or one the
+            # vocabulary could not give). It stays.
             line.note(
-                INFO, "address_kept", f"The address in {locale} stays „{have}” (asked: „{slug}”)."
+                WARNING if term.adopted else INFO,
+                "address_kept",
+                f"The address in {locale} stays „{have}” (the document asks for „{slug}”).",
             )
             continue
         term.slugs[locale] = slug
@@ -831,15 +978,27 @@ def _plan_term(
     term.former = [
         str(slug) for slug in spec.get("former_slugs") or [] if str(slug) not in have_former
     ]
-    if term.rename or term.names or term.slugs or term.former:
-        if line.action != KEPT:
-            line.action = UPDATE
-        line.changes = [
-            *(["name"] if term.rename else []),
-            *(f"name in {locale}" for locale in sorted(term.names)),
-            *(f"address in {locale}" for locale in sorted(term.slugs)),
-            *(["former addresses"] if term.former else []),
-        ]
+    extra_changed = record is not None and (fields.get("extra") or {}) != term.ledger["extra"]
+    line.changes = [
+        *(["name"] if term.rename else []),
+        *(f"name in {locale}" for locale in sorted(term.names)),
+        *(f"address in {locale}" for locale in sorted(term.slugs)),
+        *(["former addresses"] if term.former else []),
+        *(["record of other fields"] if extra_changed else []),
+    ]
+    if term.adopted:
+        line.note(
+            WARNING,
+            "term_adopted",
+            "A term of this name is in the site already and no run of this import made it. "
+            "The run goes on with it instead of making one, and changes this of it: "
+            + (", ".join(line.changes) or "nothing")
+            + ". Its other names and its addresses stay as they are.",
+        )
+        line.changes = ["adopted", *line.changes]
+    if line.changes and line.action != KEPT:
+        line.action = UPDATE
+    term.write = bool(line.changes)
     return term
 
 
@@ -969,8 +1128,27 @@ def _start_version(plan: _Plan, entry_spec: Mapping[str, Any], spec: Mapping[str
     row = plan.rows.get(record.object_id) if record is not None else None
     if record is not None and row is not None:
         version.record, version.entry, version.slug = record, row, str(row.slug)
+        version.found = (row, record)
         line.action, line.slug = UNCHANGED, str(row.slug)
-    if plan.type_lines[type_key].refused:
+    elif record is not None:
+        line.note(
+            WARNING,
+            "made_again",
+            "An earlier run made this version and it is no longer in the site (erased with "
+            "its content type): it is made again, and published if the document says so.",
+        )
+    for name in ("title", "excerpt"):
+        found = _markup(str(spec.get(name) or ""))
+        if found and not line.refused:
+            line.refuse(
+                f"markup_in_{name}",
+                f"The {name} holds HTML („{found}”). A {name} is shown as typed — on a card, "
+                "in a search result — so the markup would be read out letter by letter. Give "
+                "plain text.",
+            )
+    if line.refused:
+        pass
+    elif plan.type_lines[type_key].refused:
         line.refuse("type_refused", "Its content type is refused (see the type's line).")
     elif locale not in plan.locales:
         line.refuse(
@@ -1135,6 +1313,9 @@ def _field_facts(spec: Mapping[str, Any], name: str) -> dict[str, str]:
         "origin": origin,
         **({"model": model} if model else {}),
         **({key: str(own[key]) for key in ("sha256", "source_sha256") if own.get(key)}),
+        # A field the core has no place for yet (an SEO title, say) is kept
+        # with its words, so it can be filled in from here one day.
+        **({"text": str(own["text"])} if name not in TEXT_FIELDS and "text" in own else {}),
     }
 
 
@@ -1283,12 +1464,13 @@ def _plan_body(plan: _Plan, version: _Version) -> bool:
         accepted = {str(kind) for kind in spec.get("accept_losses") or []}
         held = False
         for loss in conversion.losses:
-            lost = loss.severity == LOST
+            lost = loss.severity == LOST or loss.kind in HOLDING_KINDS
             taken = lost and loss.kind in accepted
             if lost and not taken:
                 held = True
+            look = (lost and not taken) or loss.kind in TABLE_LOOK_KINDS
             line.note(
-                WARNING if lost and not taken else INFO,
+                WARNING if look else INFO,
                 f"body_{loss.severity}",
                 f"body {loss.severity}: {loss.kind} ×{loss.count}"
                 + (f" ({loss.detail})" if loss.detail else "")
@@ -1316,8 +1498,9 @@ def _plan_body(plan: _Plan, version: _Version) -> bool:
         line.note(
             WARNING,
             "held_for_losses",
-            "The converter lost content (above): the version is brought in as a draft and "
-            "not published. Fix the HTML, or name the loss in `accept_losses`.",
+            "The converter lost content, or wrote a table out as lines of text (above): the "
+            "version is brought in as a draft and not published. Fix the HTML, or name the "
+            "loss in `accept_losses`.",
         )
     return not held
 
@@ -1421,8 +1604,14 @@ def _plan_version(plan: _Plan, version: _Version, source: _Version | None) -> No
         )
         changed_at = published_at
     elif changed_at > plan.now + CLOCK_SLACK:
-        line.note(WARNING, "changed_at_future", "`changed_at` is ahead of now; now is used.")
-        changed_at = plan.now
+        # Not „now”: that would be another moment at every run, and every run
+        # would publish the entry again.
+        line.note(
+            WARNING,
+            "changed_at_future",
+            "`changed_at` is ahead of now; the publication date is used instead.",
+        )
+        changed_at = published_at
     version.published_at, version.changed_at = published_at, changed_at
 
     origins = _plan_origins(version, source)
@@ -1438,6 +1627,8 @@ def _plan_version(plan: _Plan, version: _Version, source: _Version | None) -> No
                 (IMPORT_EXCERPT, "excerpt"),
                 (IMPORT_BODY, "body"),
             )
+            # A field without words says nothing about who wrote the text.
+            if field_name != "excerpt" or str(spec.get("excerpt") or "").strip()
         },
         ref=f"content-import:{plan.report.source}"[:160],
     )
@@ -1604,7 +1795,10 @@ def _wanted_terms(plan: _Plan, version: _Version) -> list[str]:
                     f"The category „{external_id}” belongs to another content type.",
                 )
                 return []
-            found.append(str(term.term_id) if term.term_id else f"{kind}:{external_id}")
+            held = _standing_for(term)
+            mark = str(held.term_id) if held.term_id else f"{kind}:{held.spec['id']}"
+            if mark not in found:
+                found.append(mark)
     return found
 
 
@@ -1645,12 +1839,14 @@ def _plan_publication(
         draft is not None and record is not None and record.written_version == draft.number
     )
     public = entry.state == ContentEntryState.PUBLISHED and entry.current_publication is not None
-    if was("status") == "published" and not public and entry.published_at is not None:
+    if not public and entry.published_at is not None:
+        # It was out and is off. The import never withdraws, so that is a
+        # person's act — whoever published it, the import or they themselves.
         line.publication = KEPT
         line.note(
             WARNING,
             "withdrawn_in_panel",
-            "A person took this entry off the site after the import published it: it stays off.",
+            "This entry was public and a person took it off the site: it stays off.",
         )
         _kept(line)
         return
@@ -1737,7 +1933,7 @@ def _apply(plan: _Plan, context: Any) -> None:
         if line.action == CREATE:
             _apply_type(plan, key, line)
     for term in plan.terms.values():
-        if not term.line.refused and term.line.action in (CREATE, UPDATE, KEPT):
+        if not term.line.refused and term.same_as is None and (term.create or term.write):
             _apply_term(plan, term)
     report.timing["types and terms"] = time.monotonic() - started
     scanner_misses = 0
@@ -1762,6 +1958,7 @@ def _apply(plan: _Plan, context: Any) -> None:
             except Exception as error:  # noqa: BLE001 — one entry's failure is the report's
                 logger.exception("sites.content_import.entry_failed id=%s", entry_spec["id"])
                 for version in active:
+                    version.entry, version.record = version.found
                     version.line.refuse("write_failed", _why(error))
         phases["text"] += time.monotonic() - mark
         mark = time.monotonic()
@@ -1879,7 +2076,7 @@ def _apply_term(plan: _Plan, term: _Term) -> None:
         if term.create:
             parent = spec.get("parent")
             above = (
-                plan.terms[str(ContentImportKind.CATEGORY), str(parent)].term_id
+                _standing_for(plan.terms[str(ContentImportKind.CATEGORY), str(parent)]).term_id
                 if parent is not None
                 else None
             )
@@ -1892,9 +2089,10 @@ def _apply_term(plan: _Plan, term: _Term) -> None:
             term.term_id = row.term.id
             if not created:
                 line.note(
-                    INFO,
-                    "adopted",
-                    "A term with this name was there already: the import goes on with it.",
+                    WARNING,
+                    "term_adopted",
+                    "A term of this name appeared in the site while the import ran: the run "
+                    "goes on with it instead of making one.",
                 )
         assert term.term_id is not None
         if term.rename:
@@ -1982,13 +2180,20 @@ def _apply_pictures(plan: _Plan, version: _Version, scanner_misses: int) -> int:
     return scanner_misses
 
 
+def _standing_for(term: _Term) -> _Term:
+    """The term of the document that the site holds for this one: itself, or
+    the earlier term of the same name it was merged with."""
+    return term.same_as if term.same_as is not None else term
+
+
 def _term_ids(plan: _Plan, version: _Version, kind: str, name: str) -> list[UUID]:
     found: list[UUID] = []
     for external_id in version.entry_spec.get(name) or []:
-        term = plan.terms[str(kind), str(external_id)]
+        term = _standing_for(plan.terms[str(kind), str(external_id)])
         if term.term_id is None or term.line.refused:
             raise ValueError(f"The term „{external_id}” could not be made.")
-        found.append(term.term_id)
+        if term.term_id not in found:
+            found.append(term.term_id)
     return found
 
 
@@ -1997,6 +2202,10 @@ def _write_entry(plan: _Plan, entry_spec: Mapping[str, Any], versions: Sequence[
     transaction: all of them or none."""
     context = require_tenant_context()
     external_id = str(entry_spec["id"])
+    for version in versions:
+        # Begun again after a deadlock: nothing of the attempt the database
+        # took back is left in hand.
+        version.entry, version.record = version.found
     sibling: ContentEntry | None = next(
         (
             row
@@ -2008,7 +2217,13 @@ def _write_entry(plan: _Plan, entry_spec: Mapping[str, Any], versions: Sequence[
         ),
         None,
     )
-    source_first = sorted(versions, key=lambda item: item.locale != plan.default_locale)
+    # The source version first: the oldest entry of a group that has none in
+    # the site's language is what a translation engine takes for the original.
+    source_locale = str(entry_spec.get("source_locale") or plan.default_locale)
+    source_first = sorted(
+        versions,
+        key=lambda item: (item.locale != source_locale, item.locale != plan.default_locale),
+    )
     for version in source_first:
         collection = plan.types[version.type_key]
         assert collection is not None and version.blocks is not None
@@ -2033,7 +2248,6 @@ def _write_entry(plan: _Plan, entry_spec: Mapping[str, Any], versions: Sequence[
                     idempotency_key=f"import:{key}",
                 )
             version.entry = entry
-            plan.rows[entry.id] = entry
         elif version.change_slug:
             change_entry_slug(
                 entry_id=entry.id,

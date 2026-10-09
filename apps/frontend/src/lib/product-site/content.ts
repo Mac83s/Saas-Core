@@ -51,7 +51,19 @@ export type ContentListResult =
 
 type Query = Record<string, string | number | undefined>;
 
-async function read<T>(path: string, query: Query = {}): Promise<T | null> {
+/**
+ * How long a read may be served from Next's data cache, in seconds. Left
+ * out, nothing is cached: what is published is what is read. With a number,
+ * an entry withdrawn, removed or moved meanwhile is still answered as it was
+ * until the window ends — the product accepts that when it asks for it.
+ */
+export type ContentCaching = { revalidate?: number };
+
+async function read<T>(
+  path: string,
+  query: Query = {},
+  caching: ContentCaching = {},
+): Promise<T | null> {
   const backend = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
   const url = new URL(`/api/v1/public/content/${path}`, backend);
   for (const [key, value] of Object.entries(query)) {
@@ -59,9 +71,13 @@ async function read<T>(path: string, query: Query = {}): Promise<T | null> {
       url.searchParams.set(key, String(value));
     }
   }
-  // Never cached here: what is published is what is read. A page that wants
-  // to be rebuilt less often says so itself (`revalidate`).
-  const response = await fetch(url, { cache: "no-store" });
+  // Not cached unless the caller says for how long (`ContentCaching`).
+  const response = await fetch(
+    url,
+    caching.revalidate === undefined
+      ? { cache: "no-store" }
+      : { next: { revalidate: caching.revalidate } },
+  );
   if (response.status === 404) return null;
   if (!response.ok) {
     throw new Error(`Public content API answered ${response.status}`);
@@ -81,10 +97,12 @@ export async function contentEntry(args: {
   locale: string;
   slug: string;
   canonicalUrl?: string;
+  revalidate?: number;
 }): Promise<ContentEntryResult> {
   const answer = await read<PublicContentEntryAnswer>(
     `types/${part(args.type)}/entries/${part(args.locale)}/${part(args.slug)}/`,
     { canonical_url: args.canonicalUrl },
+    { revalidate: args.revalidate },
   );
   if (answer?.moved) return { kind: "moved", to: answer.moved };
   if (answer?.entry) return { kind: "entry", entry: answer.entry };
@@ -102,6 +120,7 @@ export async function contentEntries(args: {
   pageSize?: number;
   taxonomy?: string;
   term?: string;
+  revalidate?: number;
 }): Promise<ContentListResult> {
   const answer = await read<PublicContentListAnswer>(
     `types/${part(args.type)}/entries/`,
@@ -112,6 +131,7 @@ export async function contentEntries(args: {
       taxonomy: args.taxonomy,
       term: args.term,
     },
+    { revalidate: args.revalidate },
   );
   if (answer?.moved) return { kind: "moved", to: answer.moved };
   if (answer?.list) return { kind: "list", list: answer.list };
@@ -120,8 +140,10 @@ export async function contentEntries(args: {
 
 /** The types that have something published; none where the deployment has
  *  no publisher. */
-export async function contentTypes(): Promise<PublicContentType[]> {
-  return (await read<PublicContentType[]>("types/")) ?? [];
+export async function contentTypes(
+  caching: ContentCaching = {},
+): Promise<PublicContentType[]> {
+  return (await read<PublicContentType[]>("types/", {}, caching)) ?? [];
 }
 
 /** A type's terms in a language, with how many listed entries each has;
@@ -129,16 +151,21 @@ export async function contentTypes(): Promise<PublicContentType[]> {
 export async function contentTerms(args: {
   type: string;
   locale: string;
+  revalidate?: number;
 }): Promise<PublicContentTerms | null> {
-  return read<PublicContentTerms>(`types/${part(args.type)}/terms/`, {
-    locale: args.locale,
-  });
+  return read<PublicContentTerms>(
+    `types/${part(args.type)}/terms/`,
+    { locale: args.locale },
+    { revalidate: args.revalidate },
+  );
 }
 
 /** Everything of the platform's content a sitemap lists, as address parts. */
-export async function contentSitemap(): Promise<PublicContentSitemap> {
+export async function contentSitemap(
+  caching: ContentCaching = {},
+): Promise<PublicContentSitemap> {
   return (
-    (await read<PublicContentSitemap>("sitemap/")) ?? {
+    (await read<PublicContentSitemap>("sitemap/", {}, caching)) ?? {
       entries: [],
       lists: [],
       terms: [],

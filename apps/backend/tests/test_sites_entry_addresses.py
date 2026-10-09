@@ -18,7 +18,7 @@ from django.test.utils import CaptureQueriesContext
 from saas_core.modules.core.organizations.context import activate_tenant_context
 from saas_core.modules.core.organizations.models import Organization, OrganizationAuditEntry
 from saas_core.modules.core.organizations.person_gate import PersonRequired
-from saas_core.modules.shared.sites.entry_addresses import change_entry_slug
+from saas_core.modules.shared.sites.entry_addresses import change_entry_slug, former_slug_owners
 from saas_core.modules.shared.sites.entry_translation_source import free_entry_slug
 from saas_core.modules.shared.sites.models import (
     ContentEntry,
@@ -57,6 +57,10 @@ def _address(client: Any, entry_id: str, *, preview: bool = False, **body: Any) 
 
 def _entry(entry_id: str) -> ContentEntry:
     return ContentEntry.all_objects.select_related("current_publication").get(pk=entry_id)
+
+
+def _entry_site(blog: Blog) -> Site:
+    return Site.all_objects.get(pk=blog.site_id)
 
 
 def _text_of(response: Any) -> str:
@@ -122,21 +126,24 @@ def test_a_published_entry_moves_with_one_308_and_its_draft_stays_a_draft() -> N
     assert public_after.status_code == 200
     assert _text_of(public_after) == _text_of(public_before) != "Niewydana poprawka."
     assert public_after.data["title"] == public_before.data["title"] != "Nowy tytuł"
-    assert public_after.data["article"]["published_at"] == public_before.data["article"][
-        "published_at"
-    ]
+    assert (
+        public_after.data["article"]["published_at"]
+        == public_before.data["article"]["published_at"]
+    )
     # The text did not change, so neither did its `changed` date.
     assert public_after.data["article"]["updated_at"] == public_before.data["article"]["updated_at"]
     after = _entry(entry_id)
     assert after.current_publication is not None
     assert (after.slug, after.former_slugs) == ("pierwszy-wpis", ["wpis-jeden"])
     assert after.current_publication.snapshot["slug"] == "pierwszy-wpis"
-    assert after.current_publication.snapshot["version"] == before.current_publication.snapshot[
-        "version"
-    ]
-    assert after.current_publication.snapshot["blocks"] == before.current_publication.snapshot[
-        "blocks"
-    ]
+    assert (
+        after.current_publication.snapshot["version"]
+        == before.current_publication.snapshot["version"]
+    )
+    assert (
+        after.current_publication.snapshot["blocks"]
+        == before.current_publication.snapshot["blocks"]
+    )
     # The draft is still ahead of the publication, untouched.
     draft = client.get(f"/api/v1/sites/entries/{entry_id}/draft/")
     assert draft.data["version"] == 2
@@ -150,7 +157,9 @@ def test_a_published_entry_moves_with_one_308_and_its_draft_stays_a_draft() -> N
     # The lists and the sitemap name today's address only.
     assert "/poradnik/pierwszy-wpis/" in _feed(host, "sitemap.xml").content.decode()
     assert "wpis-jeden" not in _feed(host, "sitemap.xml").content.decode()
-    assert "wpis-jeden" not in _feed(host, "rss.xml").content.decode()
+    rss = _feed(host, "feed.xml")
+    assert rss.status_code == 200 and "pierwszy-wpis" in rss.content.decode()
+    assert "wpis-jeden" not in rss.content.decode()
 
     # The history says who moved what, and why.
     audit = OrganizationAuditEntry.objects.filter(
@@ -191,9 +200,7 @@ def test_an_entry_moved_after_everything_else_was_renamed_answers_in_one_step() 
     host = world.host
     english = ContentEntry.all_objects.get(site_id=world.site_id, locale="en", slug="house-1")
     polish = ContentEntry.all_objects.get(site_id=world.site_id, locale="pl", slug="dom-b")
-    assert (
-        _address(world.client, str(english.id), slug="lake-house", reason="x").status_code == 200
-    )
+    assert _address(world.client, str(english.id), slug="lake-house", reason="x").status_code == 200
     assert _address(world.client, str(polish.id), slug="dom-nad-jeziorem", reason="x").status_code
     for asked, answers in (
         # The entry: former slug, under the type's former and today's name.
@@ -252,9 +259,11 @@ def test_a_former_slug_is_taken_only_by_a_person_who_saw_what_stops() -> None:
     assert _moved(host, "/blog/wpis-jeden/") == (308, "/blog/nowy-adres/")
 
     taken_over = _address(
-        client, second, slug="wpis-jeden", reason="Ten adres należy się temu wpisowi", **{
-            "take_over_former": True
-        }
+        client,
+        second,
+        slug="wpis-jeden",
+        reason="Ten adres należy się temu wpisowi",
+        **{"take_over_former": True},
     )
     assert taken_over.status_code == 200, taken_over.data
     # The address answers the entry that took it; the first entry's redirect
@@ -280,6 +289,76 @@ def test_a_former_slug_never_shadows_an_entry_that_answers() -> None:
     # Under the type's former name too: the entry that answers, in one step.
     _one_hop(host, "/blog/zywy/", "/poradnik/zywy/")
     assert _answers_with(host, "/poradnik/zywy/") == _entry(live).title
+
+
+def test_an_entry_named_like_a_part_of_an_archives_address_shadows_nothing() -> None:
+    """An entry answers two segments under its type, an archive and a later
+    page of a list three: an entry — or a former slug — called „kategoria”,
+    „tag”, „strona”, „category”, „page” or like a feed takes no address from
+    them, in any language. So no slug of an entry is reserved (ADR-079,
+    „Adresy”), and this is what holds that."""
+    world = World("address-reserved")
+    host, client = world.host, world.client
+    bathrooms = world.category(world.projects, "Łazienki")
+    assert world.names(world.projects, bathrooms, en="Bathrooms").status_code == 200
+    plain = [
+        world.entry(world.projects, f"dom-{mark}", categories=(bathrooms,), tags=("Porady",))
+        for mark in ("a", "b", "c")
+    ]
+    world.translated(plain[0], "en", "house-a", "House A", categories=(bathrooms,))
+    named = {
+        slug: world.entry(world.projects, slug, categories=(bathrooms,), tags=("Porady",))
+        for slug in ("kategoria", "tag", "strona", "rss", "sitemap", "2")
+    }
+    english = {
+        slug: world.translated(
+            named[source], "en", slug, slug.title(), categories=(bathrooms,), tags=("Porady",)
+        )
+        for slug, source in (("category", "kategoria"), ("page", "strona"), ("tag", "tag"))
+    }
+
+    def is_entry(path: str) -> bool:
+        response = _get(host, path)
+        assert response.status_code == 200, (path, response.status_code)
+        return bool(response.data.get("article"))
+
+    with override_settings(SITES_ENTRY_INDEX_PAGE_SIZE=2):
+        # Every entry answers at its own address…
+        for slug in named:
+            assert is_entry(f"/realizacje/{slug}/"), slug
+        for slug in english:
+            assert is_entry(f"/en/projects/{slug}/"), slug
+        # …and every archive and later page is still an archive.
+        for path in (
+            "/realizacje/kategoria/lazienki/",
+            "/realizacje/kategoria/lazienki/strona/2/",
+            "/realizacje/tag/porady/",
+            "/realizacje/strona/2/",
+            "/realizacje/",
+            "/en/projects/category/bathrooms/",
+            "/en/projects/tag/porady/",
+            "/en/projects/page/2/",
+        ):
+            assert not is_entry(path), path
+        for feed in ("feed.xml", "atom.xml", "sitemap.xml"):
+            assert _feed(host, feed).status_code == 200
+
+        # As former slugs they redirect their own address only.
+        for slug, to in (("kategoria", "pokoje"), ("strona", "kartka"), ("tag", "znaczek")):
+            assert _address(client, named[slug], slug=to, reason="x").status_code == 200
+            _one_hop(host, f"/realizacje/{slug}/", f"/realizacje/{to}/")
+        assert _address(client, english["category"], slug="rooms", reason="x").status_code == 200
+        _one_hop(host, "/en/projects/category/", "/en/projects/rooms/")
+        for path in (
+            "/realizacje/kategoria/lazienki/",
+            "/realizacje/tag/porady/",
+            "/realizacje/strona/2/",
+            "/en/projects/category/bathrooms/",
+        ):
+            assert not is_entry(path), path
+        # What was never an address stays one that answers nothing.
+        assert _moved(host, "/realizacje/kategoria/nic/") == (404, None)
+        assert _moved(host, "/realizacje/strona/99/") == (404, None)
 
 
 def test_before_the_first_publication_an_address_is_free_and_leaves_no_trace() -> None:
@@ -341,14 +420,27 @@ def test_a_withdrawn_entry_keeps_its_slugs_and_a_removed_one_frees_them() -> Non
     _one_hop(host, "/blog/wpis-jeden/", "/blog/po-wycofaniu/")
     _one_hop(host, "/blog/przeniesiony/", "/blog/po-wycofaniu/")
 
-    removed = client.delete(
-        f"/api/v1/sites/entries/{first}/", HTTP_X_CSRFTOKEN=csrf_value(client)
-    )
+    removed = client.delete(f"/api/v1/sites/entries/{first}/", HTTP_X_CSRFTOKEN=csrf_value(client))
     assert removed.status_code in (200, 204), removed.data
     assert _moved(host, "/blog/wpis-jeden/") == (404, None)
-    # Removed: its slugs hold nothing any more.
+    # Removed: its slugs hold nothing any more. The row keeps `former_slugs`
+    # as history (for the day a removed entry can be brought back), but no
+    # reader of entries sees a removed row — `all_objects` leaves it out, and
+    # that is what everything that asks „whose slug is this” reads.
+    assert ContentEntry.with_removed.get(pk=first).former_slugs == ["wpis-jeden", "przeniesiony"]
+    assert (
+        former_slug_owners(
+            organization_id=_entry_site(blog).organization_id,
+            collection_id=blog.collection_id,
+            locale="pl",
+            slug="wpis-jeden",
+        )
+        == []
+    )
     again = create_entry(client, blog.collection_id, slug="wpis-jeden", idempotency_key="free")
     assert again.status_code == 201, again.data
+    taken = create_entry(client, blog.collection_id, slug="przeniesiony", idempotency_key="free2")
+    assert taken.status_code == 201, taken.data
 
 
 def test_an_entry_is_found_by_its_slug_without_reading_the_sites_other_entries() -> None:
@@ -439,6 +531,8 @@ def test_a_products_page_is_told_where_a_former_slug_leads() -> None:
     # The lists and the sitemap name today's slugs only.
     listed = _read("types/poradnik/entries/", locale="pl")
     assert sorted(item["slug"] for item in listed.data["list"]["items"]) == ["drugi", "najpierw"]
+    # A list says in whose time zone its dates are days, as an entry does.
+    assert listed.data["list"]["timezone"] == today.data["entry"]["timezone"] != ""
     sitemap = _read("sitemap/").json()
     assert "pierwszy" not in str(sitemap)
 

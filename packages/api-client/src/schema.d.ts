@@ -17221,6 +17221,8 @@ export interface components {
             total: number;
             /** @description The languages this list answers in, the site's own first. */
             languages: string[];
+            /** @description The publisher's time zone (IANA), as on an entry: the day a card shows is the day it was there. */
+            timezone: string;
             /** @description False for a term's list too short to be a page of its own (fewer than three entries): the product marks it noindex and leaves it out of its sitemap. */
             indexable: boolean;
         };

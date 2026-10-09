@@ -47,7 +47,8 @@ _FORMER: Final = {
     "items": _SLUG,
     "maxItems": 50,
     "description": "Slugs this object answered under before — the last part of an old "
-    "address, never a whole path. Each answers one 308 to today's address.",
+    "address, never a whole path, in Latin letters only (an old address in another script "
+    "is the product's own redirect to make). Each answers one 308 to today's address.",
 }
 _PICTURE: Final = {
     "type": "object",
@@ -88,6 +89,32 @@ _FIELD: Final = {
             "fingerprint the translation is reported as stale.",
         },
     },
+}
+
+_EXTRA_FIELD: Final = {
+    **_FIELD,
+    "properties": {
+        **_FIELD["properties"],  # type: ignore[dict-item]
+        "text": {
+            "type": "string",
+            "maxLength": 20000,
+            "description": "The field's words, for a field the core has no place for yet "
+            "(an SEO title, an SEO description). Kept in the import's ledger as given, so the "
+            "field can be filled from there once the core has it.",
+        },
+    },
+}
+_TERM_FIELDS: Final = {
+    "type": "object",
+    "propertyNames": {"pattern": "^[a-z][a-z0-9_]{0,39}$"},
+    "additionalProperties": {
+        "type": "object",
+        "propertyNames": _LOCALE,
+        "additionalProperties": {"type": "string", "maxLength": 20000},
+    },
+    "description": "What the source says of the term that the core has no field for — a "
+    'description, say — per language: `{"description": {"pl": "…", "en": "…"}}`. Kept in the '
+    "import's ledger as given.",
 }
 
 DOCUMENT_SCHEMA: Final[dict[str, Any]] = {
@@ -166,6 +193,7 @@ DOCUMENT_SCHEMA: Final[dict[str, Any]] = {
                     "names": _NAMES,
                     "slugs": _SLUGS,
                     "former_slugs": _FORMER,
+                    "fields": _TERM_FIELDS,
                 },
             },
         },
@@ -181,6 +209,7 @@ DOCUMENT_SCHEMA: Final[dict[str, Any]] = {
                     "names": _NAMES,
                     "slugs": _SLUGS,
                     "former_slugs": _FORMER,
+                    "fields": _TERM_FIELDS,
                 },
             },
         },
@@ -223,8 +252,18 @@ DOCUMENT_SCHEMA: Final[dict[str, Any]] = {
                             "required": ["locale", "title", "body", "status"],
                             "properties": {
                                 "locale": _LOCALE,
-                                "title": {"type": "string", "minLength": 1, "maxLength": 200},
-                                "excerpt": {"type": "string", "maxLength": 400},
+                                "title": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200,
+                                    "description": "Plain text: HTML in it refuses the version.",
+                                },
+                                "excerpt": {
+                                    "type": "string",
+                                    "maxLength": 400,
+                                    "description": "Plain text — what a card and a search "
+                                    "result show as typed. HTML in it refuses the version.",
+                                },
                                 "slug": {
                                     **_SLUG,
                                     "description": "The last part of the entry's address. Left "
@@ -308,11 +347,17 @@ DOCUMENT_SCHEMA: Final[dict[str, Any]] = {
                                 "fields": {
                                     "type": "object",
                                     "propertyNames": {"pattern": "^[a-z][a-z0-9_]{0,39}$"},
-                                    "additionalProperties": _FIELD,
+                                    "properties": {
+                                        "title": _FIELD,
+                                        "excerpt": _FIELD,
+                                        "body": _FIELD,
+                                    },
+                                    "additionalProperties": _EXTRA_FIELD,
                                     "description": "Per field — `title`, `excerpt`, `body`, "
-                                    "or any other name the source has — its origin and "
-                                    "fingerprints. Fields the core does not hold are kept "
-                                    "for the record.",
+                                    "or any other name the source has (`seo_title`, "
+                                    "`seo_description`) — its origin and fingerprints. A field "
+                                    "the core does not hold carries its words in `text` and is "
+                                    "kept, words and all, in the import's ledger.",
                                 },
                                 "accept_losses": {
                                     "type": "array",

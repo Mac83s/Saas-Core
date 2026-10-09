@@ -74,7 +74,12 @@ przez propsy.
 ## 4. Wywołania i odpowiedzi
 
 Wszystkie pytają backend bezpośrednio, przy żądaniu, bez pamięci podręcznej. Awaria
-backendu to wyjątek (strona odpowiada 500), nie „brak wpisu”.
+backendu to wyjątek (strona odpowiada 500), nie „brak wpisu”. Każde wywołanie przyjmuje
+opcjonalne `revalidate` (sekundy; `contentTypes` i `contentSitemap` jako `{ revalidate }`):
+odpowiedź trafia wtedy do pamięci danych Next.js na ten czas. **W tym oknie wpis wycofany,
+usunięty albo przeniesiony pod inny adres dalej odpowiada tak, jak przed zmianą** — produkt,
+który o to prosi, przyjmuje, że wycofanie widać dopiero po upływie okna (albo po własnym
+`revalidatePath`).
 
 ### 4.1 Wpis
 
@@ -114,6 +119,7 @@ const filed = await contentEntries({ type: "poradnik", locale, taxonomy: "catego
 | `term` | pozycja, której lista dotyczy (`{ taxonomy, slug, name }`), albo `null` |
 | `items` | wpisy strony, od najnowszego: `locale`, `slug`, `title`, `excerpt`, `author_name`, `published_at`, `updated_at`, `image`, `terms` |
 | `page`, `pages`, `total` | bieżąca strona, liczba stron, liczba wpisów na całej liście w tym języku |
+| `timezone` | strefa wydawcy (IANA), jak przy wpisie: dzień na karcie liczy się w niej |
 | `languages` | języki, w których ta lista odpowiada — do `hreflang` listy |
 | `indexable` | `false` dla listy pozycji z mniej niż trzema wpisami: strona ustawia `noindex` i pomija ją w sitemapie. Regułę ma rdzeń, produkt ją tylko stosuje |
 

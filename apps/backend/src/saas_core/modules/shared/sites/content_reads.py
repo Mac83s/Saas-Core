@@ -622,12 +622,27 @@ def read_entries(
             "pages": pages,
             "total": len(entries),
             "languages": languages,
+            # The day a reader sees on a card is the day it was at the
+            # publisher's, as on the entry's own page.
+            "timezone": _timezone(workspace),
             # A term's list with one or two entries is a thin copy of the type's
             # own list: it answers readers and asks not to be indexed. The rule
             # is the core's; the product only applies it.
             "indexable": not term or len(entries) >= TAG_INDEX_THRESHOLD,
         },
     }
+
+
+def _timezone(workspace: _Workspace) -> str:
+    # The organization's row forces row-level security: the tenant first.
+    with transaction.atomic():
+        set_local_organization_id(workspace.organization_id)
+        zone = (
+            Organization.objects.filter(pk=workspace.organization_id)
+            .values_list("timezone", flat=True)
+            .first()
+        )
+    return str(zone or "UTC")
 
 
 @dataclass(frozen=True, slots=True)

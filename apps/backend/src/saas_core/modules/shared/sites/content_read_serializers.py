@@ -154,6 +154,10 @@ class PublicContentListSerializer(serializers.Serializer[dict[str, Any]]):
         child=ContentLocaleField(help_text=LOCALE),
         help_text="The languages this list answers in, the site's own first.",
     )
+    timezone = serializers.CharField(
+        help_text="The publisher's time zone (IANA), as on an entry: the day a card shows "
+        "is the day it was there."
+    )
     indexable = serializers.BooleanField(
         help_text="False for a term's list too short to be a page of its own (fewer than "
         "three entries): the product marks it noindex and leaves it out of its sitemap."
