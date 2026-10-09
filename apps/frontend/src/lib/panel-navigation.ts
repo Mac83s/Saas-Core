@@ -797,9 +797,11 @@ export function mobileTabs(access: PanelAccess): PanelNavEntry[] {
     // also be any page of the entry's section. Not by label: a platform
     // workspace's menu gives the same screen a label of its own.
     const item = known.find((one) => one.href === href);
-    const section = item?.section
-      ? sectionPages(item.section, access).map((page) => page.href)
-      : [];
+    // A product's own entry has no section of the core's behind it.
+    const section =
+      item && "section" in item && item.section
+        ? sectionPages(item.section, access).map((page) => page.href)
+        : [];
     const entry = menu.find(
       (one) =>
         one.href === href ||
