@@ -36,11 +36,13 @@ to withdraw that a person made afterwards is kept, and the report says so.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import logging
 import re
 import time
+from collections import Counter
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -54,9 +56,15 @@ from django.conf import settings
 from django.db import OperationalError, transaction
 from django.utils import timezone
 from jsonschema import Draft202012Validator
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ValidationError
 
-from saas_core.content_protocol.provenance import ORIGIN_AI, ORIGIN_HUMAN, ORIGIN_IMPORT
+from saas_core.content_protocol.provenance import (
+    ORIGIN_AI,
+    ORIGIN_HUMAN,
+    ORIGIN_IMPORT,
+    Provenance,
+    unit_hash,
+)
 from saas_core.content_protocol.registry import translation_policy
 from saas_core.content_protocol.transliteration import slug_from_title
 from saas_core.modules.core.identity.models import User
@@ -108,11 +116,22 @@ from .models import (
     ContentImportKind,
     ContentImportRecord,
     ContentSchemaType,
+    ContentTag,
     Site,
+    SiteTextTranslation,
 )
 from .rich_content import assert_unique_anchors
+from .site_texts import shown_texts, term_text_key, term_unit, translation_rows
 from .taxonomies import (
+    SLUG_PATTERN,
+    _archive_answered,
+    _assert_sibling_name_free,
+    _depth,
+    _descendants,
     _find_named,
+    _free,
+    _source_address,
+    _taken,
     change_term_address,
     create_term,
     list_terms,
@@ -120,9 +139,20 @@ from .taxonomies import (
     set_entry_categories,
     set_entry_tag_ids,
     set_term_names,
+    tag_slug,
     update_term,
 )
-from .term_addresses import ENTRY_TERMS_MAX, KIND_CATEGORIES, KIND_TAGS, name_slug
+from .term_addresses import (
+    CATEGORY_MAX_DEPTH,
+    ENTRY_TERMS_MAX,
+    KIND_CATEGORIES,
+    KIND_TAGS,
+    TERM_SLUG_MAX,
+    name_slug,
+    term_locked,
+    term_names,
+    term_slug,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -430,6 +460,8 @@ class _Term:
     same_as: _Term | None = None
     #: Something of an existing term changes, the ledger's row at least.
     write: bool = False
+    #: The term as the run will leave it: its place on the plan's shelf.
+    stand: ContentTag | None = None
 
 
 @dataclass(slots=True)
@@ -502,6 +534,21 @@ class _Plan:
     groups: dict[UUID, dict[str, UUID]] = field(default_factory=dict)
     #: Why the media library would take no picture now; empty when it would.
     library_problem: str = ""
+    #: Each vocabulary as the run will leave it, term by term in the order the
+    #: import writes them — the site's tags under "", a type's categories
+    #: under its key. Copies of the site's rows and stand-ins for the terms
+    #: the run makes; nothing here is ever saved (`_foresee`).
+    shelves: dict[str, list[ContentTag]] = field(default_factory=dict)
+    #: Which term of the document stands for a term on a shelf, by its id there.
+    stands: dict[Any, _Term] = field(default_factory=dict)
+    #: Every term's key on the site: a new key is free among all of them.
+    keys: set[str] = field(default_factory=set)
+    #: The site's texts in each other language as the run will leave them:
+    #: a term's name there is found by the words of its name in the site's
+    #: language, so two terms that read the same share it (`site_texts`).
+    texts: dict[str, list[SiteTextTranslation]] = field(default_factory=dict)
+    #: A content type the site has, to read its tags under.
+    any_type: ContentCollection | None = None
 
     @property
     def default_locale(self) -> str:
@@ -723,6 +770,12 @@ def _plan_types(plan: _Plan, document: Mapping[str, Any]) -> None:
         line.changes = [f"address /{spec['base_path']}/"]
     for (key, locale), namespace in _slugs_in_use(plan, existing).items():
         plan.namespaces[key, locale] = namespace
+    # The site's tags are read under a type it has: the document's first, or
+    # any other when the document's are all still to be made.
+    plan.any_type = next(
+        (row for key, row in plan.types.items() if row is not None),
+        min(existing.values(), key=lambda row: str(row.key), default=None),
+    )
 
 
 def _slugs_in_use(
@@ -764,11 +817,19 @@ def _plan_terms(plan: _Plan, document: Mapping[str, Any]) -> None:
             continue
         for found in list_terms(collection_id=row.id, kind=KIND_CATEGORIES).terms:
             current[key, str(found.term.id)] = found
-    if first_type and plan.types.get(first_type) is not None:
-        row = plan.types[first_type]
-        assert row is not None
-        for found in list_terms(collection_id=row.id, kind=KIND_TAGS).terms:
+    if first_type and plan.any_type is not None:
+        for found in list_terms(collection_id=plan.any_type.id, kind=KIND_TAGS).terms:
             current["", str(found.term.id)] = found
+    for (scope, _id), found in current.items():
+        plan.shelves.setdefault(scope, []).append(_stand_in(found.term))
+    for locale in plan.locales:
+        if locale != plan.default_locale:
+            plan.texts[locale] = translation_rows(plan.site, locale)
+    plan.keys = set(
+        ContentTag.all_objects.filter(
+            organization_id=plan.organization_id, site_id=plan.site.id
+        ).values_list("slug", flat=True)
+    )
     for kind, name in ((ContentImportKind.CATEGORY, "categories"), (ContentImportKind.TAG, "tags")):
         for spec in document.get(name, []):
             type_key = str(spec["type"]) if kind == ContentImportKind.CATEGORY else first_type
@@ -825,27 +886,254 @@ def _same_named(plan: _Plan, term: _Term, name: str) -> _Term | None:
     return None
 
 
-def _already_there(
-    plan: _Plan, term: _Term, name: str, current: Mapping[tuple[str, str], Any]
-) -> Any | None:
-    """A term the site holds that `create_term` would answer with instead of
-    making one: a tag the name means, or a category of that name in the same
-    place of the tree."""
-    scope = term.type_key if term.kind == ContentImportKind.CATEGORY else ""
-    rows = [row for (key, _id), row in current.items() if key == scope]
-    if term.kind == ContentImportKind.TAG:
-        tag = _find_named(name, [row.term for row in rows])
-        return next((row for row in rows if tag is not None and row.term.pk == tag.pk), None)
+def _stand_in(term: ContentTag) -> ContentTag:
+    """A copy of a term's row for the plan's shelf. It is never saved: the
+    plan changes it the way the import will change the row."""
+    stand = copy.copy(term)
+    stand.locale_slugs = dict(term.locale_slugs or {})
+    stand.former_slugs = list(term.former_slugs or [])
+    stand.slug_locked_at = dict(term.slug_locked_at or {})
+    return stand
+
+
+def _scope(term: _Term) -> str:
+    return term.type_key if term.kind == ContentImportKind.CATEGORY else ""
+
+
+def _above(plan: _Plan, term: _Term) -> ContentTag | None:
+    """The category a category of the document hangs under, on the shelf."""
     parent = term.spec.get("parent")
-    above: UUID | None = None
-    if parent is not None:
-        above = plan.terms[str(ContentImportKind.CATEGORY), str(parent)].term_id
-        if above is None:
-            # Under a category this run makes: nothing can be there yet.
-            return None
-    return next(
-        (row for row in rows if row.term.parent_id == above and row.term.name == name), None
+    if parent is None:
+        return None
+    return _standing_for(plan.terms[str(ContentImportKind.CATEGORY), str(parent)]).stand
+
+
+def _name_beside(
+    name: str, above: ContentTag | None, shelf: Sequence[ContentTag], stand: ContentTag | None
+) -> bool:
+    """Whether another term beside this one reads the same — what makes the
+    service refuse a new category and any rename (`term_name_taken`)."""
+    try:
+        _assert_sibling_name_free(name, above, shelf, stand)
+    except ValidationError:
+        return True
+    return False
+
+
+def _met(plan: _Plan, term: _Term, name: str) -> ContentTag | None:
+    """The term `create_term` will answer with instead of making one, as the
+    vocabulary will stand when the import reaches this term: a tag the name
+    means — by its key or its address in any language — or a category of
+    that name in the same place of the tree. It may be a row the site holds
+    or a term this very run makes earlier. Refuses the line where the
+    service will refuse to make the term."""
+    shelf = plan.shelves.setdefault(_scope(term), [])
+    if term.kind == ContentImportKind.TAG:
+        return _find_named(name, sorted(shelf, key=lambda other: (other.position, other.slug)))
+    above = _above(plan, term)
+    if above is not None and _depth(above, {other.pk: other for other in shelf}) >= (
+        CATEGORY_MAX_DEPTH
+    ):
+        term.line.refuse(
+            "term_too_deep",
+            f"Categories nest {CATEGORY_MAX_DEPTH} deep at most; this one would hang deeper.",
+        )
+        return None
+    place = above.pk if above is not None else None
+    same = next((other for other in shelf if other.parent_id == place and other.name == name), None)
+    if same is None and _name_beside(name, above, shelf, None):
+        term.line.refuse(
+            "term_name_taken",
+            f"A category beside it reads the same as „{name}” (another spelling of the "
+            "name): the site takes one of them. Give this one the other's exact name, or "
+            "another name.",
+        )
+    return same
+
+
+def _made(plan: _Plan, term: _Term, name: str) -> ContentTag:
+    """The stand-in of a term the run makes: its key and its address in the
+    site's language, as `create_term` will make them."""
+    shelf = plan.shelves.setdefault(_scope(term), [])
+    above = _above(plan, term)
+    place = above.pk if above is not None else None
+    natural = (tag_slug(name) if term.kind == ContentImportKind.TAG else "") or name_slug(name)
+    taken = _taken(shelf, None)
+    key = _free(natural, plan.keys | taken)
+    address = _free(natural, taken)
+    stand = ContentTag(
+        # After every row the site holds and in the order the run makes
+        # them, as the rows' own ids will be (`_settle` goes by id).
+        id=UUID(int=(1 << 128) - (1 << 64) + len(plan.stands)),
+        organization_id=plan.organization_id,
+        site_id=plan.site.id,
+        parent_id=place,
+        slug=key,
+        name=name,
+        locale_slugs={plan.default_locale: address} if address != key else {},
+        former_slugs=[],
+        slug_locked_at={},
+        position=1 + max((item.position for item in shelf if item.parent_id == place), default=-1),
     )
+    plan.keys.add(key)
+    shelf.append(stand)
+    return stand
+
+
+def _say(plan: _Plan, stand: ContentTag, locale: str, name: str) -> None:
+    """A term's name in another language, written where `set_term_names`
+    writes it: in the site's text for the words of the term's own name —
+    one row for every term that reads the same."""
+    unit, rows = term_unit(stand), plan.texts[locale]
+    row = next((item for item in rows if item.source_hash == unit.source_hash), None)
+    if row is None:
+        row = SiteTextTranslation(
+            organization_id=plan.organization_id,
+            site=plan.site,
+            locale=locale,
+            source_hash=unit.source_hash,
+            source_text=unit.text,
+        )
+    else:
+        rows.remove(row)
+    row.anchor, row.text = unit.key, name
+    row.provenance = (
+        Provenance(
+            origin=ORIGIN_HUMAN,
+            source_hash=unit.source_hash,
+            written_hash=unit_hash(unit.kind, name),
+            model="",
+            at=plan.now.isoformat(),
+        ).as_dict()
+        if name
+        else None
+    )
+    # The latest write is the one read last.
+    rows.append(row)
+
+
+def _settle(plan: _Plan, locale: str) -> None:
+    """What `settle_term_addresses` does after every write of a name in a
+    language: each term whose address there is still open takes it from the
+    name visitors read — the first free one — and a term without a name there
+    answers under the site's language's address again. Every open term, not
+    only the one just named: a term that reads the same shares the name, and
+    an address freed a moment ago is taken by whoever waited for it with a
+    number."""
+    if locale == plan.default_locale:
+        return
+    stands = sorted(
+        ((stand, scope) for scope, shelf in plan.shelves.items() for stand in shelf),
+        key=lambda found: found[0].pk,
+    )
+    shown = shown_texts([term_unit(stand) for stand, _scope in stands], plan.texts[locale])
+    held = {
+        scope: Counter(name for other in shelf for name in term_names(other))
+        for scope, shelf in plan.shelves.items()
+    }
+    for stand, scope in stands:
+        if term_locked(stand, locale):
+            continue
+        wanted = name_slug(shown.get(term_text_key(stand.pk), ""))
+        have = stand.locale_slugs.get(locale)
+        if wanted == (have or "") and held[scope][wanted] <= 1:
+            continue
+        held[scope].subtract(term_names(stand))
+        if wanted:
+            stand.locale_slugs[locale] = _free(wanted, _taken(plan.shelves[scope], stand))
+        else:
+            stand.locale_slugs.pop(locale, None)
+        held[scope].update(term_names(stand))
+
+
+def _foresee(plan: _Plan, term: _Term, *, made: bool) -> None:
+    """Carries what the plan decided for a term over to its stand-in, in the
+    order the import writes it and by the rules its services follow, so that
+    the next term of the document meets the vocabulary this one leaves — and
+    says now what a service would say then. A name another term beside it
+    reads as refuses the term (nothing of it is written); an address or a
+    former address that leads to another term is left out, and said."""
+    stand, line, default = term.stand, term.line, plan.default_locale
+    assert stand is not None
+    shelf = plan.shelves[_scope(term)]
+    if term.rename:
+        above = next((other for other in shelf if other.pk == stand.parent_id), None)
+        if _name_beside(term.rename, above, shelf, stand):
+            line.refuse(
+                "term_name_taken",
+                f"Another term beside it reads the same as „{term.rename}”: the site does not "
+                "take the new name, and nothing of this term is written.",
+            )
+            return
+        stand.name = term.rename
+        if not term_locked(stand, default):
+            stand.locale_slugs = _source_address(stand, term.rename, shelf, default)
+        for locale in plan.locales:
+            _settle(plan, locale)
+    for locale, name in term.names.items():
+        _say(plan, stand, locale, name)
+        _settle(plan, locale)
+    for locale, slug in list(term.slugs.items()):
+        others = [other for other in shelf if other.pk != stand.pk]
+        holder = next(
+            (
+                other
+                for other in others
+                if slug == other.slug or slug in (other.locale_slugs or {}).values()
+            ),
+            None,
+        )
+        redirects = next((other for other in others if slug in (other.former_slugs or [])), None)
+        refusal = ""
+        if holder is not None:
+            refusal = f"„{holder.name}” has it."
+        elif redirects is not None:
+            refusal = (
+                f"it redirects to „{redirects.name}” today — a person takes such an address "
+                "over in the panel."
+            )
+        if refusal:
+            line.note(
+                WARNING,
+                "address_refused",
+                f"The address „{slug}” in {locale} is not given: {refusal}",
+            )
+            del term.slugs[locale]
+            continue
+        before = {
+            code: term_slug(stand, default_locale=default, locale=code) for code in plan.locales
+        }
+        stand.locale_slugs[locale] = slug
+        stand.slug_locked_at.setdefault(locale, "import")
+        if not made:
+            # An address that answered a visitor keeps leading to the term.
+            under = _descendants(stand, shelf)
+            left = [
+                before[code]
+                for code in plan.locales
+                if term_slug(stand, default_locale=default, locale=code) != before[code]
+                and _archive_answered(plan.site, stand, code, under)
+            ]
+            current = {stand.slug, *stand.locale_slugs.values()}
+            stand.former_slugs = list(
+                dict.fromkeys(item for item in [*stand.former_slugs, *left] if item not in current)
+            )
+    own, elsewhere = term_names(stand), _taken(shelf, stand)
+    recorded: list[str] = []
+    for raw in term.former:
+        slug = raw.strip().lower()
+        if not slug or slug in own or slug in recorded:
+            continue
+        if not SLUG_PATTERN.fullmatch(slug) or len(slug) > TERM_SLUG_MAX:
+            why = f"an address has at most {TERM_SLUG_MAX} letters, digits and single hyphens"
+        elif slug in elsewhere:
+            why = "it leads to another term of the vocabulary"
+        else:
+            recorded.append(slug)
+            continue
+        line.note(WARNING, "former_slug_refused", f"The old address „{slug}” is left out: {why}.")
+    term.former = recorded
+    stand.former_slugs = [*stand.former_slugs, *recorded]
 
 
 def _plan_term(
@@ -855,7 +1143,8 @@ def _plan_term(
     type_key: str,
     current: Mapping[tuple[str, str], Any],
 ) -> _Term:
-    names = {str(locale): str(name).strip() for locale, name in spec["names"].items()}
+    # As the services keep a name: trimmed, one space between its words.
+    names = {str(locale): " ".join(str(name).split()) for locale, name in spec["names"].items()}
     default = plan.default_locale
     line = Line(kind=kind, external_id=str(spec["id"]), label=names.get(default, ""))
     term = _Term(line=line, spec=spec, kind=kind, type_key=type_key)
@@ -897,6 +1186,14 @@ def _plan_term(
         )
         names.pop(locale, None)
         wanted_slugs.pop(locale, None)
+    for locale, name in names.items():
+        if (name or locale == default) and not name_slug(name):
+            line.refuse(
+                "name_invalid",
+                f"Its name in {locale}, „{name}”, has no letter or digit: the site takes no "
+                "such name, and nothing of this term is written.",
+            )
+            return term
     term.ledger = {
         "names": {locale: _hash(name) for locale, name in names.items()},
         "slugs": dict(wanted_slugs),
@@ -924,17 +1221,39 @@ def _plan_term(
                 "An earlier run made this term and it is no longer in the site (somebody "
                 "deleted it): it is made again.",
             )
-        found = _already_there(plan, term, names[default], current)
-        if found is None:
+        met = _met(plan, term, names[default])
+        if line.refused:
+            return term
+        held = plan.stands.get(met.pk) if met is not None else None
+        if met is not None and held is not None:
+            # A term another id of the document stands for — one this run
+            # makes a moment earlier, or one an earlier run made for that id.
+            term.same_as, term.term_id = held, held.term_id
+            line.note(
+                WARNING,
+                "term_merged",
+                f"Its name, „{names[default]}”, leads to „{held.spec['id']}” („{met.name}”) — "
+                "it is that term's key or its address in one of the site's languages: the "
+                "site holds one term for both. This id stands for that term; its own names "
+                "and its addresses are not applied.",
+            )
+            return term
+        if met is None:
             term.create = True
             term.names = {locale: name for locale, name in names.items() if locale != default}
             term.slugs = wanted_slugs
             term.former = [str(slug) for slug in spec.get("former_slugs") or []]
+            stand = _made(plan, term, names[default])
+            term.stand, plan.stands[stand.pk] = stand, term
+            _foresee(plan, term, made=True)
             line.action = CREATE
             line.changes = [f"names in {', '.join(sorted(names))}"]
             return term
+        found = current[_scope(term), str(met.pk)]
         term.adopted, record = True, None
     term.term_id, term.record = found.term.id, record
+    stand = next(other for other in plan.shelves[_scope(term)] if other.pk == found.term.id)
+    term.stand = stand
     fields = record.fields if record is not None else {}
     written = fields.get("names") or {}
     for locale, name in names.items():
@@ -978,6 +1297,10 @@ def _plan_term(
     term.former = [
         str(slug) for slug in spec.get("former_slugs") or [] if str(slug) not in have_former
     ]
+    _foresee(plan, term, made=False)
+    if line.refused:
+        return term
+    plan.stands.setdefault(stand.pk, term)
     extra_changed = record is not None and (fields.get("extra") or {}) != term.ledger["extra"]
     line.changes = [
         *(["name"] if term.rename else []),

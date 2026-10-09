@@ -86,7 +86,7 @@ Najważniejsze reguły (pełny opis każdego pola jest w schemacie):
 | `source`, `id` | `source` to przestrzeń nazw identyfikatorów. Ten sam `source` i `id` w kolejnym dokumencie znaczy „ten sam obiekt” — także gdy uruchamia go inna osoba. |
 | typ | Istniejący znajdowany jest po `key` i nie jest zmieniany. Brakujący powstaje (potrzebne `name` i `base_path`); działa oferta wdrożenia i limit planu. |
 | kategoria, tag | Nazwy per język wchodzą jako **tekst człowieka** (silnik tłumaczeń ich nie nadpisze). `slugs` wolno podać tylko w części języków — w pozostałych adres liczy się z nazwy. Rodzic przed dzieckiem, najwyżej trzy poziomy. `fields` niesie to, na co rdzeń nie ma pola, per język (`{"description": {"pl": "…"}}`) — trafia do księgi. |
-| ta sama nazwa | **Pozycja, którą strona już ma** (tag o tej nazwie, kategoria o tej nazwie w tym samym miejscu drzewa), jest przejmowana, nie dublowana — jawnie: `term_adopted` w „NEEDS A LOOK” mówi, co się w niej zmieni. Import dopisuje jej tylko brakujące nazwy w innych językach i dawne adresy; istniejących nazw i adresów nie rusza (`name_kept`, `address_kept`). **Dwie pozycje dokumentu o tej samej nazwie w języku strony** to na stronie jedna pozycja (`term_merged`): drugi identyfikator wskazuje pierwszą, a jego własne nazwy i adresy nie są stosowane. **Ta sama nazwa tylko w innym języku** (`name_shared`): obie pozycje zostają, druga dostaje w tym języku adres z numerem (`tips-2`). |
+| ta sama nazwa | **Pozycja, którą strona już ma** (tag o tej nazwie, kategoria o tej nazwie w tym samym miejscu drzewa), jest przejmowana, nie dublowana — jawnie: `term_adopted` w „NEEDS A LOOK” mówi, co się w niej zmieni. Import dopisuje jej tylko brakujące nazwy w innych językach i dawne adresy; istniejących nazw i adresów nie rusza (`name_kept`, `address_kept`). **Dwie pozycje dokumentu o tej samej nazwie w języku strony** to na stronie jedna pozycja (`term_merged`): drugi identyfikator wskazuje pierwszą, a jego własne nazwy i adresy nie są stosowane. Tak samo, gdy nazwa tagu w języku strony **prowadzi do pozycji, za którą stoi już inny identyfikator dokumentu** — jest jej kluczem albo adresem w którymkolwiek języku, także gdy tamta pozycja powstaje dopiero w tym przebiegu (tag „clicker training” po tagu „trening z klikerem” z angielską nazwą „Clicker training”). **Ta sama nazwa tylko w innym języku** (`name_shared`): obie pozycje zostają, druga dostaje w tym języku adres z numerem (`tips-2`). Nazwa wchodzi tak, jak trzymają ją serwisy: bez spacji na końcach, z jedną spacją między słowami. |
 | wersje językowe | Jeden wpis dokumentu to jedna grupa tłumaczeń; każda wersja jest własnym wpisem. Kategorie i tagi wpisu dostaje każda wersja. Wersja w języku, którego strona nie ma, jest odrzucana (pozostałe wchodzą). **Tłumaczenia wchodzą razem ze źródłem, nie przed nim:** gdy wersja źródłowa (`source_locale`, domyślnie język strony) jest odrzucona i nie ma jej jeszcze na stronie, pozostałe nowe wersje wpisu czekają (`source_refused`). Wersji w języku, którą wpis już ma, a której import nie zrobił (ręczna, z silnika tłumaczeń), import nie rusza (`version_exists`). |
 | `slug` | Pominięty — liczony z tytułu funkcją rdzenia (cyrylica zapisana alfabetem łacińskim), unikalny w typie i języku; kolejny wpis o tym samym tytule dostaje `-2`. |
 | `former_slugs` | Same końcówki dawnych adresów (nie całe ścieżki — te należą do tabeli starych adresów produktu). Każda odpowiada jednym 308. Końcówka, pod którą dziś odpowiada inny wpis, jest pomijana z ostrzeżeniem: żywy adres zawsze wygrywa. |
@@ -125,9 +125,15 @@ Odrzucenia, które raport nazywa kodem: `locale_not_enabled`, `type_unknown`,
 `picture_refused`, `library_unavailable` (rola operatora bez `media.manage` albo plan
 bez biblioteki mediów — wiadomo już w przebiegu próbnym), `source_refused`,
 `version_exists`, `markup_in_title`, `markup_in_excerpt`, `markup_in_name`,
+`name_invalid` (nazwa bez litery i cyfry), `term_name_taken` (obok jest pozycja, której
+nazwa czyta się tak samo — nowa kategoria albo zmiana nazwy), `term_too_deep` (kategoria
+głębiej niż trzy poziomy),
 `body_unreadable`, `body_invalid`, `body_empty`, `term_unknown`,
 `parent_unknown`, `published_at_missing`, `published_at_future`, `date_invalid`,
 `write_failed`. Ostrzeżenia: `term_adopted`, `term_merged`, `name_shared`, `made_again`,
+`address_refused` (adres, o który prosi dokument, ma inna pozycja albo dziś do niej
+przekierowuje — pozycja wchodzi bez niego), `former_slug_refused` (dawny adres prowadzi
+do innej pozycji — pominięty),
 `translation_stale`, `held_for_losses`,
 `published_at_implausible`, `former_slug_live`, `former_slug_claimed`, `*_kept`,
 `withdrawn_in_panel`, `removed_in_panel`, `not_republished`, `source_edited_in_panel`.
@@ -141,11 +147,29 @@ publikację tej wersji** — wchodzi jako szkic — chyba że dokument wymieni t
 podkreślenie jako pogrubienie, `h1` jako `h2`, scalone komórki tabeli) i podziały
 (`split`) publikacji nie wstrzymują; `table_split` jest mimo to w „NEEDS A LOOK”.
 
+**Słowo przebiegu próbnego jest słowem importu.** Plan czyta słownik strony takim, jakim
+zostawi go sam przebieg w chwili, gdy dojdzie do danej pozycji: pozycje założone chwilę
+wcześniej prowadzą po nazwie, kluczu i adresie w każdym języku jak wszystkie inne, a adres
+jeszcze otwarty idzie za nazwą. Dlatego to, co powiedziałby serwis przy zapisie, raport
+mówi już w przebiegu próbnym, tym samym kodem: połączenie dwóch pozycji dokumentu
+(`term_merged`), odmowę nazwy albo głębokości (`term_name_taken`, `term_too_deep`,
+`name_invalid` — pozycja nie jest zapisywana wcale, a wpisy, które ją niosą, są odrzucane
+z `term_unknown`), adres i dawny adres, których pozycja nie dostanie (`address_refused`,
+`former_slug_refused`). Import wykonany na stanie, który przeczytał plan, nie ma nic do
+dodania — trzyma to test na dokumentach i stanach losowanych ze słów dobranych tak, żeby
+na siebie wpadały.
+
 **Czego przebieg próbny nie wie:** werdyktu skanera i tego, czy plik da się przetworzyć
 jako zdjęcie (sprawdza istnienie, typ po nagłówku pliku i rozmiar), czy zdjęcia zmieszczą
 się w limicie magazynu planu, oraz odmów, które
 zależą od stanu z chwili zapisu (ktoś zmienił wpis między planem a zapisem — wpis jest
-wtedy odrzucany z `write_failed` i wchodzi przy kolejnym uruchomieniu).
+wtedy odrzucany z `write_failed` i wchodzi przy kolejnym uruchomieniu; pozycja, którą ktoś
+założył w panelu w trakcie przebiegu, jest przejmowana z `term_adopted` „appeared while
+the import ran”). W słowniku plan upraszcza trzy rzeczy: po zmianie nazwy pozycji w języku
+strony przyjmuje, że jej nazwy w innych językach zostają (maszynowe tłumaczenie starej
+nazwy przestaje obowiązywać); nie wie, czy adres przeniesiony za nową nazwą zamknie się od
+razu, bo archiwum już odpowiadało; a na stronie, która ma tagi, ale nie ma już żadnego typu
+treści, tagów nie czyta (nie ma typu, pod którym by je odczytał).
 
 ## 4. Skąd tekst: `origin` i odciski źródła
 

@@ -1245,6 +1245,43 @@ kolejność: każda transakcja importu zaczyna się od `SET LOCAL` z tą organiz
 zapytanie nie nazywa innej, żaden wiersz drugiej firmy się nie zmienia. Resztę sprawdza
 import fixture'u na uruchomionym stosie, pod rolą aplikacji.
 
+### Uzupełnienie PR1d (2026-10-09): co znalazł pierwszy produkt na tych pakietach
+
+Poprawki po pierwszym prawdziwym użyciu (panel wydawcy, strony bloga i import 91 wpisów
+w pięciu językach w produkcie). Żadna nie zmienia decyzji wyżej; każda mówi, co kod
+robił inaczej, niż mówił.
+
+1. **Słowo przebiegu próbnego jest słowem importu** (uzupełnia pkt 13 z CT4). Na
+   prawdziwym przebiegu plan powiedział „utwórz” o tagu, którego nazwa była angielskim
+   adresem tagu założonego chwilę wcześniej w tym samym przebiegu; zapis przejął go
+   (`create_term` szuka po adresach wszystkich języków, plan patrzył tylko na stan sprzed
+   przebiegu). Plan trzyma odtąd **słownik taki, jakim zostawi go przebieg** — kopie
+   wierszy strony i zastępniki pozycji, które przebieg założy, nigdy niezapisywane
+   (`_Plan.shelves`) — i każdą decyzję o pozycji przenosi na nie w kolejności i według
+   reguł serwisów, ich własnymi funkcjami (`_find_named`, `_free`, `_taken`,
+   `_source_address`, `_assert_sibling_name_free`, `_depth`, `shown_texts`): klucz i adres
+   nowej pozycji, adres idący za nazwą w każdym języku (`settle_term_addresses` — dla
+   wszystkich otwartych pozycji, bo nazwa w innym języku jest tekstem strony znajdowanym
+   po słowach nazwy źródłowej, więc dwie pozycje o tej samej nazwie ją dzielą), adres
+   nadany wprost, dawne adresy. Co serwis odmówiłby przy zapisie, plan mówi z góry i nie
+   przekazuje zapisowi: `term_merged` (pozycja, za którą stoi już inny identyfikator
+   dokumentu), `term_name_taken`, `term_too_deep`, `name_invalid`, `address_refused`,
+   `former_slug_refused`. **Zapis robi to, co robił** — te same serwisy, ta sama
+   kolejność; zmienia się tylko to, że pozycja połączona w planie nie jest już wysyłana do
+   `create_term` (jej własne nazwy w innych językach nie nadpisują nazw pozycji, z którą
+   się łączy — tak jak przy `term_merged` od CT4), a adres, którego serwis by nie nadał,
+   nie jest do niego wysyłany.
+   Dowód: test losuje stan (pozycje z panelu, wcześniejszy przebieg innego dokumentu,
+   jedno i drugie, nic) i dokument ze słów dobranych tak, żeby na siebie wpadały, po czym
+   sprawdza dwie rzeczy: raport przebiegu próbnego i raport importu mówią o każdym
+   obiekcie to samo (działanie, publikacja, kod każdej uwagi), a serwis zapytany mimo
+   wszystko o to, co plan przewidział, odpowiada dokładnie tak, jak plan powiedział.
+   Przed poprawką 40 losowań dało 144 rozbieżności w pięciu klasach (poza zgłoszoną:
+   odmowa nazwy przy zmianie nazwy i przy nowej kategorii, kategoria za głęboko, adres
+   zajęty albo dawny, dawny adres zajęty — i wpisy odrzucane dopiero przy zapisie, bo ich
+   pozycja nie powstała); po niej 150 losowań — zero.
+   Czego plan nadal nie wie — kontrakt importu §3.
+
 ## Ryzyka
 
 - **Klucz a adres pozycji** (pkt 5, 11): pomylenie ich w jednym miejscu kodu gubi wpisy

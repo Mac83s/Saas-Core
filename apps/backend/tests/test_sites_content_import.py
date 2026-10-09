@@ -6,17 +6,22 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import shutil
+from collections import Counter
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
+from random import Random
 from typing import Any
 from uuid import uuid4
 
 import pytest
 from django.core.cache import cache
 from django.core.management import CommandError, call_command
-from django.db import OperationalError, connection
+from django.db import OperationalError, connection, transaction
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from jsonschema import Draft202012Validator
@@ -32,6 +37,7 @@ from saas_core.modules.core.organizations.models import (
 )
 from saas_core.modules.shared.media.models import MediaAsset, MediaAssetState
 from saas_core.modules.shared.media.scanner import MalwareScannerUnavailable, MalwareVerdict
+from saas_core.modules.shared.sites import content_import
 from saas_core.modules.shared.sites.content_import import (
     CREATE,
     HELD,
@@ -1597,6 +1603,348 @@ def test_the_source_version_is_written_first_and_a_stopped_write_begins_again_cl
     # takes for the source where the site's own language has no version.
     assert group_source(entries, "pl") == english
     assert company.run(document, apply=True).counts()["entry"] == {UNCHANGED: 2}
+
+
+# -- the dry run's word is the apply's word -------------------------------------
+
+#: Names and addresses that lead to each other every way a vocabulary knows:
+#: by letter case, by Polish letters, by another language's name, by a key, by
+#: an address asked for, by a former address, by a number an address was given.
+_NAMES: dict[str, list[str]] = {
+    "pl": [
+        "Trening z klikerem",
+        "clicker training",
+        "Porady",
+        "porady",
+        "Tips",
+        "Wskazówki",
+        "Szczenięta",
+        "Pups",
+        "Żywienie",
+        "Zywienie",
+        "Tips 2",
+        "Dog Owner's Guide",
+    ],
+    "en": [
+        "Clicker training",
+        "Tips",
+        "Advice",
+        "Porady",
+        "Pups",
+        "Szczenięta",
+        "Feeding",
+        "Wskazowki",
+        "Trening z klikerem",
+        "Dog owners guide",
+    ],
+    "de": ["Tipps", "Tips", "Welpen", "Pups", "Porady"],
+}
+_ADDRESSES = [
+    "tips",
+    "porady",
+    "clicker-training",
+    "pups",
+    "advice",
+    "tips-2",
+    "wskazowki",
+    "zywienie",
+    "welpen",
+]
+
+
+def _drawn_term(random: Random, external_id: str) -> dict[str, Any]:
+    names = {"pl": random.choice(_NAMES["pl"])}
+    for locale in ("en", "de"):
+        if random.random() < 0.7:
+            names[locale] = random.choice(_NAMES[locale])
+    term: dict[str, Any] = {"id": external_id, "names": names}
+    if random.random() < 0.35:
+        term["slugs"] = {
+            locale: random.choice(_ADDRESSES)
+            for locale in random.sample(["pl", "en", "de"], random.randint(1, 2))
+        }
+    if random.random() < 0.3:
+        term["former_slugs"] = random.sample(_ADDRESSES, random.randint(1, 2))
+    return term
+
+
+def _drawn_document(random: Random, company: Company) -> dict[str, Any]:
+    """The fixture with its categories and tags drawn again: a few ids, so
+    that two drawings name some of the same objects with other words, and a
+    few words, so that they meet."""
+    document = company.document()
+    document["tags"] = [
+        _drawn_term(random, f"tag-{number}")
+        for number in random.sample(range(1, 8), random.randint(3, 6))
+    ]
+    categories: list[dict[str, Any]] = []
+    for number in random.sample(range(1, 7), random.randint(2, 5)):
+        category = {**_drawn_term(random, f"cat-{number}"), "type": "poradnik"}
+        if categories and random.random() < 0.6:
+            category["parent"] = random.choice(categories)["id"]
+        categories.append(category)
+    document["categories"] = categories
+    entries = {entry["id"]: copy.deepcopy(entry) for entry in document["entries"]}
+    document["entries"] = [entries["post-8"], entries["post-9"]]
+    for entry in document["entries"]:
+        entry["tags"] = [tag["id"] for tag in random.sample(document["tags"], random.randint(0, 3))]
+        entry["categories"] = [
+            category["id"] for category in random.sample(categories, random.randint(0, 2))
+        ]
+    return document
+
+
+def _a_persons_terms(random: Random, company: Company) -> None:
+    """Terms somebody made in the panel before any import, under the words
+    the documents use."""
+    # Under the document's type, or under another one: the site's tags and
+    # every key are there before the document's type is.
+    key = random.choice(["poradnik", "aktualnosci"])
+    made = _send(
+        company.client,
+        "post",
+        f"/api/v1/sites/{company.site_id}/collections/",
+        {"key": key, "name": key.title(), "kind": "blog", "base_path": key},
+    )
+    assert made.status_code == 201, made.data
+    terms = f"/api/v1/sites/collections/{made.data['id']}/terms/"
+    for kind in ("tags", "categories"):
+        for name in random.sample(_NAMES["pl"], random.randint(1, 3)):
+            term = _send(company.client, "post", terms, {"kind": kind, "name": name})
+            if term.status_code != 201:
+                continue
+            if random.random() < 0.6:
+                _send(
+                    company.client,
+                    "put",
+                    f"{terms}{term.json()['id']}/names/",
+                    {"names": {"en": random.choice(_NAMES["en"])}},
+                )
+
+
+def _said(report: ImportReport) -> dict[str, tuple[str, str, tuple[str, ...]]]:
+    """What a report says of every object: what happens to it, whether it is
+    published, and every remark by its code."""
+    return {
+        f"{line.kind} {line.external_id}{':' + line.locale if line.locale else ''}": (
+            line.action,
+            line.publication,
+            tuple(sorted(_codes(line))),
+        )
+        for line in report.lines
+    }
+
+
+def test_a_term_the_run_itself_makes_is_met_by_the_next_one_as_the_import_meets_it(
+    tmp_path: Path, library: Any
+) -> None:
+    """Found on a real run (09.10): the plan said „create” for a tag whose
+    name was the English address of a tag the same run had made a moment
+    earlier; the import took the two for one. The plan now reads the
+    vocabulary as the run will have left it by then."""
+    company = Company("import-in-run", tmp_path)
+    document = company.document()
+    entry = next(copy.deepcopy(item) for item in document["entries"] if item["id"] == "post-8")
+    entry["tags"] = ["tag-clicker", "tag-clicker-en", "tag-nameless"]
+    document["entries"], document["categories"] = [entry], []
+    document["tags"] = [
+        {"id": "tag-clicker", "names": {"pl": "Trening z klikerem", "en": "Clicker training"}},
+        {"id": "tag-clicker-en", "names": {"pl": "clicker training", "de": "Clickertraining"}},
+    ]
+    planned = company.run(document)
+    done = company.run(document, apply=True)
+    assert _said(planned) == _said(done)
+    for report in (planned, done):
+        tags = _lines(report, "tag")
+        assert tags["tag-clicker"].action == CREATE
+        assert tags["tag-clicker-en"].action == UNCHANGED
+        assert _codes(tags["tag-clicker-en"]) == ["term_merged"]
+        assert "tag-clicker" in tags["tag-clicker-en"].notes[0].text
+        told = format_report(report)
+        assert "NEEDS A LOOK" in told and "[term_merged]" in told
+        # A term the document does not have refuses the entry either way.
+        assert "term_unknown" in _codes(_lines(report)["post-8:pl"])
+    assert [tag.name for tag in ContentTag.all_objects.filter(taxonomy__isnull=True)] == [
+        "Trening z klikerem"
+    ]
+    document["entries"][0]["tags"] = ["tag-clicker", "tag-clicker-en"]
+    assert company.run(document, apply=True).counts()["entry"] == {CREATE: 1}
+    assert [
+        link.tag.name
+        for link in ContentEntryTag.all_objects.filter(entry=_entry(company, "post-8"))
+    ] == ["Trening z klikerem"]
+    # The merged id's own German name was not applied, and a second run of
+    # the same document finds nothing to do — for the merged id as well.
+    collection = ContentCollection.all_objects.get(site_id=company.site_id, key="poradnik")
+    row = company.client.get(f"/api/v1/sites/collections/{collection.id}/terms/?kind=tags").json()
+    assert set(row["terms"][0]["names"]) == {"en"}
+    again = company.run(document, apply=True)
+    assert again.counts()["tag"] == {UNCHANGED: 2}
+    assert _codes(_lines(again, "tag")["tag-clicker-en"]) == ["term_merged"]
+
+
+def test_a_name_the_site_would_not_take_refuses_the_term_in_the_plan(
+    tmp_path: Path, library: Any
+) -> None:
+    company = Company("import-nameless", tmp_path)
+    document = company.document()
+    document["entries"], document["categories"] = document["entries"][7:8], []
+    document["tags"] = [
+        {"id": "tag-dash", "names": {"pl": "— ? —"}},
+        {"id": "tag-dash-en", "names": {"pl": "Porady", "en": "…"}},
+        {"id": "tag-spaces", "names": {"pl": "Długa   sierść", "en": "Long  coat"}},
+    ]
+    for apply in (False, True):
+        tags = _lines(company.run(document, apply=apply), "tag")
+        assert _codes(tags["tag-dash"]) == ["name_invalid"]
+        assert _codes(tags["tag-dash-en"]) == ["name_invalid"]
+        assert tags["tag-spaces"].action == CREATE
+    # The service would have said the same of each, and the whole term with it.
+    collection = ContentCollection.all_objects.get(site_id=company.site_id, key="poradnik")
+    terms = f"/api/v1/sites/collections/{collection.id}/terms/"
+    assert (
+        _send(company.client, "post", terms, {"kind": "tags", "name": "— ? —"}).status_code == 400
+    )
+    made = ContentTag.all_objects.get(taxonomy__isnull=True)
+    assert (
+        _send(company.client, "put", f"{terms}{made.id}/names/", {"names": {"en": "…"}}).status_code
+        == 400
+    )
+    # A name is kept as the services keep it — one space between its words —
+    # so the next run reads its own name back and has nothing to say.
+    assert made.name == "Długa sierść"
+    assert _codes(_lines(company.run(document), "tag")["tag-spaces"]) == []
+    assert _lines(company.run(document), "tag")["tag-spaces"].action == UNCHANGED
+
+
+#: What the plan says in the services' place, and the services' own word for
+#: it when they are asked.
+_FORESEEN = {
+    "term_too_deep": "term_refused",
+    "term_name_taken": "term_refused",
+    "address_refused": "address_refused",
+    "former_slug_refused": "former_slug_refused",
+}
+
+
+@contextmanager
+def _the_services_asked_anyway() -> Iterator[None]:
+    """The import as it would be if its plan foresaw nothing: every address
+    and former address the plan left out is handed to the service after all,
+    and every term the plan refused in a service's name is sent to it. The
+    plan itself is untouched — it is put back the moment before the writes."""
+    put_back: list[Callable[[], None]] = []
+    met, foresee, apply = content_import._met, content_import._foresee, content_import._apply
+
+    def asking_met(plan: Any, term: Any, name: str) -> Any:
+        found = met(plan, term, name)
+        if term.line.refused:
+
+            def make_after_all() -> None:
+                term.line.action, term.create = CREATE, True
+
+            put_back.append(make_after_all)
+        return found
+
+    def asking_foresee(plan: Any, term: Any, *, made: bool) -> None:
+        slugs, former = dict(term.slugs), list(term.former)
+        foresee(plan, term, made=made)
+
+        def hand_over() -> None:
+            if term.line.refused:
+                term.line.action, term.write = UPDATE, True
+            elif slugs != term.slugs or former != term.former:
+                term.write = not term.create
+            term.slugs, term.former = slugs, former
+
+        put_back.append(hand_over)
+
+    def asking_apply(plan: Any, context: Any) -> None:
+        for step in put_back:
+            step()
+        apply(plan, context)
+
+    content_import._met, content_import._foresee = asking_met, asking_foresee
+    content_import._apply = asking_apply
+    try:
+        yield
+    finally:
+        content_import._met, content_import._foresee = met, foresee
+        content_import._apply = apply
+
+
+def _disagreements(company: Company, seed: int) -> list[str]:
+    """One drawn state and one drawn document: the dry run, then the import,
+    on the same rows — and once more with the services asked for everything
+    the plan foresaw. Everything is undone afterwards."""
+    random = Random(seed)
+    found: list[str] = []
+    cache.clear()
+    with transaction.atomic():
+        before = random.choice(["nothing", "a person's terms", "an earlier run", "both"])
+        if before in ("a person's terms", "both"):
+            _a_persons_terms(random, company)
+        if before in ("an earlier run", "both"):
+            company.run(_drawn_document(random, company), apply=True)
+        document = _drawn_document(random, company)
+        where = f"seed {seed} (before: {before})"
+        planned = company.run(document)
+        said = _said(planned)
+        with transaction.atomic():
+            imported = company.run(document, apply=True)
+            done = _said(imported)
+            for (key, line), plan_line in zip(done.items(), imported.lines, strict=True):
+                if said.get(key) != line:
+                    found.append(
+                        f"{where} {key}: the dry run said {said.get(key)}, the import did "
+                        f"{line} — {[note.text for note in plan_line.notes]}"
+                    )
+            transaction.set_rollback(True)
+        cache.clear()
+        with transaction.atomic(), _the_services_asked_anyway():
+            asked = company.run(document, apply=True)
+            for plan_line, line in zip(planned.lines, asked.lines, strict=True):
+                expected = Counter(_codes(plan_line))
+                for code in _codes(plan_line):
+                    if code in _FORESEEN:
+                        expected[_FORESEEN[code]] += 1
+                heard = [
+                    note.text
+                    for note in line.notes
+                    if note.code == "term_refused"
+                    and not any(code in note.text for code in _codes(plan_line))
+                ]
+                if Counter(_codes(line)) != expected or heard:
+                    found.append(
+                        f"{where} {line.kind} {line.external_id}: the plan foresaw "
+                        f"{sorted(_codes(plan_line))}, the services said "
+                        f"{[(note.code, note.text) for note in line.notes]}"
+                    )
+            transaction.set_rollback(True)
+        transaction.set_rollback(True)
+    return found
+
+
+def test_a_dry_run_says_of_every_object_what_the_import_then_does(
+    tmp_path: Path, library: Any
+) -> None:
+    """The dry run is what an operator reads before a bulk write into a
+    company's site, so its word is the import's word. For documents and
+    states drawn from words made to collide — panel-made terms, an earlier
+    run of another document, both, neither:
+
+    - each object's action, its publication and every remark's code are the
+      same in the dry run's report and in the import's: the import, run on
+      the state its plan read, has nothing to add;
+    - what the plan says in a service's place (a name taken, a category too
+      deep, an address or a former address that leads elsewhere) is what the
+      service says when it is asked after all — and it says nothing else.
+
+    `CONTENT_IMPORT_PLAN_CASES` draws more (seeds 0…n-1)."""
+    company = Company("import-plan-word", tmp_path)
+    cases = int(os.environ.get("CONTENT_IMPORT_PLAN_CASES", "24"))
+    found = [line for seed in range(cases) for line in _disagreements(company, seed)]
+    assert found == [], "\n".join(found)
 
 
 # -- the schema ------------------------------------------------------------------------
