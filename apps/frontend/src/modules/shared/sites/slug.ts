@@ -63,8 +63,14 @@ const LANGUAGE_FOLDS = new Map<string, string>([
  *  pkt 18): `Über uns` → `ueber-uns`, `Наши услуги` → `nashi-uslugi`. An
  *  apostrophe, straight or curly, is dropped rather than made a hyphen:
  *  `Dog Owner's Guide` → `dog-owners-guide`. The backend makes the same one,
- *  so the panel's suggestion is what gets saved. */
-export function slugFromTitle(title: string, maxLength = 100): string {
+ *  so the panel's suggestion is what gets saved. Until 2026-10-09 an
+ *  apostrophe broke the word; `apostrophes: "-"` still gives that spelling,
+ *  for `followingSlug` alone. */
+export function slugFromTitle(
+  title: string,
+  maxLength = 100,
+  apostrophes: "" | "-" = "",
+): string {
   const latin = Array.from(title.toLowerCase())
     .map((char) => CYRILLIC_TO_LATIN.get(char) ?? char)
     .map((char) => LANGUAGE_FOLDS.get(char) ?? char)
@@ -73,8 +79,19 @@ export function slugFromTitle(title: string, maxLength = 100): string {
     .normalize("NFKD")
     .replace(/\p{M}/gu, "")
     .toLowerCase()
-    .replace(/['\u2019\u2018\u02bc]/g, "")
+    .replace(/['\u2019\u2018\u02bc]/g, apostrophes)
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return slug.slice(0, maxLength).replace(/-+$/, "");
+}
+
+/** The address a title suggests for a version that already has one
+ *  (`stored`) and still follows its title: the title's — unless `stored` is
+ *  what the rule made from this very title while an apostrophe still broke a
+ *  word. Then it stays: an address made once does not move because the rule
+ *  did, only when the title does (the backend's `following_slug`). */
+export function followingSlug(title: string, stored: string): string {
+  return stored && slugFromTitle(title, 100, "-") === stored
+    ? stored
+    : slugFromTitle(title);
 }

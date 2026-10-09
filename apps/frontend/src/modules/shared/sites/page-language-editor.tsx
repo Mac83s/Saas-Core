@@ -104,7 +104,7 @@ import {
 import { TokenText, TokenTextField } from "./rich-text-token-field";
 import { SeoPreview } from "./seo-preview";
 import type { TokenMarks } from "./rich-text-tokens";
-import { slugFromTitle } from "./slug";
+import { followingSlug } from "./slug";
 
 const designTokens = {
   schemaVersion: 1,
@@ -1563,7 +1563,7 @@ function LanguageMetadataDialog({
       ...previous,
       [name]: next,
       ...(name === "title" && !slugTouched && !current?.slug_locked
-        ? { slug: slugFromTitle(next) }
+        ? { slug: followingSlug(next, current?.slug ?? "") }
         : {}),
     }));
 

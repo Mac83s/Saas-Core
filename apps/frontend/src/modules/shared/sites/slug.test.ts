@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 
 import shared from "../../../../../../packages/contracts/locales/slug-cases.json";
-import { slugFromTitle, slugifyTitle } from "./slug";
+import { followingSlug, slugFromTitle, slugifyTitle } from "./slug";
 
 // The cases the backend's `slug_from_title` answers too.
 test.each(shared.cases)(
@@ -15,6 +15,23 @@ test("cuts a long title without a trailing hyphen", () => {
   const slug = slugFromTitle("Strzyżenie ".repeat(20), 30);
   expect(slug.length).toBeLessThanOrEqual(30);
   expect(slug.endsWith("-")).toBe(false);
+});
+
+test("an address made before apostrophes were dropped stays while its title does", () => {
+  // The earlier spelling, as the backend still tells it.
+  expect(slugFromTitle("Dog Owner's Guide", 100, "-")).toBe(
+    "dog-owner-s-guide",
+  );
+  // A version's title typed over and put back: its address is where it was.
+  expect(followingSlug("Dog Owner's Guide", "dog-owner-s-guide")).toBe(
+    "dog-owner-s-guide",
+  );
+  // Another title, or no address yet: the rule of today.
+  expect(followingSlug("Dog Owner's Handbook", "dog-owner-s-guide")).toBe(
+    "dog-owners-handbook",
+  );
+  expect(followingSlug("Dog Owner's Guide", "")).toBe("dog-owners-guide");
+  expect(followingSlug("O nas", "o-nas")).toBe("o-nas");
 });
 
 test("folds Polish letters instead of dropping them", () => {
