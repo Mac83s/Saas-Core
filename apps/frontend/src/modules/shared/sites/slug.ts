@@ -60,8 +60,10 @@ const LANGUAGE_FOLDS = new Map<string, string>([
 ]);
 
 /** A language version's address from its title in that language (ADR-070
- *  pkt 18): `Über uns` → `ueber-uns`, `Наши услуги` → `nashi-uslugi`. The
- *  backend makes the same one, so the panel's suggestion is what gets saved. */
+ *  pkt 18): `Über uns` → `ueber-uns`, `Наши услуги` → `nashi-uslugi`. An
+ *  apostrophe, straight or curly, is dropped rather than made a hyphen:
+ *  `Dog Owner's Guide` → `dog-owners-guide`. The backend makes the same one,
+ *  so the panel's suggestion is what gets saved. */
 export function slugFromTitle(title: string, maxLength = 100): string {
   const latin = Array.from(title.toLowerCase())
     .map((char) => CYRILLIC_TO_LATIN.get(char) ?? char)
@@ -71,6 +73,7 @@ export function slugFromTitle(title: string, maxLength = 100): string {
     .normalize("NFKD")
     .replace(/\p{M}/gu, "")
     .toLowerCase()
+    .replace(/['\u2019\u2018\u02bc]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return slug.slice(0, maxLength).replace(/-+$/, "");

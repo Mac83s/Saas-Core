@@ -147,6 +147,12 @@ def name_slug(name: str) -> str:
     return slug_from_title(name, max_length=TERM_SLUG_MAX)
 
 
+def earlier_name_slug(name: str) -> str:
+    """The address a name gave while an apostrophe still broke a word
+    (`slug_from_title`): what a term made then may answer under today."""
+    return slug_from_title(name, max_length=TERM_SLUG_MAX, apostrophes="-")
+
+
 def pagination_segments() -> frozenset[str]:
     return frozenset(entry.pagination_segment for entry in settings.LOCALE_REGISTRY.values())
 

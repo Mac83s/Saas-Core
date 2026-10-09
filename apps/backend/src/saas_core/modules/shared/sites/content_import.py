@@ -66,7 +66,7 @@ from saas_core.content_protocol.provenance import (
     unit_hash,
 )
 from saas_core.content_protocol.registry import translation_policy
-from saas_core.content_protocol.transliteration import slug_from_title
+from saas_core.content_protocol.transliteration import following_slug, slug_from_title
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.context import (
@@ -1040,7 +1040,12 @@ def _settle(plan: _Plan, locale: str) -> None:
             continue
         held[scope].subtract(term_names(stand))
         if wanted:
-            stand.locale_slugs[locale] = _free(wanted, _taken(plan.shelves[scope], stand))
+            stand.locale_slugs[locale] = following_slug(
+                shown[term_text_key(stand.pk)],
+                stored=have or "",
+                free=partial(_free, taken=_taken(plan.shelves[scope], stand)),
+                max_length=TERM_SLUG_MAX,
+            )
         else:
             stand.locale_slugs.pop(locale, None)
         held[scope].update(term_names(stand))

@@ -214,6 +214,14 @@ def test_anchors_avoid_the_ones_the_page_already_uses():
     assert nodes(conversion)[0]["anchor"] == "kontakt-2"
 
 
+def test_a_headings_anchor_keeps_the_editors_spelling_of_an_apostrophe():
+    # An address drops an apostrophe since 2026-10-09; an anchor does not —
+    # the editor makes it with a hyphen (`richTextAnchorSlug`), and a heading
+    # converted again must get the anchor links already point at.
+    conversion = convert_html("<h2>What's new in the owner's guide</h2>")
+    assert nodes(conversion)[0]["anchor"] == "what-s-new-in-the-owner-s-guide"
+
+
 def test_a_heading_too_long_for_one_becomes_a_bold_paragraph():
     long = "Bardzo długi śródtytuł " * 12
     conversion = convert_html(f"<h2>{long}</h2>")

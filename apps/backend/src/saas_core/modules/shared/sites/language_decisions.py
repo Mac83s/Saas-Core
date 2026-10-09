@@ -391,7 +391,7 @@ def _with_body(translation: PageTranslation, body: Any) -> PageTranslation:
 def body_metadata(translation: PageTranslation, body: Any) -> dict[str, str]:
     """What a body's `meta/*` units change in the language's own title,
     description and — while it is not public — address."""
-    from .translation_source import META_FIELDS, free_slug, slug_from_title
+    from .translation_source import META_FIELDS, following_slug, free_slug
 
     if body is None:
         return {}
@@ -401,11 +401,13 @@ def body_metadata(translation: PageTranslation, body: Any) -> dict[str, str]:
         if isinstance(body.units.get(key), dict) and "text" in body.units[key]
     }
     if "title" in changes and translation.slug_locked_at is None:
-        changes["slug"] = free_slug(
-            translation.page,
-            translation.locale,
-            slug_from_title(changes["title"]) or translation.page.key,
-            keep=translation.id,
+        changes["slug"] = following_slug(
+            changes["title"],
+            stored=str(translation.slug),
+            free=lambda base: free_slug(
+                translation.page, translation.locale, base, keep=translation.id
+            ),
+            fallback=str(translation.page.key),
         )
     return {
         field: value for field, value in changes.items() if getattr(translation, field) != value

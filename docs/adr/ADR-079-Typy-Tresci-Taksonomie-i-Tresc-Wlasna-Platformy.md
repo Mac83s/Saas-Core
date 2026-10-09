@@ -1281,6 +1281,33 @@ robił inaczej, niż mówił.
    zajęty albo dawny, dawny adres zajęty — i wpisy odrzucane dopiero przy zapisie, bo ich
    pozycja nie powstała); po niej 150 losowań — zero.
    Czego plan nadal nie wie — kontrakt importu §3.
+2. **Apostrof w adresie jest pomijany, nie zamieniany na łącznik** (uzupełnia ADR-070
+   pkt 18). Kategoria „Dog Owner's Guide” dostawała adres `dog-owner-s-guide`; odtąd
+   `slug_from_title` (i jej bliźniak w panelu, `slugFromTitle` — wspólne przypadki
+   w `packages/contracts/locales/slug-cases.json`) pomija apostrof prosty i drukarski:
+   `dog-owners-guide`. **Tylko dla adresów wyliczanych od teraz — żaden zapisany adres
+   się nie zmienia.** Reguła jest wołana w pięciu miejscach i każde zostało sprawdzone:
+   - klucz i adres nowej pozycji (`_new_term`), adres po zmianie nazwy (`_source_address`
+     — tylko gdy nazwa się zmienia), slug wpisu wyliczany przez import (tylko dla wersji,
+     której jeszcze nie ma: istniejąca bierze slug z wiersza) — nowe wyliczenia, nowa
+     reguła;
+   - trzy miejsca, które **wyliczają adres ponownie z tej samej nazwy**, dopóki adres jest
+     otwarty: `settle_term_addresses` (każdy zapis tekstów języka przelicza wszystkie
+     otwarte adresy pozycji) oraz tytuł wersji językowej strony i wpisu zapisany przez
+     zlecenie tłumaczenia przed publikacją (`_apply_meta` ×2, `_translation_changes`).
+     Wszystkie idą przez `following_slug`: adres, który wersja albo pozycja ma, zostaje,
+     jeśli jest tym, co dawna reguła dała z tej samej nazwy (także z numerem); nowa nazwa
+     dostaje nową regułę;
+   - nazwa tagu wpisana ponownie (`_find_named`) próbuje także dawnej pisowni, więc tag
+     odpowiadający pod `nino-s-toys` jest nadal znajdowany po nazwie „Niño's toys”.
+   Kotwice nagłówków z konwertera HTML zostają przy łączniku (`apostrophes="-"`): tak
+   robi je edytor (`richTextAnchorSlug`), a nagłówek skonwertowany ponownie ma dostać
+   kotwicę, do której już prowadzą odnośniki. Klucz tagu (`tag_slug`) zostaje, jak był —
+   to osobna, starsza reguła, zamrożona celowo; tag nazwany z apostrofem w języku strony
+   nadal dostaje klucz z łącznikiem. Oba złote pliki bez zmiany bajtu. Skutek uboczny,
+   przyjęty: dwie nazwy różniące się tylko apostrofem („Dogs”, „Dog's”) czytają się
+   odtąd tak samo — nowa kategoria o drugiej z nich obok pierwszej jest odmawiana jak
+   „Porady” obok „porady”, a wpisana jako tag znajduje tag pierwszej.
 
 ## Ryzyka
 

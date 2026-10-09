@@ -70,7 +70,7 @@ from saas_core.content_protocol.sources import (
     WriteItem,
     WriteOutcome,
 )
-from saas_core.content_protocol.transliteration import slug_from_title
+from saas_core.content_protocol.transliteration import following_slug
 from saas_core.content_protocol.units import DATA_PUBLIC, UNIT_TEXT, Unit, unit_state
 from saas_core.content_protocol.writes import GATE_UNKNOWN_UNIT
 from saas_core.content_protocol.writes import item_digest as _item_digest
@@ -944,8 +944,11 @@ def _apply_meta(sibling: ContentEntry, written: Mapping[str, Mapping[str, Any]])
     if not changes:
         return
     if "title" in changes and sibling.published_at is None:
-        changes["slug"] = free_entry_slug(
-            sibling, sibling.locale, slug_from_title(changes["title"]) or sibling.slug
+        changes["slug"] = following_slug(
+            changes["title"],
+            stored=str(sibling.slug),
+            free=lambda base: free_entry_slug(sibling, sibling.locale, base),
+            fallback=str(sibling.slug),
         )
     ContentEntry.all_objects.filter(pk=sibling.pk).update(**changes, updated_at=timezone.now())
     for field, value in changes.items():

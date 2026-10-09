@@ -69,7 +69,7 @@ from saas_core.content_protocol.sources import (
     WriteItem,
     WriteOutcome,
 )
-from saas_core.content_protocol.transliteration import slug_from_title
+from saas_core.content_protocol.transliteration import following_slug
 from saas_core.content_protocol.units import DATA_PUBLIC, UNIT_TEXT, Target, Unit, unit_state
 from saas_core.content_protocol.writes import (
     GATE_UNKNOWN_UNIT,
@@ -948,8 +948,11 @@ def _apply_meta(page: Page, row: PageTranslation, written: Mapping[str, Mapping[
     if not changes:
         return
     if "title" in changes and row.slug_locked_at is None:
-        changes["slug"] = free_slug(
-            page, row.locale, slug_from_title(changes["title"]) or page.key, keep=row.id
+        changes["slug"] = following_slug(
+            changes["title"],
+            stored=str(row.slug),
+            free=lambda base: free_slug(page, row.locale, base, keep=row.id),
+            fallback=str(page.key),
         )
     PageTranslation.all_objects.filter(pk=row.pk).update(
         **changes, version=row.version + 1, updated_at=timezone.now()
@@ -1018,7 +1021,7 @@ __all__ = [
     "META_TITLE",
     "PAGE_SOURCE",
     "SOURCE_KEY",
+    "following_slug",
     "free_slug",
     "register_page_source",
-    "slug_from_title",
 ]

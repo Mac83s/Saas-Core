@@ -35,6 +35,7 @@ import logging
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any
 from uuid import UUID
 
@@ -44,6 +45,7 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
 from saas_core.content_protocol.provenance import ORIGIN_AI, ORIGIN_HUMAN, Provenance, unit_hash
+from saas_core.content_protocol.transliteration import following_slug
 from saas_core.content_protocol.units import unit_state
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
@@ -89,6 +91,7 @@ from .term_addresses import (
     TERM_SLUG_MAX,
     carried_terms,
     close_term_addresses,
+    earlier_name_slug,
     name_slug,
     pagination_segments,
     site_tags,
@@ -622,7 +625,14 @@ def _settle(site: Site, locale: str) -> None:
                 term.save(update_fields=["locale_slugs", "updated_at"])
             continue
         siblings = [other for other in terms if other.taxonomy_id == term.taxonomy_id]
-        address = _free(wanted, _taken(siblings, term))
+        # From the name — or the address it has, where that was made from
+        # this very name before apostrophes were dropped.
+        address = following_slug(
+            accepted[term_text_key(term.id)],
+            stored=str(slugs.get(locale) or ""),
+            free=partial(_free, taken=_taken(siblings, term)),
+            max_length=TERM_SLUG_MAX,
+        )
         locks = dict(term.slug_locked_at or {})
         if _archive_answered(site, term, locale, _descendants(term, siblings)):
             locks[locale] = moment
@@ -870,9 +880,10 @@ def _assert_sibling_name_free(
 def _find_named(name: str, tags: Sequence[ContentTag]) -> ContentTag | None:
     """The tag a typed name means (ADR-079 pkt 6): the one whose key or
     address in any language is the name's slug — „Wood” on an English entry
-    finds `drewno` once that tag answers at `wood`. Both spellings of the
-    slug are tried: keys older than categories fold Polish letters only."""
-    spellings = {tag_slug(name), name_slug(name)} - {""}
+    finds `drewno` once that tag answers at `wood`. Every spelling of the
+    slug is tried: keys older than categories fold Polish letters only, and
+    an address made before apostrophes were dropped has a hyphen for one."""
+    spellings = {tag_slug(name), name_slug(name), earlier_name_slug(name)} - {""}
     for tag in tags:
         if tag.slug in spellings:
             return tag

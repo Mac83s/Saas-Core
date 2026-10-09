@@ -1,5 +1,5 @@
 {
-  "$comment": "A language version's address from its translated title (ADR-070 pkt 18): ASCII, ä/ö/ü/ß → ae/oe/ue/ss, Cyrillic by BGN/PCGN without diacritics. Both generators — content_protocol.transliteration.slug_from_title and the panel's slugFromTitle — must give exactly these.",
+  "$comment": "A language version's address from its translated title (ADR-070 pkt 18): ASCII, ä/ö/ü/ß → ae/oe/ue/ss, Cyrillic by BGN/PCGN without diacritics, an apostrophe (straight or curly) dropped. Both generators — content_protocol.transliteration.slug_from_title and the panel's slugFromTitle — must give exactly these.",
   "cases": [
     { "title": "Über uns", "slug": "ueber-uns" },
     { "title": "Наши услуги", "slug": "nashi-uslugi" },
@@ -19,6 +19,10 @@
     { "title": "Straße 7", "slug": "strasse-7" },
     { "title": "ÄÖÜ äöü", "slug": "aeoeue-aeoeue" },
     { "title": "Объявление: подъезд", "slug": "obyavlenie-podezd" },
+    { "title": "Dog Owner's Guide", "slug": "dog-owners-guide" },
+    { "title": "L\u2019été à Paris", "slug": "lete-a-paris" },
+    { "title": "Rock \u2018n\u2019 roll", "slug": "rock-n-roll" },
+    { "title": "П\u02bcять собак", "slug": "pyat-sobak" },
     { "title": "  — ? —  ", "slug": "" }
   ]
 }

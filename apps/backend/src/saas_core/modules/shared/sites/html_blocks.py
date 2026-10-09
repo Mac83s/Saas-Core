@@ -885,7 +885,11 @@ class _Converter:
         if legacy and _ANCHOR.fullmatch(legacy) and legacy not in self.anchors:
             chosen = legacy
         else:
-            slug = re.sub(r"^[^a-z]+", "", slug_from_title(text, max_length=80))
+            # As the editor makes a heading's anchor (`richTextAnchorSlug`): an
+            # apostrophe breaks the word there, and a heading converted again
+            # keeps the anchor an earlier conversion gave it.
+            made = slug_from_title(text, max_length=80, apostrophes="-")
+            slug = re.sub(r"^[^a-z]+", "", made)
             base = slug[:56].rstrip("-") or "section"
             chosen, suffix = base, 2
             while chosen in self.anchors:

@@ -634,6 +634,52 @@ def test_the_site_languages_address_closes_with_the_first_entry_in_any_language(
     assert _status(host, "/en/projects/category/sauny/") == 200
 
 
+def test_an_apostrophe_is_dropped_from_a_new_address_and_no_stored_one_moves() -> None:
+    """The rule changed on 2026-10-09 („Dog Owner's Guide” was
+    `dog-owner-s-guide`). An address made before, still open, is settled
+    again with every write of the language's texts — and stays."""
+    world = World("tax-apostrophe")
+    # From now on: a category's key and its address in another language.
+    guide = world.category(world.projects, "Dog Owner's Guide")
+    assert world.term(world.projects, guide)["slugs"]["pl"] == "dog-owners-guide"
+    care = world.category(world.projects, "Opieka")
+    assert world.names(world.projects, care, en="Owner\u2019s care").status_code == 200
+    assert _english(world, care)["slug"] == "owners-care"
+
+    # A term as the rule left it before: its English address has the hyphen.
+    toys = world.category(world.projects, "Zabawki")
+    assert world.names(world.projects, toys, en="Niño's toys").status_code == 200
+    assert _english(world, toys)["slug"] == "ninos-toys"
+    stored = ContentTag.all_objects.get(pk=toys)
+    stored.locale_slugs = {**stored.locale_slugs, "en": "nino-s-toys"}
+    stored.save(update_fields=["locale_slugs"])
+    # Any write of an English name settles every open address there again.
+    assert world.names(world.projects, care, en="Owner's daily care").status_code == 200
+    assert _english(world, care)["slug"] == "owners-daily-care"
+    assert _english(world, toys)["slug"] == "nino-s-toys"
+    assert _english(world, toys)["locked"] is False
+    # The same name written again leaves it too; another name is a new address.
+    assert world.names(world.projects, toys, en="Niño's toys").status_code == 200
+    assert _english(world, toys)["slug"] == "nino-s-toys"
+    assert world.names(world.projects, toys, en="Niño's games").status_code == 200
+    assert _english(world, toys)["slug"] == "ninos-games"
+
+    # A tag's name typed again still finds the tag that answers under the
+    # earlier spelling — in a language whose letters the tag's own key rule
+    # does not fold, where only that spelling leads to it.
+    terms = f"/api/v1/sites/collections/{world.projects}/terms/"
+    tag = _send(world.client, "post", terms, {"kind": "tags", "name": "Zabawy"}).json()["id"]
+    assert world.names(world.projects, tag, en="Niño's fun").status_code == 200
+    held = ContentTag.all_objects.get(pk=tag)
+    held.locale_slugs = {**held.locale_slugs, "en": "nino-s-fun"}
+    held.save(update_fields=["locale_slugs"])
+    tags = ContentTag.all_objects.filter(site_id=world.site_id, taxonomy__isnull=True)
+    before = tags.count()
+    again = _send(world.client, "post", terms, {"kind": "tags", "name": "Niño's fun"})
+    assert again.json()["id"] == tag
+    assert tags.count() == before
+
+
 def _job_writes(world: World, texts: dict[str, str], *, read: Any = None) -> tuple[Any, str]:
     """A translation job writes site texts in English as the engine would:
     what it read (now, or `read` taken earlier), then its texts, live."""

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Callable
 
 SCRIPT_LATIN = "Latn"
 SCRIPT_CYRILLIC = "Cyrl"
@@ -177,10 +178,43 @@ def transliterate_name(text: str, script: str) -> str:
     return re.sub(r"[^\W\d_]+", lambda match: _word_to_cyrillic(match.group(0)), text)
 
 
-def slug_from_title(title: str, *, max_length: int = 100) -> str:
-    """An ASCII slug made from a title in any script the registry offers."""
+#: An apostrophe stands inside a word, straight or curly: „Owner's” is one.
+_APOSTROPHES = re.compile("['\u2019\u2018\u02bc]")
+
+
+def slug_from_title(title: str, *, max_length: int = 100, apostrophes: str = "") -> str:
+    """An ASCII slug made from a title in any script the registry offers.
+
+    An apostrophe is dropped, so „Dog Owner's Guide” is `dog-owners-guide`.
+    Until 2026-10-09 it broke the word (`dog-owner-s-guide`), and
+    `apostrophes="-"` still gives that spelling — for the two things that
+    need it: recognising what was stored while the rule was the other one
+    (`following_slug`; a tag's name typed again), and a heading's anchor,
+    which the editor makes that way."""
     latin = "".join(_CYRILLIC_TO_LATIN.get(char, char) for char in title.lower())
     decomposed = unicodedata.normalize("NFKD", latin.translate(_LATIN_FOLDS))
     ascii_text = "".join(char for char in decomposed if not unicodedata.combining(char))
-    slug = re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
+    spelled = _APOSTROPHES.sub(apostrophes, ascii_text.lower())
+    slug = re.sub(r"[^a-z0-9]+", "-", spelled).strip("-")
     return slug[:max_length].rstrip("-")
+
+
+def following_slug(
+    title: str,
+    *,
+    stored: str,
+    free: Callable[[str], str],
+    fallback: str = "",
+    max_length: int = 100,
+) -> str:
+    """The address of something whose address still follows its title or
+    name: the first free one the title gives (`free` picks it; `fallback`
+    where the title gives none) — unless `stored`, the address it has, is
+    what the rule made from this very title while apostrophes still broke a
+    word. Then it stays: an address made once does not move because the
+    rule did, only when the title does."""
+    slug = slug_from_title(title, max_length=max_length)
+    earlier = slug_from_title(title, max_length=max_length, apostrophes="-")
+    if earlier != slug and stored and free(earlier) == stored:
+        return stored
+    return free(slug or fallback)
