@@ -25,13 +25,14 @@ python manage.py sites_import_content --schema                         # schemat
   przed jakimkolwiek odczytem treści. Stronę bierze, gdy organizacja ma dokładnie
   jedną; przy kilku wymaga `--site`. Język dokumentu (`default_locale`) musi być
   językiem strony.
-- **Operator** to osoba z aktywnym członkostwem tej organizacji i prawami
-  `site.content.edit` oraz `site.publish` (do zdjęć także `media.manage`); tam, gdzie
-  panel wymaga logowania dwuetapowego (workspace platformy, firma z takim wymogiem),
-  konto musi je mieć. Wszystko jest zapisywane **jako ta osoba, przez serwisy
-  panelu** — historia firmy ją nazywa, a każda blokada, którą spotyka człowiek,
-  działa: limit typów w planie, typ wyłączony, kontrakty bloków, przestrzeń nazw
-  kategorii i tagów, biblioteka mediów ze skanerem.
+- **Operator** to konto operatorskie (`is_staff`, potwierdzone logowanie dwuetapowe —
+  jak przy komendach grantów) z aktywnym członkostwem tej organizacji i prawami
+  `site.content.edit` oraz `site.publish` (do zdjęć także `media.manage`). Wszystko jest
+  zapisywane **jako ta osoba, przez serwisy panelu** — historia firmy ją nazywa,
+  a każda blokada, którą spotyka człowiek, działa: limit typów w planie, typ wyłączony,
+  kontrakty bloków, przestrzeń nazw kategorii i tagów, biblioteka mediów ze skanerem.
+  Konto właściciela firmy, który nie jest operatorem platformy, nie wystarczy: historia
+  nie może nazwać kogoś, kto importu nie uruchomił.
 - Zdjęcia komenda czyta z plików obok dokumentu (ścieżki względne; nic spoza
   katalogu dokumentu).
 - Kod wyjścia: `0` — nic nie odrzucono; `1` — część obiektów odrzucona (raport mówi
@@ -51,11 +52,24 @@ backendzie), z katalogiem dokumentu podmontowanym do odczytu.
     "versions": [
       { "locale": "pl", "title": "Jak czesać psa", "slug": "jak-czesac-psa", "former_slugs": ["czesanie"], "origin": "human",
         "body": { "html": "<p>…</p>" }, "cover": { "file": "img/a.jpg", "alt": "Pies" },
+        "fields": { "title": { "sha256": "…" }, "body": { "sha256": "…" } },
         "status": "published", "published_at": "2023-03-14T08:30:00+01:00", "changed_at": "2025-02-01T10:00:00+01:00" },
       { "locale": "en", "title": "How to brush a dog", "body": { "html": "<p>…</p>" }, "status": "published",
         "published_at": "2023-03-14T08:30:00+01:00", "origin": "ai", "model": "…",
         "fields": { "title": { "source_sha256": "…" }, "body": { "source_sha256": "…" } } }] }] }
 ```
+
+Trzy rzeczy, o które pierwszy prawdziwy dokument potknie się najczęściej:
+
+- **Odciski.** Jeśli `source_sha256` tłumaczeń liczono inaczej niż „SHA-256 z bajtów
+  UTF-8 pola dokładnie tak, jak stoi w dokumencie”, wersja źródłowa **musi** nieść własne
+  `fields.<pole>.sha256` policzone tą samą metodą co odciski tłumaczeń — inaczej każde
+  tłumaczenie zostanie zgłoszone jako nieaktualne, choć nim nie jest.
+- **Zdjęcia w HTML.** Każdy `<img>` potrzebuje pliku w `images` (klucz = jego `src`)
+  i opisu (`alt` w HTML albo w `images`); bez tego konwerter zgłasza stratę
+  `image_dropped`, a wersja wchodzi jako szkic.
+- **Odnośnik w nagłówku** jest przez konwerter gubiony (słowa zostają):
+  `heading_link_dropped`. Bez tego rodzaju w `accept_losses` wersja wchodzi jako szkic.
 
 Najważniejsze reguły (pełny opis każdego pola jest w schemacie):
 
@@ -64,7 +78,7 @@ Najważniejsze reguły (pełny opis każdego pola jest w schemacie):
 | `source`, `id` | `source` to przestrzeń nazw identyfikatorów. Ten sam `source` i `id` w kolejnym dokumencie znaczy „ten sam obiekt” — także gdy uruchamia go inna osoba. |
 | typ | Istniejący znajdowany jest po `key` i nie jest zmieniany. Brakujący powstaje (potrzebne `name` i `base_path`); działa oferta wdrożenia i limit planu. |
 | kategoria, tag | Nazwy per język wchodzą jako **tekst człowieka** (silnik tłumaczeń ich nie nadpisze). `slugs` wolno podać tylko w części języków — w pozostałych adres liczy się z nazwy. Rodzic przed dzieckiem, najwyżej trzy poziomy. |
-| wersje językowe | Jeden wpis dokumentu to jedna grupa tłumaczeń; każda wersja jest własnym wpisem. Kategorie i tagi wpisu dostaje każda wersja. Wersja w języku, którego strona nie ma, jest odrzucana (pozostałe wchodzą). |
+| wersje językowe | Jeden wpis dokumentu to jedna grupa tłumaczeń; każda wersja jest własnym wpisem. Kategorie i tagi wpisu dostaje każda wersja. Wersja w języku, którego strona nie ma, jest odrzucana (pozostałe wchodzą). **Tłumaczenia wchodzą razem ze źródłem, nie przed nim:** gdy wersja źródłowa (`source_locale`, domyślnie język strony) jest odrzucona i nie ma jej jeszcze na stronie, pozostałe nowe wersje wpisu czekają (`source_refused`). Wersji w języku, którą wpis już ma, a której import nie zrobił (ręczna, z silnika tłumaczeń), import nie rusza (`version_exists`). |
 | `slug` | Pominięty — liczony z tytułu funkcją rdzenia (cyrylica zapisana alfabetem łacińskim), unikalny w typie i języku; kolejny wpis o tym samym tytule dostaje `-2`. |
 | `former_slugs` | Same końcówki dawnych adresów (nie całe ścieżki — te należą do tabeli starych adresów produktu). Każda odpowiada jednym 308. Końcówka, pod którą dziś odpowiada inny wpis, jest pomijana z ostrzeżeniem: żywy adres zawsze wygrywa. |
 | `body` | `{"html": …}` — przechodzi przez konwerter rdzenia (`site-html-import.md`), raport wymienia każdą stratę; albo `{"blocks": […]}` — gotowe bloki, zdjęcie jako `"asset_id": "file:<ścieżka>"`. |
@@ -89,11 +103,19 @@ z działań:
 | `held` | treść wchodzi jako szkic i **nie jest publikowana**: konwerter zgubił treść, data publikacji jest ewidentnie błędna albo publikacja się nie udała |
 | `refused` | nic nie zapisano; powód w raporcie |
 
+Nad listami raport ma sekcję „BEFORE YOU RUN” — to, co nie dotyczy jednego obiektu.
+Dziś jedna rzecz: gdy silnik tłumaczeń jest dla firmy włączony, publikacja oryginałów
+może zamówić płatne tłumaczenia maszynowe na języki, których dokument nie ma (raport
+liczy je per język). Czy firma włączyła automatyczne tłumaczenie zmian, to ustawienie
+silnika, którego moduł stron nie czyta — sprawdź je przed `--apply`.
+
 Odrzucenia, które raport nazywa kodem: `locale_not_enabled`, `type_unknown`,
 `content_type_archived`, `content_types_not_offered` / `quota_exceeded` /
 `plan_access_denied` (limit typów), `slug_taken`, `slug_former`, `slug_missing`,
 `picture_missing`, `picture_outside`, `picture_unsupported`, `picture_too_large`,
-`picture_refused`, `body_unreadable`, `body_invalid`, `body_empty`, `term_unknown`,
+`picture_refused`, `library_unavailable` (rola operatora bez `media.manage` albo plan
+bez biblioteki mediów — wiadomo już w przebiegu próbnym), `source_refused`,
+`version_exists`, `body_unreadable`, `body_invalid`, `body_empty`, `term_unknown`,
 `parent_unknown`, `published_at_missing`, `published_at_future`, `date_invalid`,
 `write_failed`. Ostrzeżenia: `translation_stale`, `held_for_losses`,
 `published_at_implausible`, `former_slug_live`, `former_slug_claimed`, `*_kept`,
@@ -108,7 +130,8 @@ publikację tej wersji** — wchodzi jako szkic — chyba że dokument wymieni t
 `h2`, scalone komórki tabeli) i podziały (`split`) publikacji nie wstrzymują.
 
 **Czego przebieg próbny nie wie:** werdyktu skanera i tego, czy plik da się przetworzyć
-jako zdjęcie (sprawdza istnienie, typ po nagłówku pliku i rozmiar), oraz odmów, które
+jako zdjęcie (sprawdza istnienie, typ po nagłówku pliku i rozmiar), czy zdjęcia zmieszczą
+się w limicie magazynu planu, oraz odmów, które
 zależą od stanu z chwili zapisu (ktoś zmienił wpis między planem a zapisem — wpis jest
 wtedy odrzucany z `write_failed` i wchodzi przy kolejnym uruchomieniu).
 

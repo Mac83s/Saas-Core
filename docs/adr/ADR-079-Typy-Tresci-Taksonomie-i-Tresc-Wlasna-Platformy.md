@@ -1171,6 +1171,16 @@ Zbudowane punkty 13 (część wpisu), 14, 16 i 34. Kod: `shared/sites/entry_addr
      `record_former_entry_slugs` i `record_former_term_slugs` (dawne adresy bez
      publikacji), `publish_entry(changed_at=…)` i `save_entry_draft(imported=…)` —
      żaden widok ich nie przekazuje.
+   - **Operator** to konto operatorskie (`is_staff`, MFA), jak przy komendach grantów,
+     z aktywnym członkostwem organizacji: prawa daje rola, a historia nazywa tego, kto
+     import uruchomił. Organizację podaje się identyfikatorem, a dokument nazywa ją
+     slugiem — niezgodność kończy komendę przed odczytem treści.
+   - **Tłumaczenia czekają na źródło.** Gdy wersja źródłowa wpisu jest odrzucona i nie
+     ma jej jeszcze na stronie, pozostałe nowe wersje nie wchodzą: opublikowana sama,
+     jedna z nich stałaby się oryginałem — dla czytelnika i dla silnika tłumaczeń,
+     który uzupełnia brakujące języki. Publikacja oryginału zawiadamia silnik jak
+     każda inna; plan mówi z góry, ile tłumaczeń mogłoby to zamówić (stan zgody na
+     automatyczne tłumaczenie należy do modułu tłumaczeń i stąd nie jest czytany).
    - **Transakcje.** Jedna na tekst wpisu dokumentu (wszystkie wersje), jedna na
      publikację każdej wersji (uwaga 24 z CT2: publikacja jednego wpisu naraz), każda
      zaczyna się od `SET LOCAL` (test kolejności zapytań); zakleszczenie ponawiane.

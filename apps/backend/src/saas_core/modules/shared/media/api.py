@@ -1,7 +1,7 @@
 """Public use-case API of the Media module."""
 
 from .models import AiOrigin
-from .permissions import MEDIA_MANAGE, MEDIA_READ, STORAGE_BYTES
+from .permissions import MEDIA_MANAGE, MEDIA_READ, STORAGE_BYTES, STORAGE_ENABLED
 from .references import MEDIA_ASSET_RESOURCE_TYPE
 from .scanner import MalwareScannerUnavailable
 from .services import (
@@ -44,6 +44,7 @@ __all__ = [
     "MEDIA_READ",
     "MalwareScannerUnavailable",
     "STORAGE_BYTES",
+    "STORAGE_ENABLED",
     "UnsupportedMediaType",
     "ai_generated_asset_ids",
     "approved_media_asset_id",

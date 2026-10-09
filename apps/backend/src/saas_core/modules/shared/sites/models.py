@@ -1734,6 +1734,10 @@ class ContentEntry(TenantScopedModel):
     site = models.ForeignKey(
         Site, on_delete=models.PROTECT, related_name="content_entries"
     )
+    # A published entry's row carries the slug of its current publication:
+    # the public router finds an entry by this column (`_find_entry`). Only
+    # `entry_addresses.change_entry_slug` moves it once the entry is out, and
+    # publishes again in the same transaction.
     slug = models.SlugField(max_length=140)
     # Slugs the entry answered under before somebody changed its address; each
     # answers one 308 to today's (ADR-079 pkt 7, 13). Read by the public

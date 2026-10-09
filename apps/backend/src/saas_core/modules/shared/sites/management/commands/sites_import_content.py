@@ -9,9 +9,10 @@
 The operator names the organization by its id, and the document names it by
 its slug: the two must be the same organization, or nothing is read further.
 The organization's site is taken when it has exactly one; with more, `--site`
-says which. Everything is written as the operator — a person with an active
-membership of that organization — through the services the panel calls, so
-the history names them and every guard a person meets applies.
+says which. Everything is written as the operator — an operator's account
+(staff, two-factor sign-in) with an active membership of that organization —
+through the services the panel calls, so the history names them and every
+guard a person meets applies.
 
 Without `--apply` the command plans and prints what it would do. Pictures
 are read from beside the document. Exit code: 0 — nothing refused; 1 — some
@@ -36,12 +37,7 @@ from saas_core.modules.core.organizations.context import (
     context_from_membership,
     set_local_organization_id,
 )
-from saas_core.modules.core.organizations.models import (
-    Membership,
-    MembershipStatus,
-    WorkspaceKind,
-)
-from saas_core.modules.core.organizations.security_settings import membership_requires_mfa
+from saas_core.modules.core.organizations.models import Membership, MembershipStatus
 
 from ...content_import import ImportStopped, format_report, run_import
 from ...content_import_schema import DOCUMENT_SCHEMA
@@ -131,6 +127,13 @@ class Command(BaseCommand):
         ).first()
         if operator is None:
             raise CommandError(f"Nie ma aktywnego konta {email}.", returncode=2)
+        # As the other operator commands of the sites: the history will name
+        # this person, so it is somebody who may act for the platform and
+        # signs in with two factors — not whoever's address was at hand.
+        if not operator.is_staff:
+            raise CommandError(f"{email} nie ma uprawnień operatorskich.", returncode=2)
+        if not has_confirmed_mfa(operator):
+            raise CommandError(f"{email} musi mieć potwierdzone MFA.", returncode=2)
         with transaction.atomic():
             set_local_organization_id(organization_id)
             membership = (
@@ -144,16 +147,6 @@ class Command(BaseCommand):
                 raise CommandError(
                     "Ta osoba nie ma aktywnego członkostwa w tej organizacji (albo organizacja "
                     "nie istnieje).",
-                    returncode=2,
-                )
-            # What entering the workspace in the panel asks of a person.
-            needs_second_factor = (
-                membership.organization.workspace_kind == WorkspaceKind.PLATFORM
-                or membership_requires_mfa(membership)
-            )
-            if needs_second_factor and not has_confirmed_mfa(operator):
-                raise CommandError(
-                    "Ta organizacja wymaga logowania dwuetapowego, a konto go nie ma.",
                     returncode=2,
                 )
             context = context_from_membership(membership)

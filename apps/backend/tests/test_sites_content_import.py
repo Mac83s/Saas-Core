@@ -64,6 +64,7 @@ from test_sites_api import (
 )
 from test_sites_blog_languages import _feed, _get
 from test_sites_collections import _verified_platform_domain
+from test_sites_grant_commands import confirm_mfa
 from test_sites_taxonomies import _one_hop, _status
 from test_template_photos import enable_storage
 
@@ -184,6 +185,11 @@ def test_a_dry_run_writes_nothing_stores_nothing_and_scans_nothing(
         .startswith(("SELECT", "SAVEPOINT", "RELEASE SAVEPOINT", "SET LOCAL"))
     ]
     assert written == []
+    # …and holds no row: it is one long read, with every HTML converted and
+    # every file hashed inside it.
+    assert not any(
+        "FOR UPDATE" in query["sql"] or "FOR NO KEY" in query["sql"] for query in queries
+    )
     assert report.dry_run is True
     entries = _lines(report)
     # What a person is told before anything happens.
@@ -685,6 +691,14 @@ def test_a_person_who_corrects_a_models_translation_does_not_erase_the_machine_m
 # -- one tenant, named first -------------------------------------------------------
 
 
+def _operator(company: Company) -> None:
+    """The company's owner is also an operator of the platform here: staff,
+    with a second factor — what the command asks of whoever it names."""
+    company.user.is_staff = True
+    company.user.save(update_fields=["is_staff"])
+    confirm_mfa(company.user)
+
+
 def _command(company: Company, document: dict[str, Any], *arguments: str, **options: Any) -> str:
     path = company.directory / "document.json"
     path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
@@ -711,6 +725,7 @@ def test_the_command_names_its_tenant_before_every_read_and_touches_no_other_com
     other_document["entries"] = other_document["entries"][:2]
     other.run(other_document, apply=True)
     company = Company("import-tenant", tmp_path)
+    _operator(company)
     document = company.document()
     document["entries"] = document["entries"][:2]
 
@@ -776,6 +791,18 @@ def test_the_command_refuses_what_is_ambiguous_before_reading_anything_else(
     stranger = Company("import-stranger", stranger_directory)
     document = company.document()
     before = _counts()
+    # Whoever the history will name is an operator: staff, with two factors.
+    with pytest.raises(CommandError) as no_staff:
+        _command(company, document, apply=True)
+    assert no_staff.value.returncode == 2 and "operatorskich" in str(no_staff.value)
+    company.user.is_staff = True
+    company.user.save(update_fields=["is_staff"])
+    with pytest.raises(CommandError) as no_mfa:
+        _command(company, document, apply=True)
+    assert no_mfa.value.returncode == 2 and "MFA" in str(no_mfa.value)
+    _operator(company)
+    _operator(stranger)
+    before = {**_counts(), **{}}
 
     def stopped(*arguments: str, **options: Any) -> str:
         with pytest.raises(CommandError) as failed:
@@ -905,16 +932,18 @@ def test_a_picture_the_scanner_refuses_or_cannot_judge_keeps_its_entry_out(
     document["entries"] = [by_id["post-1"], by_id["post-2"], by_id["post-7"], by_id["post-8"]]
 
     # The first picture — the one in the text of post-1 — is refused by the
-    # scanner: the three versions that show it are not written. The versions
-    # without it, and the other entries, are in.
+    # scanner: the three versions that show it are not written, and the two
+    # that do not wait for their source rather than stand in for it. The
+    # other entries are in.
     report = company.run(document, apply=True)
     lines = _lines(report)
     refused = lines["post-1:pl"]
     assert refused.refused and "the library refused it" in refused.notes[-1].text
     assert lines["post-1:en"].refused and lines["post-1:de"].refused
-    assert lines["post-1:es"].action == CREATE and lines["post-2:pl"].action == CREATE
-    assert not ContentImportRecord.all_objects.filter(external_id="post-1", locale="pl").exists()
-    assert _entry(company, "post-1", "es").state == ContentEntryState.PUBLISHED
+    assert _codes(lines["post-1:es"])[-1] == _codes(lines["post-1:ru"])[-1] == "source_refused"
+    assert lines["post-2:pl"].action == CREATE
+    assert not ContentImportRecord.all_objects.filter(external_id="post-1").exists()
+    assert _entry(company, "post-2").state == ContentEntryState.PUBLISHED
     # Nothing of the refused picture is where a visitor could fetch it.
     assert not MediaAsset.all_objects.filter(
         state=MediaAssetState.READY, original_filename__icontains="szczotka"
@@ -1003,6 +1032,112 @@ def test_a_deadlock_is_tried_again_and_anything_else_is_not(
     bath = _entry(company, "post-2")
     assert bath.current_publication is not None
     assert "Inaczej." in json.dumps(bath.current_publication.snapshot["blocks"])
+
+
+def test_the_plan_asks_the_database_no_more_for_a_longer_document(
+    tmp_path: Path, library: Any
+) -> None:
+    company = Company("import-queries", tmp_path)
+    document = company.document()
+    by_id = {entry["id"]: entry for entry in document["entries"]}
+    document["categories"] = document["categories"][:4]
+
+    def with_entries(count: int) -> dict[str, Any]:
+        longer = copy.deepcopy(document)
+        longer["entries"] = []
+        for index in range(count):
+            entry = copy.deepcopy(by_id["post-2"])
+            entry["id"] = f"copy-{index}"
+            entry["versions"][0]["title"] = f"Kąpiel psa {index}"
+            entry["versions"][0].pop("former_slugs")
+            longer["entries"].append(entry)
+        longer["tags"] = [
+            {"id": f"tag-{index}", "names": {"pl": f"Temat {index}"}} for index in range(count)
+        ]
+        for index, entry in enumerate(longer["entries"]):
+            entry["tags"] = [f"tag-{index}"]
+        return longer
+
+    def asked(found: dict[str, Any]) -> int:
+        with CaptureQueriesContext(connection) as queries:
+            company.run(found)
+        return len(queries)
+
+    # On an empty site, and on one that holds the content already: neither
+    # the number of entries nor of terms changes how often the plan asks.
+    # (One run first: what a process reads once and remembers is not counted.)
+    company.run(with_entries(1))
+    assert asked(with_entries(4)) == asked(with_entries(12))
+    company.run(with_entries(12), apply=True)
+    longer = with_entries(12)
+    shorter = copy.deepcopy(longer)
+    shorter["entries"], shorter["tags"] = shorter["entries"][:4], shorter["tags"][:4]
+    assert asked(shorter) == asked(longer)
+
+
+def test_the_plan_says_what_the_run_would_meet_outside_the_document(
+    tmp_path: Path, library: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from saas_core.content_protocol.policy import TranslationPolicy
+    from saas_core.modules.shared.billing.models import EntitlementSnapshot
+    from saas_core.modules.shared.sites import content_import
+
+    company = Company("import-outside", tmp_path)
+    document = company.document()
+    by_id = {entry["id"]: entry for entry in document["entries"]}
+    document["entries"] = [by_id["post-1"], by_id["post-2"], by_id["post-8"]]
+
+    # A translation engine that is on: publishing originals may order
+    # translations into the languages the document lacks — said beforehand.
+    monkeypatch.setattr(
+        content_import,
+        "translation_policy",
+        lambda **_arguments: TranslationPolicy(mode="review", reason=None, mass_publication_cap=20),
+    )
+    report = company.run(document)
+    assert len(report.notices) == 1
+    assert "de ×2, en ×2, es ×2, ru ×2" in report.notices[0]
+    assert "BEFORE YOU RUN:" in format_report(report)
+    monkeypatch.undo()
+    assert company.run(document).notices == []
+
+    # A company whose plan gives no media library: the entries with pictures
+    # are refused by the plan already, and translations wait for their source.
+    snapshot = EntitlementSnapshot.all_objects.get(organization=company.organization)
+    snapshot.features["storage.enabled"] = False
+    snapshot.save()
+    lines = _lines(company.run(document))
+    assert _codes(lines["post-1:pl"])[-1] == "library_unavailable"
+    assert _codes(lines["post-1:ru"])[-1] == "source_refused"
+    assert _codes(lines["post-2:pl"])[-1] == "library_unavailable"
+    assert lines["post-8:pl"].action == CREATE
+    snapshot.features["storage.enabled"] = True
+    snapshot.save()
+
+    # A version in a language the import did not make stands in its way —
+    # said as that, not as a failed write.
+    company.run(document, apply=True)
+    polish = _entry(company, "post-8")
+    made = _send(
+        company.client,
+        "post",
+        f"/api/v1/sites/entries/{polish.id}/translations/",
+        {"locale": "en", "slug": "bathing-again", "title": "By hand"},
+    )
+    assert made.status_code == 201, made.data
+    newer = copy.deepcopy(document)
+    newer["entries"][2]["versions"].append({
+        "locale": "en",
+        "title": "Bathing a dog, again",
+        "body": {"html": "<p>From the document.</p>"},
+        "status": "published",
+        "published_at": "2025-08-01T09:00:00+02:00",
+    })
+    for apply in (False, True):
+        lines = _lines(company.run(newer, apply=apply))
+        assert _codes(lines["post-8:en"]) == ["version_exists"]
+        assert lines["post-8:pl"].action == UNCHANGED
+    assert ContentEntry.all_objects.get(slug="bathing-again").title == "By hand"
 
 
 # -- the schema ------------------------------------------------------------------------

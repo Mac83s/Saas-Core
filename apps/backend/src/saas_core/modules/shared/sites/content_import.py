@@ -57,6 +57,7 @@ from jsonschema import Draft202012Validator
 from rest_framework.exceptions import APIException
 
 from saas_core.content_protocol.provenance import ORIGIN_AI, ORIGIN_HUMAN, ORIGIN_IMPORT
+from saas_core.content_protocol.registry import translation_policy
 from saas_core.content_protocol.transliteration import slug_from_title
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
@@ -65,7 +66,10 @@ from saas_core.modules.core.organizations.context import (
     set_local_organization_id,
 )
 from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.shared.billing.api import decide_feature
 from saas_core.modules.shared.media.api import (
+    MEDIA_MANAGE,
+    STORAGE_ENABLED,
     MalwareScannerUnavailable,
     approved_media_asset_id,
     materialize_approved_media_asset,
@@ -259,6 +263,8 @@ class ImportReport:
     )
     timing: dict[str, float] = field(default_factory=dict)
     retries: int = 0
+    #: What a person should know before the run that belongs to no one object.
+    notices: list[str] = field(default_factory=list)
 
     def counts(self) -> dict[str, dict[str, int]]:
         found: dict[str, dict[str, int]] = {}
@@ -284,6 +290,7 @@ class ImportReport:
             "pictures": self.pictures,
             "retries": self.retries,
             "timing": self.timing,
+            "notices": list(self.notices),
             "lines": [line.as_dict() for line in self.lines],
         }
 
@@ -349,6 +356,8 @@ def format_report(report: ImportReport) -> str:
             "time      "
             + ", ".join(f"{name} {seconds:.2f} s" for name, seconds in report.timing.items())
         )
+    if report.notices:
+        out += ["", "BEFORE YOU RUN:"] + [f"  {notice}" for notice in report.notices]
     for title, wanted in (
         ("REFUSED — nothing written for these", (REFUSAL,)),
         ("NEEDS A LOOK", (WARNING,)),
@@ -473,6 +482,10 @@ class _Plan:
     namespaces: dict[tuple[str, str], _Namespace] = field(default_factory=dict)
     pictures: dict[str, _Picture] = field(default_factory=dict)
     files: dict[str, str] = field(default_factory=dict)
+    #: The languages each translation group has an entry in, by entry.
+    groups: dict[UUID, dict[str, UUID]] = field(default_factory=dict)
+    #: Why the media library would take no picture now; empty when it would.
+    library_problem: str = ""
 
     @property
     def default_locale(self) -> str:
@@ -609,6 +622,19 @@ def _open(
         organization_id=organization.id, entry_id__in=ids
     ).values_list("entry_id", "tag_id"):
         plan.filed.setdefault(entry_id, set()).add(tag_id)
+    for group, locale, entry_id in ContentEntry.all_objects.filter(
+        organization_id=organization.id,
+        translation_group__in={row.translation_group for row in plan.rows.values()},
+    ).values_list("translation_group", "locale", "id"):
+        plan.groups.setdefault(group, {})[str(locale)] = entry_id
+    if not context.has_permission(MEDIA_MANAGE):
+        plan.library_problem = "the operator's role has no right to add media (`media.manage`)"
+    else:
+        storage = decide_feature(STORAGE_ENABLED)
+        if not storage.allowed:
+            plan.library_problem = (
+                f"the company's plan gives no media library now ({storage.reason})"
+            )
     return plan
 
 
@@ -840,6 +866,7 @@ def _plan_entries(plan: _Plan, document: Mapping[str, Any]) -> None:
         for version in versions:
             if not version.line.refused:
                 _plan_version(plan, version, source)
+        _wait_for_source(source, versions)
         if source is not None and any(
             note.code in ("body_kept", "title_kept", "excerpt_kept") for note in source.line.notes
         ):
@@ -859,6 +886,63 @@ def _plan_entries(plan: _Plan, document: Mapping[str, Any]) -> None:
         plan.report.pictures["known" if picture.known else "new"] += 1
         if not picture.known:
             plan.report.pictures["bytes"] += picture.size
+    if plan.library_problem:
+        # Said by the plan, not left for the run to find at every picture.
+        for entry_spec, versions in plan.entries:
+            for version in versions:
+                if not version.line.refused and any(
+                    not plan.pictures[sha].known for sha in version.pictures
+                ):
+                    version.line.refuse(
+                        "library_unavailable",
+                        f"Its pictures cannot be stored: {plan.library_problem}.",
+                    )
+            _wait_for_source(_source_version(plan, entry_spec, versions), versions)
+    _notice_translations(plan)
+
+
+def _wait_for_source(source: _Version | None, versions: Sequence[_Version]) -> None:
+    """Translations come in with their source, not before it: where the
+    source version is not in the site yet and is refused, the entry's other
+    new versions wait for the run that brings it. (Published alone, one of
+    them would stand as the original — to readers, and to a translation
+    engine that fills in the languages an original lacks.)"""
+    if source is None or not source.line.refused or source.entry is not None:
+        return
+    for version in versions:
+        if version is not source and not version.line.refused and version.entry is None:
+            version.line.refuse(
+                "source_refused",
+                f"Its source version ({source.locale}) is refused: the translations come in "
+                "together with it.",
+            )
+
+
+def _notice_translations(plan: _Plan) -> None:
+    """Publishing an original tells the translation engine. Whether the
+    company lets it translate changes by itself is the engine's own setting,
+    which this module does not read — so the plan says what could follow."""
+    if translation_policy(organization_id=plan.organization_id).mode == "off":
+        return
+    lacking: dict[str, int] = {}
+    for entry_spec, versions in plan.entries:
+        source = _source_version(plan, entry_spec, versions) or next(iter(versions), None)
+        if source is None or not source.publish:
+            continue
+        have = {version.locale for version in versions if not version.line.refused}
+        if source.entry is not None:
+            have |= set(plan.groups.get(source.entry.translation_group, {}))
+        for locale in plan.locales:
+            if locale not in have:
+                lacking[locale] = lacking.get(locale, 0) + 1
+    if lacking:
+        plan.report.notices.append(
+            "The translation engine is on for this company. If it also translates changes by "
+            "itself („Tłumaczenia” → automatic translation), publishing these originals orders "
+            "machine translations — paid in credits — into the languages the document lacks: "
+            + ", ".join(f"{locale} ×{count}" for locale, count in sorted(lacking.items()))
+            + ". Check that setting before --apply."
+        )
 
 
 def _owner(version: _Version) -> str:
@@ -893,6 +977,13 @@ def _start_version(plan: _Plan, entry_spec: Mapping[str, Any], spec: Mapping[str
             "locale_not_enabled",
             f"The site has no language „{locale}”. Switch it on in the panel, then run again.",
         )
+    elif row is None and _foreign_version(plan, entry_spec, locale):
+        line.refuse(
+            "version_exists",
+            f"The entry already has a version in „{locale}” that this import did not make — "
+            "a person's or a translation job's. Remove that version in the panel, or leave "
+            "this one out of the document.",
+        )
     elif row is not None and row.state == ContentEntryState.REMOVED:
         line.action = KEPT
         line.note(
@@ -901,6 +992,18 @@ def _start_version(plan: _Plan, entry_spec: Mapping[str, Any], spec: Mapping[str
             "A person removed this entry in the panel after an earlier run; it is not made again.",
         )
     return version
+
+
+def _foreign_version(plan: _Plan, entry_spec: Mapping[str, Any], locale: str) -> bool:
+    """Whether the entry's translation group holds an entry in `locale` that
+    no run of this import made."""
+    for (kind, external_id, _locale), record in plan.ledger.items():
+        row = plan.rows.get(record.object_id) if kind == "entry" else None
+        if row is None or external_id != str(entry_spec["id"]):
+            continue
+        if row.state != ContentEntryState.REMOVED:
+            return locale in plan.groups.get(row.translation_group, {})
+    return False
 
 
 def _skipped(version: _Version) -> bool:
@@ -1643,6 +1746,7 @@ def _apply(plan: _Plan, context: Any) -> None:
         mark = time.monotonic()
         for version in versions:
             scanner_misses = _apply_pictures(plan, version, scanner_misses)
+        _wait_for_source(_source_version(plan, entry_spec, versions), versions)
         phases["pictures"] += time.monotonic() - mark
         mark = time.monotonic()
         # Only what has something to write: a run that changes nothing
