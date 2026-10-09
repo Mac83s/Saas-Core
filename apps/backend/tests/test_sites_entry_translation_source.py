@@ -493,7 +493,9 @@ def test_an_entry_removed_under_a_running_job_does_not_hold_the_job(
         with _as(erased.publisher):
             remove_entry(entry_id=batch.items[0].object_id)
             name = ContentCollection.all_objects.get(pk=erased.collection_id).name
-            delete_content_type(collection_id=erased.collection_id, confirm_name=name)
+            delete_content_type(
+                collection_id=erased.collection_id, confirm_name=name, confirm_removed_entries=1
+            )
         return write(self, context=context, batch=batch)
 
     monkeypatch.setattr(type(ENTRY_SOURCE), "write", erased_then_written)

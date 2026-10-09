@@ -181,15 +181,18 @@ function change(of: Term, extra: Partial<TermChange> = {}): TermChange {
   };
 }
 
-function problem(code: string) {
+/** A refusal as the API sends it: with `field`, a refused field — the
+ *  problem's own code is then only „invalid” and the reason sits on the
+ *  field; without, a refusal of the whole request. */
+function problem(code: string, field?: string) {
   return new ApiProblemError({
     type: "about:blank",
     title: "Żądanie nie może zostać obsłużone",
     status: 400,
-    code,
-    detail: "Odmowa po polsku.",
+    code: field ? "invalid" : code,
+    detail: field ? { [field]: ["Odmowa po polsku."] } : "Odmowa po polsku.",
     correlation_id: null,
-    errors: [],
+    errors: field ? [{ field, code, message: "Odmowa po polsku." }] : [],
   });
 }
 
@@ -467,7 +470,7 @@ test("moving a category under another says how many published entries reach the 
 });
 
 test("a name the server refuses is said in the dialog, which stays open", async () => {
-  updateTerm.mockRejectedValue(problem("term_name_taken"));
+  updateTerm.mockRejectedValue(problem("term_name_taken", "name"));
   renderIn(panel());
   await screen.findByText("Pielęgnacja", { selector: "p" });
   fireEvent.click(
@@ -634,7 +637,7 @@ test("an address another term redirects from needs a ticked confirmation", async
 });
 
 test("an address the server refuses is said in the dialog", async () => {
-  previewTermAddress.mockRejectedValue(problem("term_slug_taken"));
+  previewTermAddress.mockRejectedValue(problem("term_slug_taken", "slug"));
   renderIn(panel());
   await screen.findByText("Pielęgnacja", { selector: "p" });
   await openMenu("Lato");

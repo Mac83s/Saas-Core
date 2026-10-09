@@ -82,7 +82,7 @@ import {
   siteHost,
 } from "./collection-paths";
 import { mutationKey, type MutationReceipt } from "./idempotency";
-import { sitesErrorMessage } from "./problem";
+import { refusedWith, sitesErrorMessage } from "./problem";
 import { slugFromTitle } from "./slug";
 
 type Translate = ReturnType<typeof useTranslations>;
@@ -447,12 +447,27 @@ function DeleteTypeDialog({
     setBusy(true);
     setProblem(undefined);
     try {
+      // What is confirmed is what the dialog showed: the name typed and the
+      // number of removed entries on the screen.
       if (preview.confirmation_required)
-        await deleteContentType(collection.id, typed);
+        await deleteContentType(collection.id, {
+          name: typed,
+          removedEntries: preview.removed_entries,
+        });
       else await deleteContentType(collection.id);
       onDeleted();
     } catch (error) {
       setProblem(contentTypeProblem(error, t));
+      if (refusedWith(error, "confirmation_stale")) {
+        // Another entry was removed meanwhile: show what would go now and
+        // ask for the name again.
+        setTyped("");
+        try {
+          setPreview(await previewContentTypeDelete(collection.id));
+        } catch {
+          setPreview(undefined);
+        }
+      }
       setBusy(false);
     }
   }

@@ -14,8 +14,9 @@ can get that language again.
 
 **Erasing** happens only with the whole type: a content type whose every
 entry is removed can be deleted, and that deletes those entries' texts and
-publication history for good. A person decides both; the erasure asks for the
-type's name, typed.
+publication history for good. A person decides both; the erasure takes the
+right to publish, the type's name typed, and the number of removed entries
+the person was shown.
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ from uuid import UUID, uuid7
 
 from django.db import transaction
 from django.utils import timezone
-from rest_framework.exceptions import ErrorDetail, ValidationError
+from rest_framework.exceptions import ErrorDetail, PermissionDenied, ValidationError
 
 from saas_core.content_protocol import registry
 from saas_core.modules.core.identity.models import User
@@ -58,9 +59,15 @@ from .services import assert_person_required
 from .source_changes import ENTRY_SOURCE_KEY, notify_entry_withdrawn
 
 ENTRY_REMOVED = "sites.entry.removed"
+#: An integration's proposal for an entry, closed because the entry was
+#: removed before anybody decided it.
+PROPOSAL_CLOSED = "sites.proposal.closed"
+PROPOSAL_CLOSED_REASON = "entry_removed"
 ENTRY_REMOVE_GATE = "Usunięcie wpisu"
 SCHEDULE_CALLED_OFF = "Wpis został usunięty, zanim nadszedł termin publikacji."
 CONFIRMATION_REQUIRED = "confirmation_required"
+CONFIRMATION_STALE = "confirmation_stale"
+ERASURE_NEEDS_PUBLISH = "erasure_needs_publish"
 
 #: How many erased entries an audit row names one by one; it always says how
 #: many there were.
@@ -96,7 +103,9 @@ def remove_entry(*, entry_id: UUID, dry_run: bool = False) -> EntryRemoval:
     It leaves the site at once: its address answers 404, and it is on no
     list, in no feed, sitemap or `llms.txt`, among no other entry's language
     versions, in no translation job's offer and in nothing an integration is
-    shown. A publication planned for later is called off. Nothing is erased:
+    shown. A publication planned for later is called off, and an integration's
+    proposal for it that still waited for a decision is closed as rejected
+    (there is nothing left to accept it into). Nothing is erased:
     its versions and publications stay as history, hidden, and its slug and
     its language in the article become free. There is no putting it back from
     the panel. An entry of a switched-off type can be removed too — that is
@@ -176,6 +185,9 @@ def remove_entry(*, entry_id: UUID, dry_run: bool = False) -> EntryRemoval:
         registry.review_decided(
             context=context, source_key=ENTRY_SOURCE_KEY, object_id=object_id, locale=locale
         )
+    closed = _close_pending_proposals(context, entry)
+    if closed:
+        metadata["closed_proposals"] = closed
     if entry.schedule_state == EntryScheduleState.PENDING:
         entry.schedule_state = EntryScheduleState.CANCELLED
         entry.schedule_error = SCHEDULE_CALLED_OFF
@@ -218,6 +230,50 @@ def remove_entry(*, entry_id: UUID, dry_run: bool = False) -> EntryRemoval:
     )
 
 
+def _close_pending_proposals(context: Any, entry: ContentEntry) -> int:
+    """An integration's proposals for the entry that nobody decided: closed
+    as rejected, each with its own row in the history saying why. Left
+    pending they would stay in the queue for good — both decisions look the
+    entry up, and a removed entry is not found.
+
+    The entry's row is locked by the caller, which is the order the
+    decisions take too (the entry, then the proposal)."""
+    pending = list(
+        ContentProposal.all_objects.select_for_update()
+        .filter(
+            organization_id=context.organization_id,
+            resource_type="content_entry",
+            resource_id=entry.id,
+            review_state="pending",
+        )
+        .order_by("pk")
+    )
+    if not pending:
+        return 0
+    moment = timezone.now()
+    organization = Organization.objects.get(pk=context.organization_id)
+    actor = User.objects.get(pk=context.actor_id)
+    for proposal in pending:
+        proposal.review_state = "rejected"
+        proposal.decided_at = moment
+        proposal.save(update_fields=["review_state", "decided_at"])
+        record_audit(
+            organization=organization,
+            action=PROPOSAL_CLOSED,
+            actor=actor,
+            target_type="content_proposal",
+            target_id=proposal.id,
+            metadata={
+                "reason": PROPOSAL_CLOSED_REASON,
+                "resource_id": str(entry.id),
+                "title": entry.title,
+                "locale": proposal.locale,
+                "version": proposal.version,
+            },
+        )
+    return len(pending)
+
+
 # -- erasing with the type -----------------------------------------------------
 
 
@@ -231,18 +287,54 @@ def removed_entries(collection: ContentCollection) -> list[ContentEntry]:
     )
 
 
+class ErasureNeedsPublish(PermissionDenied):
+    default_detail = (
+        "Usunięcie tego typu skasuje na stałe usunięte wpisy razem z historią ich "
+        "publikacji. Może to zrobić osoba, która ma prawo publikować."
+    )
+    default_code = ERASURE_NEEDS_PUBLISH
+
+
+def assert_may_erase(context: Any, removed: list[ContentEntry]) -> None:
+    """Erasing publication history is at least as much as taking a published
+    entry off the site, which needs the right to publish: editing content
+    alone does not erase what was published. Asked in the preview too, so
+    nobody types a type's name only to be refused."""
+    if removed and not context.has_permission(SITE_PUBLISH):
+        raise ErasureNeedsPublish
+
+
 def assert_erasure_confirmed(
-    collection: ContentCollection, removed: list[ContentEntry], confirm_name: str
+    collection: ContentCollection,
+    removed: list[ContentEntry],
+    confirm_name: str,
+    confirm_removed_entries: int | None,
 ) -> None:
-    """Erasing removed entries with their type takes the type's name, typed:
-    what goes cannot be brought back."""
-    if removed and confirm_name.strip() != collection.name.strip():
+    """Erasing removed entries with their type takes the type's name, typed,
+    and the number of removed entries the person was shown: what goes cannot
+    be brought back, so nothing goes that was not on the screen. An entry
+    removed between the preview and the confirmation changes the number, and
+    the person is asked again."""
+    if not removed:
+        return
+    if confirm_name.strip() != collection.name.strip():
         raise ValidationError({
             "confirm_name": [
                 ErrorDetail(
                     "Ten typ treści ma usunięte wpisy. Usunięcie typu skasuje na stałe ich "
                     "treść i historię publikacji. Żeby to potwierdzić, wpisz nazwę typu.",
                     code=CONFIRMATION_REQUIRED,
+                )
+            ]
+        })
+    if confirm_removed_entries != len(removed):
+        raise ValidationError({
+            "confirm_removed_entries": [
+                ErrorDetail(
+                    "Od podglądu zmieniła się liczba usuniętych wpisów tego typu — teraz "
+                    f"jest ich {len(removed)}. Sprawdź jeszcze raz, co zostanie skasowane, "
+                    "i potwierdź ponownie.",
+                    code=CONFIRMATION_STALE,
                 )
             ]
         })
@@ -319,8 +411,11 @@ def erase_removed_entries(context: Any, removed: list[ContentEntry]) -> dict[str
 
 __all__ = [
     "ENTRY_REMOVED",
+    "PROPOSAL_CLOSED",
     "EntryRemoval",
+    "ErasureNeedsPublish",
     "assert_erasure_confirmed",
+    "assert_may_erase",
     "erase_removed_entries",
     "remove_entry",
     "removed_entries",

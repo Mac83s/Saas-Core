@@ -476,8 +476,11 @@ _DELETE_RULES = (
     "(`content_type_not_empty`); a type with entries is switched off instead, or its "
     "entries are removed first. Entries a person removed do not keep the type and go with "
     "it for good: their texts, versions and publication history are erased and cannot be "
-    "brought back, so deleting a type that has removed entries takes its name in "
-    "`confirm_name` (`confirmation_required` without it). The type's categories go with it, "
+    "brought back, so deleting a type that has removed entries takes the right to publish "
+    "(`erasure_needs_publish` without it, in the preview too), its name in `confirm_name` "
+    "(`confirmation_required` without it) and, in `confirm_removed_entries`, the number of "
+    "removed entries the preview showed (`confirmation_stale` when it changed since: nothing "
+    "is erased, read the preview again). The type's categories go with it, "
     "its names in addresses become free and its former names stop leading anywhere. A "
     "person's decision only — never an integration or the assistant (`person_required`)."
 )
@@ -513,7 +516,16 @@ class ContentTypeDeleteView(APIView):
                 required=False,
                 description="The type's name, typed — required when the type has removed "
                 "entries, which deleting erases for good.",
-            )
+            ),
+            OpenApiParameter(
+                name="confirm_removed_entries",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="How many removed entries the preview said would be erased "
+                "(`removed_entries`) — required when the type has any. A different number "
+                "now answers `confirmation_stale` and erases nothing.",
+            ),
         ],
         extensions={
             "x-quality-exempt": {
@@ -529,9 +541,11 @@ class ContentTypeDeleteView(APIView):
         },
     )
     def delete(self, request: Request, collection_id: UUID) -> Response:
+        confirmed = str(request.query_params.get("confirm_removed_entries", ""))
         delete_content_type(
             collection_id=collection_id,
             confirm_name=str(request.query_params.get("confirm_name", "")),
+            confirm_removed_entries=int(confirmed) if confirmed.isdecimal() else None,
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
 

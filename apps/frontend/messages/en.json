@@ -270,6 +270,7 @@
       "sites_inquiry_received": "Website inquiry received",
       "sites_inquiry_read": "Website inquiry read",
       "sites_proposal_accepted": "Content proposal accepted",
+      "sites_proposal_closed": "Closed a content change proposal because the entry was removed",
       "sites_proposal_discarded": "Content proposal discarded",
       "sites_automation_grant_issued": "Automation access granted",
       "sites_automation_grant_revoked": "Automation access revoked",
@@ -2717,7 +2718,9 @@
       "erasePaths": "The type's addresses become free: {paths}.",
       "eraseConfirmLabel": "To confirm, type the type's name: {name}",
       "eraseConfirm": "Delete the type and erase the entries",
-      "confirmationRequired": "Type the type's name to confirm."
+      "confirmationRequired": "Type the type's name to confirm.",
+      "confirmationStale": "Someone removed another entry of this type since this window opened. Check again what will be erased and type the type’s name once more.",
+      "erasureNeedsPublish": "Deleting this type erases its removed entries for good, with their publication history. A person who may publish can do it."
     },
     "contentTypeArchived": "This content type is switched off. Switch it on to edit and publish its entries.",
     "slugIsContentType": "A content type of this site — its list of entries — already has this address. Choose another address for the page or change the content type's address.",

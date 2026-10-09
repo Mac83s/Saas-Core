@@ -2,9 +2,36 @@ import { ApiProblemError } from "@saas-core/api-client";
 
 type Translate = (key: string) => string;
 
+/** A refusal in the panel's words. A refused field carries its own reason:
+ *  the problem's code is then only „invalid”, and the code that says what is
+ *  wrong sits on the field (`errors[].code`) — both are read. */
 export function sitesErrorMessage(error: unknown, t: Translate): string {
   if (!(error instanceof ApiProblemError)) return t("problem");
-  switch (error.problem.code) {
+  const own = knownMessage(error.problem.code, t);
+  if (own !== undefined) return own;
+  for (const item of error.problem.errors ?? []) {
+    const named = knownMessage(item.code, t);
+    if (named !== undefined) return named;
+  }
+  return typeof error.problem.detail === "string"
+    ? error.problem.detail
+    : t("problem");
+}
+
+/** Whether the server refused with this code, on the problem or on a field. */
+export function refusedWith(error: unknown, code: string): boolean {
+  return (
+    error instanceof ApiProblemError &&
+    (error.problem.code === code ||
+      (error.problem.errors ?? []).some((item) => item.code === code))
+  );
+}
+
+function knownMessage(
+  code: string | null | undefined,
+  t: Translate,
+): string | undefined {
+  switch (code) {
     case "organization_permission_denied":
     case "entitlement_required":
       return t("noAccess");
@@ -68,6 +95,10 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
       return t("terms.reasonRequired");
     case "confirmation_required":
       return t("contentTypes.confirmationRequired");
+    case "confirmation_stale":
+      return t("contentTypes.confirmationStale");
+    case "erasure_needs_publish":
+      return t("contentTypes.erasureNeedsPublish");
     case "entry_schedule_in_past":
       return t("scheduleInPast");
     case "entry_schedule_not_pending":
@@ -101,8 +132,6 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
     case "page_restore_slug_taken":
       return t("pagesList.errorSlugTaken");
     default:
-      return typeof error.problem.detail === "string"
-        ? error.problem.detail
-        : t("problem");
+      return undefined;
   }
 }

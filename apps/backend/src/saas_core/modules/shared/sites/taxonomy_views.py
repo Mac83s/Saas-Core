@@ -68,6 +68,8 @@ _SET_VALUES = {
 _SHOWS_AT_ONCE = (
     " What a term is called and where a category hangs shows to visitors at once, with no "
     "publication; which entries an archive lists changes only when an entry is published."
+    " Because of that, making, renaming, moving and naming terms is a person's decision: an "
+    "integration and the assistant are refused (`person_required`)."
 )
 
 
@@ -186,7 +188,9 @@ class ContentTypeTermsView(APIView):
         "nothing to switch on. The address is made from the name and follows it until the "
         "first entry carrying the term is published. A name a category beside it already "
         "has is refused (`term_name_taken`). A tag's name that means an existing tag — its "
-        "key or its address in any language — answers with that tag (200).",
+        "key or its address in any language — answers with that tag (200). A person's "
+        "decision: an integration and the assistant are refused (`person_required`); an "
+        "integration makes a tag only by filing an entry under a new name.",
         tags=["sites"],
         request=TermCreateSerializer,
         extensions={
@@ -323,7 +327,9 @@ class ContentTypeTermNamesView(APIView):
         "address in a language is still open it is made from the name; if the archive there "
         "already answered under the site's language's address it moves once and closes — "
         "`moved` says from where to where — and the old address answers one 308. Published "
-        "at once when the caller may publish, otherwise with the site's next publication.",
+        "at once when the caller may publish, otherwise with the site's next publication. "
+        "A person's decision: an integration and the assistant are refused "
+        "(`person_required`).",
         tags=["sites"],
         request=TermNamesSerializer,
         extensions=_SET_VALUES,
@@ -483,7 +489,9 @@ class EntryCategoriesView(APIView):
         description="Replaces the whole set (at most `max_per_entry`); the entry's tags are "
         "not touched. A category of another content type is refused (`term_not_of_type`). "
         "Visitors see the change when the entry is next published: an archive lists what "
-        "publications carry.",
+        "publications carry. An integration files an entry by the entry's own rule — a "
+        "grant for its content type and a type that takes automation's drafts — as it sets "
+        "the entry's tags.",
         tags=["sites"],
         request=EntryCategoriesSaveSerializer,
         extensions=_SET_VALUES,

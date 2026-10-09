@@ -5,8 +5,10 @@ which a person confirms by typing the type's name."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import timedelta
 from typing import Any
+from urllib.parse import urlencode
 from uuid import uuid4
 
 import pytest
@@ -21,7 +23,11 @@ from saas_core.modules.core.organizations.context import (
 from saas_core.modules.core.organizations.models import Membership, OrganizationAuditEntry
 from saas_core.modules.core.organizations.person_gate import PersonRequired
 from saas_core.modules.shared.sites.content_types import delete_content_type
-from saas_core.modules.shared.sites.entry_removal import remove_entry
+from saas_core.modules.shared.sites.entry_removal import (
+    PROPOSAL_CLOSED,
+    ErasureNeedsPublish,
+    remove_entry,
+)
 from saas_core.modules.shared.sites.entry_translation_source import ENTRY_SOURCE
 from saas_core.modules.shared.sites.models import (
     ContentCollection,
@@ -30,6 +36,7 @@ from saas_core.modules.shared.sites.models import (
     ContentEntryState,
     ContentEntryTag,
     ContentEntryVersion,
+    ContentProposal,
     ContentTag,
     ContentTaxonomy,
     EntryScheduleState,
@@ -244,13 +251,24 @@ def test_only_a_person_removes_an_entry_or_deletes_a_type() -> None:
 
 
 def _delete_type(
-    world: World, type_id: str, name: str | None = None, *, preview: bool = False
+    world: World,
+    type_id: str,
+    name: str | None = None,
+    removed: int | None = None,
+    *,
+    preview: bool = False,
 ) -> Any:
+    """Deletes a type the way the panel's dialog does: with the name typed
+    and the number of removed entries its preview showed."""
     url = f"/api/v1/sites/collections/{type_id}/"
     if preview:
         return _send(world.client, "post", url + "removal/preview/")
+    query = {
+        **({"confirm_name": name} if name is not None else {}),
+        **({"confirm_removed_entries": removed} if removed is not None else {}),
+    }
     return world.client.delete(
-        url + (f"?confirm_name={name}" if name is not None else ""),
+        url + ("?" + urlencode(query) if query else ""),
         HTTP_X_CSRFTOKEN=csrf_value(world.client),
     )
 
@@ -295,9 +313,15 @@ def test_a_type_whose_every_entry_is_removed_is_deleted_and_they_are_erased_for_
     }
     # Erasing takes the type's name, typed — nothing less.
     for name in (None, "", "realizacje", "Realizacje 2"):
-        refused = _delete_type(world, world.projects, name)
+        refused = _delete_type(world, world.projects, name, 3)
         assert _code(refused) == (400, "confirmation_required"), name
         assert refused.json()["errors"][0]["field"] == "confirm_name"
+    # …and the number of removed entries the preview showed: no number, or
+    # another one, erases nothing.
+    for count in (None, 2, 4):
+        refused = _delete_type(world, world.projects, "Realizacje", count)
+        assert _code(refused) == (400, "confirmation_stale"), count
+        assert refused.json()["errors"][0]["field"] == "confirm_removed_entries"
     assert ContentEntry.with_removed.filter(pk__in=ids).count() == 3
     publications = list(
         ContentEntryPublication.all_objects.filter(entry_id__in=ids).values_list("id", flat=True)
@@ -305,7 +329,7 @@ def test_a_type_whose_every_entry_is_removed_is_deleted_and_they_are_erased_for_
     assert len(publications) == 2
     assert SiteOutboxEvent.all_objects.filter(entry_publication_id__in=publications).count() == 2
 
-    gone = _delete_type(world, world.projects, "Realizacje")
+    gone = _delete_type(world, world.projects, "Realizacje", look["removed_entries"])
 
     assert gone.status_code == 204, gone.content
     assert not ContentCollection.all_objects.filter(pk=world.projects).exists()
@@ -424,7 +448,7 @@ def test_erasing_an_entry_with_a_picture_leaves_the_picture_in_the_library(
     assert _remove(world, entry).status_code == 200
     # Removed: a visitor gets the picture no more than the entry.
     assert picture() == 404
-    assert _delete_type(world, world.projects, "Realizacje").status_code == 204
+    assert _delete_type(world, world.projects, "Realizacje", 1).status_code == 204
 
     assert not ContentEntry.with_removed.filter(pk=entry).exists()
     assert MediaAsset.all_objects.filter(pk=asset.id, deleted_at__isnull=True).exists()
@@ -455,3 +479,141 @@ def test_an_organization_with_categories_and_removed_entries_can_be_erased() -> 
     for model in (ContentEntry.with_removed, ContentTag.all_objects, ContentTaxonomy.all_objects):
         assert not model.filter(organization_id=organization.id).exists()
     assert not ContentEntryPublication.all_objects.filter(entry_id__in=[kept, gone]).exists()
+
+
+def test_removing_an_entry_closes_the_proposals_that_waited_for_it() -> None:
+    """An integration's proposal nobody decided would otherwise stay in the
+    queue for good: accepting and rejecting both look the entry up, and a
+    removed entry is not found."""
+    world = World("removal-proposals")
+    entry = world.entry(world.projects, "dom-a")
+    row = ContentEntry.all_objects.get(pk=entry)
+
+    def proposal(version: int, state: str) -> ContentProposal:
+        return ContentProposal.all_objects.create(
+            organization_id=world.organization_id,
+            resource_type="content_entry",
+            resource_id=row.id,
+            locale=row.locale,
+            version=version,
+            credential_id=uuid4(),
+            summary="Dopisany akapit o kosztach.",
+            risk="low",
+            review_state=state,
+        )
+
+    decided = proposal(row.version - 1, "accepted") if row.version > 1 else None
+    waiting = proposal(row.version, "pending")
+    # Another entry's proposal is nobody's business here.
+    other = ContentEntry.all_objects.get(pk=world.entry(world.projects, "dom-b"))
+    kept = ContentProposal.all_objects.create(
+        organization_id=world.organization_id,
+        resource_type="content_entry",
+        resource_id=other.id,
+        locale=other.locale,
+        version=other.version,
+        summary="Nowy tytuł.",
+        risk="low",
+    )
+    queue = "/api/v1/sites/proposals/"
+    assert {item["proposal_id"] for item in world.client.get(queue).json()} == {
+        str(waiting.id),
+        str(kept.id),
+    }
+
+    assert _remove(world, entry).status_code == 200
+
+    assert [item["proposal_id"] for item in world.client.get(queue).json()] == [str(kept.id)]
+    waiting.refresh_from_db()
+    assert waiting.review_state == "rejected"
+    assert waiting.decided_at is not None
+    if decided is not None:
+        decided.refresh_from_db()
+        assert decided.review_state == "accepted"
+    # The history says what happened to it and why, and the removal says how many.
+    closed = OrganizationAuditEntry.objects.get(
+        organization_id=world.organization_id, action=PROPOSAL_CLOSED
+    )
+    assert closed.target_id == waiting.id
+    assert closed.metadata["reason"] == "entry_removed"
+    assert closed.metadata["resource_id"] == str(row.id)
+    removal = OrganizationAuditEntry.objects.get(
+        organization_id=world.organization_id, action="sites.entry.removed"
+    )
+    assert removal.metadata["closed_proposals"] == 1
+    # Decided, so neither decision is offered again; asking anyway finds nothing to decide.
+    discard = _send(world.client, "post", f"/api/v1/sites/proposals/{waiting.id}/discard/")
+    assert discard.status_code == 404
+    assert ContentProposal.all_objects.get(pk=waiting.id).review_state == "rejected"
+
+
+def test_an_entry_removed_after_the_preview_is_not_erased_without_being_confirmed() -> None:
+    """What a person confirms is what they were shown: an entry somebody
+    removes between the preview and the confirmation is not erased with it."""
+    world = World("removal-stale")
+    first = world.entry(world.projects, "dom-a")
+    late = world.entry(world.projects, "dom-b", out=False)
+    assert _remove(world, first).status_code == 200
+    # The draft still keeps the type; somebody removes it while the dialog is open.
+    shown = _delete_type(world, world.projects, preview=True).json()
+    assert (shown["entries"], shown["removed_entries"]) == (1, 1)
+    assert _remove(world, late).status_code == 200
+
+    refused = _delete_type(world, world.projects, "Realizacje", shown["removed_entries"])
+
+    assert _code(refused) == (400, "confirmation_stale")
+    assert "2" in refused.json()["errors"][0]["message"]
+    assert ContentCollection.all_objects.filter(pk=world.projects).exists()
+    assert ContentEntry.with_removed.filter(pk__in=[first, late]).count() == 2
+    assert ContentEntryPublication.all_objects.filter(entry_id=first).count() == 1
+    assert not OrganizationAuditEntry.objects.filter(action="sites.content_type.deleted").exists()
+    # Asked again, the preview says two, and two it is.
+    again = _delete_type(world, world.projects, preview=True).json()
+    assert again["removed_entries"] == 2
+    assert _delete_type(world, world.projects, "Realizacje", 2).status_code == 204
+    assert not ContentEntry.with_removed.filter(pk__in=[first, late]).exists()
+
+
+def test_erasing_removed_entries_takes_the_right_to_publish() -> None:
+    """Editing content is enough to delete a type that has nothing in it;
+    erasing publication history is not less than taking a published entry
+    off the site, which takes the right to publish."""
+    world = World("removal-rights")
+    entry = world.entry(world.projects, "dom-a")
+    assert _remove(world, entry).status_code == 200
+    person = _person(world)
+    assert person.has_permission("site.publish")
+    editor = replace(person, permissions=person.permissions - {"site.publish"})
+    empty = world.client.post(
+        f"/api/v1/sites/{world.site_id}/collections/",
+        {"key": "poradnik", "name": "Poradnik", "kind": "blog", "base_path": "poradnik"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(world.client),
+        HTTP_IDEMPOTENCY_KEY="guide",
+    )
+    assert empty.status_code == 201, empty.data
+
+    with activate_tenant_context(editor):
+        for dry_run in (True, False):
+            with pytest.raises(ErasureNeedsPublish) as refusal:
+                delete_content_type(
+                    collection_id=world.projects,  # type: ignore[arg-type]
+                    confirm_name="Realizacje",
+                    confirm_removed_entries=1,
+                    dry_run=dry_run,
+                )
+            assert refusal.value.get_codes() == "erasure_needs_publish"
+        assert ContentEntry.with_removed.filter(pk=entry).exists()
+        assert ContentEntryPublication.all_objects.filter(entry_id=entry).exists()
+        # Nothing to erase: the editor deletes it as before.
+        gone = delete_content_type(collection_id=empty.data["id"])
+        assert gone.deleted is True
+    # The person who may publish erases it.
+    with activate_tenant_context(person):
+        done = delete_content_type(
+            collection_id=world.projects,  # type: ignore[arg-type]
+            confirm_name="Realizacje",
+            confirm_removed_entries=1,
+        )
+    assert done.deleted is True
+    assert not ContentEntry.with_removed.filter(pk=entry).exists()

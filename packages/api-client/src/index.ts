@@ -4733,10 +4733,12 @@ export async function previewContentTypeDelete(
 }
 
 /** Removes a content type that has no entries. Where it has removed entries
- *  too, which this erases for good, `confirmName` is the type's name. */
+ *  too, which this erases for good, `confirm` carries the type's name as the
+ *  person typed it and the number of removed entries the preview showed —
+ *  another number by now answers `confirmation_stale` and erases nothing. */
 export async function deleteContentType(
   collectionId: string,
-  confirmName?: string,
+  confirm?: { name: string; removedEntries: number },
 ): Promise<void> {
   const csrfToken = await getCsrfToken();
   const { error, response } = await client.DELETE(
@@ -4744,9 +4746,14 @@ export async function deleteContentType(
     {
       params: {
         path: { collection_id: collectionId },
-        ...(confirmName === undefined
+        ...(confirm === undefined
           ? {}
-          : { query: { confirm_name: confirmName } }),
+          : {
+              query: {
+                confirm_name: confirm.name,
+                confirm_removed_entries: confirm.removedEntries,
+              },
+            }),
       },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },

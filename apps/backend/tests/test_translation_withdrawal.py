@@ -141,7 +141,9 @@ def test_a_question_about_an_erased_article_closes_instead_of_failing(
     with django_capture_on_commit_callbacks(execute=True), _as(driver.publisher):
         remove_entry(entry_id=german.id)
         name = ContentCollection.all_objects.get(pk=driver.collection_id).name
-        delete_content_type(collection_id=driver.collection_id, confirm_name=name)
+        delete_content_type(
+            collection_id=driver.collection_id, confirm_name=name, confirm_removed_entries=2
+        )
     assert not ContentEntry.with_removed.filter(pk__in=[article, german.id]).exists()
     assert [found.id for found in open_items(driver)] == [item.id]
 

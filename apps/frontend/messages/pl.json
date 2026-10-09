@@ -270,6 +270,7 @@
       "sites_inquiry_received": "Wpłynęło zapytanie ze strony",
       "sites_inquiry_read": "Przeczytano zapytanie ze strony",
       "sites_proposal_accepted": "Przyjęto propozycję zmiany treści",
+      "sites_proposal_closed": "Zamknięto propozycję zmiany treści, bo wpis usunięto",
       "sites_proposal_discarded": "Odrzucono propozycję zmiany treści",
       "sites_automation_grant_issued": "Nadano dostęp automatyzacji",
       "sites_automation_grant_revoked": "Cofnięto dostęp automatyzacji",
@@ -2717,7 +2718,9 @@
       "erasePaths": "Adresy typu będą wolne: {paths}.",
       "eraseConfirmLabel": "Żeby potwierdzić, wpisz nazwę typu: {name}",
       "eraseConfirm": "Usuń typ i skasuj wpisy",
-      "confirmationRequired": "Wpisz nazwę typu, żeby potwierdzić."
+      "confirmationRequired": "Wpisz nazwę typu, żeby potwierdzić.",
+      "confirmationStale": "Od otwarcia tego okna ktoś usunął kolejny wpis tego typu. Sprawdź jeszcze raz, co zostanie skasowane, i wpisz nazwę typu ponownie.",
+      "erasureNeedsPublish": "Usunięcie tego typu skasuje na stałe usunięte wpisy razem z historią ich publikacji. Może to zrobić osoba, która ma prawo publikować."
     },
     "contentTypeArchived": "Ten typ treści jest wyłączony. Włącz go, żeby zmieniać i publikować jego wpisy.",
     "slugIsContentType": "Pod tym adresem jest już typ treści tej strony — jego lista wpisów. Wybierz inny adres podstrony albo zmień adres typu treści.",

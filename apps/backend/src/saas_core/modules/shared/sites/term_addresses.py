@@ -353,8 +353,11 @@ def terms_to_close(
     """What an entry's publication carries, and those with every category
     above them — whose archives list the entry too, and so answer with it.
     Both from one read that locks the rows in the order every writer of
-    terms takes them (by id), so two publications sharing a term or a branch
-    of the tree wait for each other, never on each other."""
+    terms takes them (by id; `taxonomies.lock_vocabulary`), so two
+    publications sharing a term or a branch of the tree, or a publication and
+    a change of the vocabulary, wait for each other, never on each other.
+    `FOR NO KEY UPDATE`, so filing another entry under a term it holds does
+    not wait."""
     carried = set(
         ContentTag.all_objects.filter(
             organization_id=organization_id, entry_links__entry_id=entry_id
@@ -371,7 +374,7 @@ def terms_to_close(
         }
         wanted |= frontier
     locked = list(
-        ContentTag.all_objects.select_for_update()
+        ContentTag.all_objects.select_for_update(no_key=True)
         .filter(organization_id=organization_id, pk__in=wanted)
         .order_by("pk")
     )

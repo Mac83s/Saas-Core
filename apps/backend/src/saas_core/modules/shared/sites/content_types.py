@@ -504,7 +504,11 @@ class ContentTypeRemoval:
 
 @transaction.atomic
 def delete_content_type(
-    *, collection_id: UUID, confirm_name: str = "", dry_run: bool = False
+    *,
+    collection_id: UUID,
+    confirm_name: str = "",
+    confirm_removed_entries: int | None = None,
+    dry_run: bool = False,
 ) -> ContentTypeRemoval:
     """Removes a content type that has no entry — a draft counts
     (`content_type_not_empty`); a type with entries is switched off instead,
@@ -513,9 +517,13 @@ def delete_content_type(
     Entries a person removed do not keep the type, and go with it **for
     good**: their texts, versions and publication history are erased and
     cannot be brought back. Because of that, deleting a type that has removed
-    entries takes its name typed in `confirm_name` (`confirmation_required`
-    without it); the preview says how many entries and publications would be
-    erased. The type's categories go with it, its names in addresses become
+    entries takes the right to publish (`erasure_needs_publish` without it,
+    in the preview too), its name typed in `confirm_name`
+    (`confirmation_required` without it) and, in `confirm_removed_entries`,
+    the number of removed entries the preview showed — when another entry was
+    removed since, nothing is erased and the answer is `confirmation_stale`:
+    read the preview again. The preview says how many entries and
+    publications would be erased. The type's categories go with it, its names in addresses become
     free, its former names stop leading anywhere, and automation grants that
     named it go too. Switched on or off alike.
 
@@ -523,7 +531,12 @@ def delete_content_type(
     (`person_required`). Deleting what is already gone is a 404. `dry_run`
     answers with what would happen and writes nothing.
     """
-    from .entry_removal import assert_erasure_confirmed, erase_removed_entries, removed_entries
+    from .entry_removal import (
+        assert_erasure_confirmed,
+        assert_may_erase,
+        erase_removed_entries,
+        removed_entries,
+    )
     from .models import ContentEntryPublication, ContentTag
 
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
@@ -532,7 +545,10 @@ def delete_content_type(
     kept = ContentEntry.all_objects.filter(
         organization_id=context.organization_id, collection_id=collection.id
     ).count()
+    # Counted after the entries that keep the type: an entry only ever goes
+    # from kept to removed, so with none kept this list is all of them.
     removed = removed_entries(collection)
+    assert_may_erase(context, removed)
     categories = ContentTag.all_objects.filter(
         organization_id=context.organization_id, taxonomy__collection_id=collection.id
     ).count()
@@ -557,7 +573,7 @@ def delete_content_type(
         return result
     if kept:
         raise ContentTypeNotEmpty
-    assert_erasure_confirmed(collection, removed, confirm_name)
+    assert_erasure_confirmed(collection, removed, confirm_name, confirm_removed_entries)
     metadata = {
         "key": collection.key,
         "name": collection.name,

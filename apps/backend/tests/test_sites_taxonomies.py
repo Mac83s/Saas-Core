@@ -5,6 +5,7 @@ address, and nothing shown to a visitor that no publication carries."""
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -13,6 +14,7 @@ from django.core.cache import cache
 from django.db import connection
 from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
+from django.utils import timezone
 
 from saas_core.content_protocol.policy import Trigger
 from saas_core.content_protocol.provenance import ORIGIN_AI, Provenance
@@ -23,9 +25,14 @@ from saas_core.modules.core.organizations.context import (
     activate_tenant_context,
     context_from_membership,
 )
-from saas_core.modules.core.organizations.models import Membership, Organization
+from saas_core.modules.core.organizations.models import (
+    Membership,
+    Organization,
+    OrganizationAuditEntry,
+)
 from saas_core.modules.shared.sites.models import (
     LEGACY_TERM_LOCK,
+    ContentCollection,
     ContentEntry,
     ContentTag,
     ContentTaxonomy,
@@ -1045,7 +1052,11 @@ def test_a_term_is_removed_only_when_nothing_carries_it() -> None:
     assert (row["entries"], row["entries_elsewhere"], row["removable"]) == (0, 1, False)
 
 
-def test_only_a_person_moves_addresses_and_removes_and_nobody_reaches_another_company() -> None:
+def test_only_a_person_manages_terms_and_nobody_reaches_another_company() -> None:
+    """A name and a place in the tree show to visitors at once, so an
+    integration's key — in any mode — and the assistant manage no term.
+    Filing an entry stays the entry's business: it shows with the entry's
+    publication, which under `proposed` is a person's."""
     from saas_core.modules.core.organizations.context import require_tenant_context
     from saas_core.modules.core.organizations.person_gate import PersonRequired
     from saas_core.modules.shared.sites import taxonomies
@@ -1053,40 +1064,102 @@ def test_only_a_person_moves_addresses_and_removes_and_nobody_reaches_another_co
 
     world = World("tax-people")
     bathrooms = world.category(world.projects, "Łazienki")
+    kitchens = world.category(world.projects, "Kuchnie")
+    entry = world.entry(world.projects, "dom-a", categories=(bathrooms,), tags=("Porady",))
+    host = world.host
+    assert _status(host, "/realizacje/kategoria/lazienki/") == 200
+    assert _status(host, "/realizacje/kategoria/kuchnie/") == 404
     membership = Membership.objects.filter(organization_id=world.organization_id).first()
     assert membership is not None
     person = context_from_membership(membership)
-    key_id = uuid4()
-    _grant(
-        world.organization_id,
-        key_id,
-        person.actor_id,
-        collection_id=world.projects,
-        mode="draft_write",
-    )
-    automation = _automation(world.organization_id, person.actor_id, key_id)
-    with activate_tenant_context(automation):
-        assert require_tenant_context() is automation
-        # A key hired for the type files and names its categories…
-        made, created = taxonomies.create_term(
-            collection_id=world.projects, kind="categories", name="Kuchnie"
+    assistant = acting_context(person, via="assistant", ref=f"conversation:{uuid4()}")
+    keys = []
+    for mode in ("draft_write", "publish_with_approval", "autonomous"):
+        key_id = uuid4()
+        # The widest a key gets: the whole site.
+        _grant(
+            world.organization_id,
+            key_id,
+            person.actor_id,
+            collection_id=None,
+            site_id=world.site_id,
+            mode=mode,
+            # An autonomous grant is bounded, or the database refuses it.
+            expires_at=timezone.now() + timedelta(days=7),
+            max_changes_per_day=50,
+            max_payload_bytes=100_000,
         )
-        assert created and made.term.name == "Kuchnie"
-        # …but moves no address and removes nothing.
-        with pytest.raises(PersonRequired):
-            taxonomies.change_term_address(
-                term_id=made.term.id, collection_id=world.projects, locale="pl", slug="inne"
-            )
-        with pytest.raises(PersonRequired):
-            taxonomies.delete_term(term_id=made.term.id, collection_id=world.projects)
-        with pytest.raises(PersonRequired):
-            taxonomies.set_taxonomy_segments(
-                collection_id=world.projects, segment="temat", locale_segments={}
-            )
-        # The site's tags are the whole site's: a grant for one type makes none.
-        with pytest.raises(Exception) as refused:
-            taxonomies.create_term(collection_id=world.projects, kind="tags", name="Nowy")
-        assert getattr(refused.value, "status_code", None) == 403
+        keys.append(_automation(world.organization_id, person.actor_id, key_id))
+    audits = OrganizationAuditEntry.objects.filter(organization_id=world.organization_id).count()
+    for context in (*keys, assistant):
+        with activate_tenant_context(context):
+            assert require_tenant_context() is context
+            for kind, name in (("categories", "Salony"), ("tags", "Nowy")):
+                with pytest.raises(PersonRequired):
+                    taxonomies.create_term(collection_id=world.projects, kind=kind, name=name)
+            for dry_run in (True, False):
+                with pytest.raises(PersonRequired):
+                    taxonomies.update_term(
+                        term_id=bathrooms,
+                        collection_id=world.projects,
+                        name="Cudze",
+                        dry_run=dry_run,
+                    )
+                with pytest.raises(PersonRequired):
+                    taxonomies.update_term(
+                        term_id=bathrooms,
+                        collection_id=world.projects,
+                        parent_id=kitchens,
+                        dry_run=dry_run,
+                    )
+            with pytest.raises(PersonRequired):
+                taxonomies.set_term_names(
+                    term_id=bathrooms, collection_id=world.projects, names={"en": "Theirs"}
+                )
+            with pytest.raises(PersonRequired):
+                taxonomies.change_term_address(
+                    term_id=bathrooms, collection_id=world.projects, locale="pl", slug="inne"
+                )
+            with pytest.raises(PersonRequired):
+                taxonomies.delete_term(term_id=kitchens, collection_id=world.projects)
+            with pytest.raises(PersonRequired):
+                taxonomies.set_taxonomy_segments(
+                    collection_id=world.projects, segment="temat", locale_segments={}
+                )
+    row = ContentTag.all_objects.get(pk=bathrooms)
+    assert (row.name, row.parent_id, row.locale_slugs) == ("Łazienki", None, {})
+    assert not ContentTag.all_objects.filter(site_id=world.site_id, name__in=["Salony", "Nowy"])
+    assert (
+        OrganizationAuditEntry.objects.filter(organization_id=world.organization_id).count()
+        == audits
+    )
+
+    # Filing is the entry's: a key hired for a type that takes drafts files
+    # the entry — and no visitor sees it until the entry is published again.
+    ContentCollection.all_objects.filter(pk=world.projects).update(automation_policy="proposed")
+    with activate_tenant_context(keys[0]):
+        filed = taxonomies.set_entry_categories(entry_id=entry, term_ids=[kitchens])  # type: ignore[arg-type,list-item]
+        assert [term.name for term in filed] == ["Kuchnie"]
+        tagged = taxonomies.set_entry_tags(entry_id=entry, names=["Inspiracje"])  # type: ignore[arg-type]
+        assert [tag.name for tag in tagged] == ["Inspiracje"]
+    for path, status in (
+        ("/realizacje/kategoria/lazienki/", 200),
+        ("/realizacje/kategoria/kuchnie/", 404),
+        ("/realizacje/tag/porady/", 200),
+        ("/realizacje/tag/inspiracje/", 404),
+    ):
+        assert _status(host, path) == status, path
+    assert "kuchnie" not in _sitemap(host)
+    # A type a person keeps for themselves takes no filing from a key either.
+    ContentCollection.all_objects.filter(pk=world.projects).update(automation_policy="manual")
+    with activate_tenant_context(keys[0]), pytest.raises(Exception) as refused:
+        taxonomies.set_entry_categories(entry_id=entry, term_ids=[bathrooms])  # type: ignore[arg-type,list-item]
+    assert getattr(refused.value, "status_code", None) == 403
+    # The person publishes: now it shows.
+    assert publish(world.client, entry, idempotency_key="again").status_code == 201
+    assert _status(host, "/realizacje/kategoria/kuchnie/") == 200
+    assert _status(host, "/realizacje/kategoria/lazienki/") == 404
+    assert _status(host, "/realizacje/tag/inspiracje/") == 200
 
     stranger = World("tax-people-other")
     for response in (
@@ -1099,6 +1172,83 @@ def test_only_a_person_moves_addresses_and_removes_and_nobody_reaches_another_co
         assert response.status_code == 404, response.json()
     assert ContentTag.all_objects.get(pk=bathrooms).name == "Łazienki"
     assert ContentTaxonomy.all_objects.filter(organization_id=stranger.organization_id).count() == 0
+
+
+# -- locks: one order for every writer of terms --------------------------------
+
+
+def test_every_writer_takes_the_rows_of_terms_in_one_order() -> None:
+    """A publication locks the terms it carries and a change of the
+    vocabulary locks terms too; taken in different orders the two would wait
+    on each other, and the database would end one — maybe the publication,
+    maybe a translation job's write. Proven by the statements, not by
+    threads: every change of the vocabulary takes the site's whole
+    vocabulary by id in its first lock, a publication takes what it carries
+    by id in one, and filing an entry takes no term's row at all."""
+    world = World("tax-locks")
+    bathrooms = world.category(world.projects, "Łazienki")
+    small = world.category(world.projects, "Małe", bathrooms)
+    spare = world.category(world.projects, "Zbędne")
+    entry = world.entry(world.projects, "dom-a", categories=(small,), tags=("Porady",), out=False)
+    terms_url = f"/api/v1/sites/collections/{world.projects}/terms/"
+
+    def locks(act: Any) -> list[str]:
+        with CaptureQueriesContext(connection) as queries:
+            response = act()
+        assert response.status_code in (200, 201, 204), response.content
+        return [
+            query["sql"]
+            for query in queries.captured_queries
+            if 'FROM "sites_contenttag"' in query["sql"] and " FOR " in query["sql"]
+        ]
+
+    by_id = 'ORDER BY "sites_contenttag"."id" ASC'
+    for name, act in (
+        ("rename", lambda: world.update(world.projects, bathrooms, name="Łazienki i spa")),
+        ("move", lambda: world.update(world.projects, spare, parent_id=bathrooms)),
+        ("names", lambda: world.names(world.projects, bathrooms, en="Baths")),
+        ("category", lambda: _send(world.client, "post", terms_url, {"name": "Kuchnie"})),
+        (
+            "tag",
+            lambda: _send(world.client, "post", terms_url, {"kind": "tags", "name": "Nowy"}),
+        ),
+        ("address", lambda: world.address(world.projects, small, locale="pl", slug="male-2")),
+        ("remove", lambda: world.remove(world.projects, spare)),
+    ):
+        taken = locks(act)
+        assert taken, name
+        for sql in taken:
+            where = sql.split(" WHERE ", 1)[1].split(" ORDER BY ", 1)[0]
+            assert "FOR NO KEY UPDATE" in sql and by_id in sql, (name, sql)
+            # The whole site's, not one namespace's and not one row's.
+            assert '"taxonomy_id"' not in where and '"sites_contenttag"."id" ' not in where, (
+                name,
+                sql,
+            )
+            assert '"sites_contenttag"."site_id" = ' in where, (name, sql)
+
+    # Filing takes no term's row: it holds the entry's, which a publication
+    # takes before its terms.
+    assert locks(lambda: set_tags(world.client, entry, ["Porady", "Inspiracje"])) == []
+    assert (
+        locks(
+            lambda: _send(
+                world.client,
+                "put",
+                f"/api/v1/sites/entries/{entry}/categories/",
+                {"term_ids": [small]},
+            )
+        )
+        == []
+    )
+    # A publication: what it carries and the categories above, by id, at once.
+    taken = locks(lambda: publish(world.client, entry, idempotency_key="out"))
+    assert len(taken) == 1, taken
+    assert "FOR NO KEY UPDATE" in taken[0] and by_id in taken[0], taken
+    assert '"sites_contenttag"."id" IN (' in taken[0].split(" WHERE ", 1)[1], taken
+    # Its categories' addresses closed with it: the stamp followed the lock.
+    assert ContentTag.all_objects.get(pk=small).slug_locked_at.get("pl")
+    assert ContentTag.all_objects.get(pk=bathrooms).slug_locked_at.get("pl")
 
 
 # -- row-level security: the order of the statements ---------------------------

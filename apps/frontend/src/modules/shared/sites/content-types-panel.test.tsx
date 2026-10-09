@@ -708,8 +708,71 @@ test("erasing removed entries takes the type's name typed out before it deletes 
   expect(confirm.disabled).toBe(false);
   fireEvent.click(confirm);
 
+  // What goes to the server is what the dialog showed: the name and the count.
   await waitFor(() =>
-    expect(deleteContentType).toHaveBeenCalledWith(news.id, "Aktualności"),
+    expect(deleteContentType).toHaveBeenCalledWith(news.id, {
+      name: "Aktualności",
+      removedEntries: 2,
+    }),
+  );
+});
+
+test("an entry removed while the dialog was open is shown and confirmed again", async () => {
+  previewContentTypeDelete
+    .mockResolvedValueOnce({
+      ...deletePreview,
+      removed_entries: 2,
+      removed_publications: 5,
+      confirmation_required: true,
+    })
+    .mockResolvedValueOnce({
+      ...deletePreview,
+      removed_entries: 3,
+      removed_publications: 6,
+      confirmation_required: true,
+    });
+  deleteContentType.mockRejectedValueOnce(
+    problem("validation_error", [
+      {
+        field: "confirm_removed_entries",
+        code: "confirmation_stale",
+        message: "Odmowa po polsku.",
+      },
+    ]),
+  );
+  const dialog = await openDeleteDialog();
+  const label = "Żeby potwierdzić, wpisz nazwę typu: Aktualności";
+  fireEvent.change(await within(dialog).findByLabelText(label), {
+    target: { value: "Aktualności" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Usuń typ i skasuj wpisy" }),
+  );
+
+  expect(
+    await within(dialog).findByText(
+      "Od otwarcia tego okna ktoś usunął kolejny wpis tego typu. Sprawdź jeszcze raz, co zostanie skasowane, i wpisz nazwę typu ponownie.",
+    ),
+  ).not.toBeNull();
+  // The new numbers are on the screen and the name is asked for again.
+  expect(
+    await within(dialog).findByText(
+      "Usunięcie typu „Aktualności” skasuje na stałe usunięte wpisy tego typu (3): ich treść, wersje i historię publikacji (6). Tego nie da się cofnąć.",
+    ),
+  ).not.toBeNull();
+  const field = within(dialog).getByLabelText(label) as HTMLInputElement;
+  expect(field.value).toBe("");
+  const confirm = within(dialog).getByRole("button", {
+    name: "Usuń typ i skasuj wpisy",
+  }) as HTMLButtonElement;
+  expect(confirm.disabled).toBe(true);
+  fireEvent.change(field, { target: { value: "Aktualności" } });
+  fireEvent.click(confirm);
+  await waitFor(() =>
+    expect(deleteContentType).toHaveBeenLastCalledWith(news.id, {
+      name: "Aktualności",
+      removedEntries: 3,
+    }),
   );
 });
 

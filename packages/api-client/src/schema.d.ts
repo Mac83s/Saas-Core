@@ -6945,7 +6945,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a content type and erase its removed entries
-         * @description A type is deleted only when it has no entry that keeps it — a draft counts (`content_type_not_empty`); a type with entries is switched off instead, or its entries are removed first. Entries a person removed do not keep the type and go with it for good: their texts, versions and publication history are erased and cannot be brought back, so deleting a type that has removed entries takes its name in `confirm_name` (`confirmation_required` without it). The type's categories go with it, its names in addresses become free and its former names stop leading anywhere. A person's decision only — never an integration or the assistant (`person_required`).
+         * @description A type is deleted only when it has no entry that keeps it — a draft counts (`content_type_not_empty`); a type with entries is switched off instead, or its entries are removed first. Entries a person removed do not keep the type and go with it for good: their texts, versions and publication history are erased and cannot be brought back, so deleting a type that has removed entries takes the right to publish (`erasure_needs_publish` without it, in the preview too), its name in `confirm_name` (`confirmation_required` without it) and, in `confirm_removed_entries`, the number of removed entries the preview showed (`confirmation_stale` when it changed since: nothing is erased, read the preview again). The type's categories go with it, its names in addresses become free and its former names stop leading anywhere. A person's decision only — never an integration or the assistant (`person_required`).
          */
         delete: operations["sites_content_type_delete"];
         options?: never;
@@ -7104,7 +7104,7 @@ export interface paths {
         put?: never;
         /**
          * What deleting a content type would erase
-         * @description Answers without deleting: whether the type can be deleted, how many entries keep it, how many removed entries and publications would be erased for good, how many categories go with it, the addresses that become free and whether the type's name must be typed to confirm. A type is deleted only when it has no entry that keeps it — a draft counts (`content_type_not_empty`); a type with entries is switched off instead, or its entries are removed first. Entries a person removed do not keep the type and go with it for good: their texts, versions and publication history are erased and cannot be brought back, so deleting a type that has removed entries takes its name in `confirm_name` (`confirmation_required` without it). The type's categories go with it, its names in addresses become free and its former names stop leading anywhere. A person's decision only — never an integration or the assistant (`person_required`).
+         * @description Answers without deleting: whether the type can be deleted, how many entries keep it, how many removed entries and publications would be erased for good, how many categories go with it, the addresses that become free and whether the type's name must be typed to confirm. A type is deleted only when it has no entry that keeps it — a draft counts (`content_type_not_empty`); a type with entries is switched off instead, or its entries are removed first. Entries a person removed do not keep the type and go with it for good: their texts, versions and publication history are erased and cannot be brought back, so deleting a type that has removed entries takes the right to publish (`erasure_needs_publish` without it, in the preview too), its name in `confirm_name` (`confirmation_required` without it) and, in `confirm_removed_entries`, the number of removed entries the preview showed (`confirmation_stale` when it changed since: nothing is erased, read the preview again). The type's categories go with it, its names in addresses become free and its former names stop leading anywhere. A person's decision only — never an integration or the assistant (`person_required`).
          */
         post: operations["sites_content_type_delete_preview"];
         delete?: never;
@@ -7228,7 +7228,7 @@ export interface paths {
         put?: never;
         /**
          * Make a category of a content type, or a tag of the site
-         * @description A category goes under `parent_id` when given, up to `max_depth` levels (`term_too_deep`); the type's first category starts its categories — there is nothing to switch on. The address is made from the name and follows it until the first entry carrying the term is published. A name a category beside it already has is refused (`term_name_taken`). A tag's name that means an existing tag — its key or its address in any language — answers with that tag (200).
+         * @description A category goes under `parent_id` when given, up to `max_depth` levels (`term_too_deep`); the type's first category starts its categories — there is nothing to switch on. The address is made from the name and follows it until the first entry carrying the term is published. A name a category beside it already has is refused (`term_name_taken`). A tag's name that means an existing tag — its key or its address in any language — answers with that tag (200). A person's decision: an integration and the assistant are refused (`person_required`); an integration makes a tag only by filing an entry under a new name.
          */
         post: operations["sites_term_create"];
         delete?: never;
@@ -7256,7 +7256,7 @@ export interface paths {
         head?: never;
         /**
          * Rename, move or reorder a category or a tag
-         * @description Renames a category or a tag (`name`), moves a category under another (`parent_id`; null: to the top; at most `max_depth` levels with what is under it) and puts it at `position` among those beside it. A field left out keeps its value. No address moves: a category's archive has the same address wherever it hangs, and a new name changes the address only while no entry carrying the term has been published. What a term is called and where a category hangs shows to visitors at once, with no publication; which entries an archive lists changes only when an entry is published.
+         * @description Renames a category or a tag (`name`), moves a category under another (`parent_id`; null: to the top; at most `max_depth` levels with what is under it) and puts it at `position` among those beside it. A field left out keeps its value. No address moves: a category's archive has the same address wherever it hangs, and a new name changes the address only while no entry carrying the term has been published. What a term is called and where a category hangs shows to visitors at once, with no publication; which entries an archive lists changes only when an entry is published. Because of that, making, renaming, moving and naming terms is a person's decision: an integration and the assistant are refused (`person_required`).
          */
         patch: operations["sites_term_update"];
         trace?: never;
@@ -7311,7 +7311,7 @@ export interface paths {
         get?: never;
         /**
          * Name a category or a tag in the site's other languages
-         * @description A person's names by language code, for the languages that change; an empty name removes it. The translation engine never overwrites a name written here and offers the term only in languages still without one. Where the term's address in a language is still open it is made from the name; if the archive there already answered under the site's language's address it moves once and closes — `moved` says from where to where — and the old address answers one 308. Published at once when the caller may publish, otherwise with the site's next publication.
+         * @description A person's names by language code, for the languages that change; an empty name removes it. The translation engine never overwrites a name written here and offers the term only in languages still without one. Where the term's address in a language is still open it is made from the name; if the archive there already answered under the site's language's address it moves once and closes — `moved` says from where to where — and the old address answers one 308. Published at once when the caller may publish, otherwise with the site's next publication. A person's decision: an integration and the assistant are refused (`person_required`).
          */
         put: operations["sites_term_names_set"];
         post?: never;
@@ -7332,7 +7332,7 @@ export interface paths {
         put?: never;
         /**
          * Preview renaming, moving or reordering a category or a tag
-         * @description Validates and answers with the term as it would be and `published` — how many published entries are under it, whose archives would change at once — without saving. Renames a category or a tag (`name`), moves a category under another (`parent_id`; null: to the top; at most `max_depth` levels with what is under it) and puts it at `position` among those beside it. A field left out keeps its value. No address moves: a category's archive has the same address wherever it hangs, and a new name changes the address only while no entry carrying the term has been published. What a term is called and where a category hangs shows to visitors at once, with no publication; which entries an archive lists changes only when an entry is published.
+         * @description Validates and answers with the term as it would be and `published` — how many published entries are under it, whose archives would change at once — without saving. Renames a category or a tag (`name`), moves a category under another (`parent_id`; null: to the top; at most `max_depth` levels with what is under it) and puts it at `position` among those beside it. A field left out keeps its value. No address moves: a category's archive has the same address wherever it hangs, and a new name changes the address only while no entry carrying the term has been published. What a term is called and where a category hangs shows to visitors at once, with no publication; which entries an archive lists changes only when an entry is published. Because of that, making, renaming, moving and naming terms is a person's decision: an integration and the assistant are refused (`person_required`).
          */
         post: operations["sites_term_update_preview"];
         delete?: never;
@@ -7470,7 +7470,7 @@ export interface paths {
         get: operations["sites_entry_categories_list"];
         /**
          * File an entry under categories of its content type
-         * @description Replaces the whole set (at most `max_per_entry`); the entry's tags are not touched. A category of another content type is refused (`term_not_of_type`). Visitors see the change when the entry is next published: an archive lists what publications carry.
+         * @description Replaces the whole set (at most `max_per_entry`); the entry's tags are not touched. A category of another content type is refused (`term_not_of_type`). Visitors see the change when the entry is next published: an archive lists what publications carry. An integration files an entry by the entry's own rule — a grant for its content type and a type that takes automation's drafts — as it sets the entry's tags.
          */
         put: operations["sites_entry_categories_set"];
         post?: never;
@@ -41303,6 +41303,8 @@ export interface operations {
             query?: {
                 /** @description The type's name, typed — required when the type has removed entries, which deleting erases for good. */
                 confirm_name?: string;
+                /** @description How many removed entries the preview said would be erased (`removed_entries`) — required when the type has any. A different number now answers `confirmation_stale` and erases nothing. */
+                confirm_removed_entries?: number;
             };
             header?: never;
             path: {

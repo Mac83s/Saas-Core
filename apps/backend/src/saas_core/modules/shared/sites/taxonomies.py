@@ -109,6 +109,13 @@ TAXONOMY_SEGMENTS_SET = "sites.taxonomy.segments_set"
 ENTRY_TAGS_SET = "sites.entry.tags_set"
 ENTRY_TERMS_SET = "sites.entry.terms_set"
 
+#: Making, renaming, moving and naming terms. A name and a place in the tree
+#: show to visitors at once, with no publication and no preview an
+#: integration or the assistant could hand a person — so until they have
+#: their own way in (ADR-079, CT5) a person manages the vocabulary. Filing
+#: an entry is not part of it: that follows the entry's own rule and shows
+#: only with the entry's publication.
+TERM_MANAGE_GATE = "Zmiana kategorii i tagów"
 TERM_ADDRESS_GATE = "Zmiana adresu kategorii lub tagu"
 TERM_DELETE_GATE = "Usunięcie kategorii lub tagu"
 SEGMENTS_GATE = "Zmiana adresu kategorii w adresach strony"
@@ -372,19 +379,39 @@ def _make_category_taxonomy(
     )
 
 
+def lock_vocabulary(site: Site) -> list[ContentTag]:
+    """Every term of the site, locked in id order by one statement — the one
+    way a change of the vocabulary takes term rows, whichever namespace it is
+    about. A publication locks what it carries in the same order
+    (`terms_to_close`), so the two wait for each other and never on each
+    other; a namespace locked first and the rest later could meet a
+    publication holding an older term of another namespace.
+
+    `FOR NO KEY UPDATE`: a term's key never changes, and filing an entry —
+    whose link only references the term — does not wait for either."""
+    return list(
+        ContentTag.all_objects.select_for_update(no_key=True)
+        .filter(organization_id=site.organization_id, site_id=site.id)
+        .order_by("pk")
+    )
+
+
 def _terms_of(
     site: Site, taxonomy: ContentTaxonomy | None, *, lock: bool = False
 ) -> list[ContentTag]:
-    """The terms sharing one namespace: a taxonomy's, or the site's tags."""
-    rows = ContentTag.all_objects.filter(
-        organization_id=site.organization_id, site_id=site.id, taxonomy=taxonomy
-    )
+    """The terms sharing one namespace: a taxonomy's, or the site's tags.
+    `lock` takes the site's whole vocabulary (`lock_vocabulary`)."""
     if lock:
-        # In id order, as every writer of terms locks them (`terms_to_close`).
+        own = taxonomy.pk if taxonomy is not None else None
         return sorted(
-            rows.select_for_update().order_by("pk"), key=lambda term: (term.position, term.slug)
+            (term for term in lock_vocabulary(site) if term.taxonomy_id == own),
+            key=lambda term: (term.position, term.slug),
         )
-    return list(rows.order_by("position", "slug"))
+    return list(
+        ContentTag.all_objects.filter(
+            organization_id=site.organization_id, site_id=site.id, taxonomy=taxonomy
+        ).order_by("position", "slug")
+    )
 
 
 def _term(context: Any, term_id: Any) -> tuple[Site, ContentTag, list[ContentTag]]:
@@ -578,11 +605,7 @@ def settle_term_addresses(site: Site, locale: str) -> None:
 
 
 def _settle(site: Site, locale: str) -> None:
-    terms = list(
-        ContentTag.all_objects.select_for_update()
-        .filter(organization_id=site.organization_id, site_id=site.id)
-        .order_by("pk")
-    )
+    terms = lock_vocabulary(site)
     open_terms = [term for term in terms if not term_locked(term, locale)]
     if not open_terms:
         return
@@ -905,8 +928,14 @@ def create_term(
     already has is refused (`term_name_taken`) — sent again with the same
     parent it answers with the category it made, so a repeated request makes
     nothing twice; a tag's name that means an existing tag answers with that
-    tag."""
+    tag.
+
+    A person's decision (`person_required` for an integration and the
+    assistant). An integration still makes a tag by filing an entry under a
+    name nobody has (`set_entry_tags`) — that tag meets no visitor before a
+    publication carries it."""
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    assert_person_required(context, TERM_MANAGE_GATE)
     site, collection = _type(context, collection_id, lock=True)
     kind = _kind(kind)
     _assert_may_write(context, site, collection if kind == KIND_CATEGORIES else None)
@@ -987,10 +1016,14 @@ def update_term(
     hangs, and a name changes the address only while no entry carrying the
     term has been published.
 
+    Because it shows at once, it is a person's decision (`person_required`
+    for an integration and the assistant, the preview too).
+
     `collection_id` is the content type the answer's addresses are for.
     `dry_run` answers with the term as it would be and `published` — how many
     published entries are under it — and writes nothing."""
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    assert_person_required(context, TERM_MANAGE_GATE)
     site, term, siblings = _term(context, term_id)
     collection = _shown_under(context, site, term, collection_id)
     _assert_may_write(context, site, _term_type(term))
@@ -1111,8 +1144,11 @@ def set_term_names(*, term_id: UUID, collection_id: UUID, names: Mapping[str, st
     address, it moves once and closes (`moved` says from where to where), and
     the old address answers one 308. The names are published at once when the
     caller may publish; otherwise they go out with the site's next
-    publication."""
+    publication. A person's decision (`person_required` for an integration
+    and the assistant): an address made from a name answers at once. The
+    translation engine names terms its own way, through the site's texts."""
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    assert_person_required(context, TERM_MANAGE_GATE)
     site, term, _siblings = _term(context, term_id)
     collection = _shown_under(context, site, term, collection_id)
     _assert_may_write(context, site, _term_type(term))
@@ -1597,7 +1633,11 @@ def set_entry_tags(*, entry_id: UUID, names: list[str]) -> list[ContentTag]:
     """
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     site, entry = _locked_entry(context, entry_id)
-    existing = _terms_of(site, None, lock=True)
+    # No lock on the tags: this makes tags and links and changes no tag that
+    # exists, and the site's row — held — is what keeps two writers from
+    # making one name twice. Holding term rows after an entry's is also the
+    # one order a publication does not take them in.
+    existing = _terms_of(site, None)
     wanted: dict[Any, ContentTag] = {}
     fresh: dict[str, str] = {}
     for raw in names:
