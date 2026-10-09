@@ -200,37 +200,56 @@ listy (`useAsksModule` w `components/panel/panel-access.tsx`; dostęp podaje uk�
 panelu przez `PanelAccessProvider`). W firmie pyta jak dotąd: tam odpowiada plan,
 a ekran mówi, co odpowiedział.
 
-**Menu** (`PUBLISHER` zamiast `WORK` i `COMPANY`):
+**Menu** (`PUBLISHER` zamiast `WORK` i `COMPANY`) — od 2026-10-09 bez ekranów kreatora
+stron (pakiet PW1, ADR-079 pkt 29: strona workspace'u nie odpowiada pod żadnym hostem):
 
 | Grupa | Wpisy |
 | --- | --- |
-| Praca | Dziś · Strona internetowa (Podstrony, Menu, Blog, Tłumaczenia, Publikacja, Adres i domeny, Integracje) · wpisy produktu |
-| Firma | Wiadomości (same „Zapytania ze strony”) · wpisy produktu · Ustawienia (Dane firmy, obszary rejestru, Języki, Historia zmian, Twoje konto, zakładki produktu) |
+| Praca | Dziś · Treści platformy (Treści, Tłumaczenia, Integracje) · wpisy produktu |
+| Firma | wpisy produktu · Ustawienia (Dane firmy, obszary rejestru, Języki, Historia zmian, Twoje konto, zakładki produktu) |
 | Platforma | Ustawienia platformy — operatorowi, jak dotąd |
 
-Strona stoi pod „Pracą”, bo jest codzienną pracą wydawcy — dzięki temu trafia też na
-dolny pasek telefonu, który bierze pierwsze trzy wpisy „Pracy”. Nie ma Zespołu ani
-„Mojej karty” (nikt nie jest tu zapraszany; redaktor to operator dopisany komendą, pkt
-2), Abonamentu i Kredytów (tłumaczenia tego workspace'u idą z budżetu platformy),
-Kalendarza, Magazynu, Zamówień, Asystenta, Wizytówki, „Widoczności w Google”, powiadomień
-automatycznych, „API i webhooków”, banera planu ani listy „Na start”.
+„Treści platformy” to wpis „Strona internetowa” firmy bez ekranów kreatora (znacznik
+`builder` w `PANEL_SECTIONS.website`) i pod nazwą tego, co zostało. Stoi pod „Pracą”,
+bo pisanie jest codzienną pracą wydawcy — dzięki temu trafia też na dolny pasek
+telefonu, który bierze pierwsze trzy wpisy „Pracy”. Nie ma „Podstron” z ich edytorem
+(a z nim wyglądu, szablonów i biblioteki sekcji), „Menu”, „Publikacji” witryny ani
+„Adresu i domen”: niczego, co się tam ustawia, nikt by nie zobaczył. Nie ma
+„Wiadomości”: zapytanie przychodzi z formularza na podstronie kreatora, a żaden host
+tej strony nie serwuje. Nie ma Zespołu ani „Mojej karty” (nikt nie jest tu zapraszany;
+redaktor to operator dopisany komendą, pkt 2), Abonamentu i Kredytów (tłumaczenia tego
+workspace'u idą z budżetu platformy), Kalendarza, Magazynu, Zamówień, Asystenta,
+Wizytówki, „Widoczności w Google”, powiadomień automatycznych, „API i webhooków”,
+banera planu ani listy „Na start”.
 
-**Pierwszy ekran.** „Dziś” pokazuje stan strony (`components/panel/site-state.tsx`):
-nazwę, adres, stan słowami „Podstron” („Jeszcze nieopublikowana”, „Zmiany
-nieopublikowane”, „Opublikowana”), ostatnią publikację, liczbę podstron i ile z nich
-czeka, blog, języki oraz własną domenę, która nie przeszła jeszcze weryfikacji. Pod nim
-skróty do części strony pod nazwami z menu. Czyta te same adresy API co „Podstrony” —
-żadnego, którego wydawcy się odmawia. Pulpit produktu (slot `product/dashboard.tsx`) ma
-pierwszeństwo tak jak w firmie.
+**Pierwszy ekran.** „Dziś” pokazuje, co platforma napisała
+(`components/panel/site-state.tsx`): typy treści, liczbę wpisów i ile z nich jest
+opublikowanych, języki — oraz zdanie o tym, gdzie opublikowane wpisy widać (host
+produktu, jeśli produkt ma własne strony). Ani słowa o podstronach, publikacji witryny
+i domenach. Pod nim skróty: „Treści”, „Tłumaczenia” i „Języki” (ustawienie workspace'u,
+nie ekran strony). Czyta to, co czyta „Treści” — nic, czego wydawcy się odmawia. Pulpit
+produktu (slot `product/dashboard.tsx`) ma pierwszeństwo tak jak w firmie.
+
+**Pierwsze wejście.** Treść wisi na rekordzie strony (jeden na workspace, `sites.max`),
+więc zanim powstanie pierwszy typ, wydawca go zakłada — ale nie kreatorem firmy, który
+pyta o subdomenę i nazwę. Ekran „Treści” pyta tylko o język, w którym platforma pisze
+(`publisher-start.tsx`): to jedyna rzecz z tego rekordu, od której treść zależy, i nie
+da się jej potem zmienić. Adres na platformie rekord dostaje od API sam; nikt go nie
+zobaczy.
 
 **Ustawienia.** Rejestr ustawień (ADR-078) wymienia też grupy modułów spoza listy;
 `panelSettings()` zostawia wydawcy grupy jego modułów i obszary, w których coś zostało
-— w menu „Ustawień”, na stronie obszaru i w „Szukaj w ustawieniach”.
+— w menu „Ustawień”, na stronie obszaru i w „Szukaj w ustawieniach”. Z grup modułu
+stron odpadają dwie o formularzu kontaktowym kreatora: „Odbiorcy zapytań”
+(`sites.inquiries`) i czas przechowywania zapytań (`sites.retention`).
 
 **Adres wpisany ręcznie.** Ekran firmy, którego nie zamyka bramka modułu — Zespół,
 Kalendarz, Plan i płatności, Kredyty — odpowiada w workspace platformy „Nie ma takiej
 strony” (`lib/company-only.ts`), zamiast pokazać ekran, którego każde zapytanie
-kończy się odmową.
+kończy się odmową. Tak samo odpowiadają ekrany kreatora: `/panel/sites` („Podstrony”),
+`/panel/sites/pages/<id>`, `/panel/sites/menu`, `/panel/sites/publication`,
+`/panel/sites/address` oraz `/panel/notifications` — choć ich API zostaje otwarte
+(ADR-079 pkt 29, akapit o API).
 
 **Produkt.** Wpisy menu, zakładki ustawień i pulpit produktu działają u wydawcy jak
 w firmie: moduł, uprawnienie, typ organizacji. Wydawcy pokaże się wpis stojący za

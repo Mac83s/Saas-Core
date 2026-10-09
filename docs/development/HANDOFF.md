@@ -117,9 +117,15 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
   `sites.max = 1` i `storage.bytes` (`--storage-gib`, domyślnie 20), więc strona,
   pliki i własna domena działają tam bez planu. Powłoka
   poznaje rodzaj workspace'u (`workspace_kind`), oferuje z modułów wspólnych tylko
-  `PUBLISHER_MODULES`, ma własne menu (strona pod „Pracą”, „Wiadomości”
-  i „Ustawienia” pod „Firmą”, bez zespołu, abonamentu, kalendarza i magazynu),
-  a „Dziś” pokazuje stan strony (`components/panel/site-state.tsx`). Adres ekranu
+  `PUBLISHER_MODULES`, ma własne menu („Treści platformy” pod „Pracą”,
+  „Ustawienia” pod „Firmą”, bez zespołu, abonamentu, kalendarza i magazynu),
+  a „Dziś” pokazuje, co platforma napisała (`components/panel/site-state.tsx`).
+  Od PW1 (09.10, lokalnie, bez migracji; ADR-079 pkt 29) panel wydawcy nie ma
+  ekranów kreatora stron: „Treści platformy” to „Treści”, „Tłumaczenia”
+  i „Integracje”; „Podstrony” z edytorem, „Menu”, „Publikacja”, „Adres i domeny”
+  oraz „Wiadomości” odpowiadają wydawcy „Nie ma takiej strony”, a pierwszy raz
+  panel pyta tylko o język treści (`publisher-start.tsx`). API tych ekranów
+  zostaje otwarte (test `test_sites_publisher_builder_api.py`). Adres ekranu
   firmy wpisany ręcznie odpowiada tam „Nie ma takiej strony” (Zespół, Kalendarz,
   Abonament, Kredyty i ekrany za bramką modułu) albo „Brak dostępu” (dokumenty,
   zgody, usuwanie danych klienta); „API i webhooki” otwierają się, ale menu do

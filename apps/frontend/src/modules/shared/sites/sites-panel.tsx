@@ -100,6 +100,7 @@ import { ProposalsQueue } from "./proposals-queue";
 import { SiteRedirectsCard } from "./page-url";
 import { PublicationHistory } from "./publication-history";
 import { TranslationTabs } from "../translation/translation-tabs";
+import { PublisherStart } from "./publisher-start";
 import { SiteOnboardingWizard } from "./site-onboarding";
 import { SitePagesTable } from "./site-pages-table";
 import {
@@ -602,10 +603,14 @@ export function SitesPanel({
       }
       description={
         !hasSite
-          ? t("description")
+          ? t(publisher ? "descriptionPublisher" : "description")
           : section === "page"
             ? t("sections.page.description")
-            : t(`sections.${section}.description`)
+            : // A platform workspace's content is no site's: where a screen's
+              // line speaks of the site, it has one of its own.
+              publisher && t.has(`sections.${section}.descriptionPublisher`)
+              ? t(`sections.${section}.descriptionPublisher`)
+              : t(`sections.${section}.description`)
       }
       eyebrow={
         !hasSite
@@ -721,9 +726,16 @@ export function SitesPanel({
             {problem}
           </div>
         ) : null}
-        <SiteOnboardingWizard
-          onCompleted={(created) => loadSites(created.id)}
-        />
+        {/* A company starts with its site's address and name. The platform's
+            workspace has no site anybody opens (ADR-079 pkt 29): it starts
+            with the language it writes in, and nothing else. */}
+        {publisher ? (
+          <PublisherStart onCompleted={(created) => loadSites(created.id)} />
+        ) : (
+          <SiteOnboardingWizard
+            onCompleted={(created) => loadSites(created.id)}
+          />
+        )}
       </section>
     );
   }
@@ -779,7 +791,10 @@ export function SitesPanel({
         </div>
       )}
 
-      {selectedSite && (
+      {/* The site's own line: its name, which languages are on the site and
+          whether it is published — all of it the builder site's state, which
+          a platform workspace's content has none of (ADR-079 pkt 29). */}
+      {selectedSite && !publisher && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border p-4">
           <Globe2Icon
             aria-hidden="true"
