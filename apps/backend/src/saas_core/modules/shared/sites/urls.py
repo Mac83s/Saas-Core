@@ -32,6 +32,7 @@ from .domain_views import (
     SiteDomainListCreateView,
     SitePlatformDomainView,
 )
+from .entry_address_views import ContentEntryAddressPreviewView, ContentEntryAddressView
 from .inquiry_views import SiteInquiryDetailView, SiteInquiryListView, SiteInquiryReadView
 from .language_version_views import (
     PageLocaleAcceptView,
@@ -377,6 +378,16 @@ urlpatterns = [
         "pages/<uuid:page_id>/policy/",
         PageAutomationPolicyView.as_view(),
         name="page-policy",
+    ),
+    path(
+        "entries/<uuid:entry_id>/address/",
+        ContentEntryAddressView.as_view(),
+        name="entry-address",
+    ),
+    path(
+        "entries/<uuid:entry_id>/address/preview/",
+        ContentEntryAddressPreviewView.as_view(),
+        name="entry-address-preview",
     ),
     path(
         "entries/<uuid:entry_id>/draft/",

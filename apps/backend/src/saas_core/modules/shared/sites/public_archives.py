@@ -495,17 +495,24 @@ def moved_address(
 
 
 def _entry_slug(collection: ContentCollection, locale: str, slug: str) -> str:
-    """The slug the entry that once answered at `slug` is published under."""
+    """The slug the entry that once answered at `slug` is published under.
+
+    A live address always wins: when an entry of the type and language is
+    published under `slug`, that is what `slug` means — a former slug never
+    shadows it, whatever another entry's history says."""
+    published = ContentEntry.all_objects.filter(
+        organization_id=collection.organization_id,
+        collection_id=collection.id,
+        locale=locale,
+        state=ContentEntryState.PUBLISHED,
+        current_publication__isnull=False,
+    )
+    if published.filter(slug=slug).exists():
+        return slug
     entry = (
-        ContentEntry.all_objects.select_related("current_publication")
-        .filter(
-            organization_id=collection.organization_id,
-            collection_id=collection.id,
-            locale=locale,
-            state=ContentEntryState.PUBLISHED,
-            current_publication__isnull=False,
-            former_slugs__contains=[slug],
-        )
+        published.select_related("current_publication")
+        .filter(former_slugs__contains=[slug])
+        .order_by("id")
         .first()
     )
     if entry is None or entry.current_publication is None:

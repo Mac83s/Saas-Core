@@ -21,7 +21,13 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException, ErrorDetail, NotFound, ValidationError
 
-from saas_core.content_protocol.provenance import ORIGIN_AI, ORIGIN_HUMAN, Provenance, unit_hash
+from saas_core.content_protocol.provenance import (
+    ORIGIN_AI,
+    ORIGIN_HUMAN,
+    ORIGIN_IMPORT,
+    Provenance,
+    unit_hash,
+)
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.api import (
     ResourceReferenceRejected,
@@ -45,6 +51,7 @@ from saas_core.observability import correlation_id
 from .block_contracts import validate_site_block
 from .block_decoration import normalize_block, validate_decoration, validate_presentation
 from .content_type_limit import ContentTypeArchived, ensure_content_type_capacity
+from .entry_addresses import assert_slug_not_former
 from .language_publication import _origin as translation_origin
 from .localization import (
     collection_index_path,
@@ -58,6 +65,7 @@ from .models import (
     ContentEntry,
     ContentEntryPublication,
     ContentEntryState,
+    ContentEntryTag,
     ContentEntryVersion,
     ContentSchemaType,
     ContentTag,
@@ -167,6 +175,42 @@ class EntryDraft:
     entry: ContentEntry
     version: ContentEntryVersion | None
     media_asset_ids: tuple[UUID, ...] = ()
+
+
+#: Keys of an imported text's fields in `ContentEntryVersion.units` — beside
+#: the translation engine's keys (a source's unit keys, `meta/title`), never
+#: among them: a version with these has no `source_version`.
+IMPORT_TITLE = "import/title"
+IMPORT_EXCERPT = "import/excerpt"
+IMPORT_BODY = "import/body"
+IMPORT_EDIT = "import/edit"
+IMPORT_FIELDS = (IMPORT_TITLE, IMPORT_EXCERPT, IMPORT_BODY)
+
+
+@dataclass(frozen=True, slots=True)
+class ImportedText:
+    """Who wrote each field of a text an import brings: `fields` maps
+    `import/title|excerpt|body` to `{"origin", "model", "source_sha256"}`
+    (origin one of `human`, `ai`, `import`). The publication's machine mark
+    is read from it the way it is read from a translation's units."""
+
+    fields: Mapping[str, Mapping[str, str]]
+    ref: str = ""
+
+    def units(self) -> dict[str, Any]:
+        at = timezone.now().isoformat()
+        return {
+            key: {
+                # The words live in the entry and its blocks; here is only
+                # who wrote them and from what.
+                "text": "",
+                "provenance": {
+                    name: str(value) for name, value in {**facts, "at": at}.items() if value
+                },
+            }
+            for key, facts in self.fields.items()
+            if key in IMPORT_FIELDS
+        }
 
 
 def _blocks_size(blocks: Any) -> int:
@@ -802,6 +846,14 @@ def create_entry(
         slug=slug.strip().lower(),
     ).exists():
         raise EntrySlugConflict
+    # An address that redirects to another entry is not a new entry's to
+    # start under (ADR-079 pkt 14).
+    assert_slug_not_former(
+        organization_id=context.organization_id,
+        collection_id=collection_id,
+        locale=locale,
+        slug=slug,
+    )
     entry = ContentEntry.all_objects.create(
         organization_id=context.organization_id,
         collection=collection,
@@ -867,7 +919,11 @@ def save_entry_draft(
     blocks: list[dict[str, Any]],
     media_asset_ids: list[UUID] | None = None,
     idempotency_key: str,
+    imported: ImportedText | None = None,
 ) -> tuple[ContentEntryVersion, bool]:
+    """Saves the entry's draft. `imported` is the content import's alone
+    (`content_import`; no endpoint passes it): who wrote each field of a text
+    that arrives from elsewhere, kept with the version."""
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     normalized_key = _idempotency_key(idempotency_key)
     normalized_blocks = [normalize_block(block) for block in blocks]
@@ -939,7 +995,15 @@ def save_entry_draft(
         media_asset_ids=media_asset_ids or [],
         idempotency_key=normalized_key,
         request_hash=request_hash,
-        **_edited_translation(context, entry, normalized_blocks),
+        **(
+            {
+                "units": imported.units(),
+                "origin": ORIGIN_IMPORT,
+                "origin_ref": imported.ref,
+            }
+            if imported is not None
+            else _edited_translation(context, entry, normalized_blocks)
+        ),
     )
     emit_draft_saved_event(
         context=context,
@@ -1033,6 +1097,27 @@ def _edited_translation(
     structure is a text of their own, which no job writes into."""
     previous = entry.current_draft
     if (
+        previous is not None
+        and previous.source_version is None
+        and isinstance(previous.units, dict)
+        and IMPORT_BODY in previous.units
+    ):
+        # A text an import brought (`ImportedText`): its fields keep saying
+        # who wrote them, and the edit is named beside them — a model's text
+        # a person corrected is still, in part, a model's (ADR-071 pkt 17).
+        if context.acting_via:
+            return {}
+        at = timezone.now().isoformat()
+        return {
+            "units": {
+                **previous.units,
+                IMPORT_EDIT: {
+                    "text": "",
+                    "provenance": {"origin": ORIGIN_HUMAN, "at": at},
+                },
+            }
+        }
+    if (
         entry.translation_of_id is None
         or previous is None
         or previous.units is None
@@ -1089,12 +1174,18 @@ def publish_entry(
     idempotency_key: str,
     published_at: Any = None,
     person_decision: bool = False,
+    changed_at: datetime | None = None,
 ) -> tuple[ContentEntryPublication, bool]:
     """Publishes one article.
 
     The snapshot holds this entry alone, which is what keeps the cost flat: a
     blog with ten thousand articles publishes the ten-thousand-and-first in the
     same time as its first.
+
+    `changed_at` is the content import's alone (ADR-079 pkt 34; no endpoint
+    passes it): when a text brought from elsewhere last changed there. It
+    stands for the moment the draft was saved, which for an import is the
+    night of the import and says nothing a reader or a sitemap wants.
     """
     context = authorize_entitled(SITE_PUBLISH, SITES_ENABLED)
     normalized_key = _idempotency_key(idempotency_key)
@@ -1181,7 +1272,7 @@ def publish_entry(
         "version": entry.current_draft.number,
         # When the text last changed, not when it was last published: a
         # sitemap's `lastmod` (TL14).
-        "changed_at": entry.current_draft.created_at.isoformat(),
+        "changed_at": (changed_at or entry.current_draft.created_at).isoformat(),
         "blocks": entry.current_draft.blocks,
         # Read by the public media endpoint: an asset is fetchable by a visitor
         # only while something published names it.
@@ -1767,6 +1858,12 @@ def create_entry_translation(
         "slug": slug,
         "title": title,
     })
+    assert_slug_not_former(
+        organization_id=context.organization_id,
+        collection_id=source.collection_id,
+        locale=locale,
+        slug=slug,
+    )
     translation = record_entry_translation(
         context,
         source,
@@ -1776,6 +1873,18 @@ def create_entry_translation(
         idempotency_key=normalized_key,
         request_hash=request_hash,
     )
+    # The same article is filed under the same categories and tags, as a
+    # translation job's version is (ADR-070 pkt 16; ADR-079 pkt 26). Visitors
+    # see them with the version's own publication.
+    links = ContentEntryTag.all_objects.filter(
+        organization_id=context.organization_id, entry_id=source.id
+    ).values_list("tag_id", flat=True)
+    ContentEntryTag.all_objects.bulk_create([
+        ContentEntryTag(
+            organization_id=context.organization_id, entry_id=translation.id, tag_id=tag_id
+        )
+        for tag_id in links
+    ])
     return translation, True
 
 

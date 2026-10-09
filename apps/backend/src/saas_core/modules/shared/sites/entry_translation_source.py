@@ -94,6 +94,7 @@ from .collections import (
     take_down_entry,
 )
 from .content_type_limit import ContentTypeArchived
+from .entry_addresses import taken_entry_slugs
 from .language_decisions import REVIEW_GATE
 from .language_publication import _translated
 from .language_versions import _texts, site_locales
@@ -952,15 +953,14 @@ def _apply_meta(sibling: ContentEntry, written: Mapping[str, Mapping[str, Any]])
 
 
 def free_entry_slug(entry: ContentEntry, locale: str, wanted: str) -> str:
+    """A slug nobody of the type and language answers under — or once did:
+    an address picked by code never takes a redirect away (ADR-079 pkt 14)."""
     base = (wanted or entry.slug or "wpis")[:120].strip("-") or "wpis"
-    taken = set(
-        ContentEntry.all_objects.filter(
-            organization_id=entry.organization_id,
-            collection_id=entry.collection_id,
-            locale=locale,
-        )
-        .exclude(pk=entry.pk)
-        .values_list("slug", flat=True)
+    taken = taken_entry_slugs(
+        organization_id=entry.organization_id,
+        collection_id=entry.collection_id,
+        locale=locale,
+        exclude=entry.pk,
     )
     slug, number = base, 2
     while slug in taken:

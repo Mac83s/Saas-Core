@@ -153,7 +153,11 @@ def render_site_atom(*, host: str, locale: str | None = None) -> HttpResponse:
     # The feed's own `updated` is the newest article's, and "now" when there is
     # none: a feed that claims to change every time it is fetched teaches a
     # reader to stop trusting the field.
-    stamps = [entry["updated_at"] for entry in entries if entry["updated_at"] is not None]
+    # An entry's `updated` is when its text changed — the date its page, the
+    # sitemap's `lastmod` and its structured data give (TL14) — not when it
+    # was last published: an address change or an import publishes texts
+    # that did not change that day (ADR-079 „Uzupełnienie CT4”).
+    stamps = [entry["changed_at"] for entry in entries if entry["changed_at"] is not None]
     updated = max(stamps) if stamps else timezone.now()
 
     items = []
@@ -163,7 +167,7 @@ def render_site_atom(*, host: str, locale: str | None = None) -> HttpResponse:
             "<id>" + escape(address) + "</id>",
             "<title>" + escape(entry["title"]) + "</title>",
             '<link rel="alternate" href="' + escape(address) + '"/>',
-            "<updated>" + escape(_rfc3339(entry["updated_at"] or updated)) + "</updated>",
+            "<updated>" + escape(_rfc3339(entry["changed_at"] or updated)) + "</updated>",
         ]
         if entry["published_at"] is not None:
             parts.append("<published>" + escape(_rfc3339(entry["published_at"])) + "</published>")

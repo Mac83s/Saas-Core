@@ -794,7 +794,36 @@ def read_entry(
         .first()
     )
     if entry is None or entry.current_publication is None:
-        raise ContentNotFound
+        # Not an entry's address today; one it had leads to today's (ADR-079
+        # pkt 16) — the same rule as the public router's `moved_address`: a
+        # live address was asked first, so a former slug never shadows it.
+        former = (
+            _published(workspace)
+            .select_related("current_publication")
+            .filter(
+                collection__key=type_key,
+                current_publication__snapshot__locale=locale,
+                former_slugs__contains=[slug],
+            )
+            .order_by("id")
+            .first()
+        )
+        if former is None or former.current_publication is None:
+            raise ContentNotFound
+        if locale not in workspace.available:
+            # Straight to where the switched-off language leads — one hop.
+            versions = _versions(workspace, former.translation_group)
+            if not versions:
+                raise ContentNotFound
+            return {"entry": None, "moved": {"type": type_key, **versions[0]}}
+        return {
+            "entry": None,
+            "moved": {
+                "type": type_key,
+                "locale": locale,
+                "slug": str(former.current_publication.snapshot["slug"]),
+            },
+        }
     publication = entry.current_publication
     snapshot = publication.snapshot
     versions = _versions(workspace, entry.translation_group)

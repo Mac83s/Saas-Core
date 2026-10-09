@@ -1049,9 +1049,19 @@ def _find_entry(
     differently from a page.
     """
     wanted = _comparable_path(requested_path)
+    # An entry's address ends with its slug, whatever shape addresses had
+    # when it went out, and a published entry's row carries the slug of its
+    # publication (only `change_entry_slug` moves it, and publishes again in
+    # the same transaction). So the last segment names the candidates and the
+    # rest of the site's entries — with their snapshots — are never read
+    # (ADR-079 „Uzupełnienie CT4”; the full comparison below still decides).
+    last = wanted.rsplit("/", 1)[-1]
+    if not last:
+        raise PublicSiteNotFound
     entries = ContentEntry.all_objects.select_related("current_publication", "collection").filter(
         organization_id=organization_id,
         site_id=site_id,
+        slug=last,
         state=ContentEntryState.PUBLISHED,
         current_publication__isnull=False,
         # A switched-off type answers nothing (ADR-079 pkt 23).
