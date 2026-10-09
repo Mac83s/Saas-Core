@@ -550,6 +550,10 @@ export function SitesPanel({
     section === "contentType" ||
     section === "contentTypeSettings" ||
     ofTermList;
+  // What these screens are the parts of: a company's site — or, in the
+  // platform's own workspace, its content, which no site shows (ADR-079
+  // pkt 29).
+  const siteTitle = t(publisher ? "titlePublisher" : "title");
   const heading = (
     <PanelPage
       actions={
@@ -614,7 +618,9 @@ export function SitesPanel({
       }
       eyebrow={
         !hasSite
-          ? t("panelEyebrow")
+          ? publisher
+            ? siteTitle
+            : t("panelEyebrow")
           : section === "page"
             ? t("sections.pages.title")
             : ofTermList
@@ -626,7 +632,7 @@ export function SitesPanel({
                 ))
               : ofContentType
                 ? t("sections.content.title")
-                : t("title")
+                : siteTitle
       }
       eyebrowHref={
         !hasSite
@@ -647,7 +653,7 @@ export function SitesPanel({
       }
       title={
         !hasSite
-          ? t("title")
+          ? siteTitle
           : section === "page"
             ? (selectedPage?.name ?? t("sections.page.title"))
             : ofContentType && !ofTermList
@@ -1024,7 +1030,7 @@ export function SitesPanel({
       selectedSiteId &&
       typeId ? (
         <TermListPanel
-          address={domains.length ? publicSiteUrl(domains) : null}
+          address={siteAddress}
           key={`${selectedSiteId}-${typeId}-${section}`}
           kind={section === "contentTypeTags" ? "tags" : "categories"}
           onLoaded={setContentType}

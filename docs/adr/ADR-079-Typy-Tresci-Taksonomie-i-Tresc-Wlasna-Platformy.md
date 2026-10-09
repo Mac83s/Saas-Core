@@ -405,6 +405,46 @@ tylko, o co te trasy pytają.
     ani odnośnika do strony publicznej, więc operatorowi nic z panelu nie znika; ale
     między CT3 a stronami produktu opublikowany wpis platformy widać tylko w edytorze i w
     odczycie — dlatego reguła wchodzi razem z odczytem, nie wcześniej.
+
+    **Panel bez ekranów kreatora, API otwarte (pakiet PW1, 2026-10-09).** Strony
+    workspace'u nikt nie zobaczy, więc panel wydawcy nie ma ekranów, które ją budują:
+    „Podstron” z edytorem (a z nim wyglądu, szablonów i biblioteki sekcji), „Menu”,
+    „Publikacji” witryny, „Adresu i domen” ani „Wiadomości” (zapytań z formularza
+    podstrony). Menu do nich nie prowadzi, a adres wpisany ręcznie odpowiada „Nie ma
+    takiej strony” (ADR-077 pkt 9, uzupełniony). **API tych ekranów zostaje otwarte:**
+    operacje na podstronach, menu, publikacji witryny i domenach odpowiadają
+    workspace'owi platformy tak samo jak firmie. Odmowa oznaczałaby sprawdzanie rodzaju
+    workspace'u w każdej z kilkudziesięciu operacji modułu po to, by zatrzymać coś,
+    czego i tak nikt nie zobaczy — regułę „nie jest serwowane” trzyma jedno miejsce
+    (`serving_locales`); osierociłaby wiersze, które workspace już ma, bez drogi do ich
+    uporządkowania; a zewnętrzny automat dostawałby odmowy zależne od rodzaju
+    workspace'u zamiast od swojego nadania. Skutek, który trzeba znać: kto woła API
+    wprost, może w workspace platformy założyć i opublikować podstronę albo dodać domenę
+    — nic z tego nie odpowie pod żadnym hostem (brama TLS nie wyda certyfikatu,
+    „Uzupełnienie CT3” pkt 5). Z tego samego powodu zostaje nadanie
+    `custom_domain.enabled` z `provision_platform_workspace` (ADR-077 pkt 2): jest
+    martwe, a jego cofnięcie zmieniałoby odpowiedź API. Przypina to
+    `tests/test_sites_publisher_builder_api.py`, z obu stron — operacje odpowiadają,
+    host dalej 404. Usunięcie danych kreatora, które workspace już ma, jest osobną
+    decyzją o danych, nie o panelu.
+
+    **Czego treść potrzebuje od rekordu strony** (sprawdzone, zanim ekrany zniknęły):
+    - samego rekordu — dokładnie jednego (odczyt nie zgaduje, „Uzupełnienie CT3” pkt
+      3). Zakłada go ekran „Treści” przy pierwszym wejściu, pytając wyłącznie o język
+      (`publisher-start.tsx`), bez subdomeny i nazwy; adres na platformie rekord dostaje
+      od API sam;
+    - jego `default_locale` — języka, w którym platforma pisze: od niego liczą się
+      segmenty działów i grupy tłumaczeń. Ustawia się go raz, przy założeniu; żaden
+      ekran go nie zmienia, także u firmy. API przyjmuje tu tylko `pl` albo `en`
+      (`locale_not_seeded` — reguła szablonów kreatora), więc treść platformy też
+      zaczyna w jednym z nich;
+    - języków workspace'u (`Organization.public_locales`) — „Ustawienia → Języki”,
+      ekran spoza „Strony internetowej”; zostaje i ma skrót na ekranie „Dziś”;
+    - przyjętych tłumaczeń nazw typów, kategorii i tagów (pkt 33) — „Tłumaczenia”,
+      rodzaj „Nazwy typów treści, kategorii i tagów”; zostaje.
+
+    Publikacja wpisu nie zależy od publikacji witryny, menu, wyglądu, domeny ani
+    przekierowań: `publish_entry` czyta z rekordu strony tylko `default_locale`.
 30. **Odczyt po stronie serwera** — nowy moduł `shared/sites/content_reads.py`, czytający
     te same projekcje co publiczny router. **Zwraca części adresu, nigdy gotowe
     ścieżki:** adresy składa produkt, bo jego trasy mają własny kształt (na hoście
@@ -951,9 +991,11 @@ Odstępstwa i doprecyzowania:
    przed adresem typu i nie linkują opublikowanych podstron ani wersji językowych
    (`usePublisher` w `sites-panel.tsx`); „Widoczność w wyszukiwarkach” nie dostaje od
    API żadnego adresu (`read_search_visibility`). Panel firmy bez zmian — pilnują tego
-   jego dotychczasowe testy. Zostaje na osobny pakiet: ekrany kreatora u wydawcy
-   („Podstrony”, „Menu”, „Wygląd”, „Adres i domeny”, publikacja witryny) nadal
-   działają, choć nikt tych podstron nie zobaczy.
+   jego dotychczasowe testy. Ekrany kreatora u wydawcy („Podstrony”, „Menu”,
+   „Wygląd”, „Adres i domeny”, publikacja witryny) zdjął z panelu pakiet PW1
+   (2026-10-09) — pkt 29, akapit „Panel bez ekranów kreatora, API otwarte”; ekrany,
+   które zostały („Treści”, „Tłumaczenia”, „Integracje”), nie pokazują też linii ze
+   stanem witryny, a „Tłumaczenia” nie wymieniają ani nie zamawiają podstron.
 7. **Nazwy w innych językach zawsze wprost (rozszerzenie pkt 33).** Punkt mówił
    o stronie bez publikacji kreatora; po pkt 29 publikacja strony workspace'u niczego
    już nie wydaje, więc odczyt bierze przyjęte tłumaczenia nazw typów i pozycji wprost
@@ -1018,6 +1060,26 @@ rolą aplikacji.
 `category` w `read_terms` (drzewo przez `parent_slug`), pozycje wpisu z `terms` migawki,
 lista po kategorii z wpisami kategorii podrzędnych, adres pozycji per język i `moved`
 dla każdej innej nazwy pozycji, listy kategorii w wykazie sitemapy.
+
+### Uzupełnienie PW1 (2026-10-09): panel wydawcy bez ekranów kreatora
+
+Decyzja i jej powody stoją w pkt 29; co panel wydawcy oferuje — w ADR-077 pkt 9. Tu
+tylko to, co zostało świadomie, bo należy do ekranów treści albo do danych:
+
+1. **Przełączniki typu, które działają tylko na stronie kreatora** — „Pokaż w menu
+   strony” i udział w kanale RSS strony (`in_site_feed`) w „Ustawieniach typu treści”
+   — wydawca nadal widzi, choć u niego niczego nie zmieniają: menu i kanały produktu
+   są jego własne (pkt 32). To samo dotyczy bloku formularza kontaktowego i bloków
+   rekordów na żywo w edytorze wpisu: strony produktu je pomijają („Uzupełnienie CT3”
+   pkt 13).
+2. **Słowa.** Wpis menu i nagłówki zachowanych ekranów mówią u wydawcy „Treści
+   platformy”; „Dziś” mówi, co platforma napisała, nie w jakim stanie jest strona.
+   Słowa wewnątrz ekranów treści („Wpisy bloga” jako rodzaj w tłumaczeniach, „Otwórz
+   blog”) są wspólne z firmami i zostają.
+3. **Zlecenia tłumaczeń i „Do akceptacji”** mogą nadal wymieniać podstronę kreatora,
+   jeśli workspace takie ma i ktoś zamówił ich tłumaczenie wcześniej; pozycja nie
+   prowadzi wtedy do edytora, którego wydawca nie ma. „Przetłumacz brakujące” podstron
+   nie zamawia.
 
 ## Ryzyka
 
