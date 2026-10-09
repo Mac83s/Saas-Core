@@ -80,6 +80,9 @@ odpowiedź trafia wtedy do pamięci danych Next.js na ten czas. **W tym oknie wp
 usunięty albo przeniesiony pod inny adres dalej odpowiada tak, jak przed zmianą** — produkt,
 który o to prosi, przyjmuje, że wycofanie widać dopiero po upływie okna (albo po własnym
 `revalidatePath`).
+Strona, która zamiast tego sama trzyma to, co wyrenderowała (`export const revalidate`),
+musi powiedzieć też `export const dynamic = "force-static"` — inaczej pierwsza wizyta
+odpowiada 500 ([`product-public-site.md`](product-public-site.md) §4).
 
 ### 4.1 Wpis
 
@@ -362,7 +365,9 @@ do złożenia identyfikatorów — nie jest pobierany ani zapisywany. Węzeł ni
 
 `{ kind: "moved", to: { type, locale, slug } }` znaczy: pod tymi częściami adresu wpis
 odpowiada dziś. Strona robi **jedno 308** pod adres, który jej tabela z nich składa
-(`permanentRedirect(siteHref(…))`), i nic więcej.
+(`permanentRedirect(siteHref(…))`), i nic więcej. Z trzymanej strony takie 308 niesie
+przy świeżym renderowaniu `Location` dwa razy
+([`product-public-site.md`](product-public-site.md) §4).
 
 `moved` przychodzi w dwóch przypadkach:
 

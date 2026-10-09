@@ -236,6 +236,37 @@ Pozostałe zasady:
   i stopką renderuje strona (wyżej).
 - **Strona z parametrem odpowiada `notFound()` na wartość, której nie zna.** Tabela
   sprawdza tylko kształt adresu; czy rasa istnieje, wie strona.
+- **Strona trzymana nad odczytem treści mówi `dynamic = "force-static"`.** Strona,
+  która trzyma to, co wyrenderowała (`export const revalidate = N`, zwykle
+  z `generateStaticParams`), a czyta przez `#lib/product-site/content`
+  ([`product-content-read.md`](product-content-read.md) §4), ma w swoim pliku trzy
+  linie, nie dwie:
+
+  ```tsx
+  export const dynamic = "force-static";
+  export const revalidate = 300;
+  export function generateStaticParams() {
+    return []; // nic przy budowaniu: każda strona przy pierwszej wizycie
+  }
+  ```
+
+  Powód: odczyt jest `no-store`, dopóki wywołanie nie poda `revalidate`, a Next nie
+  trzyma strony, która przy renderowaniu trafia na taki odczyt — bez pierwszej linii
+  pierwsza wizyta odpowiada **500** (`DYNAMIC_SERVER_USAGE`). Widać to dopiero na
+  zbudowanej aplikacji (u pierwszego produktu dwa razy); typecheck i pozostałe testy
+  milczą, pilnuje tego `slot.test.ts` (§10, z granicami tam zapisanymi).
+  `force-static` daje stronie puste `searchParams`, nagłówki i ciasteczka — strona,
+  która czyta adres wizyty, zostaje więc `force-dynamic` i podaje `revalidate` samym
+  odczytom.
+- **Przekierowanie z trzymanej strony niesie `Location` dwa razy**, z tą samą
+  wartością, gdy strona renderuje się na nowo (z pamięci — raz). To zachowanie Next
+  16.2, nie rdzenia: renderowanie trzymanej strony zapisuje nagłówek na odpowiedzi
+  i we wpisie pamięci, a potem nagłówki wpisu są dopisywane do tej samej odpowiedzi.
+  Przeglądarki i curl biorą to bez szkody; ścisły klient skleja obie wartości w jeden
+  zły adres. Adres znany z góry przekierowuje więc reguła `moved` (§6 — proxy
+  odpowiada jednym nagłówkiem), a przekierowanie, które zna dopiero odczyt (`moved`
+  z odczytu treści), ma jeden nagłówek tylko ze strony renderowanej przy żądaniu
+  (`force-dynamic`, `revalidate` podane odczytom).
 - Kodowanych adresów nie pisze się ręcznie (§5). Odnośnik do panelu albo logowania
   to `Link` z `#i18n/navigation` (lint rdzenia — reguła
   `@next/next/no-html-link-for-pages` z zestawu Next — odrzuca `<a href="/panel">`
@@ -438,6 +469,15 @@ Trzy poziomy; każdy widzi coś, czego nie widzi poprzedni.
    istnieje. Tabela sprawdza kształt adresu; literówka w slugu celu
    (`/rasy-psow/labradorr`) przechodzi ten test, odpowiada 308 i kończy na `notFound()`
    strony — a przeglądarki pamiętają 308. `next build` złej tabeli nie odrzuca.
+   Ten sam plik czyta źródła plików stron: strona, która deklaruje `revalidate`
+   i przez importy (względne i `#…`, także przez własne moduły produktu, dowolnie
+   głęboko) sięga do `#lib/product-site/content`, a nie mówi `dynamic =
+   "force-static"` ani `"force-dynamic"`, nie przechodzi (§4). **Tego ta kontrola nie
+   widzi:** `import()`, odczytu napisanego bez klienta (własny `fetch`), ani
+   `revalidate` czy `dynamic` powiedzianego w układzie zamiast w pliku strony. Import
+   to nie wywołanie: trzymana strona, która bierze z takiego modułu coś innego albo
+   każdemu odczytowi podaje `revalidate`, też jest proszona o tę linię — nic jej to
+   nie kosztuje.
 2. **`/healthz`** — tabela, której nie da się obsłużyć, wyłącza publiczne strony
    produktu, a lista reguł, której nie da się obsłużyć, wyłącza reguły; panel działa
    dalej, ale `/healthz` odpowiada wtedy **503** (`product_site_off` albo

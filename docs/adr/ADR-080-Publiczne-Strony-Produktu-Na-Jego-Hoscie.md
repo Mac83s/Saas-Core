@@ -421,6 +421,30 @@ wprost), wejścia z `@import "tailwindcss" source(none)` i `@source` ograniczony
 plików stron produktu oraz komponentów, których używają, osobnego importu stylów
 treści dla `SiteEntryBody`, i pomiaru na zbudowanej aplikacji. Osobny pakiet.
 
+## Uzupełnienie 2026-10-09 (PR1d): strona trzymana nad odczytem treści i przekierowanie z takiej strony
+
+Dwa znaleziska pierwszego produktu, widoczne dopiero na zbudowanej aplikacji.
+Kontrakt: §4 i §10 [`product-public-site.md`](../architecture/product-public-site.md).
+
+1. **Trzymana strona nad odczytem treści mówi `dynamic = "force-static"`; pilnuje tego
+   test w bramce produktu.** Klient odczytu zostaje `no-store` (ADR-079: wycofany wpis
+   znika od razu, o okno prosi wywołujący), więc strona z `revalidate` bez tej linii
+   odpowiada 500 przy pierwszej wizycie. `slot.test.ts` czyta źródła plików stron
+   i idzie po importach (względnych i `#…`) do klienta; reguła ma przypadki na
+   przykładowych źródłach, bo rdzeń nie ma plików stron. Na stronach pierwszego
+   produktu: 18 plików, 0 znalezisk; bez linii `dynamic` — 7. Kontrola czyta importy,
+   nie wywołania, i nie widzi `import()`, własnego `fetch` ani konfiguracji w układzie.
+   *Odrzucone:* domyślne `revalidate` w kliencie — ciche okno na wycofany wpis.
+2. **Podwójne `Location` z trzymanej strony to zachowanie Next 16.2; rdzeń go nie
+   poprawia.** `prerenderToStream` zapisuje nagłówek na odpowiedzi i w `metadata.headers`
+   (`app-render.js`), a szablon strony dopisuje nagłówki wpisu pamięci natywnym
+   `appendHeader` do tej samej odpowiedzi (`build/templates/app-page.js`); render przy
+   żądaniu (`renderToStream`) wpisu nie zapisuje, więc daje jeden nagłówek. Ustalone
+   z kodu zainstalowanego Next, bez uruchamiania. Proxy i odpowiedzi rdzenia
+   (`answers.ts`) ustawiają `Location` raz i nie przechodzą przez pamięć stron. Kontrakt
+   mówi, czego się spodziewać i kiedy użyć reguły `moved` albo strony `force-dynamic`.
+   *Odrzucone:* usuwanie powtórzenia w proxy — proxy nie widzi odpowiedzi strony.
+
 ## Konsekwencje
 
 - Slot frontendu ma cztery nowe pliki; istniejące produkty dostają je puste przez
