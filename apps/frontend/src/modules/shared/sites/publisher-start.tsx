@@ -80,7 +80,8 @@ export function PublisherStart({
       <CardContent>
         <form
           className="max-w-sm space-y-5"
-          onSubmit={form.handleSubmit(submit)}
+          // The handler is built on submit: it reads the receipt's ref.
+          onSubmit={(event) => void form.handleSubmit(submit)(event)}
         >
           <Field>
             <FieldLabel htmlFor="publisher-start-language">
