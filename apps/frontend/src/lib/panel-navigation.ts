@@ -632,6 +632,27 @@ const PUBLISHER: Record<"work" | "company", PanelNavItem[]> = {
   company: [],
 };
 
+/**
+ * Whether a panel address is one a platform workspace's panel has not: a
+ * screen of the site builder, or the enquiries its forms bring (ADR-079 pkt
+ * 29) — the pages `companyOnly()` closes there. A screen both panels share
+ * asks before it draws a link it was given, e.g. the history of changes: what
+ * was done to a builder page stays told, but leads nowhere.
+ */
+export function goneForPublisher(href: string): boolean {
+  const path = href.split(/[?#]/)[0] ?? href;
+  return (
+    path === "/panel/sites" ||
+    [
+      "/panel/sites/pages",
+      "/panel/sites/menu",
+      "/panel/sites/publication",
+      "/panel/sites/address",
+      "/panel/notifications",
+    ].some((gone) => matches(path, gone))
+  );
+}
+
 /** Whether the deployment's profile switches a feature on (`deployment.json`). */
 export function profileOffers(feature: string): boolean {
   return (

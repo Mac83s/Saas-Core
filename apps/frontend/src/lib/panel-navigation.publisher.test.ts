@@ -99,6 +99,7 @@ vi.mock("../product", () => ({
 }));
 
 const {
+  goneForPublisher,
   menuEntryFor,
   mobileTabs,
   panelAccess,
@@ -227,6 +228,30 @@ describe("workspace platformy: panel wydawcy (ADR-077 pkt 9)", () => {
     expect(
       offered.filter((href) => href.startsWith("/panel/sites/pages")),
     ).toEqual([]);
+  });
+
+  it("zna adresy, których panel wydawcy nie ma — żeby wspólny ekran do nich nie prowadził", () => {
+    for (const gone of [
+      "/panel/sites",
+      "/panel/sites?site=019f0000",
+      "/panel/sites/pages/019f0000",
+      "/panel/sites/pages/019f0000?language=en",
+      "/panel/sites/menu",
+      "/panel/sites/publication",
+      "/panel/sites/address",
+      "/panel/notifications",
+    ])
+      expect(goneForPublisher(gone), gone).toBe(true);
+    for (const kept of [
+      "/panel",
+      "/panel/sites/content",
+      "/panel/sites/content/019f0000/categories",
+      "/panel/sites/blog?site=019f0000",
+      "/panel/sites/translations",
+      "/panel/sites/integrations",
+      "/panel/settings/languages",
+    ])
+      expect(goneForPublisher(kept), kept).toBe(false);
   });
 
   it("nagłówek strony bierze nazwę z menu wydawcy, a w firmie z menu firmy", () => {

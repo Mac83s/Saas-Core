@@ -21,9 +21,11 @@ import {
 } from "@saas-core/ui/components/data-table";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { usePublisher } from "#components/panel/panel-access";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { formatDateTime } from "#lib/dates";
+import { goneForPublisher } from "#lib/panel-navigation";
 
 const PAGE_SIZE = 25;
 
@@ -45,6 +47,7 @@ function humanize(key: string): string {
 /** `group`: only the changes of one settings group (its „Historia zmian” link). */
 export function HistoryPanel({ group }: { group?: string } = {}) {
   const t = useTranslations("History");
+  const publisher = usePublisher();
   const locale = useLocale();
   const labels = useDataTableLabels();
   const [query, setQuery] = useState<DataTableQuery>({
@@ -223,7 +226,10 @@ export function HistoryPanel({ group }: { group?: string } = {}) {
             {entry.target ? (
               <>
                 {": "}
-                {entry.target.href ? (
+                {entry.target.href &&
+                // What was done to a builder page is told in a platform
+                // workspace too, but its panel has no such screen to open.
+                !(publisher && goneForPublisher(entry.target.href)) ? (
                   <Link
                     className="text-primary hover:underline"
                     href={entry.target.href}

@@ -249,7 +249,8 @@ strony” (`lib/company-only.ts`), zamiast pokazać ekran, którego każde zapyt
 kończy się odmową. Tak samo odpowiadają ekrany kreatora: `/panel/sites` („Podstrony”),
 `/panel/sites/pages/<id>`, `/panel/sites/menu`, `/panel/sites/publication`,
 `/panel/sites/address` oraz `/panel/notifications` — choć ich API zostaje otwarte
-(ADR-079 pkt 29, akapit o API).
+(ADR-079 pkt 29, akapit o API). Ekran wspólny dla obu paneli, który dostaje taki adres
+od API — „Historia zmian” — u wydawcy go nie linkuje (`goneForPublisher`).
 
 **Produkt.** Wpisy menu, zakładki ustawień i pulpit produktu działają u wydawcy jak
 w firmie: moduł, uprawnienie, typ organizacji. Wydawcy pokaże się wpis stojący za

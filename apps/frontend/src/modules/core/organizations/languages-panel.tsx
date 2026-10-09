@@ -41,6 +41,7 @@ import {
 } from "@saas-core/ui/components/field";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { usePublisher } from "#components/panel/panel-access";
 import { PanelPage } from "#components/panel/panel-page";
 import { companyLocales } from "#lib/company-locales";
 import { useDataTableLabels } from "#lib/data-table-labels";
@@ -69,6 +70,9 @@ export function useCompanyLanguages(): string[] | undefined {
  */
 export function LanguagesPanel({ children }: { children?: ReactNode } = {}) {
   const t = useTranslations("Languages");
+  // A platform workspace's languages are the ones its content is written
+  // in: the screen says so, in place of a company's sites, card and e-mails.
+  const publisher = usePublisher();
   const settings = useTranslations("Settings");
   const common = useTranslations("Common");
   const labels = useDataTableLabels();
@@ -182,7 +186,13 @@ export function LanguagesPanel({ children }: { children?: ReactNode } = {}) {
         <span className="flex flex-wrap gap-2">
           {row.first ? <Badge>{t("customersLanguage")}</Badge> : null}
           {row.protectedBy ? (
-            <Badge variant="outline">{t(`protected.${row.protectedBy}`)}</Badge>
+            <Badge variant="outline">
+              {t(
+                publisher && t.has(`protectedPublisher.${row.protectedBy}`)
+                  ? `protectedPublisher.${row.protectedBy}`
+                  : `protected.${row.protectedBy}`,
+              )}
+            </Badge>
           ) : null}
         </span>
       ),
@@ -247,7 +257,7 @@ export function LanguagesPanel({ children }: { children?: ReactNode } = {}) {
           </Button>
         ) : null
       }
-      description={t("description")}
+      description={t(publisher ? "descriptionPublisher" : "description")}
       eyebrow={settings("eyebrow")}
       notice={notice}
       title={t("title")}
@@ -292,7 +302,9 @@ export function LanguagesPanel({ children }: { children?: ReactNode } = {}) {
         <DialogContent closeLabel={common("close")}>
           <DialogHeader>
             <DialogTitle>{t("add")}</DialogTitle>
-            <DialogDescription>{t("addDescription")}</DialogDescription>
+            <DialogDescription>
+              {t(publisher ? "addDescriptionPublisher" : "addDescription")}
+            </DialogDescription>
           </DialogHeader>
           <form
             className="space-y-4"

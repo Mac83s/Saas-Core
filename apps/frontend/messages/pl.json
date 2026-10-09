@@ -96,6 +96,7 @@
   "Languages": {
     "title": "Języki i tłumaczenia",
     "description": "Języki, w których firma mówi do klientów: strony, wizytówka, rezerwacje i e-maile. Pierwszy to język klientów.",
+    "descriptionPublisher": "Języki, w których platforma pisze i publikuje treści. Kolejne dodajesz tutaj, a wpisy tłumaczysz w „Tłumaczeniach”.",
     "caption": "Języki firmy w kolejności",
     "colLanguage": "Język",
     "colRole": "Rola",
@@ -105,11 +106,15 @@
       "site_default_not_removable": "Język źródłowy strony",
       "profile_locale_not_removable": "Język wizytówki"
     },
+    "protectedPublisher": {
+      "site_default_not_removable": "Język źródłowy treści"
+    },
     "actionsFor": "Działania dla języka {language}",
     "makeFirst": "Ustaw jako język klientów",
     "madeFirst": "{language} jest teraz językiem klientów.",
     "add": "Dodaj język",
     "addDescription": "Dodanie języka niczego nie tłumaczy i nie zużywa kredytów: strony w nim pojawią się, gdy będą przetłumaczone.",
+    "addDescriptionPublisher": "Dodanie języka niczego nie tłumaczy i nie zużywa kredytów: wpisy w nim pojawią się, gdy będą przetłumaczone i opublikowane.",
     "addBlocked": "Plan nie pozwala teraz dodać języka. Usunąć albo przestawić język można zawsze.",
     "added": "Dodano język {language}.",
     "remove": "Usuń język",
@@ -2607,7 +2612,8 @@
       },
       "contentTypeSettings": {
         "title": "Ustawienia typu treści",
-        "description": "Nazwa, adres, miejsce w menu i to, czym wpisy są dla wyszukiwarek i czytników RSS."
+        "description": "Nazwa, adres, miejsce w menu i to, czym wpisy są dla wyszukiwarek i czytników RSS.",
+        "descriptionPublisher": "Nazwa, adres i to, czym wpisy są dla wyszukiwarek."
       },
       "translations": {
         "title": "Tłumaczenia",
@@ -2672,6 +2678,7 @@
       "name": "Nazwa",
       "nameExample": "np. Realizacje",
       "nameHint": "Nagłówek listy wpisów na stronie i nazwa w panelu.",
+      "nameHintPublisher": "Nazwa typu w panelu i na stronach serwisu.",
       "address": "Adres",
       "addressOther": "Adres w innych językach",
       "addressOtherHint": "Puste pole oznacza ten sam adres co w języku strony.",
@@ -2691,15 +2698,17 @@
       "isOff": "Ten typ treści jest wyłączony: nie ma go na stronie, a jego wpisów nie można zmieniać ani publikować — można je tylko wycofać. Włączysz go na liście typów treści.",
       "detailsTitle": "Nazwa i rodzaj treści",
       "detailsDescription": "Nagłówek listy wpisów, dane dla wyszukiwarek i kanał RSS zmieniają się na stronie od razu. Nazwa w menu strony zmieni się po najbliższej publikacji strony.",
+      "detailsDescriptionPublisher": "Nazwa typu i to, czym jego wpisy są dla wyszukiwarek. Zmiany działają od razu.",
       "save": "Zapisz",
       "saved": "Zapisano ustawienia typu treści.",
       "addressTitle": "Adres",
       "menuTitle": "Menu strony",
       "inMenu": "Pokaż ten typ treści w menu strony",
       "inMenuHint": "Link pojawi się na końcu menu po najbliższej publikacji strony.",
-      "automationTitle": "Automatyzacja",
+      "automationTitle": "Integracje",
       "offTitle": "Wyłączenie typu treści",
       "offDescription": "Wyłączony typ znika ze strony razem z wpisami, ale nic nie jest usuwane. Po włączeniu wszystko wraca pod te same adresy.",
+      "offDescriptionPublisher": "Wyłączony typ znika ze stron serwisu razem z wpisami, ale nic nie jest usuwane. Po włączeniu wszystko wraca pod te same adresy.",
       "offButton": "Wyłącz typ treści",
       "offDialogTitle": "Wyłączyć typ treści „{name}”?",
       "offDialogLoading": "Sprawdzam, co się zmieni…",
@@ -2759,6 +2768,7 @@
         "published": "Na stronie",
         "draft": "Szkic"
       },
+      "statePublishedPublisher": "Opublikowany",
       "untranslatedCount": "{count, plural, one {brakuje # fragmentu} few {brakuje # fragmentów} many {brakuje # fragmentów} other {brakuje # fragmentu}}",
       "noMetadata": "bez własnego adresu, tytułu lub opisu",
       "onSite": "na stronie",

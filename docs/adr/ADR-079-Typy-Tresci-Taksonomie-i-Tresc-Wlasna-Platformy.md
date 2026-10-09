@@ -1063,23 +1063,32 @@ dla każdej innej nazwy pozycji, listy kategorii w wykazie sitemapy.
 
 ### Uzupełnienie PW1 (2026-10-09): panel wydawcy bez ekranów kreatora
 
-Decyzja i jej powody stoją w pkt 29; co panel wydawcy oferuje — w ADR-077 pkt 9. Tu
-tylko to, co zostało świadomie, bo należy do ekranów treści albo do danych:
+Decyzja i jej powody stoją w pkt 29; co panel wydawcy oferuje — w ADR-077 pkt 9. Tu to,
+co wyszło dopiero przy przejściu panelu w przeglądarce, i to, co zostało świadomie:
 
-1. **Przełączniki typu, które działają tylko na stronie kreatora** — „Pokaż w menu
-   strony” i udział w kanale RSS strony (`in_site_feed`) w „Ustawieniach typu treści”
-   — wydawca nadal widzi, choć u niego niczego nie zmieniają: menu i kanały produktu
-   są jego własne (pkt 32). To samo dotyczy bloku formularza kontaktowego i bloków
-   rekordów na żywo w edytorze wpisu: strony produktu je pomijają („Uzupełnienie CT3”
-   pkt 13).
+1. **Ekrany, które zostały, nie prowadzą do tych, których nie ma.** Dwa miejsca wyszły
+   dopiero w przeglądarce. „Historia zmian” linkowała każdy wiersz o podstronie, witrynie
+   i domenie do ekranu kreatora (adres podaje API, `history_targets.py`): u wydawcy
+   wiersz mówi, czego dotyczył, i nigdzie nie prowadzi (`goneForPublisher` w
+   `panel-navigation.ts` — jedna lista adresów, których panel wydawcy nie ma).
+   „Ustawienia typu treści” miały dwa przełączniki, które czyta wyłącznie strona
+   kreatora — udział w kanale RSS strony (`in_site_feed`) i „Pokaż w menu strony”,
+   czekające na publikację witryny, której wydawca nie ma jak zrobić: u wydawcy nie są
+   rysowane (odczyt dla stron produktu żadnego z nich nie oddaje; menu i kanały
+   produktu są jego własne, pkt 32). Typ dla wyszukiwarek (`schema_type`) zostaje.
 2. **Słowa.** Wpis menu i nagłówki zachowanych ekranów mówią u wydawcy „Treści
-   platformy”; „Dziś” mówi, co platforma napisała, nie w jakim stanie jest strona.
-   Słowa wewnątrz ekranów treści („Wpisy bloga” jako rodzaj w tłumaczeniach, „Otwórz
-   blog”) są wspólne z firmami i zostają.
-3. **Zlecenia tłumaczeń i „Do akceptacji”** mogą nadal wymieniać podstronę kreatora,
-   jeśli workspace takie ma i ktoś zamówił ich tłumaczenie wcześniej; pozycja nie
-   prowadzi wtedy do edytora, którego wydawca nie ma. „Przetłumacz brakujące” podstron
-   nie zamawia.
+   platformy”; „Dziś” mówi, co platforma napisała, nie w jakim stanie jest strona;
+   „Języki” mówią o językach treści i o „języku źródłowym treści”; opublikowany wpis
+   jest w „Tłumaczeniach” „Opublikowany”, nie „Na stronie”. Słowa wewnątrz ekranów
+   treści wspólne z firmami („Wpisy bloga” jako rodzaj, „Otwórz blog”, „na stronie”
+   w podpowiedziach edytora wpisu) zostają.
+3. **Zostało świadomie.** Blok formularza kontaktowego i bloki rekordów na żywo są
+   nadal w bibliotece sekcji wpisu, choć strony produktu je pomijają („Uzupełnienie
+   CT3” pkt 13). „Zlecenia” i „Do akceptacji” mogą wymieniać podstronę kreatora,
+   jeśli workspace takie ma i ktoś zamówił ich tłumaczenie wcześniej — pozycja nie
+   prowadzi wtedy do edytora; „Przetłumacz brakujące” podstron nie zamawia. Adresy
+   działu per język („Adres w każdym języku”) zostają: odczyt oddaje je jako
+   informację, a wpis nadal nosi swój adres.
 
 ## Ryzyka
 

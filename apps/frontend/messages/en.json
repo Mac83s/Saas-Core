@@ -96,6 +96,7 @@
   "Languages": {
     "title": "Languages and translations",
     "description": "The languages the company speaks to its customers in: pages, profile, bookings and e-mails. The first is its customers' language.",
+    "descriptionPublisher": "The languages the platform writes and publishes in. More are added here, and entries are translated in “Translations”.",
     "caption": "The company's languages in order",
     "colLanguage": "Language",
     "colRole": "Role",
@@ -105,11 +106,15 @@
       "site_default_not_removable": "A site's source language",
       "profile_locale_not_removable": "The profile's language"
     },
+    "protectedPublisher": {
+      "site_default_not_removable": "Source language of the content"
+    },
     "actionsFor": "Actions for {language}",
     "makeFirst": "Make it the customers' language",
     "madeFirst": "{language} is now the customers' language.",
     "add": "Add a language",
     "addDescription": "Adding a language translates nothing and spends no credits: its pages appear once they are translated.",
+    "addDescriptionPublisher": "Adding a language translates nothing and uses no credits: entries appear in it once they are translated and published.",
     "addBlocked": "The plan does not allow adding a language now. Removing or reordering always works.",
     "added": "{language} added.",
     "remove": "Remove the language",
@@ -2607,7 +2612,8 @@
       },
       "contentTypeSettings": {
         "title": "Content type settings",
-        "description": "The name, the address, the place in the menu, and what the entries are to search engines and RSS readers."
+        "description": "The name, the address, the place in the menu, and what the entries are to search engines and RSS readers.",
+        "descriptionPublisher": "Name, address and what the entries are to search engines."
       },
       "translations": {
         "title": "Translations",
@@ -2672,6 +2678,7 @@
       "name": "Name",
       "nameExample": "e.g. Projects",
       "nameHint": "The heading of the list of entries on the site and the name in the panel.",
+      "nameHintPublisher": "The type's name in the panel and on the service's pages.",
       "address": "Address",
       "addressOther": "Address in other languages",
       "addressOtherHint": "An empty field means the same address as in the site's language.",
@@ -2691,15 +2698,17 @@
       "isOff": "This content type is switched off: it is not on the site, and its entries cannot be changed or published — only withdrawn. Switch it on in the list of content types.",
       "detailsTitle": "Name and kind of content",
       "detailsDescription": "The heading of the list of entries, the data for search engines and the RSS feed change on the site at once. The name in the site's menu changes with the site's next publication.",
+      "detailsDescriptionPublisher": "The type's name and what its entries are to search engines. Changes take effect at once.",
       "save": "Save",
       "saved": "Content type settings saved.",
       "addressTitle": "Address",
       "menuTitle": "Site menu",
       "inMenu": "Show this content type in the site's menu",
       "inMenuHint": "The link appears at the end of the menu after the site's next publication.",
-      "automationTitle": "Automation",
+      "automationTitle": "Integrations",
       "offTitle": "Switching the content type off",
       "offDescription": "A switched-off type leaves the site with its entries, but nothing is removed. Switched on again, everything returns to the same addresses.",
+      "offDescriptionPublisher": "A type that is switched off disappears from the service's pages with its entries, but nothing is deleted. Switched on again, everything is back at the same addresses.",
       "offButton": "Switch content type off",
       "offDialogTitle": "Switch off the content type “{name}”?",
       "offDialogLoading": "Checking what will change…",
@@ -2759,6 +2768,7 @@
         "published": "On the site",
         "draft": "Draft"
       },
+      "statePublishedPublisher": "Published",
       "untranslatedCount": "{count, plural, one {# fragment missing} other {# fragments missing}}",
       "noMetadata": "no address, title or description of its own",
       "onSite": "on the site",

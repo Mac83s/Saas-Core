@@ -147,6 +147,18 @@ async function siteTargets(
   return targets;
 }
 
+/** A state's name. An entry that is out is „Na stronie” in a company's
+ *  panel; the platform's own workspace has no site of its own for it to be
+ *  on (ADR-079 pkt 29), so there it is „Opublikowany”. */
+function useStateName() {
+  const t = useTranslations("Sites.translationsCentre");
+  const publisher = usePublisher();
+  return (state: CellState) =>
+    publisher && state === "published"
+      ? t("statePublishedPublisher")
+      : t(`states.${state}`);
+}
+
 function useReasonText() {
   const t = useTranslations("Sites.languageMode.banner.reasons");
   return (reason: string) => (t.has(reason) ? t(reason) : t("other"));
@@ -257,6 +269,7 @@ function CellBadge({
   onAccept?: () => void;
 }) {
   const t = useTranslations("Sites.translationsCentre");
+  const stateName = useStateName();
   const language = nativeName(cell.locale);
   const actions: ReactNode[] = [];
   if (edit && "href" in edit)
@@ -325,7 +338,7 @@ function CellBadge({
     );
   return (
     <div className="space-y-1">
-      <Badge variant={TONE[cell.state]}>{t(`states.${cell.state}`)}</Badge>
+      <Badge variant={TONE[cell.state]}>{stateName(cell.state)}</Badge>
       {actions.length ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {actions}
@@ -390,6 +403,7 @@ export function TranslationsOverview({
   const review = useTranslations("Translations.review");
   const skipped = useTranslations("Sites.languageMode.skipped");
   const reasonText = useReasonText();
+  const stateName = useStateName();
   const labels = useDataTableLabels();
   const offer = useTranslationOffer();
   // The list opens on pages; in the platform's own workspace, which has no
@@ -816,7 +830,7 @@ export function TranslationsOverview({
               <option value="">{t("allStates")}</option>
               {STATES[kind].map((item) => (
                 <option key={item} value={item}>
-                  {t(`states.${item}`)}
+                  {stateName(item)}
                 </option>
               ))}
             </DataTableFilter>

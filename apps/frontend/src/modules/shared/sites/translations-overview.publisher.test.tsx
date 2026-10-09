@@ -146,6 +146,9 @@ test("wydawca: lista otwiera się na wpisach, a podstron kreatora nie ma wśród
     name: "Wpisy w pozostałych językach",
   });
   expect(await within(table).findByText("Jak wybrać szczeniaka")).toBeTruthy();
+  // Out is „Opublikowany”: there is no site of its own for it to be „on”.
+  expect(within(table).getByText("Opublikowany")).toBeTruthy();
+  expect(within(table).queryByText("Na stronie")).toBeNull();
   // Entries first — never the builder's pages, not even as the first ask.
   expect(
     api.getSiteTranslationOverview.mock.calls.map(([, query]) => query.kind),

@@ -37,6 +37,7 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { usePublisher } from "#components/panel/panel-access";
 import { Link } from "#i18n/navigation";
 import { AutomationPolicyField } from "./automation-policy";
 import { CollectionPaths } from "./collection-paths";
@@ -64,6 +65,11 @@ export function ContentTypeSettings({
 }) {
   const t = useTranslations("Sites");
   const locale = useLocale();
+  // The platform's own workspace has no builder site (ADR-079 pkt 29): what
+  // a type is to the site's feed and to the site's menu changes nothing its
+  // readers see, and the menu waits for a publication its panel has not. So
+  // neither switch is drawn there, and the words name the service's pages.
+  const publisher = usePublisher();
   const [collection, setCollection] = useState<ContentCollection | null>();
   const [options, setOptions] = useState<ContentSchemaTypeOption[]>([]);
   const [name, setName] = useState("");
@@ -186,7 +192,11 @@ export function ContentTypeSettings({
         <CardHeader>
           <CardTitle>{t("contentTypes.detailsTitle")}</CardTitle>
           <CardDescription>
-            {t("contentTypes.detailsDescription")}
+            {t(
+              publisher
+                ? "contentTypes.detailsDescriptionPublisher"
+                : "contentTypes.detailsDescription",
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -211,7 +221,11 @@ export function ContentTypeSettings({
                   value={name}
                 />
                 <FieldDescription id="type-settings-name-hint">
-                  {t("contentTypes.nameHint")}
+                  {t(
+                    publisher
+                      ? "contentTypes.nameHintPublisher"
+                      : "contentTypes.nameHint",
+                  )}
                 </FieldDescription>
                 <FieldError>{nameProblem}</FieldError>
               </Field>
@@ -237,20 +251,24 @@ export function ContentTypeSettings({
                   {chosen ? schemaTypeText(chosen, locale, "hint") : ""}
                 </FieldDescription>
               </Field>
-              <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
-                <input
-                  checked={inFeed}
-                  className="mt-1"
-                  onChange={(event) => setInFeed(event.target.checked)}
-                  type="checkbox"
-                />
-                <span>
-                  <span className="font-medium">{t("contentTypes.feed")}</span>
-                  <span className="block text-muted-foreground">
-                    {t("contentTypes.feedHint")}
+              {publisher ? null : (
+                <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                  <input
+                    checked={inFeed}
+                    className="mt-1"
+                    onChange={(event) => setInFeed(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>
+                    <span className="font-medium">
+                      {t("contentTypes.feed")}
+                    </span>
+                    <span className="block text-muted-foreground">
+                      {t("contentTypes.feedHint")}
+                    </span>
                   </span>
-                </span>
-              </label>
+                </label>
+              )}
             </FieldGroup>
             <Button disabled={busy || !changed} type="submit">
               <SaveIcon aria-hidden="true" />
@@ -280,27 +298,35 @@ export function ContentTypeSettings({
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("contentTypes.menuTitle")}</CardTitle>
+          <CardTitle>
+            {t(
+              publisher
+                ? "contentTypes.automationTitle"
+                : "contentTypes.menuTitle",
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
-            <input
-              checked={collection.show_in_navigation}
-              className="mt-1"
-              disabled={busy}
-              onChange={(event) => {
-                const show = event.target.checked;
-                void run(() => setCollectionNavigation(collection.id, show));
-              }}
-              type="checkbox"
-            />
-            <span>
-              <span className="font-medium">{t("contentTypes.inMenu")}</span>
-              <span className="block text-muted-foreground">
-                {t("contentTypes.inMenuHint")}
+          {publisher ? null : (
+            <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+              <input
+                checked={collection.show_in_navigation}
+                className="mt-1"
+                disabled={busy}
+                onChange={(event) => {
+                  const show = event.target.checked;
+                  void run(() => setCollectionNavigation(collection.id, show));
+                }}
+                type="checkbox"
+              />
+              <span>
+                <span className="font-medium">{t("contentTypes.inMenu")}</span>
+                <span className="block text-muted-foreground">
+                  {t("contentTypes.inMenuHint")}
+                </span>
               </span>
-            </span>
-          </label>
+            </label>
+          )}
           <AutomationPolicyField
             busy={busy}
             id="type-settings-policy"
@@ -317,7 +343,13 @@ export function ContentTypeSettings({
       <Card>
         <CardHeader>
           <CardTitle>{t("contentTypes.offTitle")}</CardTitle>
-          <CardDescription>{t("contentTypes.offDescription")}</CardDescription>
+          <CardDescription>
+            {t(
+              publisher
+                ? "contentTypes.offDescriptionPublisher"
+                : "contentTypes.offDescription",
+            )}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Button
