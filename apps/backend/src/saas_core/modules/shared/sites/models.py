@@ -2008,6 +2008,63 @@ class ContentEntryPublication(TenantScopedModel):
         ]
 
 
+class ContentImportKind(models.TextChoices):
+    TYPE = "type", "Typ treści"
+    CATEGORY = "category", "Kategoria"
+    TAG = "tag", "Tag"
+    ENTRY = "entry", "Wpis"
+
+
+class ContentImportRecord(TenantScopedModel):
+    """What a content import brought in, under the name it had where it came
+    from (`content_import`, ADR-079 pkt 34).
+
+    One row per object of a source document: a content type, a category, a
+    tag, or one language version of an entry. It is how a second run of the
+    same document finds what the first one made (whoever runs it), and what
+    lets it tell a person's later edit from its own writing: `fields` keeps
+    the hash of every field the import last wrote, and `written_version` the
+    version of an entry's text it saved. A value that no longer hashes to
+    what the import wrote is somebody's edit, and is left alone.
+
+    `fields` also keeps what the document says about where each text came
+    from — who wrote it and the fingerprint of the source text a translation
+    was made from — as the document gave it."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="+")
+    #: The document's `source`: the namespace its external ids are unique in.
+    source = models.CharField(max_length=80)
+    kind = models.CharField(max_length=16, choices=ContentImportKind.choices)
+    external_id = models.CharField(max_length=200)
+    #: An entry's language version; empty for everything else.
+    locale = models.CharField(max_length=10, blank=True, default="")
+    object_id = models.UUIDField()
+    fields = models.JSONField(default=dict, blank=True)
+    #: The number of the entry version the import last saved.
+    written_version = models.PositiveBigIntegerField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "site", "source", "kind", "external_id", "locale"],
+                name="sites_importrecord_external_uq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "kind", "object_id"], name="sites_importrecord_object_idx"
+            ),
+        ]
+
+
 class AutomationGrantMode(models.TextChoices):
     SUGGEST_ONLY = "suggest_only", "Tylko propozycje"
     DRAFT_WRITE = "draft_write", "Zapis draftu"

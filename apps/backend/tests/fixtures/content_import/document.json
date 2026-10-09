@@ -1,0 +1,514 @@
+{
+  "schema": "content-import.v1",
+  "source": "core-fixture",
+  "organization": "REPLACE-WITH-THE-ORGANIZATION-SLUG",
+  "default_locale": "pl",
+  "types": [
+    {
+      "key": "poradnik",
+      "name": "Poradnik",
+      "base_path": "poradnik",
+      "locale_paths": {
+        "en": "guide",
+        "de": "ratgeber"
+      },
+      "schema_type": "BlogPosting"
+    }
+  ],
+  "categories": [
+    {
+      "id": "cat-care",
+      "type": "poradnik",
+      "names": {
+        "pl": "Pielęgnacja",
+        "en": "Care",
+        "de": "Pflege",
+        "es": "Cuidado",
+        "ru": "Уход"
+      },
+      "slugs": {
+        "pl": "pielegnacja"
+      },
+      "former_slugs": [
+        "pielegnacja-psa"
+      ]
+    },
+    {
+      "id": "cat-coat",
+      "type": "poradnik",
+      "parent": "cat-care",
+      "names": {
+        "pl": "Sierść",
+        "en": "Coat",
+        "de": "Fell",
+        "es": "Pelo",
+        "ru": "Шерсть"
+      }
+    },
+    {
+      "id": "cat-brushing",
+      "type": "poradnik",
+      "parent": "cat-coat",
+      "names": {
+        "pl": "Czesanie",
+        "en": "Brushing",
+        "de": "Bürsten",
+        "es": "Cepillado",
+        "ru": "Расчёсывание"
+      }
+    },
+    {
+      "id": "cat-health",
+      "type": "poradnik",
+      "names": {
+        "pl": "Zdrowie",
+        "en": "Health"
+      },
+      "slugs": {
+        "pl": "zdrowie",
+        "en": "health"
+      }
+    },
+    {
+      "id": "cat-orphan",
+      "type": "poradnik",
+      "parent": "cat-nobody",
+      "names": {
+        "pl": "Bez rodzica"
+      }
+    }
+  ],
+  "tags": [
+    {
+      "id": "tag-puppies",
+      "names": {
+        "pl": "Szczenięta",
+        "en": "Puppies",
+        "de": "Welpen",
+        "es": "Cachorros",
+        "ru": "Щенки"
+      }
+    },
+    {
+      "id": "tag-coat",
+      "names": {
+        "pl": "Długa sierść",
+        "en": "Long coat"
+      },
+      "former_slugs": [
+        "dlugowlose"
+      ]
+    },
+    {
+      "id": "tag-walks",
+      "names": {
+        "pl": "Spacery"
+      }
+    }
+  ],
+  "entries": [
+    {
+      "id": "post-1",
+      "type": "poradnik",
+      "categories": [
+        "cat-brushing"
+      ],
+      "tags": [
+        "tag-coat",
+        "tag-puppies"
+      ],
+      "author_name": "Anna Nowak",
+      "versions": [
+        {
+          "locale": "pl",
+          "title": "Jak czesać psa, żeby to lubił",
+          "excerpt": "Szczotka, kolejność i nagrody: czesanie w dziesięć minut.",
+          "slug": "jak-czesac-psa",
+          "former_slugs": [
+            "czesanie-psa",
+            "czesanie"
+          ],
+          "body": {
+            "html": "<h2>Jak <a href=\"https://example.com/szczotki\">wybrać szczotkę</a></h2><p>Czesz psa <u>regularnie</u>, najlepiej <b>co tydzień</b>. Zobacz też <a href=\"/poradnik/kapiel-psa/\">kąpiel psa</a>.</p><img src=\"https://stary-serwis.example/img/szczotka.png\"><table><tr><th>Sierść</th><th>Jak często</th></tr><tr><td>Krótka</td><td>raz w tygodniu</td></tr><tr><td colspan=\"2\">Długa — co dwa dni</td></tr></table><h1>Na koniec</h1><p>Nagroda po każdym czesaniu.</p>"
+          },
+          "cover": {
+            "file": "pictures/okladka-czesanie.jpg",
+            "alt": "Pies czesany szczotką"
+          },
+          "images": {
+            "https://stary-serwis.example/img/szczotka.png": {
+              "file": "pictures/szczotka.png",
+              "alt": "Szczotka do długiej sierści"
+            }
+          },
+          "accept_losses": [
+            "heading_link_dropped"
+          ],
+          "status": "published",
+          "published_at": "2023-03-14T08:30:00+01:00",
+          "changed_at": "2025-02-01T10:00:00+01:00",
+          "origin": "human"
+        },
+        {
+          "locale": "en",
+          "title": "How to brush a dog so it likes it",
+          "slug": "how-to-brush-a-dog",
+          "former_slugs": [
+            "brushing-a-dog"
+          ],
+          "body": {
+            "html": "<h2>How to choose a brush</h2><p>Brush your dog <b>every week</b>. See also <a href=\"/en/guide/bathing-a-dog/\">bathing a dog</a>.</p><img src=\"https://stary-serwis.example/img/szczotka.png\" alt=\"A brush for long coats\"><table><tr><th>Coat</th><th>How often</th></tr><tr><td>Short</td><td>once a week</td></tr><tr><td>Long</td><td>every other day</td></tr></table><h2>One last thing</h2><p>A treat after every brushing.</p>"
+          },
+          "cover": {
+            "file": "pictures/okladka-czesanie.jpg",
+            "alt": "A dog being brushed"
+          },
+          "images": {
+            "https://stary-serwis.example/img/szczotka.png": {
+              "file": "pictures/szczotka.png",
+              "alt": "Szczotka do długiej sierści"
+            }
+          },
+          "status": "published",
+          "published_at": "2023-03-14T08:30:00+01:00",
+          "changed_at": "2026-10-08T22:10:00+02:00",
+          "origin": "ai",
+          "model": "fixture-translator-1",
+          "fields": {
+            "title": {
+              "origin": "ai",
+              "model": "fixture-translator-1",
+              "source_sha256": "af056a5e8acb35b25f60c59ca2e0abc413a7f3c205db7c363d51f2c8c52c60cf"
+            },
+            "body": {
+              "origin": "ai",
+              "model": "fixture-translator-1",
+              "source_sha256": "460927080a69f4c3e0d9d97f37efafde12d981eb59b2b12fab51ca89428a3423"
+            },
+            "meta_description": {
+              "origin": "ai",
+              "model": "fixture-translator-1",
+              "source_sha256": "638a85600a948c122999d0cfb6b264c6d6188bc782f0aac5cf8dfe0ad881df18"
+            }
+          }
+        },
+        {
+          "locale": "de",
+          "title": "Wie man einen Hund bürstet",
+          "excerpt": "Bürste, Reihenfolge und Belohnungen.",
+          "body": {
+            "html": "<h2>Die richtige Bürste</h2><p>Bürste deinen Hund <b>jede Woche</b>. Siehe auch <a href=\"/de/ratgeber/hund-baden/\">Hund baden</a>.</p><img src=\"https://stary-serwis.example/img/szczotka.png\" alt=\"A brush for long coats\"><table><tr><th>Coat</th><th>How often</th></tr><tr><td>Short</td><td>once a week</td></tr><tr><td>Long</td><td>every other day</td></tr></table><h2>Zum Schluss</h2><p>Nach jedem Bürsten ein Leckerli.</p>"
+          },
+          "images": {
+            "https://stary-serwis.example/img/szczotka.png": {
+              "file": "pictures/szczotka.png",
+              "alt": "Szczotka do długiej sierści"
+            }
+          },
+          "status": "published",
+          "published_at": "2023-03-14T08:30:00+01:00",
+          "changed_at": "2026-10-08T22:12:00+02:00",
+          "origin": "ai",
+          "model": "fixture-translator-1",
+          "fields": {
+            "title": {
+              "origin": "ai",
+              "model": "fixture-translator-1",
+              "source_sha256": "af056a5e8acb35b25f60c59ca2e0abc413a7f3c205db7c363d51f2c8c52c60cf"
+            },
+            "excerpt": {
+              "origin": "ai",
+              "model": "fixture-translator-1",
+              "source_sha256": "91a8dd7062a44cbca2c97171466e9a9f87a4112506fd2a0d80359d909c11a05c"
+            },
+            "body": {
+              "origin": "ai",
+              "model": "fixture-translator-1",
+              "source_sha256": "b7269cbd2a35e0304e7965b88d54a0ab7335924320f0e506522686d44c4b3d72"
+            }
+          }
+        },
+        {
+          "locale": "es",
+          "title": "Cómo cepillar a un perro",
+          "body": {
+            "html": "<h2>Cómo elegir el cepillo</h2><p>Cepilla a tu perro <b>cada semana</b>.</p><p>Un premio después de cada cepillado.</p>"
+          },
+          "status": "published",
+          "published_at": "2023-03-14T08:30:00+01:00",
+          "origin": "ai",
+          "model": "fixture-translator-1",
+          "fields": {
+            "title": {
+              "origin": "human"
+            },
+            "body": {
+              "origin": "ai",
+              "model": "fixture-translator-1",
+              "source_sha256": "460927080a69f4c3e0d9d97f37efafde12d981eb59b2b12fab51ca89428a3423"
+            }
+          }
+        },
+        {
+          "locale": "ru",
+          "title": "Как расчёсывать собаку",
+          "body": {
+            "html": "<h2>Как выбрать щётку</h2><p>Расчёсывайте собаку <b>каждую неделю</b>.</p><p>Лакомство после каждого расчёсывания.</p>"
+          },
+          "status": "published",
+          "published_at": "2023-03-14T08:30:00+01:00",
+          "origin": "ai",
+          "model": "fixture-translator-1",
+          "fields": {
+            "title": {
+              "origin": "ai",
+              "model": "fixture-translator-1",
+              "source_sha256": "af056a5e8acb35b25f60c59ca2e0abc413a7f3c205db7c363d51f2c8c52c60cf"
+            },
+            "body": {
+              "origin": "ai",
+              "model": "fixture-translator-1",
+              "source_sha256": "460927080a69f4c3e0d9d97f37efafde12d981eb59b2b12fab51ca89428a3423"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "post-2",
+      "type": "poradnik",
+      "categories": [
+        "cat-care",
+        "cat-health"
+      ],
+      "tags": [
+        "tag-puppies"
+      ],
+      "versions": [
+        {
+          "locale": "pl",
+          "title": "Kąpiel psa",
+          "former_slugs": [
+            "jak-czesac-psa",
+            "mycie-psa"
+          ],
+          "body": {
+            "html": "<p>Ciepła woda i <i>spokój</i>.</p><div class=\"question_answer\"><h3>Jak często kąpać psa?</h3><p>Nie częściej niż raz w miesiącu.</p></div><div class=\"question_answer\"><h3>Czym myć?</h3><p>Szamponem dla psów.</p></div>"
+          },
+          "cover": {
+            "file": "pictures/kapiel.webp",
+            "alt": "Pies w wannie"
+          },
+          "status": "published",
+          "published_at": "2022-06-01T12:00:00+02:00",
+          "origin": "human"
+        }
+      ]
+    },
+    {
+      "id": "post-3",
+      "type": "poradnik",
+      "categories": [
+        "cat-health"
+      ],
+      "versions": [
+        {
+          "locale": "pl",
+          "title": "Pierwsza wizyta u weterynarza",
+          "body": {
+            "html": "<p>Zabierz książeczkę zdrowia.</p>"
+          },
+          "status": "published",
+          "published_at": "1970-01-01T00:00:00+00:00",
+          "origin": "human"
+        },
+        {
+          "locale": "en",
+          "title": "The first visit to the vet",
+          "body": {
+            "html": "<p>Take the health booklet.</p>"
+          },
+          "status": "published",
+          "published_at": "2024-01-20T09:00:00+01:00",
+          "origin": "human"
+        }
+      ]
+    },
+    {
+      "id": "post-4",
+      "type": "poradnik",
+      "tags": [
+        "tag-walks"
+      ],
+      "versions": [
+        {
+          "locale": "pl",
+          "title": "Spacer w deszczu",
+          "body": {
+            "html": "<p>Płaszcz przeciwdeszczowy pomaga.</p>"
+          },
+          "cover": {
+            "file": "pictures/uszkodzone.jpg",
+            "alt": "Pies w deszczu"
+          },
+          "status": "published",
+          "published_at": "2024-11-05T07:00:00+01:00",
+          "origin": "human"
+        }
+      ]
+    },
+    {
+      "id": "post-5",
+      "type": "poradnik",
+      "versions": [
+        {
+          "locale": "pl",
+          "title": "Szkic: zabawki na zimę",
+          "body": {
+            "html": "<p>Jeszcze niegotowe.</p>"
+          },
+          "status": "draft"
+        }
+      ]
+    },
+    {
+      "id": "post-6",
+      "type": "poradnik",
+      "versions": [
+        {
+          "locale": "en",
+          "title": "Only in English",
+          "body": {
+            "html": "<p>No Polish version exists.</p>"
+          },
+          "cover": {
+            "file": "pictures/nie-ma-takiego.jpg",
+            "alt": "Missing"
+          },
+          "status": "published",
+          "published_at": "2024-05-05T10:00:00+02:00"
+        }
+      ]
+    },
+    {
+      "id": "post-7",
+      "type": "poradnik",
+      "tags": [
+        "tag-walks"
+      ],
+      "versions": [
+        {
+          "locale": "pl",
+          "title": "Spacery z psem",
+          "slug": "spacery-z-psem",
+          "body": {
+            "blocks": [
+              {
+                "block_type": "core.rich_text",
+                "schema_version": 4,
+                "data": {
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Dwa spacery dziennie to minimum."
+                        }
+                      ]
+                    },
+                    {
+                      "type": "figure",
+                      "image": {
+                        "asset_id": "file:pictures/spacer.jpg",
+                        "alt": "Pies na spacerze"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "status": "published",
+          "published_at": "2025-04-10T16:00:00+02:00",
+          "origin": "human"
+        },
+        {
+          "locale": "fr",
+          "title": "Promenades avec un chien",
+          "body": {
+            "html": "<p>Deux promenades par jour.</p>"
+          },
+          "status": "published",
+          "published_at": "2025-04-10T16:00:00+02:00",
+          "origin": "ai",
+          "model": "fixture-translator-1"
+        }
+      ]
+    },
+    {
+      "id": "post-8",
+      "type": "poradnik",
+      "versions": [
+        {
+          "locale": "pl",
+          "title": "Kąpiel psa",
+          "body": {
+            "html": "<p>Drugi wpis o tym samym tytule.</p>"
+          },
+          "status": "published",
+          "published_at": "2025-08-01T09:00:00+02:00",
+          "origin": "human"
+        }
+      ]
+    },
+    {
+      "id": "post-9",
+      "type": "poradnik",
+      "versions": [
+        {
+          "locale": "pl",
+          "title": "Ten sam adres",
+          "slug": "spacery-z-psem",
+          "body": {
+            "html": "<p>Adres zajęty wcześniej w dokumencie.</p>"
+          },
+          "status": "published",
+          "published_at": "2025-08-02T09:00:00+02:00"
+        }
+      ]
+    },
+    {
+      "id": "post-10",
+      "type": "poradnik",
+      "categories": [
+        "cat-orphan"
+      ],
+      "versions": [
+        {
+          "locale": "pl",
+          "title": "Wpis w kategorii, której nie ma",
+          "body": {
+            "html": "<p>Kategoria została odrzucona.</p>"
+          },
+          "status": "published",
+          "published_at": "2025-08-03T09:00:00+02:00"
+        }
+      ]
+    },
+    {
+      "id": "post-11",
+      "type": "poradnik",
+      "versions": [
+        {
+          "locale": "pl",
+          "title": "Wpis z przyszłości",
+          "body": {
+            "html": "<p>Data publikacji jest w przyszłości.</p>"
+          },
+          "status": "published",
+          "published_at": "2099-01-01T00:00:00+00:00"
+        }
+      ]
+    }
+  ]
+}

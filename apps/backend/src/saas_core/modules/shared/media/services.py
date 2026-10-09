@@ -393,6 +393,16 @@ def stage_generated_media_asset(
     return asset
 
 
+def approved_media_asset_id(*, organization_id: UUID, source_key: str) -> UUID:
+    """The id the asset materialized from `source_key` has in this company —
+    before it exists, too: an import's dry run names the assets its real run
+    will make without storing anything."""
+    return uuid5(
+        NAMESPACE_URL,
+        f"saas-core:approved-media:{organization_id}:{_idempotency_key(source_key)}",
+    )
+
+
 def _stage_approved_bytes(
     *,
     context: TenantContext,
@@ -424,9 +434,8 @@ def _stage_approved_bytes(
         "sha256": content_sha256,
     })
     organization = Organization.objects.select_for_update().get(pk=context.organization_id)
-    asset_id = uuid5(
-        NAMESPACE_URL,
-        f"saas-core:approved-media:{context.organization_id}:{normalized_source_key}",
+    asset_id = approved_media_asset_id(
+        organization_id=context.organization_id, source_key=normalized_source_key
     )
     existing = MediaAsset.all_objects.filter(
         pk=asset_id,

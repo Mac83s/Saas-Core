@@ -91,6 +91,7 @@ from .term_addresses import (
     close_term_addresses,
     name_slug,
     pagination_segments,
+    site_tags,
     taxonomy_segment,
     term_archive_path,
     term_locked,
@@ -1705,6 +1706,87 @@ def set_entry_categories(*, entry_id: UUID, term_ids: Sequence[UUID]) -> list[Co
         metadata={"kind": KIND_CATEGORIES, "terms": [term.slug for term in categories]},
     )
     return categories
+
+
+@transaction.atomic
+def set_entry_tag_ids(*, entry_id: UUID, term_ids: Sequence[UUID]) -> list[ContentTag]:
+    """Files an entry under these tags of its site, by id, replacing the
+    whole set (at most ten); its categories are not touched. For a caller
+    that holds the tags already — the content import — where a name would
+    have to be matched again. A term that is not a tag of the site is refused
+    (`term_not_of_type`)."""
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    site, entry = _locked_entry(context, entry_id)
+    wanted = list(dict.fromkeys(str(term_id) for term_id in term_ids))
+    if len(wanted) > ENTRY_TERMS_MAX:
+        raise TooManyTags
+    available = {
+        str(term.pk): term
+        for term in site_tags(organization_id=context.organization_id, site_id=site.id).filter(
+            pk__in=wanted
+        )
+    }
+    if any(term_id not in available for term_id in wanted):
+        raise _error(
+            "term_ids", "Tag nie należy do tej strony albo nie istnieje.", TERM_NOT_OF_TYPE
+        )
+    tags = sorted((available[term_id] for term_id in wanted), key=lambda item: item.slug)
+    _file(context, entry, tags, tags=True)
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=ENTRY_TAGS_SET,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="content_entry",
+        target_id=entry.id,
+        metadata={"tags": [tag.slug for tag in tags]},
+    )
+    return tags
+
+
+@transaction.atomic
+def record_former_term_slugs(
+    *, term_id: UUID, slugs: Sequence[str]
+) -> tuple[list[str], dict[str, str]]:
+    """An import's own right (ADR-079 pkt 34): addresses a term's archive had
+    somewhere else, recorded as former — each answers one 308 to today's —
+    without the term ever having answered under them here.
+
+    Returns the slugs recorded now and, for each one left out, why: not
+    slug-shaped (`invalid`), or the key, an address or a former address of
+    another term of the same vocabulary (`taken`) — one namespace, pkt 6."""
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    assert_person_required(context, TERM_ADDRESS_GATE)
+    site, term, siblings = _term(context, term_id)
+    _assert_may_write(context, site, _term_type(term))
+    own = term_names(term)
+    elsewhere: set[str] = set()
+    for other in siblings:
+        if other.pk != term.pk:
+            elsewhere |= set(term_names(other))
+    recorded: list[str] = []
+    refused: dict[str, str] = {}
+    for raw in slugs:
+        slug = str(raw or "").strip().lower()
+        if not slug or slug in own or slug in recorded:
+            continue
+        if not SLUG_PATTERN.fullmatch(slug) or len(slug) > TERM_SLUG_MAX:
+            refused[slug] = "invalid"
+        elif slug in elsewhere:
+            refused[slug] = "taken"
+        else:
+            recorded.append(slug)
+    if recorded:
+        term.former_slugs = [*(term.former_slugs or []), *recorded]
+        term.save(update_fields=["former_slugs", "updated_at"])
+        record_audit(
+            organization=Organization.objects.get(pk=context.organization_id),
+            action=TERM_ADDRESS_CHANGED,
+            actor=User.objects.get(pk=context.actor_id),
+            target_type="content_tag",
+            target_id=term.id,
+            metadata={"former_recorded": recorded, "reason": "import"},
+        )
+    return recorded, refused
 
 
 def entry_terms(*, entry_id: UUID) -> EntryTerms:
