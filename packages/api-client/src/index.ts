@@ -5008,6 +5008,57 @@ export async function removeContentEntry(
   return data;
 }
 
+export type EntryAddress = components["schemas"]["EntryAddressResult"];
+export type EntryAddressChange = components["schemas"]["EntryAddressChange"];
+
+/** An entry's address today and every former address that leads to it. */
+export async function getEntryAddress(entryId: string): Promise<EntryAddress> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/entries/{entry_id}/address/",
+    { params: { path: { entry_id: entryId } }, credentials: "same-origin" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What changing an entry's address would do, without doing it. */
+export async function previewEntryAddress(
+  entryId: string,
+  body: EntryAddressChange,
+): Promise<EntryAddress> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/entries/{entry_id}/address/preview/",
+    {
+      params: { path: { entry_id: entryId } },
+      body,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Changes an entry's address; a published entry goes out again under it. */
+export async function changeEntryAddress(
+  entryId: string,
+  body: EntryAddressChange,
+): Promise<EntryAddress> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/entries/{entry_id}/address/",
+    {
+      params: { path: { entry_id: entryId } },
+      body,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export type AutomationPolicy = "manual" | "proposed" | "automated";
 
 export async function setCollectionAutomationPolicy(

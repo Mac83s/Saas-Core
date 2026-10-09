@@ -86,6 +86,7 @@ import {
 import { contentTypeHref, contentTypesHref } from "./content-types-panel";
 import { EntryCategories } from "./entry-categories";
 import { EntryEditor } from "./entry-editor";
+import { EntryAddress } from "./entry-address";
 import { EntryMetadata } from "./entry-metadata";
 import { EntrySchedule } from "./entry-schedule";
 import { EntryTags } from "./entry-tags";
@@ -915,6 +916,17 @@ export function BlogPanel({
         <EntryMetadata
           entry={entry}
           key={`metadata-${entry.id}`}
+          onChanged={async () => {
+            if (collectionId) await loadEntries(collectionId);
+          }}
+        />
+      )}
+
+      {entry && !collection?.archived && (
+        <EntryAddress
+          collection={collection}
+          entry={entry}
+          key={`address-${entry.id}`}
           onChanged={async () => {
             if (collectionId) await loadEntries(collectionId);
           }}

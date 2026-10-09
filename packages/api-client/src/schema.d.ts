@@ -7456,6 +7456,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/entries/{entry_id}/address/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an entry's address and the addresses that redirect to it
+         * @description The entry's slug and address today, whether it answers visitors, and every former address that leads to it with one 308.
+         */
+        get: operations["sites_entry_address_get"];
+        /**
+         * Change an entry's address
+         * @description Before the entry was ever published its address changes freely and leaves no trace. Afterwards it is a person's decision (`person_required`): the slug it had answers one 308 to the new address, and an entry visitors can open today is published again under the new address with the content of its current publication — changes waiting in the draft stay unpublished (`unpublished_changes`). A slug another entry of the type and language answers under is refused (`entry_slug_taken`); one that only redirects to another entry can be taken — the preview's `takes_over` names the redirect that stops — with `take_over_former` (`entry_slug_former` without it). When the entry answers visitors today a `reason` is required (`redirect_reason_required`).
+         */
+        put: operations["sites_entry_address_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/entries/{entry_id}/address/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview changing an entry's address
+         * @description Validates and answers with the address as it would be, what would redirect (`moved`, `redirects`), the redirects of other entries that would stop (`takes_over`) and whether the draft holds unpublished changes, without saving. Before the entry was ever published its address changes freely and leaves no trace. Afterwards it is a person's decision (`person_required`): the slug it had answers one 308 to the new address, and an entry visitors can open today is published again under the new address with the content of its current publication — changes waiting in the draft stay unpublished (`unpublished_changes`). A slug another entry of the type and language answers under is refused (`entry_slug_taken`); one that only redirects to another entry can be taken — the preview's `takes_over` names the redirect that stops — with `take_over_former` (`entry_slug_former` without it).
+         */
+        post: operations["sites_entry_address_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/entries/{entry_id}/categories/": {
         parameters: {
             query?: never;
@@ -11999,6 +12043,44 @@ export interface components {
             computed_at: string;
             /** Format: date-time */
             effective_until: string | null;
+        };
+        EntryAddressChange: {
+            /** @description The new last part of the entry's address. Lower-case Latin letters, digits and single hyphens. */
+            slug: string;
+            /**
+             * @description Why the address moves. Required when the entry answers visitors today (`moved` of the preview is not empty); kept in the history.
+             * @default
+             */
+            reason: string;
+            /**
+             * @description Confirms that a redirect of another entry may stop (`takes_over` of the preview): the slug only redirects to that entry today.
+             * @default false
+             */
+            take_over_former: boolean;
+        };
+        EntryAddressResult: {
+            /** Format: uuid */
+            entry_id: string;
+            /** @description The entry's language. */
+            locale: string;
+            /** @description The slug before the change. */
+            previous_slug: string;
+            /** @description The slug as it is, or in a preview would be. */
+            slug: string;
+            /** @description Where the entry answers (would answer). */
+            path: string;
+            /** @description Whether the slug differs from today's. */
+            changed: boolean;
+            /** @description The entry answers visitors today: the change publishes it again. */
+            published: boolean;
+            /** @description Addresses visitors can open today that move. Not empty: a reason is required. */
+            moved: components["schemas"]["_Moved"][];
+            /** @description Every former address that leads to the entry afterwards. */
+            redirects: components["schemas"]["_Moved"][];
+            /** @description Redirects of other entries that stop with this change. */
+            takes_over: components["schemas"]["_TakenOver"][];
+            /** @description The draft holds changes the current publication does not; an address change leaves them unpublished. */
+            unpublished_changes: boolean;
         };
         EntryCategoriesSave: {
             /** @description The categories of the entry's content type to file it under — the whole set; an empty list takes it out of every category. */
@@ -20929,6 +21011,23 @@ export interface components {
         _Bounds: {
             minimum: number;
             maximum: number;
+        };
+        _Moved: {
+            /** @description The address that stops answering. */
+            from_path: string;
+            /** @description Where it leads from then on, in one 308. */
+            to_path: string;
+        };
+        _TakenOver: {
+            /** @description The slug taken. */
+            slug: string;
+            /**
+             * Format: uuid
+             * @description The entry whose redirect stops.
+             */
+            entry_id: string;
+            /** @description That entry's title. */
+            title: string;
         };
     };
     responses: never;
@@ -42790,6 +42889,161 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_entry_address_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryAddressResult"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_entry_address_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryAddressChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["EntryAddressChange"];
+                "multipart/form-data": components["schemas"]["EntryAddressChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryAddressResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_entry_address_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryAddressChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["EntryAddressChange"];
+                "multipart/form-data": components["schemas"]["EntryAddressChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryAddressResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

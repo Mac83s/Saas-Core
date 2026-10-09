@@ -42,7 +42,7 @@ _ERRORS = {
 }
 
 
-class EntryAddressSerializer(serializers.Serializer[dict[str, Any]]):
+class EntryAddressChangeSerializer(serializers.Serializer[dict[str, Any]]):
     slug = serializers.RegexField(
         r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
         max_length=ENTRY_SLUG_MAX,
@@ -143,7 +143,7 @@ class ContentEntryAddressView(APIView):
         description=_RULES + " When the entry answers visitors today a `reason` is required "
         "(`redirect_reason_required`).",
         tags=["sites"],
-        request=EntryAddressSerializer,
+        request=EntryAddressChangeSerializer,
         extensions={
             "x-quality-exempt": {
                 "idempotency-key": "The slug is sent as it should be: a repeat sets the same "
@@ -153,7 +153,7 @@ class ContentEntryAddressView(APIView):
         responses={200: EntryAddressResultSerializer, **_ERRORS},
     )
     def put(self, request: Request, entry_id: UUID) -> Response:
-        serializer = EntryAddressSerializer(data=request.data)
+        serializer = EntryAddressChangeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(_payload(change_entry_slug(entry_id=entry_id, **serializer.validated_data)))
 
@@ -168,12 +168,12 @@ class ContentEntryAddressPreviewView(APIView):
         "redirect (`moved`, `redirects`), the redirects of other entries that would stop "
         "(`takes_over`) and whether the draft holds unpublished changes, without saving. " + _RULES,
         tags=["sites"],
-        request=EntryAddressSerializer,
+        request=EntryAddressChangeSerializer,
         extensions={"x-dry-run": True},
         responses={200: EntryAddressResultSerializer, **_ERRORS},
     )
     def post(self, request: Request, entry_id: UUID) -> Response:
-        serializer = EntryAddressSerializer(data=request.data)
+        serializer = EntryAddressChangeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(
             _payload(

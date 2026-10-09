@@ -358,10 +358,18 @@ do złożenia identyfikatorów — nie jest pobierany ani zapisywany. Węzeł ni
 odpowiada dziś. Strona robi **jedno 308** pod adres, który jej tabela z nich składa
 (`permanentRedirect(siteHref(…))`), i nic więcej.
 
-Dziś `moved` przychodzi w jednym przypadku: wpis jest w języku, który workspace
-wyłączył — wtedy prowadzi do wersji w języku strony workspace'u (albo pierwszej, jaką
-ma), a bez żadnej wersji jest `not-found`. Dojdą: dawny slug wpisu (ADR-079 pkt 16,
-pakiet CT4) i dawny adres pozycji (pkt 11, pakiet CT2) — bez zmiany kształtu odpowiedzi.
+`moved` przychodzi w dwóch przypadkach:
+
+- **dawny slug wpisu** (ADR-079 pkt 16, pakiet CT4): osoba zmieniła adres wpisu w
+  panelu albo import zapisał jego dawne adresy — pod dawnym slugiem odczyt wskazuje
+  dzisiejszy, w tym samym języku. Najpierw pytany jest żywy slug, więc dawny nigdy nie
+  zasłania wpisu, który odpowiada; slug innego języka nie jest dawnym slugiem;
+- **język, który workspace wyłączył** — odpowiedź prowadzi do wersji w języku strony
+  workspace'u (albo pierwszej, jaką wpis ma), także gdy zapytano dawnym slugiem (jeden
+  krok, nigdy dwa); bez żadnej wersji jest `not-found`.
+
+Dawny adres pozycji daje `moved` listy (§4.2). Wpis wycofany albo usunięty nie
+przekierowuje: jego dawne slugi odpowiadają `not-found`, jak on sam.
 
 ## 10. Kategorie (od pakietu CT2)
 

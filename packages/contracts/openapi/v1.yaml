@@ -22489,6 +22489,183 @@ paths:
           description: ''
       x-quality-exempt:
         idempotency-key: 'Nothing is removed twice: a repeat answers 404.'
+  /api/v1/sites/entries/{entry_id}/address/:
+    get:
+      operationId: sites_entry_address_get
+      description: The entry's slug and address today, whether it answers visitors,
+        and every former address that leads to it with one 308.
+      summary: Read an entry's address and the addresses that redirect to it
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryAddressResult'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    put:
+      operationId: sites_entry_address_set
+      description: 'Before the entry was ever published its address changes freely
+        and leaves no trace. Afterwards it is a person''s decision (`person_required`):
+        the slug it had answers one 308 to the new address, and an entry visitors
+        can open today is published again under the new address with the content of
+        its current publication — changes waiting in the draft stay unpublished (`unpublished_changes`).
+        A slug another entry of the type and language answers under is refused (`entry_slug_taken`);
+        one that only redirects to another entry can be taken — the preview''s `takes_over`
+        names the redirect that stops — with `take_over_former` (`entry_slug_former`
+        without it). When the entry answers visitors today a `reason` is required
+        (`redirect_reason_required`).'
+      summary: Change an entry's address
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntryAddressChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EntryAddressChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EntryAddressChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryAddressResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-quality-exempt:
+        idempotency-key: 'The slug is sent as it should be: a repeat sets the same
+          slug and changes nothing.'
+  /api/v1/sites/entries/{entry_id}/address/preview/:
+    post:
+      operationId: sites_entry_address_preview
+      description: 'Validates and answers with the address as it would be, what would
+        redirect (`moved`, `redirects`), the redirects of other entries that would
+        stop (`takes_over`) and whether the draft holds unpublished changes, without
+        saving. Before the entry was ever published its address changes freely and
+        leaves no trace. Afterwards it is a person''s decision (`person_required`):
+        the slug it had answers one 308 to the new address, and an entry visitors
+        can open today is published again under the new address with the content of
+        its current publication — changes waiting in the draft stay unpublished (`unpublished_changes`).
+        A slug another entry of the type and language answers under is refused (`entry_slug_taken`);
+        one that only redirects to another entry can be taken — the preview''s `takes_over`
+        names the redirect that stops — with `take_over_former` (`entry_slug_former`
+        without it).'
+      summary: Preview changing an entry's address
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntryAddressChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EntryAddressChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EntryAddressChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryAddressResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/sites/entries/{entry_id}/categories/:
     get:
       operationId: sites_entry_categories_list
@@ -34339,6 +34516,85 @@ components:
       - plan_version
       - subscription_state
       - version
+    EntryAddressChange:
+      type: object
+      properties:
+        slug:
+          type: string
+          description: The new last part of the entry's address. Lower-case Latin
+            letters, digits and single hyphens.
+          maxLength: 120
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        reason:
+          type: string
+          default: ''
+          description: Why the address moves. Required when the entry answers visitors
+            today (`moved` of the preview is not empty); kept in the history.
+          maxLength: 500
+        take_over_former:
+          type: boolean
+          default: false
+          description: 'Confirms that a redirect of another entry may stop (`takes_over`
+            of the preview): the slug only redirects to that entry today.'
+      required:
+      - slug
+    EntryAddressResult:
+      type: object
+      properties:
+        entry_id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+          description: The entry's language.
+        previous_slug:
+          type: string
+          description: The slug before the change.
+        slug:
+          type: string
+          description: The slug as it is, or in a preview would be.
+        path:
+          type: string
+          description: Where the entry answers (would answer).
+        changed:
+          type: boolean
+          description: Whether the slug differs from today's.
+        published:
+          type: boolean
+          description: 'The entry answers visitors today: the change publishes it
+            again.'
+        moved:
+          type: array
+          items:
+            $ref: '#/components/schemas/_Moved'
+          description: 'Addresses visitors can open today that move. Not empty: a
+            reason is required.'
+        redirects:
+          type: array
+          items:
+            $ref: '#/components/schemas/_Moved'
+          description: Every former address that leads to the entry afterwards.
+        takes_over:
+          type: array
+          items:
+            $ref: '#/components/schemas/_TakenOver'
+          description: Redirects of other entries that stop with this change.
+        unpublished_changes:
+          type: boolean
+          description: The draft holds changes the current publication does not; an
+            address change leaves them unpublished.
+      required:
+      - changed
+      - entry_id
+      - locale
+      - moved
+      - path
+      - previous_slug
+      - published
+      - redirects
+      - slug
+      - takes_over
+      - unpublished_changes
     EntryCategoriesSave:
       type: object
       properties:
@@ -54016,6 +54272,35 @@ components:
       required:
       - maximum
       - minimum
+    _Moved:
+      type: object
+      properties:
+        from_path:
+          type: string
+          description: The address that stops answering.
+        to_path:
+          type: string
+          description: Where it leads from then on, in one 308.
+      required:
+      - from_path
+      - to_path
+    _TakenOver:
+      type: object
+      properties:
+        slug:
+          type: string
+          description: The slug taken.
+        entry_id:
+          type: string
+          format: uuid
+          description: The entry whose redirect stops.
+        title:
+          type: string
+          description: That entry's title.
+      required:
+      - entry_id
+      - slug
+      - title
   securitySchemes:
     cookieAuth:
       type: apiKey

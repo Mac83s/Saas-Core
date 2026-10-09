@@ -71,6 +71,12 @@ function knownMessage(
       return t("tagsNameInvalid");
     case "entry_too_many_categories":
       return t("entryCategories.tooMany");
+    case "entry_slug_taken":
+      return t("entryAddress.errors.taken");
+    case "entry_slug_former":
+      return t("entryAddress.errors.former");
+    case "entry_slug_invalid":
+      return t("entryAddress.errors.invalid");
     case "term_name_taken":
       return t("terms.errors.name_taken");
     case "term_name_invalid":

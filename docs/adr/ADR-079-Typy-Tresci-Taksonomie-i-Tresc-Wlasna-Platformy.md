@@ -623,7 +623,8 @@ Puppily po CT2, CT3, CT4 i PR1.
 | CT1 | zbudowana 2026-10-08 | pakiet `pkg-ct1`; migracje `sites` 0053 (schemat) i `billing` 0029 (dane) |
 | CT2 | zbudowana 2026-10-08 | pakiet `pkg-ct2`; migracja `sites` 0054 (schemat); sekcja „Uzupełnienie CT2” |
 | CT3 | zbudowana 2026-10-08; kategorie w odczycie dołożył pakiet CT2 | pakiet `pkg-ct3`; bez migracji; kontrakt dla produktów: `docs/architecture/product-content-read.md` |
-| CT4–CT6 | czekają | — |
+| CT4 | zbudowane 09.10 („Uzupełnienie CT4”) | migracja `sites` 0055 |
+| CT5–CT6 | czekają | — |
 
 ### Uzupełnienie CT1 (2026-10-08): co kod pokazał inaczej niż projekt
 
@@ -1089,6 +1090,104 @@ co wyszło dopiero przy przejściu panelu w przeglądarce, i to, co zostało św
    prowadzi wtedy do edytora; „Przetłumacz brakujące” podstron nie zamawia. Adresy
    działu per język („Adres w każdym języku”) zostają: odczyt oddaje je jako
    informację, a wpis nadal nosi swój adres.
+
+### Uzupełnienie CT4 (2026-10-09): adres wpisu i import — co kod pokazał inaczej niż projekt
+
+Zbudowane punkty 13 (część wpisu), 14, 16 i 34. Kod: `shared/sites/entry_addresses.py`
+(zmiana adresu, dawne slugi), `content_import.py` z `content_import_schema.py` i komendą
+`sites_import_content`. Kontrakt importu: [`docs/architecture/content-import.md`](../architecture/content-import.md).
+
+1. **Zmiana adresu wpisu (pkt 16).** `change_entry_slug` z podglądem (`dry_run`):
+   - przed pierwszą publikacją — wolna, bez śladu, także dla klucza integracji w granicach
+     grantu; po niej — tylko osoba (`person_required`, także w podglądzie), a gdy wpis
+     dziś odpowiada — z powodem (`redirect_reason_required`) i z prawem publikowania;
+   - wpis opublikowany wychodzi ponownie **z migawką bieżącej publikacji**, w której
+     zmieniają się tylko slug i adres: treść, tytuł, pozycje, `version` i `changed_at`
+     zostają, szkic nie jest dotykany. Silnik tłumaczeń nie dostaje powiadomienia (tekst
+     się nie zmienił), a tłumaczenia nie są publikowane „za źródłem”;
+   - podgląd mówi: nowy adres, co przekieruje (`moved`, `redirects`), czyje przekierowanie
+     przestanie działać (`takes_over`) i czy w szkicu są niewydane zmiany
+     (`unpublished_changes`);
+   - wpis wycofany, który kiedyś odpowiadał, też zostawia dawny slug (może wrócić), ale
+     powodu nie wymaga. Wpis pamięta najwyżej 50 dawnych slugów.
+   API: `GET|PUT /sites/entries/{id}/address/`, `POST …/address/preview/` — tylko sesja.
+   Kody: `entry_slug_invalid`, `entry_slug_taken`, `entry_slug_former`.
+2. **Czyje dawne slugi się liczą (pkt 14).** Slug, pod którym wpis tego typu i języka
+   kiedyś odpowiadał, jest zajęty dla kodu (`free_entry_slug`: tłumaczenia, import) i dla
+   **każdego** nowego wpisu (`create_entry`, ręczna wersja językowa: `entry_slug_former`).
+   Osoba przejmuje go zmianą adresu, po podglądzie, polem `take_over_former`; przejęty
+   slug znika z dawnych u poprzedniego właściciela. Wpis **usunięty** niczego nie trzyma
+   (jego wiersz jest przemianowany i nikt go nie czyta); wpis **wycofany** trzyma swoje.
+3. **Resolver (pkt 13).** Bez nowej funkcji: `moved_address` czytał `former_slugs` od CT2.
+   Doszła jedna reguła — **żywy adres wygrywa**: gdy pod slugiem odpowiada wpis typu
+   i języka, slug znaczy ten wpis, cokolwiek mówi historia innego. Test kombinacji:
+   dawna nazwa typu + dawny slug wpisu w `/en/…` i dawna nazwa typu + dawny segment
+   + dawny adres kategorii — zawsze jedno 308; slug jednego języka nie jest adresem
+   w drugim; język wyłączony prowadzi od razu do wersji w języku strony.
+4. **Wpis szukany po slugu, nie przez wszystkie wpisy strony** (dług z CT2 pkt 13).
+   Adres wpisu kończy się jego slugiem, a wiersz opublikowanego wpisu niesie slug
+   swojej publikacji (zmienia go tylko `change_entry_slug`, który publikuje w tej samej
+   transakcji), więc `_find_entry` pyta o `slug = <ostatni segment>` i dopiero kandydatów
+   porównuje pełnym adresem. Pomiar na 2 002 opublikowanych wpisach strony (baza
+   testowa tej maszyny, mediana z 20 prób): samo przejście po wpisach 121 ms → całe
+   odnalezienie wpisu 5,8 ms; adres, który nie jest wpisem (indeks, archiwum, 404) na
+   tym kroku 120 ms → 1,9 ms. Przed wdrożeniem trzeba sprawdzić, że żaden opublikowany
+   wpis nie ma w wierszu innego sluga niż w migawce (zapytanie w `memex ops`); lokalne
+   bazy czterech stosów (rdzeń, HoofCare, MedPlano, Puppily, 09.10): 0 takich wierszy
+   na 15 opublikowanych wpisów.
+5. **Odczyt dla stron produktu.** `read_entry` odpowiada `moved` z dzisiejszym slugiem
+   dla dawnego sluga, tą samą regułą (żywy pierwszy; język wyłączony — jeden krok do
+   wersji czytanej). Kontrakt §9.
+6. **Ręczna wersja językowa kopiuje kategorie i tagi oryginału** (zostawione przez CT2
+   pkt 16) — przy utworzeniu, jak wersja zlecenia tłumaczenia.
+7. **Daty.** Atom `<updated>` podaje odtąd chwilę zmiany tekstu (`changed_at` migawki),
+   jak `lastmod` sitemapy i `dateModified` — nie chwilę ostatniej publikacji: zmiana
+   adresu i import publikują teksty, które tego dnia się nie zmieniły. Oba złote pliki
+   bez zmiany bajtu.
+8. **Import (pkt 34)** — reguły dla autora dokumentu są w kontrakcie; tu decyzje:
+   - **Dwa kroki.** Plan czyta i niczego nie zapisuje (to jest przebieg próbny: żadnego
+     `INSERT`/`UPDATE`, żadnego pliku w magazynie, żadnego pytania do skanera — test
+     liczy wiersze wszystkich tabel przed i po); zapis wykonuje plan przez serwisy
+     panelu, jako operator.
+   - **Księga `ContentImportRecord`** (nowa tabela, wymuszone RLS, migracja `sites`
+     0055): identyfikator zewnętrzny → obiekt, skrót każdego pola, które import
+     zapisał, numer zapisanej wersji tekstu, pochodzenie pól i odciski źródeł dosłownie.
+     Klucz idempotencji serwisów do tego nie służy: jest unikalny per autor, a jego
+     skrót obejmuje tytuł.
+   - **Edycja człowieka wygrywa.** Wartość, która nie jest już tym, co zapisał import,
+     zostaje (`kept`); wpis z czymkolwiek od człowieka import przestaje publikować;
+     `--overwrite-edits` odwraca to dla nazwanego wpisu.
+   - **Pochodzenie tekstu** jest przy wersji: `ContentEntryVersion.units` niesie dla
+     wersji z importu klucze `import/title|excerpt|body` (`origin`, `model`,
+     `source_sha256`), z których `publish_entry` liczy znacznik tekstu maszynowego tak
+     samo jak z jednostek tłumaczenia. Edycja człowieka dopisuje `import/edit` — tekst
+     modelu poprawiony przez osobę zostaje oznaczony („mieszany”). Wersje importu nie
+     mają `translation_of`: centrum tłumaczeń traktuje je jak wersje człowieka i ich
+     nie nadpisuje. Wyrównanie do jednostek źródła (żeby zarządzał nimi silnik)
+     odrzucone na teraz: `texts_against` wymaga tej samej struktury i tych samych
+     znaczników, a tłumaczenia mają inne adresy odnośników; do tego silnik mógłby sam
+     zamawiać płatne tłumaczenia zaimportowanej treści.
+   - **Trzy uprawnienia importu** (pkt 34), każde w jednym miejscu:
+     `record_former_entry_slugs` i `record_former_term_slugs` (dawne adresy bez
+     publikacji), `publish_entry(changed_at=…)` i `save_entry_draft(imported=…)` —
+     żaden widok ich nie przekazuje.
+   - **Transakcje.** Jedna na tekst wpisu dokumentu (wszystkie wersje), jedna na
+     publikację każdej wersji (uwaga 24 z CT2: publikacja jednego wpisu naraz), każda
+     zaczyna się od `SET LOCAL` (test kolejności zapytań); zakleszczenie ponawiane.
+   - **Zdjęcia** przez `materialize_approved_media_asset` z kluczem z zawartości
+     pliku (`approved_media_asset_id` — identyfikator znany już w planie).
+   - **Schemat w kodzie**, nie w `packages/contracts` (komenda działa w obrazie
+     backendu); kopia w `docs/architecture/` trzymana testem.
+9. **Moderacja.** Moduły stron i mediów nie mają pojęcia moderacji treści; „te same
+   blokady co człowiek” znaczą: uprawnienia roli, typ wyłączony, oferta i limit planu,
+   kontrakty bloków, sloty prawdziwych zdjęć, przestrzeń nazw słownika, skaner mediów
+   i limit magazynu.
+
+**Czego testy nie dowodzą** (baza testowa omija RLS): że rola aplikacji widzi i zapisuje
+wiersze księgi, pozycji, mediów i audytu wyłącznie organizacji operatora. Test trzyma
+kolejność: każda transakcja importu zaczyna się od `SET LOCAL` z tą organizacją, żadne
+zapytanie nie nazywa innej, żaden wiersz drugiej firmy się nie zmienia. Resztę sprawdza
+import fixture'u na uruchomionym stosie, pod rolą aplikacji.
 
 ## Ryzyka
 

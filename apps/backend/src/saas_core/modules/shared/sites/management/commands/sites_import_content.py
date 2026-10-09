@@ -36,12 +36,12 @@ from saas_core.modules.core.organizations.context import (
     context_from_membership,
     set_local_organization_id,
 )
-from saas_core.modules.core.organizations.security_settings import membership_requires_mfa
 from saas_core.modules.core.organizations.models import (
     Membership,
     MembershipStatus,
     WorkspaceKind,
 )
+from saas_core.modules.core.organizations.security_settings import membership_requires_mfa
 
 from ...content_import import ImportStopped, format_report, run_import
 from ...content_import_schema import DOCUMENT_SCHEMA

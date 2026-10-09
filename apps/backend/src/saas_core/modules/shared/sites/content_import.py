@@ -362,11 +362,8 @@ def format_report(report: ImportReport) -> str:
     out += ["", "EVERY OBJECT:"]
     for line in report.lines:
         detail = ", ".join(line.changes)
-        publication = (
-            f" → {line.publication if report.dry_run else _DONE.get(line.publication, line.publication)}"
-            if line.publication
-            else ""
-        )
+        said = line.publication if report.dry_run else _DONE.get(line.publication, line.publication)
+        publication = f" → {said}" if line.publication else ""
         out.append(
             f"  {_name(line)}: {words[line.action]}{publication}"
             + (f" [{detail}]" if detail else "")
@@ -437,6 +434,8 @@ class _Version:
     set_published_at: bool = False
     imported: ImportedText | None = None
     ledger: dict[str, Any] = field(default_factory=dict)
+    #: Only the ledger's row changes: what the document says of the text.
+    record_only: bool = False
 
 
 @dataclass(slots=True)
@@ -1438,10 +1437,37 @@ def _plan_version(plan: _Plan, version: _Version, source: _Version | None) -> No
         if version.former:
             line.changes.append(f"{len(version.former)} old address(es)")
     _plan_publication(plan, version, wants_public, publishable, was)
+    if record is not None and _recorded(version.ledger) != _recorded(record.fields):
+        # Nothing of the entry changes, but what the document says about it
+        # does — a fingerprint added, an origin corrected.
+        version.record_only = not _writes(version)
+        if version.record_only:
+            line.changes.append("record of origins")
     if line.action == UNCHANGED and (line.changes or version.publish or version.set_published_at):
         line.action = UPDATE
     if line.publication == HELD and line.action in (CREATE, UNCHANGED, UPDATE):
         line.action = HELD
+
+
+#: What a publication's own transaction writes into the ledger.
+_PUBLICATION_FACTS = ("status", "published_at", "changed_at")
+
+
+def _recorded(fields: Mapping[str, Any]) -> dict[str, Any]:
+    return {name: value for name, value in fields.items() if name not in _PUBLICATION_FACTS}
+
+
+def _writes(version: _Version) -> bool:
+    """Whether the version's own transaction has anything to write."""
+    return bool(
+        version.entry is None
+        or version.metadata
+        or version.write_body
+        or version.terms
+        or version.former
+        or version.change_slug
+        or version.record_only
+    )
 
 
 def _kept(line: Line) -> None:
@@ -1619,10 +1645,12 @@ def _apply(plan: _Plan, context: Any) -> None:
             scanner_misses = _apply_pictures(plan, version, scanner_misses)
         phases["pictures"] += time.monotonic() - mark
         mark = time.monotonic()
+        # Only what has something to write: a run that changes nothing
+        # touches no row, the ledger's included.
         active = [
             version
             for version in versions
-            if not version.line.refused and version.line.action != UNCHANGED and version.blocks
+            if not version.line.refused and version.blocks and _writes(version)
         ]
         if active:
             try:
@@ -1633,7 +1661,7 @@ def _apply(plan: _Plan, context: Any) -> None:
                     version.line.refuse("write_failed", _why(error))
         phases["text"] += time.monotonic() - mark
         mark = time.monotonic()
-        for version in active:
+        for version in versions:
             if version.line.refused or not (version.publish or version.set_published_at):
                 continue
             try:
@@ -1946,7 +1974,7 @@ def _write_entry(plan: _Plan, entry_spec: Mapping[str, Any], versions: Sequence[
         # What is public is recorded by the publication's own transaction.
         fields = dict(version.ledger)
         before = version.record.fields if version.record is not None else {}
-        for name in ("status", "published_at", "changed_at"):
+        for name in _PUBLICATION_FACTS:
             if version.publish or version.set_published_at:
                 fields[name] = dict(before.get(name) or {"written": None})
         version.record = _remember(

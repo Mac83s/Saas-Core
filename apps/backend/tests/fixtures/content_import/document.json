@@ -29,9 +29,7 @@
       "slugs": {
         "pl": "pielegnacja"
       },
-      "former_slugs": [
-        "pielegnacja-psa"
-      ]
+      "former_slugs": ["pielegnacja-psa"]
     },
     {
       "id": "cat-coat",
@@ -95,9 +93,7 @@
         "pl": "Długa sierść",
         "en": "Long coat"
       },
-      "former_slugs": [
-        "dlugowlose"
-      ]
+      "former_slugs": ["dlugowlose"]
     },
     {
       "id": "tag-walks",
@@ -110,13 +106,8 @@
     {
       "id": "post-1",
       "type": "poradnik",
-      "categories": [
-        "cat-brushing"
-      ],
-      "tags": [
-        "tag-coat",
-        "tag-puppies"
-      ],
+      "categories": ["cat-brushing"],
+      "tags": ["tag-coat", "tag-puppies"],
       "author_name": "Anna Nowak",
       "versions": [
         {
@@ -124,10 +115,7 @@
           "title": "Jak czesać psa, żeby to lubił",
           "excerpt": "Szczotka, kolejność i nagrody: czesanie w dziesięć minut.",
           "slug": "jak-czesac-psa",
-          "former_slugs": [
-            "czesanie-psa",
-            "czesanie"
-          ],
+          "former_slugs": ["czesanie-psa", "czesanie"],
           "body": {
             "html": "<h2>Jak <a href=\"https://example.com/szczotki\">wybrać szczotkę</a></h2><p>Czesz psa <u>regularnie</u>, najlepiej <b>co tydzień</b>. Zobacz też <a href=\"/poradnik/kapiel-psa/\">kąpiel psa</a>.</p><img src=\"https://stary-serwis.example/img/szczotka.png\"><table><tr><th>Sierść</th><th>Jak często</th></tr><tr><td>Krótka</td><td>raz w tygodniu</td></tr><tr><td colspan=\"2\">Długa — co dwa dni</td></tr></table><h1>Na koniec</h1><p>Nagroda po każdym czesaniu.</p>"
           },
@@ -141,9 +129,7 @@
               "alt": "Szczotka do długiej sierści"
             }
           },
-          "accept_losses": [
-            "heading_link_dropped"
-          ],
+          "accept_losses": ["heading_link_dropped"],
           "status": "published",
           "published_at": "2023-03-14T08:30:00+01:00",
           "changed_at": "2025-02-01T10:00:00+01:00",
@@ -153,9 +139,7 @@
           "locale": "en",
           "title": "How to brush a dog so it likes it",
           "slug": "how-to-brush-a-dog",
-          "former_slugs": [
-            "brushing-a-dog"
-          ],
+          "former_slugs": ["brushing-a-dog"],
           "body": {
             "html": "<h2>How to choose a brush</h2><p>Brush your dog <b>every week</b>. See also <a href=\"/en/guide/bathing-a-dog/\">bathing a dog</a>.</p><img src=\"https://stary-serwis.example/img/szczotka.png\" alt=\"A brush for long coats\"><table><tr><th>Coat</th><th>How often</th></tr><tr><td>Short</td><td>once a week</td></tr><tr><td>Long</td><td>every other day</td></tr></table><h2>One last thing</h2><p>A treat after every brushing.</p>"
           },
@@ -277,21 +261,13 @@
     {
       "id": "post-2",
       "type": "poradnik",
-      "categories": [
-        "cat-care",
-        "cat-health"
-      ],
-      "tags": [
-        "tag-puppies"
-      ],
+      "categories": ["cat-care", "cat-health"],
+      "tags": ["tag-puppies"],
       "versions": [
         {
           "locale": "pl",
           "title": "Kąpiel psa",
-          "former_slugs": [
-            "jak-czesac-psa",
-            "mycie-psa"
-          ],
+          "former_slugs": ["jak-czesac-psa", "mycie-psa"],
           "body": {
             "html": "<p>Ciepła woda i <i>spokój</i>.</p><div class=\"question_answer\"><h3>Jak często kąpać psa?</h3><p>Nie częściej niż raz w miesiącu.</p></div><div class=\"question_answer\"><h3>Czym myć?</h3><p>Szamponem dla psów.</p></div>"
           },
@@ -308,9 +284,7 @@
     {
       "id": "post-3",
       "type": "poradnik",
-      "categories": [
-        "cat-health"
-      ],
+      "categories": ["cat-health"],
       "versions": [
         {
           "locale": "pl",
@@ -337,9 +311,7 @@
     {
       "id": "post-4",
       "type": "poradnik",
-      "tags": [
-        "tag-walks"
-      ],
+      "tags": ["tag-walks"],
       "versions": [
         {
           "locale": "pl",
@@ -393,9 +365,7 @@
     {
       "id": "post-7",
       "type": "poradnik",
-      "tags": [
-        "tag-walks"
-      ],
+      "tags": ["tag-walks"],
       "versions": [
         {
           "locale": "pl",
@@ -480,9 +450,7 @@
     {
       "id": "post-10",
       "type": "poradnik",
-      "categories": [
-        "cat-orphan"
-      ],
+      "categories": ["cat-orphan"],
       "versions": [
         {
           "locale": "pl",

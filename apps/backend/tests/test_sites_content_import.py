@@ -450,8 +450,15 @@ def test_the_fixture_comes_in_as_a_person_would_bring_it_and_twice_is_once(
     # The same document again: nothing is written, anywhere.
     counted = _counts()
     stored = dict(storage.objects)
-    again = company.run(document, apply=True)
+    with CaptureQueriesContext(connection) as queries:
+        again = company.run(document, apply=True)
     after = _counts()
+    # Not a row of the site is written or rewritten — the ledger's included.
+    assert [
+        query["sql"][:80]
+        for query in queries.captured_queries
+        if query["sql"].startswith(("INSERT", "UPDATE", "DELETE")) and '"sites_' in query["sql"]
+    ] == []
     changed = {
         table: (counted[table], after[table]) for table in after if after[table] != counted[table]
     }
