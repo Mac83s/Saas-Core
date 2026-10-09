@@ -72,7 +72,22 @@ podglądzie (`takes_over`) i z `take_over_former`.
   `term_addresses.site_vocabulary`, które ustawia tenanta z hosta w tej samej
   transakcji. Baza testowa RLS omija — pilnuje tego test kolejności zapytań.
 - Kolejność blokad: wiersz strony, potem wpis; pozycje zawsze w kolejności
-  identyfikatorów.
+  identyfikatorów i jednym zapytaniem. Każda zmiana słownika blokuje **cały słownik
+  strony** (`taxonomies.lock_vocabulary`), publikacja wpisu — pozycje, które niesie, z
+  kategoriami nad nimi (`terms_to_close`); obie `FOR NO KEY UPDATE`. Przypisanie wpisu
+  (tagi, kategorie) nie blokuje wierszy pozycji wcale. Pilnuje tego test
+  `test_every_writer_takes_the_rows_of_terms_in_one_order`.
+
+## Kto zmienia słownik
+
+Założenie, zmiana nazwy, przeniesienie, kolejność i nazwy w językach to decyzja osoby
+(`person_required` dla klucza integracji w każdym trybie i dla asystenta, także w
+podglądzie): nazwa i miejsce w drzewie pokazują się gościom od razu, bez publikacji.
+Adres, usunięcie i słowo „kategoria” w adresach — tak samo. Integracja i asystent dostaną
+własne wejście z podglądem w CT5. **Przypisanie wpisu** do kategorii albo tagów nie jest
+zmianą słownika: idzie regułą wpisu (grant na typ, typ przyjmujący szkice automatyzacji)
+i goście widzą je dopiero z publikacją wpisu; integracja zakłada tag tylko tak —
+przypisując wpis do nazwy, której jeszcze nie ma.
 
 ## Usunięty wpis
 
@@ -81,4 +96,12 @@ menedżerem dla odczytów; `with_removed` wolno użyć w `entry_removal`, przy
 usuwaniu typu i w źródle tłumaczeń `sites.entry` (zlecenie w toku musi dostać
 odpowiedź, nie wyjątek). Złączenia przez relację (`entry__…`) wykluczają stan
 `removed` jawnie. Kasowanie wierszy następuje wyłącznie z usunięciem typu,
-którego wszystkie wpisy są usunięte, po wpisaniu jego nazwy.
+którego wszystkie wpisy są usunięte: wymaga prawa publikowania
+(`erasure_needs_publish`, także w podglądzie), wpisania nazwy typu
+(`confirm_name`) i liczby usuniętych wpisów, którą pokazał podgląd
+(`confirm_removed_entries`; inna liczba w chwili kasowania to
+`confirmation_stale` i nic nie znika).
+
+Usunięcie wpisu zamyka też propozycje integracji, które na niego czekały
+(`review_state = rejected`, wpis historii `sites.proposal.closed` z powodem
+`entry_removed`): obie decyzje w kolejce szukają wpisu, a usuniętego nie znajdą.

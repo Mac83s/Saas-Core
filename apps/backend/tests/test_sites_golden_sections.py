@@ -36,7 +36,14 @@ from test_sites_collections import (
     save_entry_draft,
     set_tags,
 )
-from test_sites_golden_blog import _file, _normalized, _page, _translation
+from test_sites_golden_blog import (
+    _file,
+    _normalized,
+    _page,
+    _translation,
+    assert_no_publication_names_terms,
+    publications_as_before_terms,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -316,9 +323,21 @@ def _compare(read: str) -> None:
         )
 
 
-def test_two_sections_answer_what_they_answered_before_categories(settings: Any) -> None:
+@pytest.mark.parametrize(
+    "older", [False, True], ids=["publications-of-today", "publications-without-terms"]
+)
+def test_two_sections_answer_what_they_answered_before_categories(
+    settings: Any, monkeypatch: pytest.MonkeyPatch, older: bool
+) -> None:
     # German is not every product's language, nor a second section every
     # platform's offer; this site's company has both.
     settings.SITES_SUPPORTED_LOCALES = ("pl", "en", "de")
     settings.CONTENT_TYPES_OFFERED = True
-    _compare(_read(_site()))
+    # The same file for publications as they are written now and as every
+    # publication older than categories is stored: with no `terms`.
+    if older:
+        publications_as_before_terms(monkeypatch)
+    site = _site()
+    if older:
+        assert_no_publication_names_terms(site.site_id)
+    _compare(_read(site))

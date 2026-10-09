@@ -30,7 +30,12 @@ from django.test import override_settings
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.models import Organization
-from saas_core.modules.shared.sites.models import LEGACY_TERM_LOCK, ContentTag, Site
+from saas_core.modules.shared.sites.models import (
+    LEGACY_TERM_LOCK,
+    ContentEntryPublication,
+    ContentTag,
+    Site,
+)
 from test_sites_api import csrf_value
 from test_sites_blog_languages import Blog, _feed, _get
 from test_sites_collections import _tagged_entry, publish, save_entry_draft, set_tags
@@ -229,13 +234,53 @@ def _compare(read: str) -> None:
         )
 
 
-@pytest.mark.parametrize("offered", [False, True], ids=["types-not-offered", "types-offered"])
+def publications_as_before_terms(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every publication from here on is written the way publications older
+    than categories were: its snapshot names `tags` and has no `terms` at
+    all. That is what every customer's site holds on the day categories
+    arrive, and those publications are never rewritten — the readers' older
+    branch (a tag found by its key in `tags`) answers for them for good."""
+    from saas_core.modules.shared.sites import collections
+
+    record = collections.record_entry_publication
+
+    def without_terms(context: Any, entry: Any, snapshot: Any, *args: Any, **kwargs: Any) -> Any:
+        older = {key: value for key, value in snapshot.items() if key != "terms"}
+        return record(context, entry, older, *args, **kwargs)
+
+    monkeypatch.setattr(collections, "record_entry_publication", without_terms)
+
+
+def assert_no_publication_names_terms(site_id: Any) -> None:
+    """The older world really is one: without this the variant could turn
+    into the first one unnoticed and prove nothing."""
+    snapshots = list(
+        ContentEntryPublication.all_objects.filter(entry__site_id=site_id).values_list(
+            "snapshot", flat=True
+        )
+    )
+    assert snapshots
+    assert not [snapshot for snapshot in snapshots if "terms" in snapshot]
+    assert [snapshot for snapshot in snapshots if snapshot.get("tags")]
+
+
+@pytest.mark.parametrize(
+    ("offered", "older"),
+    [(False, False), (True, False), (True, True)],
+    ids=["types-not-offered", "types-offered", "publications-without-terms"],
+)
 def test_a_blog_answers_what_it_answered_before_content_types(
-    settings: Any, offered: bool
+    settings: Any, monkeypatch: pytest.MonkeyPatch, offered: bool, older: bool
 ) -> None:
     # German is not every product's language; this site's company speaks it.
     settings.SITES_SUPPORTED_LOCALES = ("pl", "en", "de")
     # One file for both: a platform that offers further content types changes
     # nothing for a company that makes none.
     settings.CONTENT_TYPES_OFFERED = offered
-    _compare(_read(_blog()))
+    # And one file for publications made before categories and after.
+    if older:
+        publications_as_before_terms(monkeypatch)
+    blog = _blog()
+    if older:
+        assert_no_publication_names_terms(blog.site_id)
+    _compare(_read(blog))

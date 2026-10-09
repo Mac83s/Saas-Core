@@ -845,6 +845,33 @@ składa; słownik strony czytany w tenancie), `taxonomies.py` (serwisy),
     kategorii w wykazie sitemapy. Istnienie, liczniki i nazwy — jak dla tagów — tylko z
     opublikowanych wpisów bez `noindex`. Kontrakt: `product-content-read.md` §4.2–4.3, §10.
 
+Po przeglądzie przed scaleniem (2026-10-09):
+
+21. **Słownikiem zarządza osoba.** Założenie, zmiana nazwy, przeniesienie, kolejność i
+    nazwy pozycji w językach odmawiają kluczowi integracji (w każdym trybie grantu) i
+    asystentowi (`person_required`, także w podglądzie): nazwa i miejsce w drzewie
+    pokazują się gościom od razu, a klucz w trybie propozycji nie może zmieniać tego, co
+    publiczne, bez osoby. Wejście dla asystenta i integracji z podglądem — CT5.
+    Przypisanie wpisu do kategorii i tagów zostaje przy regule wpisu (jak tagi dotąd):
+    goście widzą je dopiero z publikacją wpisu, bo archiwa czytają migawki, nie przypisania.
+22. **Kasowanie z typem wymaga więcej niż edycji treści.** Usunięcie typu, które kasuje
+    usunięte wpisy, wymaga prawa publikowania — tak jak zdjęcie opublikowanego wpisu — i
+    niesie liczbę usuniętych wpisów pokazaną w podglądzie; gdy w transakcji jest ich
+    inna liczba (ktoś usunął wpis między podglądem a potwierdzeniem), nic nie znika i
+    osoba potwierdza jeszcze raz (`confirmation_stale`).
+23. **Usunięcie wpisu zamyka czekające propozycje integracji** jako odrzucone, każdą z
+    własnym wpisem w historii (`sites.proposal.closed`, powód `entry_removed`) — inaczej
+    zostałyby w kolejce na zawsze, bo akceptacja i odrzucenie szukają wpisu.
+24. **Jedna kolejność blokad pozycji.** Każda zmiana słownika blokuje cały słownik strony
+    jednym zapytaniem w kolejności identyfikatorów; publikacja — to, co niesie, w tej
+    samej kolejności; przypisanie wpisu nie blokuje pozycji. Zostaje (pierwszy następny
+    krok w planie): transakcja, która publikuje **kilka** wpisów (publikacja oryginału
+    z tłumaczeniami, zlecenie tłumaczenia), bierze pozycje partiami i druga partia może
+    sięgnąć po starszą pozycję niż pierwsza — z równoczesną zmianą słownika albo drugą
+    taką publikacją baza przerwie jedną z nich.
+25. **Trzeci świadek.** Oba testy złotych plików mają wariant „publikacje bez `terms`” —
+    tak wygląda każda publikacja starsza od tej fazy — i odpowiadają tymi samymi plikami.
+
 **Kto musi o tym pamiętać** (lista dla następnych faz):
 
 - Każdy publiczny odczyt `sites_contenttag` i `sites_contenttaxonomy` idzie przez
@@ -855,8 +882,12 @@ składa; słownik strony czytany w tenancie), `taxonomies.py` (serwisy),
 - Wpisy czyta się przez `ContentEntry.all_objects`; `with_removed` tylko w usuwaniu,
   kasowaniu i w źródle tłumaczeń `sites.entry`. Złączenia przez relacje (`entry__…`) nie
   przechodzą przez menedżera — tam, gdzie liczą, wykluczają stan `removed` jawnie.
-- Pozycje blokuje się zawsze w kolejności identyfikatorów (`terms_to_close`, `_terms_of`,
-  `_settle`), a wiersz strony przed wpisem.
+- Pozycje blokuje się zawsze w kolejności identyfikatorów, jednym zapytaniem i
+  `FOR NO KEY UPDATE`: zmiana słownika — cały słownik strony (`lock_vocabulary`),
+  publikacja — to, co niesie (`terms_to_close`); wiersz strony przed wpisem. Kod, który
+  tylko przypisuje wpis, wierszy pozycji nie blokuje.
+- Nowa operacja na słowniku zaczyna od `assert_person_required(…, TERM_MANAGE_GATE)`,
+  dopóki CT5 nie da asystentowi i integracjom wejścia z podglądem.
 - Adres archiwum składa tylko `term_archive_path`; odczyt dla stron produktu (CT3)
   bierze z niego części, a „przeniesione” z `moved_address`.
 

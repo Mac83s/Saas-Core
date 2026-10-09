@@ -149,6 +149,9 @@ const terms = await contentTerms({ type: "poradnik", locale });
 - `parent_slug` to slug pozycji nadrzędnej w taksonomii hierarchicznej; dla tagów `null`.
   Drzewo składa produkt z tych wskazań; pozycje przychodzą w kolejności drzewa
   (nadrzędna przed podrzędnymi, rodzeństwo w kolejności z panelu).
+- Nazwa kategorii pochodzi z publikacji wpisów, które ją niosą, więc zmieniona nazwa
+  pokazuje się w odczycie po ponownej publikacji takiego wpisu; kategoria nadrzędna nad
+  pokazaną, której nie niesie żadna publikacja, jest nazywana ze swojego bieżącego wiersza.
 - Taksonomia `category` jest w odpowiedzi tylko wtedy, gdy typ ma kategorię z wpisem na
   liście w tym języku. `count` kategorii liczy też wpisy kategorii pod nią, więc
   kategoria nadrzędna widocznej kategorii zawsze jest widoczna.
