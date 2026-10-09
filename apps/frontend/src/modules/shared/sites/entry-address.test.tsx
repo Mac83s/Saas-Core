@@ -88,7 +88,7 @@ function renderCard({
           permissions: null,
           isOwner: true,
           limited: false,
-          publisher,
+          ...(publisher ? { publisher: true as const } : {}),
         }}
       >
         <EntryAddress
@@ -257,7 +257,7 @@ test("a refusal is said in the panel's words, by the code on the field", async (
       detail: "x",
       code: "invalid",
       errors: [{ field: "slug", code: "entry_slug_taken", message: "x" }],
-    } as ConstructorParameters<typeof ApiProblemError>[0]),
+    } as never),
   );
   renderCard();
   await screen.findByText(/Wpis odpowiada pod adresem/);

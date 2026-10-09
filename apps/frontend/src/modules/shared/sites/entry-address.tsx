@@ -50,7 +50,8 @@ export function EntryAddress({
   onChanged,
 }: {
   entry: ContentEntry;
-  collection: ContentCollection | undefined;
+  /** The entry's content type, for its name; the screen may not have it yet. */
+  collection: Pick<ContentCollection, "name"> | null | undefined;
   onChanged: () => Promise<void>;
 }) {
   const t = useTranslations("Sites");
