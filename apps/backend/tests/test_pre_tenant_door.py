@@ -103,6 +103,50 @@ DECLARED_DOOR: dict[str, tuple[int, str]] = {
 #: The module that defines the alias obviously names it.
 DEFINITION = "modules/core/organizations/pre_tenant.py"
 
+#: The setting the constant is read from, and the alias it holds on a running
+#: deployment. A query sent through either — `.using("pre_tenant")`,
+#: `connections[settings.PRE_TENANT_DATABASE_ALIAS]` — goes through the door
+#: exactly as one written with `PRE_TENANT_DB`, and the count above, which
+#: looks for the constant's name, would not see it (found in the review of
+#: PR1c). So the alias has a list of its own: who names it without the
+#: constant, how many times, and why — none of them to read a row.
+ALIAS_SETTING = "PRE_TENANT_DATABASE_ALIAS"
+DECLARED_ALIAS: dict[str, tuple[int, str]] = {
+    DEFINITION: (
+        1,
+        "definicja stałej `PRE_TENANT_DB`: jedyne miejsce, które czyta alias z ustawień, "
+        "żeby dało się go policzyć po nazwie",
+    ),
+    "config/settings/base.py": (
+        3,
+        "ustawienia: nazwa aliasu i wpis `DATABASES` z osobną rolą bazy — konfiguracja "
+        "połączenia, żadnego zapytania",
+    ),
+    "config/settings/test.py": (
+        1,
+        "ustawienia testów: alias wskazuje połączenie domyślne, bo baza testowa i tak "
+        "omija RLS — żadnego zapytania",
+    ),
+    "config/db_router.py": (
+        1,
+        "router: migracje nie są wykonywane drugi raz na aliasie drzwi — porównanie "
+        "nazwy połączenia, żadnego zapytania",
+    ),
+    **{
+        f"modules/core/organizations/migrations/{name}.py": (
+            2,
+            "migracja polityki RLS: nazwa roli bazy stojącej za aliasem, żeby polityka "
+            "mogła ją wymienić — zamrożona historia, czyta ustawienia, nie wiersze",
+        )
+        for name in (
+            "0025_rls_billingprofile_invitation",
+            "0026_rls_membership_audit",
+            "0027_rls_role",
+            "0028_rls_organization",
+        )
+    },
+}
+
 #: The functions that find the platform's workspace through the door. A call
 #: to one of them is a read before a tenant is known just as a line with
 #: `PRE_TENANT_DB` is — and the count above cannot see it: the line it counts
@@ -135,11 +179,15 @@ WORKSPACE_LOOKUP_DEFINITION = "modules/core/organizations/platform_workspace.py"
 #: - a file put under `modules/vertical/` in the core's own tree — the core
 #:   ships none there, and one that appeared would pass as a product's;
 #: - a name put together while the program runs (two strings joined, an
-#:   f-string, bytes decoded) or taken out of `sys.modules`;
+#:   f-string, bytes decoded) or taken out of `sys.modules` — the door's
+#:   alias among them: `"pre_" + "tenant"` is no literal `_alias_names` sees,
+#:   and neither is an alias read from the environment or from
+#:   `connections` by position;
 #: - an answer handed on: a module that may ask giving the identifier to one
-#:   that may not, under a name of its own;
-#: - the door's alias written as a literal (`.using("pre_tenant")`) instead
-#:   of the constant the first count looks for.
+#:   that may not, under a name of its own — or a module that may hold the
+#:   constant handing the alias on under another name.
+#: The alias written as a literal, or read from settings, is caught since
+#: PR1d (`DECLARED_ALIAS`).
 #: A product is held to it by its own gate running this file; a product that
 #: does not run the core's tests is held to nothing.
 PRODUCT_MODULES = "modules/vertical/"
@@ -188,6 +236,31 @@ def _door_usage() -> dict[str, int]:
         ]
         if uses:
             found[relative] = len(uses)
+    return found
+
+
+def _alias_names(source: str, alias: str) -> int:
+    """How many times a source names the door's alias without the constant:
+    the alias itself as a string, or the setting that holds it — as an
+    attribute, a bare name or a string handed to `getattr`. A sentence that
+    merely mentions either is no such string."""
+    return sum(
+        1
+        for node in ast.walk(ast.parse(source))
+        if (isinstance(node, ast.Constant) and node.value in (alias, ALIAS_SETTING))
+        or (isinstance(node, ast.Attribute) and node.attr == ALIAS_SETTING)
+        or (isinstance(node, ast.Name) and node.id == ALIAS_SETTING)
+    )
+
+
+def _alias_usage(root: Path = SOURCE) -> dict[str, int]:
+    # The running settings, not the test ones, where the alias is "default".
+    alias = import_module("saas_core.config.settings.base").PRE_TENANT_DATABASE_ALIAS
+    found: dict[str, int] = {}
+    for path in sorted(root.rglob("*.py")):
+        uses = _alias_names(path.read_text(encoding="utf-8"), alias)
+        if uses:
+            found[path.relative_to(root).as_posix()] = uses
     return found
 
 
@@ -283,8 +356,7 @@ def _workspace_problems(
                 f"{', '.join(sorted(declared[path]))} — popraw wpis w DECLARED_WORKSPACE_LOOKUPS."
             )
     problems.extend(
-        f"{path}: zadeklarowany w DECLARED_WORKSPACE_LOOKUPS, a niczego już nie nazywa — "
-        "usuń wpis."
+        f"{path}: zadeklarowany w DECLARED_WORKSPACE_LOOKUPS, a niczego już nie nazywa — usuń wpis."
         for path in sorted(set(declared) - set(usage))
     )
     return problems
@@ -374,9 +446,44 @@ def test_only_the_declared_places_read_before_a_tenant() -> None:
 
 
 def test_every_declared_place_says_why() -> None:
-    for path, (count, reason) in DECLARED_DOOR.items():
+    for path, (count, reason) in {**DECLARED_DOOR, **DECLARED_ALIAS}.items():
         assert count > 0, path
         assert len(reason) > 20, f"{path}: powód jest zbyt ogólny, żeby coś znaczył"
+
+
+def test_nobody_names_the_doors_alias_but_the_declared_places(tmp_path: Path) -> None:
+    """The count of `PRE_TENANT_DB` is only a count of the door if the
+    constant is the one way to it. The alias written out, or read from the
+    setting, is the other way — so every place that does either is listed
+    with what it does, and none of them sends a query."""
+    actual = _alias_usage()
+
+    assert actual == {path: count for path, (count, _reason) in DECLARED_ALIAS.items()}, (
+        "Ktoś nazywa alias drzwi sprzed tenanta bez stałej `PRE_TENANT_DB` (literał albo "
+        "`settings.PRE_TENANT_DATABASE_ALIAS`). Zapytanie przez drzwi pisz stałą i dopisz "
+        f"do DECLARED_DOOR; inne użycie dopisz z powodem do DECLARED_ALIAS: {actual}"
+    )
+    # What the first count cannot see, each written the way it would be.
+    alias = import_module("saas_core.config.settings.base").PRE_TENANT_DATABASE_ALIAS
+    for source, uses in (
+        (f'Membership.all_objects.using("{alias}").filter(user=user)\n', 1),
+        ("rows = Role.objects.using(settings.PRE_TENANT_DATABASE_ALIAS).all()\n", 1),
+        ("from django.conf import settings as s\nx = s.PRE_TENANT_DATABASE_ALIAS\n", 1),
+        (f'with connections["{alias}"].cursor() as cursor:\n    pass\n', 1),
+        ('alias = getattr(settings, "PRE_TENANT_DATABASE_ALIAS", None)\n', 1),
+        (f'DOOR = "{alias}"\nrows = Role.objects.using(DOOR)\n', 1),
+        # The constant is the first count's business, and words are no alias.
+        ("from .pre_tenant import PRE_TENANT_DB\nrows = Role.objects.using(PRE_TENANT_DB)\n", 0),
+        (f'"""Reads through the {alias} door, see PRE_TENANT_DATABASE_ALIAS."""\n', 0),
+        (f"# .using('{alias}') would be wrong here\nvalue = 1\n", 0),
+    ):
+        assert _alias_names(source, alias) == uses, source
+    # A file nobody declared is noticed wherever it lies.
+    (tmp_path / "modules").mkdir()
+    (tmp_path / "modules" / "quiet.py").write_text(
+        f'rows = Organization.objects.using("{alias}").all()\n', encoding="utf-8"
+    )
+    assert _alias_usage(tmp_path) == {"modules/quiet.py": 1}
 
 
 def test_only_the_declared_places_look_the_platform_workspace_up() -> None:
@@ -459,8 +566,9 @@ def test_a_products_module_runs_the_block_and_never_names_the_lookup(tmp_path: P
     ):
         # Names what it found, and the block with where it is imported from.
         assert f"({named})" in told[path]
-        assert "from saas_core.modules.core.organizations.api import in_platform_workspace" in (
-            told[path]
+        assert (
+            "from saas_core.modules.core.organizations.api import in_platform_workspace"
+            in (told[path])
         )
         assert "with in_platform_workspace() as organization_id:" in told[path]
         # And how a command gets the row it used to get from the lookup.
@@ -623,6 +731,7 @@ def test_the_public_renderer_never_reads_through_the_door() -> None:
         "modules/shared/sites/tls.py",
     }
     assert public & set(_door_usage()) == set()
+    assert public & set(_alias_usage()) == set()
     # Nor by asking somebody else to: the workspace lookups read through it,
     # and so does the block — a host named this tenant, and no other is its.
     assert public & set(_workspace_usage()) == set()
