@@ -34,6 +34,7 @@ from saas_core.modules.shared.sites.html_blocks import convert_html
 from saas_core.modules.shared.sites.models import (
     ContentCollection,
     ContentEntry,
+    ContentEntryPublication,
     ContentTag,
     Site,
 )
@@ -462,6 +463,40 @@ def test_a_hidden_entry_is_read_by_its_address_and_is_on_no_list() -> None:
     )
     sitemap = json.dumps(_read("sitemap/").json())
     assert "zwykly" in sitemap and "ukryty" not in sitemap
+
+
+def test_a_snapshot_is_hidden_unless_it_says_false_or_has_no_such_key() -> None:
+    """The lists unpack each snapshot once and read `noindex` the way the
+    routers' own filter does: an older snapshot without the key is listed, one
+    that says nothing definite (null) is not, and neither is one that says so."""
+    guide = Publisher("read-noindex-key")
+    for slug in ("zwykly", "stary", "niejasny", "ukryty"):
+        guide.entry(slug, tags=["Porady"])
+    # A publication is append-only; an older one is not made by writing a new
+    # one, so the guard is lifted for this transaction, which rolls back.
+    with connection.cursor() as cursor:
+        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+        cursor.execute(
+            "ALTER TABLE sites_contententrypublication"
+            " DISABLE TRIGGER sites_content_publication_immutable"
+        )
+    for slug, change in (("stary", "missing"), ("niejasny", "null"), ("ukryty", "true")):
+        publication = ContentEntryPublication.all_objects.get(
+            entry__site_id=guide.site_id, entry__slug=slug
+        )
+        snapshot = dict(publication.snapshot)
+        if change == "missing":
+            del snapshot["noindex"]
+        else:
+            snapshot["noindex"] = None if change == "null" else True
+        ContentEntryPublication.all_objects.filter(pk=publication.pk).update(snapshot=snapshot)
+    guide.enter()
+
+    assert sorted(_slugs(_read("types/poradnik/entries/", locale="pl"))) == ["stary", "zwykly"]
+    terms = _read("types/poradnik/terms/", locale="pl").data["taxonomies"][0]["terms"]
+    assert [(term["slug"], term["count"]) for term in terms] == [("porady", 2)]
+    sitemap = json.dumps(_read("sitemap/").json())
+    assert "stary" in sitemap and "niejasny" not in sitemap and "ukryty" not in sitemap
 
 
 def test_lists_page_filter_by_term_and_say_when_a_term_is_too_thin_to_index() -> None:

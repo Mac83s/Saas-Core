@@ -30,6 +30,7 @@ table (`docs/architecture/product-content-read.md`).
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -38,8 +39,8 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from django.conf import settings
-from django.db import transaction
-from django.db.models import Q, QuerySet
+from django.db import connection, transaction
+from django.db.models import QuerySet
 from django.http import HttpResponse
 from rest_framework.exceptions import ErrorDetail, NotFound, ValidationError
 
@@ -202,53 +203,113 @@ def _categories_of(value: Any) -> tuple[tuple[str, str], ...]:
     )
 
 
-def _listed(workspace: _Workspace) -> list[_Listed]:
+#: What a list, a count and the sitemap know of a published entry, as one
+#: statement: the snapshot is unpacked once per row (`jsonb_to_record`) and
+#: the type and the language come from the entry's own columns, which are
+#: never rewritten after the entry is made and which a publication copies
+#: (`snapshot["locale"]`). Written as the ORM would write `_published`: the
+#: three tables carry no row-level security, so each one names the workspace
+#: (and the site where it has one) itself. A hidden entry is one whose snapshot
+#: says `noindex` is anything but false: a snapshot older than the field has no
+#: such key and is listed, a JSON null is not (`jsonb_to_record` reads both as
+#: SQL null, so the key's presence is asked where that is the case).
+_LISTED_FROM = """
+FROM "sites_contententry" e
+INNER JOIN "sites_contententrypublication" p ON p."id" = e."current_publication_id"
+INNER JOIN "sites_contentcollection" c ON c."id" = e."collection_id"
+CROSS JOIN LATERAL jsonb_to_record(p."snapshot") AS s(
+    "slug" text, "title" text, "excerpt" text, "author_name" text,
+    "tags" jsonb, "terms" jsonb, "changed_at" text, "noindex" jsonb
+)
+WHERE e."organization_id" = %s AND e."site_id" = %s
+  AND e."state" = %s
+  AND p."organization_id" = %s
+  AND c."organization_id" = %s AND c."site_id" = %s
+  AND c."archived_at" IS NULL
+  AND e."locale" = ANY(%s)
+  AND (
+    s."noindex" = 'false'::jsonb
+    OR (s."noindex" IS NULL AND NOT p."snapshot" ? 'noindex')
+  )
+"""
+_LISTED_SELECT = """
+SELECT e."id", e."collection_id", e."translation_group", e."locale", e."published_at",
+       p."created_at", s."slug", s."title", s."excerpt", s."author_name",
+       s."tags", s."terms", s."changed_at"
+"""
+#: The order the ORM gave the same rows (`ContentEntry.Meta.ordering`): ties of
+#: the newest-first sort below keep it.
+_LISTED_ORDER = """
+ORDER BY e."organization_id", e."collection_id", e."published_at" DESC, e."id"
+"""
+
+
+def _listed_query(
+    workspace: _Workspace, *, collection_id: UUID | None, locale: str | None
+) -> tuple[str, list[Any]] | None:
+    """The conditions of `_LISTED_FROM` with their values, or none when the
+    language asked for is one the workspace does not read."""
+    if locale is not None and locale not in workspace.available:
+        return None
+    organization_id, site_id = workspace.organization_id, workspace.site.id
+    sql = _LISTED_FROM
+    params: list[Any] = [
+        organization_id,
+        site_id,
+        ContentEntryState.PUBLISHED.value,
+        organization_id,
+        organization_id,
+        site_id,
+        [locale] if locale is not None else sorted(workspace.available),
+    ]
+    if collection_id is not None:
+        sql += '  AND e."collection_id" = %s\n'
+        params.append(collection_id)
+    return sql, params
+
+
+def _json_of(value: Any) -> Any:
+    # The driver hands a jsonb column over as text (the ORM decodes its own).
+    return json.loads(value) if isinstance(value, str) else value
+
+
+def _listed(
+    workspace: _Workspace, *, collection_id: UUID | None = None, locale: str | None = None
+) -> list[_Listed]:
     """Every entry a list may show, newest first: published, asking to be
-    indexed, in a language the workspace reads. Bodies stay in the database —
-    a list of a few hundred guides is not a few megabytes of blocks."""
-    snapshot = "current_publication__snapshot__"
-    rows = (
-        _published(workspace)
-        .filter(Q(**{f"{snapshot}noindex": False}) | Q(**{f"{snapshot}noindex__isnull": True}))
-        .values_list(
-            "id",
-            "collection_id",
-            "translation_group",
-            "published_at",
-            "current_publication__created_at",
-            f"{snapshot}locale",
-            f"{snapshot}slug",
-            f"{snapshot}title",
-            f"{snapshot}excerpt",
-            f"{snapshot}author_name",
-            f"{snapshot}tags",
-            f"{snapshot}terms",
-            f"{snapshot}changed_at",
-        )
-    )
+    indexed, in a language the workspace reads — of one type and one language
+    when asked for them. Bodies stay in the database — a list of a few hundred
+    guides is not a few megabytes of blocks."""
+    where = _listed_query(workspace, collection_id=collection_id, locale=locale)
+    if where is None:
+        return []
+    sql, params = where
+    with connection.cursor() as cursor:
+        cursor.execute(_LISTED_SELECT + sql + _LISTED_ORDER, params)
+        rows = cursor.fetchall()
     found = [
         _Listed(
             entry_id=entry_id,
-            collection_id=collection_id,
+            collection_id=collection,
             group=group,
-            locale=str(locale),
+            locale=str(locale_code),
             slug=str(slug),
             title=str(title),
             excerpt=str(excerpt or ""),
             author_name=str(author_name or ""),
-            tags=_tags_of(tags),
-            categories=_categories_of(terms),
+            tags=_tags_of(_json_of(tags)),
+            categories=_categories_of(_json_of(terms)),
             published_at=published_at,
             # When the text changed, which publishing it again does not move.
             changed_at=parse_moment(changed_at) or created_at,
         )
         for (
             entry_id,
-            collection_id,
+            collection,
             group,
+            locale_code,
             published_at,
             created_at,
-            locale,
             slug,
             title,
             excerpt,
@@ -257,37 +318,60 @@ def _listed(workspace: _Workspace) -> list[_Listed]:
             terms,
             changed_at,
         ) in rows
-        if str(locale) in workspace.available
     ]
     # A missing timestamp sorts last, as in the router's own list.
     found.sort(key=lambda item: (item.published_at is not None, item.published_at), reverse=True)
     return found
 
 
-def _type(workspace: _Workspace, key: str, listed: list[_Listed]) -> ContentCollection:
-    """The type `key`, which exists for the read once an entry of it is on a
-    list — an empty type and no type at all answer the same."""
+def _has_listed(workspace: _Workspace, collection_id: UUID) -> bool:
+    """Whether the type has an entry on a list in any language, which is what
+    its existence for the read comes down to — asked only where the entries
+    read are none. Stops at the first."""
+    where = _listed_query(workspace, collection_id=collection_id, locale=None)
+    assert where is not None
+    sql, params = where
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT 1" + sql + " LIMIT 1", params)
+        return cursor.fetchone() is not None
+
+
+def _type(workspace: _Workspace, key: str) -> ContentCollection:
+    """The switched-on type `key`. It exists for the read once an entry of it
+    is on a list — an empty type and no type at all answer the same — which
+    the caller sees in the entries it reads of it."""
     collection = next((found for found in _types(workspace).values() if found.key == key), None)
-    if collection is None or not any(item.collection_id == collection.id for item in listed):
+    if collection is None:
         raise ContentNotFound
     return collection
 
 
-def _names(workspace: _Workspace, locale: str) -> dict[str, str]:
+def _names(
+    workspace: _Workspace, locale: str, vocabulary: Vocabulary | None = None
+) -> dict[str, str]:
     """The accepted names of types and tags in `locale`, by site-text key
     (`collection/<id>`, `tag/<id>`). Read straight from the accepted
     translations (ADR-079 pkt 33): on a company's site they go out with the
-    site's publication, and nobody publishes the workspace's site. The caller
-    asks only for what a published entry carries."""
+    site's publication, and nobody publishes the workspace's site.
+
+    The terms are the vocabulary the answer already read — a name is found
+    per key and by that term's own text, so the units the answer never asks
+    for cost nothing and no second scan of the snapshots decides which terms
+    to offer (`published_terms`). Without one, the names are the types' alone.
+    The caller asks only for what a published entry carries: a name is read
+    where a list, a count or an entry's own terms name its term."""
     if locale == workspace.default_locale:
         return {}
     from .site_texts import shown_texts, site_text_units, translation_rows
 
-    # Tags and site texts force row-level security: the tenant goes first.
+    # Site texts force row-level security: the tenant goes first.
     with transaction.atomic():
         set_local_organization_id(workspace.organization_id)
         return shown_texts(
-            site_text_units(workspace.site, None), translation_rows(workspace.site, locale)
+            site_text_units(
+                workspace.site, None, terms=vocabulary.terms if vocabulary is not None else ()
+            ),
+            translation_rows(workspace.site, locale),
         )
 
 
@@ -367,7 +451,7 @@ def _naming(
         workspace=workspace,
         vocabulary=vocabulary,
         locale=locale,
-        names=_names(workspace, locale),
+        names=_names(workspace, locale, vocabulary),
         taxonomy=vocabulary.categories_of(collection.id),
     )
 
@@ -509,13 +593,14 @@ def read_terms(*, type_key: str, locale: str) -> dict[str, Any]:
     else (ADR-079 pkt 30): a term only a draft or a hidden entry carries is
     not here, under any name, and counts for nothing."""
     workspace = _workspace()
-    listed = _listed(workspace)
-    collection = _type(workspace, type_key, listed)
-    entries = [
-        item for item in listed if item.collection_id == collection.id and item.locale == locale
-    ]
-    if not entries and locale != workspace.default_locale:
-        # The type has no list in this language.
+    collection = _type(workspace, type_key)
+    entries = _listed(workspace, collection_id=collection.id, locale=locale)
+    if not entries and (
+        # The type has no list in this language; or, in the site's own, none
+        # in any (an empty type answers like no type).
+        locale != workspace.default_locale
+        or not _has_listed(workspace, collection.id)
+    ):
         raise ContentNotFound
     counts: dict[str, int] = {}
     published: dict[str, str] = {}
@@ -606,9 +691,13 @@ def read_entries(
     if bool(taxonomy) != bool(term) or taxonomy not in ("", TAG_TAXONOMY, CATEGORY_TAXONOMY):
         raise ContentNotFound
     workspace = _workspace()
-    listed = _listed(workspace)
-    collection = _type(workspace, type_key, listed)
-    of_type = [item for item in listed if item.collection_id == collection.id]
+    collection = _type(workspace, type_key)
+    # All of the type's languages: its languages, the name of a term, where a
+    # term moved to — each is answered from the other languages' entries too.
+    of_type = _listed(workspace, collection_id=collection.id)
+    if not of_type:
+        # A type with nothing listed is no type for the read.
+        raise ContentNotFound
     naming = _naming(workspace, collection, locale, _vocabulary(workspace))
     asked = _asked_term(naming, of_type, taxonomy, term) if term else None
     if asked is not None:
@@ -856,8 +945,10 @@ def read_entry(
         .select_related("current_publication", "collection")
         .filter(
             collection__key=type_key,
-            current_publication__snapshot__locale=locale,
-            current_publication__snapshot__slug=slug,
+            # The entry's own columns, which a publication copies: the
+            # router finds an entry by its slug column as well.
+            locale=locale,
+            slug=slug,
         )
         .first()
     )
@@ -870,7 +961,7 @@ def read_entry(
             .select_related("current_publication")
             .filter(
                 collection__key=type_key,
-                current_publication__snapshot__locale=locale,
+                locale=locale,
                 former_slugs__contains=[slug],
             )
             .order_by("id")
@@ -911,11 +1002,7 @@ def read_entry(
     if noindex and (tags or categories):
         # A hidden entry is on no list, so a term only it carries has no list
         # either (pkt 30): it names the terms other entries make readable.
-        others = [
-            item
-            for item in _listed(workspace)
-            if item.collection_id == entry.collection_id and item.locale == locale
-        ]
+        others = _listed(workspace, collection_id=entry.collection_id, locale=locale)
         readable = {slug for item in others for slug, _name in item.tags}
         tags = tuple(tag for tag in tags if tag[0] in readable)
         mine = naming.categories()

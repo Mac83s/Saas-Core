@@ -428,8 +428,8 @@ nie zna, nie wymaga zmiany.
   opublikowane), ale nie jest produktem: bez CORS, kluczy i obietnicy stabilności dla
   obcych; odpowiada tylko na hostach platformy. Strony czytające treść mają
   `export const dynamic = "force-dynamic"`.
-- **Że odpowiedź jest pamiętana.** Każde wywołanie pyta backend; lista i sitemapa
-  czytają wszystkie opublikowane wpisy strony (bez treści). Pamięć podręczna po stronie
+- **Że odpowiedź jest pamiętana.** Każde wywołanie pyta backend; lista czyta opublikowane
+  wpisy typu, a sitemapa wszystkie opublikowane wpisy strony (bez treści). Pamięć podręczna po stronie
   produktu jest jego decyzją i jego ryzykiem (wycofany wpis ma zniknąć od razu).
 - **Że `/media/…` odda oryginał zdjęcia spoza opublikowanego wpisu** albo cokolwiek
   innego niż obraz. Poza wpisami odpowiadają wyłącznie kopie (`thumbnail`, `preview`)

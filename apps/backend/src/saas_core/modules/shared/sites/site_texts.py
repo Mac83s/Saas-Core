@@ -58,7 +58,7 @@ from .models import (
 )
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED
 from .services import SiteNotFound, SitePublicationNotReady, _idempotency_key
-from .term_addresses import carried_terms
+from .term_addresses import Term, carried_terms
 
 KEY_TAGLINE = "header/tagline"
 KEY_FOOTER = "footer/text"
@@ -151,8 +151,18 @@ def published_appearance(site: Site) -> dict[str, Any] | None:
     return appearance if isinstance(appearance, dict) else None
 
 
-def site_text_units(site: Site, appearance: Mapping[str, Any] | None) -> tuple[Unit, ...]:
-    """Everything the site says outside its pages and articles, in order."""
+def site_text_units(
+    site: Site,
+    appearance: Mapping[str, Any] | None,
+    *,
+    terms: Iterable[ContentTag | Term] | None = None,
+) -> tuple[Unit, ...]:
+    """Everything the site says outside its pages and articles, in order.
+
+    The terms are the ones a visitor can meet (`published_terms`) unless the
+    caller already holds the site's vocabulary and gives the terms it wants
+    named: a reader that asks for names by key, as the platform's content
+    read does, then needs no second look at every published snapshot."""
     texts = appearance_texts(appearance)
     texts += [
         SiteText(f"collection/{collection.id}", "collection", collection.name.strip(), 160)
@@ -163,7 +173,7 @@ def site_text_units(site: Site, appearance: Mapping[str, Any] | None) -> tuple[U
     ]
     texts += [
         SiteText(term_text_key(term.id), "tag", term.name.strip(), TERM_NAME_MAX)
-        for term in published_terms(site)
+        for term in (published_terms(site) if terms is None else terms)
         if term.name.strip()
     ]
     return tuple(_unit(text) for text in texts)
