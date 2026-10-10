@@ -1692,6 +1692,7 @@
     "blogAddEntry": "Add entry",
     "blogStateDraft": "Draft",
     "blogStatePublished": "Published",
+    "blogStateWithdrawn": "Withdrawn",
     "blogEdit": "Edit entry {title}",
     "blogPublish": "Publish entry {title}",
     "blogWithdraw": "Withdraw entry {title}",

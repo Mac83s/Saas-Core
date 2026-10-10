@@ -107,3 +107,26 @@ test("firma: każdy z tych wierszy prowadzi tam, gdzie prowadził", async () => 
     "/panel/sites/blog?site=site-one",
   ]);
 });
+
+test("product without the catalogue module does not ask for its dictionary", async () => {
+  view((panel) => (
+    <PanelAccessProvider access={PUBLISHER}>{panel}</PanelAccessProvider>
+  ));
+  await screen.findByText(/: O serwisie$/);
+  expect(api.readCatalogDictionary).not.toHaveBeenCalled();
+});
+
+test("a product with the catalogue module still asks for it", async () => {
+  view((panel) => (
+    <PanelAccessProvider
+      access={{
+        ...PUBLISHER,
+        modules: [...PUBLISHER.modules, "shared.profiles"],
+      }}
+    >
+      {panel}
+    </PanelAccessProvider>
+  ));
+  await screen.findByText(/: O serwisie$/);
+  expect(api.readCatalogDictionary).toHaveBeenCalledOnce();
+});

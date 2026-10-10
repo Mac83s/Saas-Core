@@ -21,7 +21,7 @@ import {
 } from "@saas-core/ui/components/data-table";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
-import { usePublisher } from "#components/panel/panel-access";
+import { useAsksModule, usePublisher } from "#components/panel/panel-access";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { formatDateTime } from "#lib/dates";
@@ -48,6 +48,9 @@ function humanize(key: string): string {
 export function HistoryPanel({ group }: { group?: string } = {}) {
   const t = useTranslations("History");
   const publisher = usePublisher();
+  // A product whose profile has no catalogue answers 404 to its dictionary:
+  // do not ask there (a console error for nothing).
+  const asksCatalog = useAsksModule("shared.profiles");
   const locale = useLocale();
   const labels = useDataTableLabels();
   const [query, setQuery] = useState<DataTableQuery>({
@@ -69,12 +72,13 @@ export function HistoryPanel({ group }: { group?: string } = {}) {
 
   useEffect(() => {
     let active = true;
-    readCatalogDictionary().then(
-      (next) => {
-        if (active) setDictionary(next);
-      },
-      () => undefined,
-    );
+    if (asksCatalog)
+      readCatalogDictionary().then(
+        (next) => {
+          if (active) setDictionary(next);
+        },
+        () => undefined,
+      );
     getSettingsSchema().then(
       (schema) => {
         if (active)
@@ -91,7 +95,7 @@ export function HistoryPanel({ group }: { group?: string } = {}) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [asksCatalog]);
 
   const load = useCallback(async () => {
     setLoading(true);

@@ -254,6 +254,24 @@ test("publishes a draft entry and reloads the list", async () => {
   await waitFor(() => expect(listContentEntries).toHaveBeenCalledTimes(2));
 });
 
+test("shows a withdrawn entry as Wycofany, not as a draft", async () => {
+  listContentEntries.mockResolvedValue({
+    items: [
+      { ...entry, state: "withdrawn" },
+      { ...entry, id: "draft-entry", title: "Roboczy wpis", state: "draft" },
+    ],
+    next_cursor: null,
+  });
+  renderPanel();
+
+  const table = await screen.findByRole("table", { name: "Wpisy bloga" });
+  const withdrawn = within(table).getByText("Pierwszy wpis").closest("tr")!;
+  expect(within(withdrawn).getByText("Wycofany")).not.toBeNull();
+  expect(within(withdrawn).queryByText("Szkic")).toBeNull();
+  const draft = within(table).getByText("Roboczy wpis").closest("tr")!;
+  expect(within(draft).getByText("Szkic")).not.toBeNull();
+});
+
 test("hands the blog to automation and warns before an entry is edited", async () => {
   renderPanel();
 

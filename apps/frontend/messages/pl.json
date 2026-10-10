@@ -1692,6 +1692,7 @@
     "blogAddEntry": "Dodaj wpis",
     "blogStateDraft": "Szkic",
     "blogStatePublished": "Opublikowany",
+    "blogStateWithdrawn": "Wycofany",
     "blogEdit": "Edytuj wpis {title}",
     "blogPublish": "Opublikuj wpis {title}",
     "blogWithdraw": "Wycofaj wpis {title}",

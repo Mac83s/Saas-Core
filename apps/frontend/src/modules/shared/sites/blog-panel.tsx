@@ -371,7 +371,13 @@ export function BlogPanel({
     onSelect: () => setRemoving(item),
   });
   const stateLabel = (item: ContentEntry) =>
-    t(item.state === "published" ? "blogStatePublished" : "blogStateDraft");
+    t(
+      item.state === "published"
+        ? "blogStatePublished"
+        : item.state === "withdrawn"
+          ? "blogStateWithdrawn"
+          : "blogStateDraft",
+    );
   const columns: ColumnDef<ContentEntry, unknown>[] = [
     {
       id: "title",
