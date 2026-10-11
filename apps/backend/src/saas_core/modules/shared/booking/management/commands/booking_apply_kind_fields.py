@@ -50,9 +50,10 @@ def _system_context(organization_id: UUID) -> TenantContext:
 
 
 def _code(error: ValidationError) -> str:
-    codes = error.get_codes()
-    flat = [c for value in codes.values() for c in value] if isinstance(codes, dict) else codes
-    return str(flat[0]) if flat else "invalid"
+    detail: Any = error.detail
+    first = next(iter(detail.values()), None) if isinstance(detail, dict) else detail
+    item = first[0] if isinstance(first, list) and first else first
+    return str(getattr(item, "code", "invalid"))
 
 
 class Command(BaseCommand):
@@ -104,7 +105,9 @@ class Command(BaseCommand):
                 ).order_by("created_at", "id"):
                     made: list[str] = []
                     missing = missing_kind_fields(organization, service)
-                    reason = kind_fields_refusal(organization, service, missing) if missing else None
+                    reason = (
+                        kind_fields_refusal(organization, service, missing) if missing else None
+                    )
                     if reason is None and apply:
                         # A savepoint per service: a refusal leaves the others alone.
                         try:

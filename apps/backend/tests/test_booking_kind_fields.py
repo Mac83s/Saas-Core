@@ -293,8 +293,10 @@ def test_a_label_with_outer_spaces_counts_as_there(monkeypatch: pytest.MonkeyPat
     owner = membership("kf-pad")
     (service,) = _bare_services(owner, "Alpha")
     _run("--apply", organization=str(owner.organization_id))
-    assert _run("--apply", organization=str(owner.organization_id)).rstrip().endswith(
-        "Usługi: 0, dodane pola: 0, odmowy: 0."
+    assert (
+        _run("--apply", organization=str(owner.organization_id))
+        .rstrip()
+        .endswith("Usługi: 0, dodane pola: 0, odmowy: 0.")
     )
     assert _count(service) == 1
 
@@ -423,7 +425,9 @@ def test_form_field_save_v1_still_runs_and_binds_the_team() -> None:
         assert saved["mandatory"] is True and saved["mandatory_for_staff"] is True
         # A later change through @1 leaves the team switch as the company set it.
         FormField.all_objects.filter(pk=saved["field_id"]).update(mandatory_for_staff=False)
-        call.preview.observed_versions = {f"booking.form_field:{saved['field_id']}": saved["version"]}
+        call.preview.observed_versions = {
+            f"booking.form_field:{saved['field_id']}": saved["version"]
+        }
         changed = FIELD_SAVE_V1.run({**old, "field_id": saved["field_id"], "mandatory": None}, call)
         assert changed["mandatory_for_staff"] is False
 

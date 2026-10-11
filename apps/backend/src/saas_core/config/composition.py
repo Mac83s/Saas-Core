@@ -39,20 +39,20 @@ def _check_kind_fields(module_id: str, kind: str, fields: Sequence[Mapping[str, 
     where = f"{module_id}: pola typu wizyty {kind}"
     seen_keys: set[str] = set()
     seen_labels: set[tuple[str, str]] = set()
-    for field in fields:
-        key = str(field.get("key"))
+    for item in fields:
+        key = str(item.get("key"))
         if key in seen_keys:
             raise CompositionError(f"{where}: powtórzony klucz {key}")
         seen_keys.add(key)
-        if field.get("type") not in _KIND_FIELD_TYPES:
-            raise CompositionError(f"{where}: nieznany rodzaj pola {field.get('type')} ({key})")
-        for locale, label in (field.get("labels") or {}).items():
+        if item.get("type") not in _KIND_FIELD_TYPES:
+            raise CompositionError(f"{where}: nieznany rodzaj pola {item.get('type')} ({key})")
+        for locale, label in (item.get("labels") or {}).items():
             norm = (locale, str(label).strip().casefold())
             if not norm[1] or len(str(label)) > 160 or norm in seen_labels:
                 raise CompositionError(f"{where}: pusta, za długa lub powtórzona etykieta ({key})")
             seen_labels.add(norm)
-        options = field.get("options") or []
-        if field.get("type") == "choice":
+        options = item.get("options") or []
+        if item.get("type") == "choice":
             if not 2 <= len(options) <= 20:
                 raise CompositionError(f"{where}: wybór {key} wymaga od 2 do 20 możliwości")
             for option in options:
