@@ -454,8 +454,9 @@
       "required": ["key", "type", "mandatory", "labels"],
       "properties": {
         "key": { "$ref": "#/$defs/key" },
-        "type": { "enum": ["text", "number", "choice", "date", "consent"] },
+        "type": { "enum": ["text", "long_text", "number", "choice", "date", "consent"] },
         "mandatory": { "type": "boolean" },
+        "mandatoryForStaff": { "type": "boolean" },
         "labels": { "$ref": "#/$defs/localizedText" },
         "options": {
           "type": "array",

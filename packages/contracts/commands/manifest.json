@@ -278,7 +278,7 @@
       "version_field": "expected_version"
     },
     {
-      "command": "booking.form_field.save@1",
+      "command": "booking.form_field.save@2",
       "entitlement": "booking.enabled",
       "exposure": [
         "assistant"
@@ -305,6 +305,7 @@
             "description": "What the field takes.",
             "enum": [
               "text",
+              "long_text",
               "number",
               "choice",
               "date",
@@ -318,6 +319,13 @@
           },
           "mandatory": {
             "description": "Whether a customer must answer to book.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "mandatory_for_staff": {
+            "description": "For a mandatory field: whether the team booking in the panel must answer it too (true on a new field); false lets the team leave it empty.",
             "type": [
               "boolean",
               "null"
@@ -362,12 +370,13 @@
           "kind",
           "options",
           "mandatory",
+          "mandatory_for_staff",
           "position",
           "active"
         ],
         "type": "object"
       },
-      "model_description": "Adds a field to one service's booking form (field_id null, with service_id) or changes one (its field_id from booking.form_fields.read). `name` is the question as the customer reads it, in the company's first language; `kind` text, number, date, choice (give `options`, at least two) or consent — a box to tick whose `name` is the statement, kept word for word in the consent journal when ticked. `mandatory` true means a customer cannot book without answering (for a consent: without ticking). `position` orders the form, smallest first; a new field goes last. A field is never deleted — bookings keep the question they were asked — only switched off with active false. What customers answer is their personal data, removed with the customer: never add a field that asks about health, beliefs or other special-category data — say that this needs the company's own legal basis and is not offered here. Pass null for every field that stays as it is; a new field needs service_id and name.",
+      "model_description": "Adds a field to one service's booking form (field_id null, with service_id) or changes one (its field_id from booking.form_fields.read). `name` is the question as the customer reads it, in the company's first language; `kind` text, long_text (several lines, up to 500 characters), number, date, choice (give `options`, at least two) or consent — a box to tick whose `name` is the statement, kept word for word in the consent journal when ticked. `mandatory` true means a customer cannot book without answering (for a consent: without ticking). `mandatory_for_staff` (default true) matters only for a mandatory field: false lets the team leave it empty when booking for a customer in the panel, while a customer booking for themselves must always answer. `position` orders the form, smallest first; a new field goes last. A field is never deleted — bookings keep the question they were asked — only switched off with active false. What customers answer is their personal data, removed with the customer: never add a field that asks about health, beliefs or other special-category data — say that this needs the company's own legal basis and is not offered here. Pass null for every field that stays as it is; a new field needs service_id and name.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": null,
@@ -384,6 +393,9 @@
             "type": "string"
           },
           "mandatory": {
+            "type": "boolean"
+          },
+          "mandatory_for_staff": {
             "type": "boolean"
           },
           "name": {
@@ -418,8 +430,8 @@
         "en": "Save a booking form field",
         "pl": "Zapisz pole formularza rezerwacji"
       },
-      "tool_name": "booking_form_field_save_v1",
-      "undo": "command:booking.form_field.save@1",
+      "tool_name": "booking_form_field_save_v2",
+      "undo": "command:booking.form_field.save@2",
       "version_field": "expected_version"
     },
     {
@@ -435,7 +447,7 @@
         "required": [],
         "type": "object"
       },
-      "model_description": "Returns the fields the company added to its services' booking forms, in the form's order, switched-off ones included, each with its id and version: `name` is the question as the customer reads it (for kind `consent`, the statement they tick), `kind` one of text, number, date, choice or consent, `options` a choice's options, `mandatory` whether a customer must answer. `names` gives the name of every service a field belongs to, by id; `switched_off` the ids of the services nobody can book yet; `limits` what a field may be. Use it before changing a field, to know the ids. These are the questions, never anybody's answers: what a customer answered is their personal data and no command returns it.",
+      "model_description": "Returns the fields the company added to its services' booking forms, in the form's order, switched-off ones included, each with its id and version: `name` is the question as the customer reads it (for kind `consent`, the statement they tick), `kind` one of text, long_text, number, date, choice or consent, `options` a choice's options, `mandatory` whether a customer must answer, `mandatory_for_staff` whether a mandatory field also binds the team booking in the panel. `names` gives the name of every service a field belongs to, by id; `switched_off` the ids of the services nobody can book yet; `limits` what a field may be. Use it before changing a field, to know the ids. These are the questions, never anybody's answers: what a customer answered is their personal data and no command returns it.",
       "modifiers": [],
       "module": "shared.booking",
       "no_preview_reason": "A read changes nothing, so there is nothing to show first.",

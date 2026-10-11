@@ -34,7 +34,8 @@ from .views import (
 )
 
 _KIND_HELP = (
-    "`text` — a line the customer types; `number`; `date` (a day); `choice` — one of "
+    "`text` — a line the customer types; `long_text` — a note of several lines, up to "
+    "`limits.max_long_answer_length` characters; `number`; `date` (a day); `choice` — one of "
     "`options`; `consent` — a box to tick, whose wording (`name`) goes to the consent "
     "journal word for word when ticked."
 )
@@ -74,6 +75,12 @@ class FormFieldInputSerializer(serializers.Serializer[dict[str, Any]]):
         "consent), and so must a staff member booking for a customer in the panel — "
         "except a consent, which only the customer gives.",
     )
+    mandatory_for_staff = serializers.BooleanField(
+        required=False,
+        help_text="Only while `mandatory` is on: whether a staff member booking for a "
+        "customer in the panel must answer it too (default true). False lets the "
+        "office leave it empty; a customer booking for themselves must always answer.",
+    )
     position = serializers.IntegerField(
         min_value=0,
         max_value=1000,
@@ -96,6 +103,10 @@ class FormFieldSerializer(serializers.Serializer[dict[str, Any]]):
     kind = serializers.ChoiceField(choices=FieldKind.choices, help_text=_KIND_HELP)
     options = serializers.ListField(child=serializers.CharField(), help_text=_OPTIONS_HELP)
     mandatory = serializers.BooleanField()
+    mandatory_for_staff = serializers.BooleanField(
+        help_text="A mandatory field also binds a staff member booking in the panel. "
+        "Meaningless while `mandatory` is false."
+    )
     position = serializers.IntegerField()
     active = serializers.BooleanField()
     version = serializers.IntegerField()
@@ -123,6 +134,9 @@ class FormFieldLimitsSerializer(serializers.Serializer[dict[str, Any]]):
     max_answer_length = serializers.IntegerField(
         help_text="The longest text a customer types into one field."
     )
+    max_long_answer_length = serializers.IntegerField(
+        help_text="The longest answer of a `long_text` field, line breaks included."
+    )
     kinds = FormFieldKindSerializer(many=True)
 
 
@@ -139,6 +153,7 @@ def _field_payload(value: FormField) -> dict[str, Any]:
         "kind": value.kind,
         "options": value.option_list,
         "mandatory": value.mandatory,
+        "mandatory_for_staff": value.mandatory_for_staff,
         "position": value.position,
         "active": value.active,
         "version": value.version,

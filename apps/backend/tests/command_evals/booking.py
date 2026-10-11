@@ -271,6 +271,7 @@ def _field_fields(**given: Any) -> dict[str, Any]:
         "kind",
         "options",
         "mandatory",
+        "mandatory_for_staff",
         "position",
         "active",
     ))
@@ -648,7 +649,7 @@ EVALS = {
         state=_field_state,
         prepare=_field_company,
     ),
-    "booking.form_field.save@1": CommandEval(
+    "booking.form_field.save@2": CommandEval(
         arguments=lambda context: _field_fields(
             field_id=str(_first(FormField, context).id), mandatory=True
         ),

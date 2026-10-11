@@ -85,7 +85,7 @@ const ENGINE = {
   // with a date, a prepayment and its balance, refund thresholds.
   paymentPolicy: ["none", "on_site", "transfer", "deposit", "full"],
   // What a booking form asks beyond the name and the contact (slice 5j).
-  fieldType: ["text", "number", "choice", "date", "consent"],
+  fieldType: ["text", "long_text", "number", "choice", "date", "consent"],
 };
 // What the public booking form takes today, by time model and place: a visit
 // by the clock at the company's place, and — since phase 5b — a stay or a
@@ -490,6 +490,25 @@ test("the schema refuses what a preset may not say", async () => {
   assert.ok(
     refused(lodging, (preset) => {
       preset.labels["pl-PL"] = preset.labels.pl;
+    }),
+  );
+  // A field may be a long text and may exempt the team; the flag is a boolean.
+  const own = {
+    key: "note",
+    type: "long_text",
+    mandatory: true,
+    mandatoryForStaff: false,
+    labels: { pl: "Uwagi", en: "Notes" },
+  };
+  assert.ok(
+    !refused(lodging, (preset) => {
+      preset.fields = [own];
+    }),
+    JSON.stringify(validate.errors),
+  );
+  assert.ok(
+    refused(lodging, (preset) => {
+      preset.fields = [{ ...own, mandatoryForStaff: "no" }];
     }),
   );
   // No money and no tax rate: both depend on the company's currency and

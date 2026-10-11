@@ -133,6 +133,8 @@ class FieldKind(models.TextChoices):
     contract's `fields[].type`)."""
 
     TEXT = "text", "Tekst"
+    #: A multi-line answer (a note), longer than a text; line breaks are kept.
+    LONG_TEXT = "long_text", "Dłuższy tekst"
     NUMBER = "number", "Liczba"
     CHOICE = "choice", "Wybór z listy"
     DATE = "date", "Data"
@@ -1034,6 +1036,10 @@ class FormField(TenantScopedModel):
     kind = models.CharField(max_length=16, choices=FieldKind, default=FieldKind.TEXT)
     options = models.TextField(blank=True)
     mandatory = models.BooleanField(default=False)
+    #: Whether a mandatory field also binds a staff member booking in the
+    #: panel's dialogs; the customer booking for themselves is always bound.
+    #: Says nothing while `mandatory` is false.
+    mandatory_for_staff = models.BooleanField(default=True)
     #: The order on the form, smallest first.
     position = models.PositiveSmallIntegerField(default=0)
     active = models.BooleanField(default=True)

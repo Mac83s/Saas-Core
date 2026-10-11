@@ -12453,7 +12453,7 @@ export interface components {
              * @description A field of the offer, from `form_fields`.
              */
             field_id: string;
-            /** @description Always text: what the customer typed; a number with a dot or a comma; a date as `YYYY-MM-DD`; a choice's `value`; `true` for a ticked consent. Empty — not answered. */
+            /** @description Always text: what the customer typed (a `long_text` may keep its line breaks); a number with a dot or a comma; a date as `YYYY-MM-DD`; a choice's `value`; `true` for a ticked consent. Empty — not answered. */
             value: string;
         };
         FormField: {
@@ -12463,9 +12463,10 @@ export interface components {
             service_id: string;
             name: string;
             /**
-             * @description `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+             * @description `text` — a line the customer types; `long_text` — a note of several lines, up to `limits.max_long_answer_length` characters; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
              *
              *     * `text` - Tekst
+             *     * `long_text` - Dłuższy tekst
              *     * `number` - Liczba
              *     * `choice` - Wybór z listy
              *     * `date` - Data
@@ -12475,6 +12476,8 @@ export interface components {
             /** @description A choice's options in order, at least two; a booking's answer names one of them word for word. Ignored for every other kind. */
             options: string[];
             mandatory: boolean;
+            /** @description A mandatory field also binds a staff member booking in the panel. Meaningless while `mandatory` is false. */
+            mandatory_for_staff: boolean;
             position: number;
             active: boolean;
             version: number;
@@ -12489,9 +12492,10 @@ export interface components {
             /** @description The question as the customer reads it, in the company's first language; for a `consent`, the statement they tick. */
             name: string;
             /**
-             * @description `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+             * @description `text` — a line the customer types; `long_text` — a note of several lines, up to `limits.max_long_answer_length` characters; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
              *
              *     * `text` - Tekst
+             *     * `long_text` - Dłuższy tekst
              *     * `number` - Liczba
              *     * `choice` - Wybór z listy
              *     * `date` - Data
@@ -12502,6 +12506,8 @@ export interface components {
             options?: string[];
             /** @description A customer booking for themselves must answer it (tick it, for a consent), and so must a staff member booking for a customer in the panel — except a consent, which only the customer gives. */
             mandatory?: boolean;
+            /** @description Only while `mandatory` is on: whether a staff member booking for a customer in the panel must answer it too (default true). False lets the office leave it empty; a customer booking for themselves must always answer. */
+            mandatory_for_staff?: boolean;
             /** @description The order on the form, smallest first; omitted — a new field goes last. */
             position?: number;
             active?: boolean;
@@ -12515,13 +12521,14 @@ export interface components {
         };
         /**
          * @description * `text` - Tekst
+         *     * `long_text` - Dłuższy tekst
          *     * `number` - Liczba
          *     * `choice` - Wybór z listy
          *     * `date` - Data
          *     * `consent` - Zgoda
          * @enum {string}
          */
-        FormFieldKindEnum: "text" | "number" | "choice" | "date" | "consent";
+        FormFieldKindEnum: "text" | "long_text" | "number" | "choice" | "date" | "consent";
         /** @description What an offer's fields may be (ADR-078: read, never hard-coded). */
         FormFieldLimits: {
             /** @description Switched-on fields of one offer. */
@@ -12532,6 +12539,8 @@ export interface components {
             max_name_length: number;
             /** @description The longest text a customer types into one field. */
             max_answer_length: number;
+            /** @description The longest answer of a `long_text` field, line breaks included. */
+            max_long_answer_length: number;
             kinds: components["schemas"]["FormFieldKind"][];
         };
         FormFieldList: {
@@ -12545,9 +12554,10 @@ export interface components {
             service_id: string;
             name: string;
             /**
-             * @description `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+             * @description `text` — a line the customer types; `long_text` — a note of several lines, up to `limits.max_long_answer_length` characters; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
              *
              *     * `text` - Tekst
+             *     * `long_text` - Dłuższy tekst
              *     * `number` - Liczba
              *     * `choice` - Wybór z listy
              *     * `date` - Data
@@ -12557,6 +12567,8 @@ export interface components {
             /** @description A choice's options in order, at least two; a booking's answer names one of them word for word. Ignored for every other kind. */
             options: string[];
             mandatory: boolean;
+            /** @description A mandatory field also binds a staff member booking in the panel. Meaningless while `mandatory` is false. */
+            mandatory_for_staff: boolean;
             position: number;
             active: boolean;
             version: number;
@@ -12569,9 +12581,10 @@ export interface components {
         FormFieldUpdate: {
             name?: string;
             /**
-             * @description `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+             * @description `text` — a line the customer types; `long_text` — a note of several lines, up to `limits.max_long_answer_length` characters; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
              *
              *     * `text` - Tekst
+             *     * `long_text` - Dłuższy tekst
              *     * `number` - Liczba
              *     * `choice` - Wybór z listy
              *     * `date` - Data
@@ -12582,6 +12595,8 @@ export interface components {
             options?: string[];
             /** @description A customer booking for themselves must answer it (tick it, for a consent), and so must a staff member booking for a customer in the panel — except a consent, which only the customer gives. */
             mandatory?: boolean;
+            /** @description Only while `mandatory` is on: whether a staff member booking for a customer in the panel must answer it too (default true). False lets the office leave it empty; a customer booking for themselves must always answer. */
+            mandatory_for_staff?: boolean;
             /** @description The order on the form, smallest first; omitted — a new field goes last. */
             position?: number;
             active?: boolean;
@@ -15412,9 +15427,10 @@ export interface components {
         PatchedFormFieldUpdate: {
             name?: string;
             /**
-             * @description `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+             * @description `text` — a line the customer types; `long_text` — a note of several lines, up to `limits.max_long_answer_length` characters; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
              *
              *     * `text` - Tekst
+             *     * `long_text` - Dłuższy tekst
              *     * `number` - Liczba
              *     * `choice` - Wybór z listy
              *     * `date` - Data
@@ -15425,6 +15441,8 @@ export interface components {
             options?: string[];
             /** @description A customer booking for themselves must answer it (tick it, for a consent), and so must a staff member booking for a customer in the panel — except a consent, which only the customer gives. */
             mandatory?: boolean;
+            /** @description Only while `mandatory` is on: whether a staff member booking for a customer in the panel must answer it too (default true). False lets the office leave it empty; a customer booking for themselves must always answer. */
+            mandatory_for_staff?: boolean;
             /** @description The order on the form, smallest first; omitted — a new field goes last. */
             position?: number;
             active?: boolean;
@@ -17430,9 +17448,10 @@ export interface components {
             /** @description The question — for a consent, the statement to tick — in the language asked for, where translated. */
             name: string;
             /**
-             * @description `text`, `number`, `date` (a day), `choice` (one of `options`) or `consent` (a box to tick).
+             * @description `text`, `long_text` (several lines), `number`, `date` (a day), `choice` (one of `options`) or `consent` (a box to tick).
              *
              *     * `text` - Tekst
+             *     * `long_text` - Dłuższy tekst
              *     * `number` - Liczba
              *     * `choice` - Wybór z listy
              *     * `date` - Data

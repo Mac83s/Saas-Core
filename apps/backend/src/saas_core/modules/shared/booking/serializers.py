@@ -166,9 +166,12 @@ class FormAnswerInputSerializer(serializers.Serializer[dict[str, Any]]):
     field_id = serializers.UUIDField(help_text="A field of the offer, from `form_fields`.")
     value = serializers.CharField(
         allow_blank=True,
-        max_length=500,
+        # A protective bound only: the field's own limit (200, a `long_text`
+        # 500) is `field_too_long`, said for the field by `form_answers`.
+        max_length=1000,
         trim_whitespace=True,
-        help_text="Always text: what the customer typed; a number with a dot or a comma; a "
+        help_text="Always text: what the customer typed (a `long_text` may keep its line "
+        "breaks); a number with a dot or a comma; a "
         "date as `YYYY-MM-DD`; a choice's `value`; `true` for a ticked consent. Empty — "
         "not answered.",
     )
@@ -2050,8 +2053,8 @@ class PublicFormFieldSerializer(serializers.Serializer[dict[str, Any]]):
     )
     kind = serializers.ChoiceField(
         choices=FieldKind.choices,
-        help_text="`text`, `number`, `date` (a day), `choice` (one of `options`) or "
-        "`consent` (a box to tick).",
+        help_text="`text`, `long_text` (several lines), `number`, `date` (a day), `choice` "
+        "(one of `options`) or `consent` (a box to tick).",
     )
     mandatory = serializers.BooleanField(
         help_text="The booking is refused without an answer (for a consent: unticked)."

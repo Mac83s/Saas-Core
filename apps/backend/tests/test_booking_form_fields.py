@@ -11,12 +11,19 @@ from typing import Any
 
 import pytest
 from django.core.cache import cache
+from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
 from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
 
 from saas_core.http.exceptions import problem_errors
 from saas_core.modules.core.organizations.models import Organization, OrganizationAuditEntry
-from saas_core.modules.shared.booking.form_fields import FIELD_LIMITS, list_fields, save_field
+from saas_core.modules.shared.booking.form_fields import (
+    FIELD_LIMITS,
+    copy_preset_fields,
+    list_fields,
+    save_field,
+)
 from saas_core.modules.shared.booking.item_translations import save_item_translation
 from saas_core.modules.shared.booking.models import (
     Appointment,
@@ -191,11 +198,14 @@ def test_the_api_lists_and_changes_fields_for_whoever_sets_services_up() -> None
     assert listed["limits"]["max_fields"] == FIELD_LIMITS["max_fields"]
     assert [kind["value"] for kind in listed["limits"]["kinds"]] == [
         "text",
+        "long_text",
         "number",
         "date",
         "choice",
         "consent",
     ]
+    assert listed["limits"]["max_long_answer_length"] == 500
+    assert created["mandatory_for_staff"] is True
     # Somebody who does not set services up reads and writes nothing of it.
     staff = authenticated_client(worker(owner, "pola-pracownik@example.test"))
     assert staff.get("/api/v1/booking/setup/fields/").status_code == 403
@@ -495,6 +505,122 @@ def test_the_office_answers_what_the_form_asks_and_answers_are_read_like_the_pho
     assert read(worker(owner, "pola-nie-widzi@example.test")) == []
 
 
+def test_a_mandatory_field_may_leave_the_team_free_and_never_the_customer() -> None:
+    configured = setup("pola-biuro-wolne", people=1, need=1, choice="none")
+    owner = configured["owner"]
+    with tenant(owner):
+        pieces = field(configured["service"].id, "Liczba sztuk", mandatory=True)
+        pet = field(configured["service"].id, "Imię pupila", mandatory=True)
+        # Off for the team; it says nothing for a field that is not mandatory.
+        save_field(
+            field_id=pieces.id,
+            data={"mandatory_for_staff": False},
+            expected_version=1,
+            idempotency_key=key(),
+        )
+        optional = field(configured["service"].id, "Uwagi", mandatory_for_staff=False)
+        assert (optional.mandatory, optional.mandatory_for_staff) == (False, False)
+    client = authenticated_client(owner)
+    times = (
+        APIClient()
+        .get(
+            f"{configured['url']}/times/",
+            {**configured["query"], "date": configured["day"].isoformat()},
+        )
+        .json()["items"]
+    )
+
+    def office(**body: Any) -> Any:
+        return client.post(
+            "/api/v1/booking/appointments/",
+            {
+                **configured["query"],
+                "starts_at": times[0]["starts_at"],
+                "customer": {"display_name": "Anna Telefoniczna", "phone": "+48 600 000 222"},
+                **body,
+            },
+            format="json",
+            HTTP_IDEMPOTENCY_KEY=key(),
+        )
+
+    # The team is asked for the pet, not for the pieces.
+    assert errors(office()) == [(f"answers.{pet.id}", "field_required")]
+    assert office(answers=answers((pet, "Reksio"))).status_code == 201
+    # The customer booking for themselves is asked for both.
+    assert errors(book(APIClient(), configured, "pola-wolne1")) == sorted([
+        (f"answers.{pet.id}", "field_required"),
+        (f"answers.{pieces.id}", "field_required"),
+    ])
+
+
+def test_the_team_books_a_stay_without_a_field_that_exempts_it() -> None:
+    configured = form("pola-pobyt-wolne", priced=False, units=2)
+    owner = configured["owner"]
+    asked = asked_of(configured)
+    with tenant(owner):
+        save_field(
+            field_id=asked["licence"].id,
+            data={"mandatory_for_staff": False},
+            expected_version=1,
+            idempotency_key=key(),
+        )
+    stay_body = {
+        **configured["target"],
+        "start_date": _later(configured, 7),
+        "end_date": _later(configured, 9),
+        "customer": {"display_name": "Jan Telefoniczny", "phone": "+48 600 000 111"},
+    }
+    made = authenticated_client(owner).post(
+        "/api/v1/booking/stays/", stay_body, format="json", HTTP_IDEMPOTENCY_KEY=key()
+    )
+    assert made.status_code == 201, made.content
+    # The customer on the public form is still asked for it.
+    refused_public = booked(APIClient(), configured, answers=[])
+    assert (f"answers.{asked['licence'].id}", "field_required") in errors(refused_public)
+
+
+def test_migration_0039_gives_existing_fields_the_old_behaviour_and_walks_back() -> None:
+    owner = membership("pola-migracja")
+    visit = catalog(owner)["service"].id
+    with tenant(owner):
+        existing = field(visit, "Imię pupila", mandatory=True)
+    before = ("booking", "0038_form_fields")
+    after = ("booking", "0039_form_field_staff_and_long_text")
+    with connection.cursor() as cursor:
+        # Fire the deferred FK checks now; PostgreSQL refuses ALTER TABLE on a
+        # table with pending trigger events.
+        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+    MigrationExecutor(connection).migrate([before])
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT count(*) FROM information_schema.columns"
+            " WHERE table_name = 'booking_formfield' AND column_name = 'mandatory_for_staff'"
+        )
+        assert cursor.fetchone()[0] == 0
+    MigrationExecutor(connection).migrate([after])
+    # A field from before binds the team as it did: the default is on.
+    assert FormField.all_objects.get(pk=existing.id).mandatory_for_staff is True
+
+
+def test_a_long_text_keeps_its_lines_and_stops_at_500_characters() -> None:
+    configured = setup("pola-dlugi-tekst", people=1, need=1, choice="none")
+    with tenant(configured["owner"]):
+        note = field(configured["service"].id, "Uwagi", kind="long_text")
+        short = field(configured["service"].id, "Krótko")
+    client = APIClient()
+    exact = "a" * 249 + "\r\n" + "b" * 250
+    made = book(client, configured, "pola-d1", answers=answers((note, exact)))
+    assert made.status_code == 201, made.content
+    with tenant(configured["owner"]):
+        kept = Appointment.all_objects.get(pk=made.json()["id"]).form_answers
+    assert [line["value"] for line in kept] == [exact.replace("\r\n", "\n")]
+    over = book(client, configured, "pola-d2", answers=answers((note, "c" * 501)))
+    assert errors(over) == [(f"answers.{note.id}", "field_too_long")]
+    # A plain text still stops at 200.
+    over_short = book(client, configured, "pola-d3", answers=answers((short, "d" * 201)))
+    assert errors(over_short) == [(f"answers.{short.id}", "field_too_long")]
+
+
 def test_the_office_answers_a_visits_fields_too() -> None:
     configured = setup("pola-wizyta-biuro", people=1, need=1, choice="none")
     owner = configured["owner"]
@@ -589,6 +715,33 @@ def test_a_preset_brings_what_its_form_asks_and_a_draft_takes_it_back(
         assert not Service.all_objects.filter(pk=draft.item_id).exists()
         assert not FormField.all_objects.filter(organization=owner.organization).exists()
         assert not FormFieldTranslation.all_objects.filter(organization=owner.organization).exists()
+
+
+def test_a_preset_field_may_exempt_the_team_and_be_a_long_text() -> None:
+    owner = membership("pola-wzorzec-zespol")
+    with tenant(owner) as context:
+        service = catalog(owner)["service"]
+        organization = Organization.objects.get(pk=owner.organization_id)
+        made = copy_preset_fields(
+            context,
+            organization,
+            service.id,
+            [
+                {
+                    "type": "number",
+                    "mandatory": True,
+                    "mandatoryForStaff": False,
+                    "labels": {"pl": "Liczba sztuk", "en": "Number of animals"},
+                },
+                {"type": "long_text", "mandatory": False, "labels": {"pl": "Uwagi"}},
+                {"type": "text", "mandatory": True, "labels": {"pl": "Imię"}},
+            ],
+        )
+        assert [(f.kind, f.mandatory, f.mandatory_for_staff) for f in made] == [
+            ("number", True, False),
+            ("long_text", False, True),
+            ("text", True, True),
+        ]
 
 
 def test_a_rental_from_the_preset_asks_nothing_by_itself() -> None:

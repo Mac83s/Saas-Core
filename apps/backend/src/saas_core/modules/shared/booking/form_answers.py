@@ -22,11 +22,12 @@ A `consent` is not a value. Ticked, it is a line of the consent journal in the
 words and the language the customer was shown (`ConsentKind.FIELD`); the
 booking keeps only the mention that it was ticked. Not ticked, it is nothing.
 
-A mandatory field binds whoever fills the form in: the customer who books for
-themselves, and a staff member who books for a customer in the panel's own
-dialogs (`staff_form`) — the office asks the caller what the form would have
-asked. A product booking through `booking.api`, which shows no such form, may
-pass answers and is asked for none.
+A mandatory field always binds the customer who books for themselves. It binds
+a staff member who books for a customer in the panel's own dialogs
+(`staff_form`) only while the field's `mandatory_for_staff` is on (the default);
+a field the office may leave empty is still asked of the customer. A product
+booking through `booking.api`, which shows no such form, may pass answers and
+is asked for none.
 
 A consent is the customer's own to give. The consent journal has no way to
 say that somebody ticked a box on a customer's behalf, so only the customer's
@@ -55,6 +56,8 @@ from .security import PUBLIC_BOOKING_ROLE
 
 #: The longest text a customer types into one field.
 MAX_TEXT_ANSWER = 200
+#: The longest `long_text` answer: a note, line breaks included.
+MAX_LONG_TEXT_ANSWER = 500
 #: A protective bound of a number, not a business rule.
 MAX_NUMBER = Decimal(1_000_000_000)
 #: The years a date may name: a date of birth, an arrival.
@@ -126,6 +129,11 @@ def _read(asked: FormField, raw: str) -> str:
         if raw not in asked.option_list:
             raise _Refused("Wybierz jedną z podanych możliwości.")
         return raw
+    if asked.kind == FieldKind.LONG_TEXT:
+        raw = raw.replace("\r\n", "\n").replace("\r", "\n")
+        if len(raw) > MAX_LONG_TEXT_ANSWER:
+            raise _Refused(f"Najwyżej {MAX_LONG_TEXT_ANSWER} znaków.", "field_too_long")
+        return raw
     if len(raw) > MAX_TEXT_ANSWER:
         raise _Refused(f"Najwyżej {MAX_TEXT_ANSWER} znaków.", "field_too_long")
     return raw
@@ -160,10 +168,10 @@ def checked(
     consent and the caller is not the customer — and `field_repeated`.
 
     Mandatory fields are required of the customer booking for themselves and,
-    with `staff_form`, of the staff member the panel's dialog showed them to.
+    with `staff_form`, of the staff member the panel's dialog showed them to
+    only where the field's `mandatory_for_staff` is on.
     `locale` is the booking's language, for the wording of a consent."""
     public = require_tenant_context().role_key == PUBLIC_BOOKING_ROLE
-    required = public or staff_form
     asked_now = FormField.all_objects.filter(
         organization_id=service.organization_id, service=service, active=True
     )
@@ -196,7 +204,7 @@ def checked(
         if asked.kind == FieldKind.CONSENT and raw == "false":
             raw = ""
         if not raw:
-            if asked.mandatory and required:
+            if asked.mandatory and (public or (staff_form and asked.mandatory_for_staff)):
                 errors[f"answers.{asked.id}"] = [
                     ErrorDetail(
                         "Zaznacz to pole, żeby zarezerwować."

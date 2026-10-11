@@ -35375,10 +35375,10 @@ components:
           description: A field of the offer, from `form_fields`.
         value:
           type: string
-          description: 'Always text: what the customer typed; a number with a dot
-            or a comma; a date as `YYYY-MM-DD`; a choice''s `value`; `true` for a
-            ticked consent. Empty — not answered.'
-          maxLength: 500
+          description: 'Always text: what the customer typed (a `long_text` may keep
+            its line breaks); a number with a dot or a comma; a date as `YYYY-MM-DD`;
+            a choice''s `value`; `true` for a ticked consent. Empty — not answered.'
+          maxLength: 1000
       required:
       - field_id
       - value
@@ -35397,9 +35397,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/FormFieldKindEnum'
           description: |-
-            `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+            `text` — a line the customer types; `long_text` — a note of several lines, up to `limits.max_long_answer_length` characters; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
 
             * `text` - Tekst
+            * `long_text` - Dłuższy tekst
             * `number` - Liczba
             * `choice` - Wybór z listy
             * `date` - Data
@@ -35412,6 +35413,10 @@ components:
             names one of them word for word. Ignored for every other kind.
         mandatory:
           type: boolean
+        mandatory_for_staff:
+          type: boolean
+          description: A mandatory field also binds a staff member booking in the
+            panel. Meaningless while `mandatory` is false.
         position:
           type: integer
         active:
@@ -35423,6 +35428,7 @@ components:
       - id
       - kind
       - mandatory
+      - mandatory_for_staff
       - name
       - options
       - position
@@ -35445,9 +35451,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/FormFieldKindEnum'
           description: |-
-            `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+            `text` — a line the customer types; `long_text` — a note of several lines, up to `limits.max_long_answer_length` characters; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
 
             * `text` - Tekst
+            * `long_text` - Dłuższy tekst
             * `number` - Liczba
             * `choice` - Wybór z listy
             * `date` - Data
@@ -35465,6 +35472,12 @@ components:
           description: A customer booking for themselves must answer it (tick it,
             for a consent), and so must a staff member booking for a customer in the
             panel — except a consent, which only the customer gives.
+        mandatory_for_staff:
+          type: boolean
+          description: 'Only while `mandatory` is on: whether a staff member booking
+            for a customer in the panel must answer it too (default true). False lets
+            the office leave it empty; a customer booking for themselves must always
+            answer.'
         position:
           type: integer
           maximum: 1000
@@ -35492,6 +35505,7 @@ components:
     FormFieldKindEnum:
       enum:
       - text
+      - long_text
       - number
       - choice
       - date
@@ -35499,6 +35513,7 @@ components:
       type: string
       description: |-
         * `text` - Tekst
+        * `long_text` - Dłuższy tekst
         * `number` - Liczba
         * `choice` - Wybór z listy
         * `date` - Data
@@ -35521,6 +35536,9 @@ components:
         max_answer_length:
           type: integer
           description: The longest text a customer types into one field.
+        max_long_answer_length:
+          type: integer
+          description: The longest answer of a `long_text` field, line breaks included.
         kinds:
           type: array
           items:
@@ -35529,6 +35547,7 @@ components:
       - kinds
       - max_answer_length
       - max_fields
+      - max_long_answer_length
       - max_name_length
       - max_option_length
       - max_options
@@ -35560,9 +35579,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/FormFieldKindEnum'
           description: |-
-            `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+            `text` — a line the customer types; `long_text` — a note of several lines, up to `limits.max_long_answer_length` characters; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
 
             * `text` - Tekst
+            * `long_text` - Dłuższy tekst
             * `number` - Liczba
             * `choice` - Wybór z listy
             * `date` - Data
@@ -35575,6 +35595,10 @@ components:
             names one of them word for word. Ignored for every other kind.
         mandatory:
           type: boolean
+        mandatory_for_staff:
+          type: boolean
+          description: A mandatory field also binds a staff member booking in the
+            panel. Meaningless while `mandatory` is false.
         position:
           type: integer
         active:
@@ -35593,6 +35617,7 @@ components:
       - id
       - kind
       - mandatory
+      - mandatory_for_staff
       - name
       - options
       - position
@@ -35609,9 +35634,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/FormFieldKindEnum'
           description: |-
-            `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+            `text` — a line the customer types; `long_text` — a note of several lines, up to `limits.max_long_answer_length` characters; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
 
             * `text` - Tekst
+            * `long_text` - Dłuższy tekst
             * `number` - Liczba
             * `choice` - Wybór z listy
             * `date` - Data
@@ -35629,6 +35655,12 @@ components:
           description: A customer booking for themselves must answer it (tick it,
             for a consent), and so must a staff member booking for a customer in the
             panel — except a consent, which only the customer gives.
+        mandatory_for_staff:
+          type: boolean
+          description: 'Only while `mandatory` is on: whether a staff member booking
+            for a customer in the panel must answer it too (default true). False lets
+            the office leave it empty; a customer booking for themselves must always
+            answer.'
         position:
           type: integer
           maximum: 1000
@@ -41831,9 +41863,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/FormFieldKindEnum'
           description: |-
-            `text` — a line the customer types; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
+            `text` — a line the customer types; `long_text` — a note of several lines, up to `limits.max_long_answer_length` characters; `number`; `date` (a day); `choice` — one of `options`; `consent` — a box to tick, whose wording (`name`) goes to the consent journal word for word when ticked.
 
             * `text` - Tekst
+            * `long_text` - Dłuższy tekst
             * `number` - Liczba
             * `choice` - Wybór z listy
             * `date` - Data
@@ -41851,6 +41884,12 @@ components:
           description: A customer booking for themselves must answer it (tick it,
             for a consent), and so must a staff member booking for a customer in the
             panel — except a consent, which only the customer gives.
+        mandatory_for_staff:
+          type: boolean
+          description: 'Only while `mandatory` is on: whether a staff member booking
+            for a customer in the panel must answer it too (default true). False lets
+            the office leave it empty; a customer booking for themselves must always
+            answer.'
         position:
           type: integer
           maximum: 1000
@@ -46419,9 +46458,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/FormFieldKindEnum'
           description: |-
-            `text`, `number`, `date` (a day), `choice` (one of `options`) or `consent` (a box to tick).
+            `text`, `long_text` (several lines), `number`, `date` (a day), `choice` (one of `options`) or `consent` (a box to tick).
 
             * `text` - Tekst
+            * `long_text` - Dłuższy tekst
             * `number` - Liczba
             * `choice` - Wybór z listy
             * `date` - Data

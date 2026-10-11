@@ -32,6 +32,7 @@ from .services import BOOKING_ENABLED, BOOKING_MANAGE
 _PUBLIC = "public"
 _KINDS = {
     FieldKind.TEXT.value: ("tekst", "text"),
+    FieldKind.LONG_TEXT.value: ("dłuższy tekst", "a long text"),
     FieldKind.NUMBER.value: ("liczba", "a number"),
     FieldKind.DATE.value: ("data", "a date"),
     FieldKind.CHOICE.value: ("wybór z listy", "a choice"),
@@ -69,8 +70,10 @@ FIELDS_READ = CommandSpec(
         "Returns the fields the company added to its services' booking forms, in the "
         "form's order, switched-off ones included, each with its id and version: `name` "
         "is the question as the customer reads it (for kind `consent`, the statement they "
-        "tick), `kind` one of text, number, date, choice or consent, `options` a choice's "
-        "options, `mandatory` whether a customer must answer. `names` gives the name of "
+        "tick), `kind` one of text, long_text, number, date, choice or consent, `options` a "
+        "choice's options, `mandatory` whether a customer must answer, "
+        "`mandatory_for_staff` whether a mandatory field also binds the team booking in "
+        "the panel. `names` gives the name of "
         "every service a field belongs to, by id; `switched_off` the ids of the services "
         "nobody can book yet; `limits` what a field may be. Use it before changing a "
         "field, to know the ids. These are the questions, never anybody's answers: what a "
@@ -102,9 +105,19 @@ FIELDS_READ = CommandSpec(
 )
 
 
-# --- booking.form_field.save@1 -------------------------------------------------------
+# --- booking.form_field.save@2 -------------------------------------------------------
 
-_FIELD_FIELDS = ("service_id", "name", "kind", "options", "mandatory", "position", "active")
+# @2 takes `mandatory_for_staff`: the key set of a version's input is frozen.
+_FIELD_FIELDS = (
+    "service_id",
+    "name",
+    "kind",
+    "options",
+    "mandatory",
+    "mandatory_for_staff",
+    "position",
+    "active",
+)
 
 
 def _field_data(arguments: Mapping[str, Any], version: int | None) -> dict[str, Any]:
@@ -139,6 +152,8 @@ def _field_words(asked: FormField, at: int) -> str:
     words.append(
         (("obowiązkowe", "mandatory") if asked.mandatory else ("nieobowiązkowe", "optional"))[at]
     )
+    if asked.mandatory and not asked.mandatory_for_staff:
+        words.append(("zespół może pominąć", "the team may leave it empty")[at])
     if not asked.active:
         words.append(("wyłączone", "switched off")[at])
     return ", ".join(words)
@@ -204,6 +219,7 @@ def _save_field(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
         "kind": asked.kind,
         "options": asked.option_list,
         "mandatory": asked.mandatory,
+        "mandatory_for_staff": asked.mandatory_for_staff,
         "position": asked.position,
         "active": asked.active,
         "version": asked.version,
@@ -212,7 +228,7 @@ def _save_field(arguments: Mapping[str, Any], call: Any) -> dict[str, Any]:
 
 FIELD_SAVE = CommandSpec(
     name="booking.form_field.save",
-    version=1,
+    version=2,
     module="shared.booking",
     title={"pl": "Zapisz pole formularza rezerwacji", "en": "Save a booking form field"},
     summary={
@@ -222,11 +238,15 @@ FIELD_SAVE = CommandSpec(
     model_description=(
         "Adds a field to one service's booking form (field_id null, with service_id) or "
         "changes one (its field_id from booking.form_fields.read). `name` is the question "
-        "as the customer reads it, in the company's first language; `kind` text, number, "
-        "date, choice (give `options`, at least two) or consent — a box to tick whose "
+        "as the customer reads it, in the company's first language; `kind` text, "
+        "long_text (several lines, up to 500 characters), number, date, choice (give "
+        "`options`, at least two) or consent — a box to tick whose "
         "`name` is the statement, kept word for word in the consent journal when ticked. "
         "`mandatory` true means a customer cannot book without answering (for a consent: "
-        "without ticking). `position` orders the form, smallest first; a new field goes "
+        "without ticking). `mandatory_for_staff` (default true) matters only for a mandatory "
+        "field: false lets the team leave it empty when booking for a customer in the "
+        "panel, while a customer booking for themselves must always answer. `position` "
+        "orders the form, smallest first; a new field goes "
         "last. A field is never deleted — bookings keep the question they were asked — "
         "only switched off with active false. What customers answer is their personal "
         "data, removed with the customer: never add a field that asks about health, "
@@ -253,6 +273,11 @@ FIELD_SAVE = CommandSpec(
                 "description": "A choice's options in order, 2–20; ignored for other kinds.",
             },
             "mandatory": _nullable("boolean", "Whether a customer must answer to book."),
+            "mandatory_for_staff": _nullable(
+                "boolean",
+                "For a mandatory field: whether the team booking in the panel must answer it "
+                "too (true on a new field); false lets the team leave it empty.",
+            ),
             "position": _nullable("integer", "The order on the form, smallest first."),
             "active": _nullable("boolean", "False switches the field off."),
         },
@@ -267,6 +292,7 @@ FIELD_SAVE = CommandSpec(
             "kind": {"type": "string"},
             "options": {"type": "array"},
             "mandatory": {"type": "boolean"},
+            "mandatory_for_staff": {"type": "boolean"},
             "position": {"type": "integer"},
             "active": {"type": "boolean"},
             "version": {"type": "integer"},
@@ -276,7 +302,7 @@ FIELD_SAVE = CommandSpec(
     entitlement=BOOKING_ENABLED,
     risk="draft",
     run=_save_field,
-    undo="command:booking.form_field.save@1",
+    undo="command:booking.form_field.save@2",
     preview=_preview_field,
     version_field="expected_version",
 )

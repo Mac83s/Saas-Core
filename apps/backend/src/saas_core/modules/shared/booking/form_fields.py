@@ -3,10 +3,11 @@
 A company asks its customer for what its kind of booking needs beyond a name
 and a contact — a driving licence number at a rental, the pet's name at a pet
 hotel, the arrival hour at a lodging. A `FormField` belongs to one offer, has
-a kind (`text`, `number`, `choice`, `date`, `consent`), may be mandatory and
-has its place in the order. The public form reads the fields of what the
-customer books (`offered_fields`), in the customer's language where the
-company translated them (`booking.catalog`, kind `field`).
+a kind (`text`, `long_text`, `number`, `choice`, `date`, `consent`), may be
+mandatory — for the customer always, for the staff booking in the panel only
+where `mandatory_for_staff` says so — and has its place in the order. The
+public form reads the fields of what the customer books (`offered_fields`), in
+the customer's language where the company translated them (`booking.catalog`, kind `field`).
 
 A setup item like an extra (§11): a key with a receipt, a version, a preview;
 never deleted — bookings name it — only switched off. What a preset says of
@@ -36,7 +37,7 @@ from saas_core.modules.core.organizations.locales import organization_content_lo
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.decisions import FeatureOperation
 
-from .form_answers import MAX_TEXT_ANSWER
+from .form_answers import MAX_LONG_TEXT_ANSWER, MAX_TEXT_ANSWER
 from .item_translations import (
     apply_item_translation,
     item_units,
@@ -57,8 +58,10 @@ FIELD_LIMITS: dict[str, Any] = {
     "max_option_length": 80,
     "max_name_length": 160,
     "max_answer_length": MAX_TEXT_ANSWER,
+    "max_long_answer_length": MAX_LONG_TEXT_ANSWER,
     "kinds": [
         {"value": FieldKind.TEXT.value, "label": {"pl": "Tekst", "en": "Text"}},
+        {"value": FieldKind.LONG_TEXT.value, "label": {"pl": "Dłuższy tekst", "en": "Long text"}},
         {"value": FieldKind.NUMBER.value, "label": {"pl": "Liczba", "en": "Number"}},
         {"value": FieldKind.DATE.value, "label": {"pl": "Data", "en": "Date"}},
         {"value": FieldKind.CHOICE.value, "label": {"pl": "Wybór z listy", "en": "Choice"}},
@@ -69,7 +72,16 @@ FIELD_LIMITS: dict[str, Any] = {
     ],
 }
 
-_FIELDS = ("name", "service_id", "kind", "options", "mandatory", "position", "active")
+_FIELDS = (
+    "name",
+    "service_id",
+    "kind",
+    "options",
+    "mandatory",
+    "mandatory_for_staff",
+    "position",
+    "active",
+)
 
 
 def _refuse(field: str, message: str, code: str) -> ValidationError:
@@ -249,6 +261,7 @@ def copy_preset_fields(
                 "name": first(given["labels"]),
                 "kind": given["type"],
                 "mandatory": bool(given["mandatory"]),
+                "mandatory_for_staff": bool(given.get("mandatoryForStaff", True)),
                 "position": position,
                 "options": [first(option["labels"]) for option in options],
             },
