@@ -89,7 +89,8 @@ export function EntryEditor({
   });
   const blocks = useFieldArray({ control: form.control, name: "blocks" });
   const dirty = form.formState.isDirty;
-  const busy = loading || form.formState.isSubmitting;
+  // Only a save in flight holds the sheet: reading the draft loses nothing.
+  const busy = form.formState.isSubmitting;
   useEffect(() => {
     onExitStateChange?.({ dirty, busy });
   }, [dirty, busy, onExitStateChange]);
