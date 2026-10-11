@@ -7,14 +7,33 @@ import { afterEach } from "vitest";
 // call `cleanup` in their own `afterEach` are unaffected — it is idempotent.
 afterEach(cleanup);
 
-// input-otp (the one-time-code field) mirrors the caret with timeouts after a
-// focus; torn down first, they fire into a gone `window` and vitest reports an
-// unhandled error. Hooks run in reverse order, so this one runs before cleanup.
+// input-otp (the one-time-code field) mirrors the caret with timeouts (0, 10
+// and 50 ms) after it mounts and after every change, and never clears them;
+// torn down first, they fire into a gone `window` and vitest reports an
+// unhandled error. The test remembers having shown the field: one in a dialog
+// that closed again is gone from the DOM by the end, its timeouts are not.
+// Hooks run in reverse order, so this one runs before cleanup.
+const OTP_FIELD = "[data-input-otp]";
+let otpShown = false;
+if (
+  typeof document !== "undefined" &&
+  typeof MutationObserver !== "undefined"
+) {
+  new MutationObserver((records) => {
+    if (otpShown) return;
+    otpShown = records.some((record) =>
+      Array.from(record.addedNodes).some(
+        (node) =>
+          node instanceof Element &&
+          (node.matches(OTP_FIELD) || node.querySelector(OTP_FIELD) !== null),
+      ),
+    );
+  }).observe(document, { childList: true, subtree: true });
+}
 afterEach(async () => {
-  if (
-    typeof document !== "undefined" &&
-    document.querySelector("[data-input-otp]")
-  ) {
+  if (typeof document === "undefined") return;
+  if (otpShown || document.querySelector(OTP_FIELD)) {
+    otpShown = false;
     await new Promise((resolve) => setTimeout(resolve, 80));
   }
 });
