@@ -6,6 +6,18 @@ import { afterEach } from "vitest";
 // the first render and every `getByRole` finds two matches.
 afterEach(cleanup);
 
+// input-otp (the one-time-code field) mirrors the caret with timeouts after a
+// focus; torn down first, they fire into a gone `window` and vitest reports an
+// unhandled error. Hooks run in reverse order, so this one runs before cleanup.
+afterEach(async () => {
+  if (
+    typeof document !== "undefined" &&
+    document.querySelector("[data-input-otp]")
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, 80));
+  }
+});
+
 // jsdom has no PointerEvent, and Base UI forwards a switch's click as one
 // (`dispatchClickWithModifiers`); a MouseEvent carries everything it reads.
 if (typeof window !== "undefined" && !("PointerEvent" in window)) {

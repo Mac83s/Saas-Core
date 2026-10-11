@@ -11,7 +11,10 @@ afterEach(cleanup);
 // focus; torn down first, they fire into a gone `window` and vitest reports an
 // unhandled error. Hooks run in reverse order, so this one runs before cleanup.
 afterEach(async () => {
-  if (document.querySelector("[data-input-otp]")) {
+  if (
+    typeof document !== "undefined" &&
+    document.querySelector("[data-input-otp]")
+  ) {
     await new Promise((resolve) => setTimeout(resolve, 80));
   }
 });
