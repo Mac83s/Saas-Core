@@ -80,6 +80,19 @@ import { richTextExtensions, type RichTextNodeType } from "./rich-text-schema";
 
 export const IDLE_COMMIT_MS = 700;
 
+/** JSON with the keys of every object in one fixed order, so two values that
+ *  say the same give the same string whatever order a store handed their keys
+ *  back in (PostgreSQL's jsonb returns them shortest first). */
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(value, (_key, item: unknown) =>
+    item && typeof item === "object" && !Array.isArray(item)
+      ? Object.fromEntries(
+          Object.entries(item).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+        )
+      : item,
+  );
+}
+
 const SETTLE = "richTextSettle";
 const LEVELS = [2, 3, 4] as const;
 
@@ -350,6 +363,11 @@ function PathEditor({
     const nodes = fromEditorDoc(editor.getJSON());
     const json = JSON.stringify(nodes);
     if (json === written.current) return;
+    // The same text with its keys in another order — what a loaded draft
+    // looks like next to the editor's own output — is no change, and a write
+    // would call the form changed.
+    if (canonicalJson(nodes) === canonicalJson(JSON.parse(written.current)))
+      return;
     written.current = json;
     setValue(name, nodes, { shouldDirty: true, shouldValidate: true });
   }

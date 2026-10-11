@@ -82,6 +82,9 @@ export function EntryEditor({
   const [selectedBlock, setSelectedBlock] = useState<BlockOption | null>(null);
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const receipt = useRef<MutationReceipt | undefined>(undefined);
+  // Set when a draft has just been put into the form and its blocks have yet
+  // to mount: see the effect below.
+  const baselinePending = useRef(false);
 
   const form = useForm<EntryDraftValues>({
     resolver: zodResolver(entryDraftSchema),
@@ -94,6 +97,17 @@ export function EntryEditor({
   useEffect(() => {
     onExitStateChange?.({ dirty, busy });
   }, [dirty, busy, onExitStateChange]);
+  // The blocks' own controls (a layout select, a separator's size) write the
+  // value they show into the form as they mount, so a draft that was just
+  // loaded already differs from itself, and the next write to any field would
+  // call the entry changed. What the form holds once the blocks have mounted
+  // is the baseline: the guard then reacts only to what the person changes.
+  // Runs after the commit that mounted them, the controls registered by then.
+  useEffect(() => {
+    if (!baselinePending.current || loading) return;
+    baselinePending.current = false;
+    form.reset(form.getValues(), { keepValues: true });
+  });
   // A stay block is offered to a company that has an offer booked from–to,
   // as in the page editor.
   const stays = useStayOffers();
@@ -113,6 +127,7 @@ export function EntryEditor({
       setVersion(draft.version);
       setAssets(media.items);
       form.reset({ blocks: editableBlocks(asBlocks(draft.blocks)) });
+      baselinePending.current = true;
       setConflict(false);
     } catch (error) {
       setProblem(sitesErrorMessage(error, t));
@@ -131,6 +146,7 @@ export function EntryEditor({
         setVersion(draft.version);
         setAssets(media.items);
         form.reset({ blocks: editableBlocks(asBlocks(draft.blocks)) });
+        baselinePending.current = true;
       })
       .catch((error: unknown) => {
         if (mounted) setProblem(sitesErrorMessage(error, t));

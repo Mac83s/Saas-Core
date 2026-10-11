@@ -47,6 +47,7 @@ import {
 
 import { PageEditorContext } from "./page-editor-context";
 import {
+  canonicalJson,
   collectAnchors,
   IDLE_COMMIT_MS,
   LinkDialog,
@@ -217,6 +218,9 @@ function PathEditor({
     const rows = fromTableDoc(editor.getJSON());
     const json = JSON.stringify(rows);
     if (json === written.current) return;
+    // Same grid, keys in another order (as the rich text editor): no change.
+    if (canonicalJson(rows) === canonicalJson(JSON.parse(written.current)))
+      return;
     written.current = json;
     setValue(name, rows, { shouldDirty: true, shouldValidate: true });
   }

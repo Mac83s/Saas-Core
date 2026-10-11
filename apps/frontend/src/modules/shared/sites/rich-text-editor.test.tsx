@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { useState, type ReactNode } from "react";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import { expect, test } from "vitest";
 
 import type { RichTextNode } from "@saas-core/site-blocks";
@@ -104,6 +104,46 @@ test("loads the stored text as a document and reloads it when the value changes 
     rules: { region: { enabled: false } },
   });
   expect(results.violations.map((violation) => violation.id)).toEqual([]);
+});
+
+/** A control of the section beside the text that writes what it shows into
+ *  the form when it mounts, as the layout select does. */
+function LayoutSelect() {
+  const { register } = useFormContext();
+  return (
+    <select aria-label="Układ" {...register("blocks.0.data.layout")}>
+      <option value="">Bez układu</option>
+    </select>
+  );
+}
+
+test("an editor looked into and left with nothing typed writes nothing back, whatever order the stored keys came in", async () => {
+  // As PostgreSQL's jsonb returns them: shortest key first, then alphabetical.
+  const stored = [
+    {
+      type: "paragraph",
+      content: [{ text: "Najpierw " }, { bold: true, text: "rozmowa" }],
+    },
+    { text: "Plan pracy", type: "heading", level: 2, anchor: "plan" },
+  ] as unknown as RichTextNode[];
+  render(
+    <Harness value={stored}>
+      <LayoutSelect />
+      <RichTextEditor label="Treść sekcji" name="blocks.0.data.content" />
+    </Harness>,
+  );
+  const text = await screen.findByRole("textbox", { name: "Treść sekcji" });
+  await waitFor(() =>
+    expect(text.querySelector("h2")?.textContent).toContain("Plan pracy"),
+  );
+  fireEvent.focus(text);
+  fireEvent.blur(text);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 900));
+  });
+  expect(screen.getByRole("status", { name: "form" }).textContent).toBe(
+    "clean",
+  );
 });
 
 test("the aside offers only paragraphs and lists", async () => {
