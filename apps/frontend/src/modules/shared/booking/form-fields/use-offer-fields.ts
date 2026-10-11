@@ -48,7 +48,8 @@ export function useOfferFields(serviceId: string): OwnField[] {
           service_id: field.service_id,
           name: field.name,
           kind: field.kind,
-          mandatory: field.mandatory && field.mandatory_for_staff,
+          // An older backend sends no flag: the team stays bound then.
+          mandatory: field.mandatory && field.mandatory_for_staff !== false,
           // The panel speaks the company's own language: the words are theirs.
           options: field.options.map((value) => ({ value, label: value })),
         })),

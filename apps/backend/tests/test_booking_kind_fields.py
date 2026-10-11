@@ -110,11 +110,10 @@ def test_a_second_service_is_not_blocked_by_the_names_of_the_first() -> None:
     assert asked(owner, made(owner, "B")) == EXPECTED
 
 
-def test_a_preset_offer_keeps_the_presets_fields_first(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The preset sets no kind today; with one it would copy the preset's fields
-    and then the kind's, which `copy_kind_fields` guarantees by position."""
+def test_the_kinds_fields_go_after_the_fields_a_service_already_has() -> None:
+    """A preset sets no kind, so the preset road copies nothing; what the helper
+    guarantees is the position: the kind's fields follow whatever the service
+    already has (here a preset offer's, given a kind by hand)."""
     from saas_core.modules.shared.booking.form_fields import copy_kind_fields  # noqa: PLC0415
 
     owner = membership("kf-preset")
@@ -164,7 +163,7 @@ def test_the_command_writes_nothing_without_apply() -> None:
     owner = membership("kf-dry")
     first, second = _bare_services(owner, "Alpha", "Beta")
     output = _run(organization=str(owner.organization_id))
-    assert output.rstrip().endswith("Usługi: 2, dodane pola: 4.")
+    assert output.rstrip().endswith("Usługi: 2, dodane pola: 4, odmowy: 0.")
     assert "dodałbym Liczba sztuk, Notatka" in output
     assert (_count(first), _count(second)) == (0, 0)
 
@@ -175,7 +174,7 @@ def test_apply_adds_and_a_second_run_adds_nothing() -> None:
     _run("--apply", organization=str(owner.organization_id))
     assert asked(owner, first) == EXPECTED
     again = _run("--apply", organization=str(owner.organization_id))
-    assert again.rstrip().endswith("Usługi: 0, dodane pola: 0.")
+    assert again.rstrip().endswith("Usługi: 0, dodane pola: 0, odmowy: 0.")
     assert _count(first) == 2
 
 
@@ -192,7 +191,7 @@ def test_a_service_that_already_has_the_name_is_skipped_even_when_switched_off()
         position=1,
     )
     output = _run("--apply", organization=str(owner.organization_id))
-    assert output.rstrip().endswith("Usługi: 1, dodane pola: 1.")
+    assert output.rstrip().endswith("Usługi: 1, dodane pola: 1, odmowy: 0.")
     names = list(
         FormField.all_objects.filter(service_id=service.id)
         .order_by("position")
@@ -245,6 +244,103 @@ def test_the_command_audits_as_the_system_and_refuses_a_bad_organization() -> No
         _run(organization=str(UUID(int=7)))
 
 
+def _many_services_one_full(owner: Any) -> tuple[Service, Service]:
+    """Two services of the kind: one with 20 active fields (no room), one bare."""
+    full, bare = _bare_services(owner, "Full", "Bare")
+    with tenant(owner):
+        for number in range(20):
+            FormField.all_objects.create(
+                organization=owner.organization,
+                service=full,
+                name=f"Pole {number}",
+                position=number + 1,
+            )
+    return full, bare
+
+
+def test_a_refused_service_is_reported_and_the_run_goes_on() -> None:
+    owner = membership("kf-refuse")
+    full, bare = _many_services_one_full(owner)
+    dry = StringIO()
+    with pytest.raises(CommandError, match="Odmowy: 1"):
+        call_command("booking_apply_kind_fields", stdout=dry)
+    assert "Full: odmowa (fields_too_many)" in dry.getvalue()
+    assert dry.getvalue().rstrip().endswith("Usługi: 1, dodane pola: 2, odmowy: 1.")
+    assert (_count(full), _count(bare)) == (20, 0)
+    out = StringIO()
+    with pytest.raises(CommandError, match="Odmowy: 1"):
+        call_command("booking_apply_kind_fields", "--apply", stdout=out)
+    assert "Full: odmowa (fields_too_many)" in out.getvalue()
+    # The refused service is untouched, the other one was written.
+    assert (_count(full), _count(bare)) == (20, 2)
+
+
+def test_two_declared_fields_with_one_label_are_refused_for_the_service(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    twin = ({**FIELDS[0]}, {**FIELDS[1], "labels": {"pl": " liczba SZTUK ", "en": "Other"}})
+    monkeypatch.setattr(settings, "APPOINTMENT_KIND_FIELDS", {KIND: twin}, raising=False)
+    owner = membership("kf-twin")
+    (service,) = _bare_services(owner, "Alpha")
+    with pytest.raises(CommandError, match="Odmowy: 1"):
+        _run("--apply", organization=str(owner.organization_id))
+    assert _count(service) == 0
+
+
+def test_a_label_with_outer_spaces_counts_as_there(monkeypatch: pytest.MonkeyPatch) -> None:
+    padded = ({**FIELDS[0], "labels": {"pl": "  Liczba sztuk ", "en": "Count"}},)
+    monkeypatch.setattr(settings, "APPOINTMENT_KIND_FIELDS", {KIND: padded}, raising=False)
+    owner = membership("kf-pad")
+    (service,) = _bare_services(owner, "Alpha")
+    _run("--apply", organization=str(owner.organization_id))
+    assert _run("--apply", organization=str(owner.organization_id)).rstrip().endswith(
+        "Usługi: 0, dodane pola: 0, odmowy: 0."
+    )
+    assert _count(service) == 1
+
+
+def test_a_run_without_declarations_stops_at_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "APPOINTMENT_KIND_FIELDS", {}, raising=False)
+    output = _run()
+    assert output.strip() == "Żaden moduł nie deklaruje pól dla typów wizyty."
+
+
+def test_apply_under_a_role_that_does_not_own_the_tables() -> None:
+    """The test connection owns its tables and so skips row-level security; the
+    app's role does not. `SET ROLE` to a plain one, as the SEO test does."""
+    from psycopg import sql  # noqa: PLC0415
+
+    mine, other = membership("kf-role-a"), membership("kf-role-b")
+    (mine_service,) = _bare_services(mine, "Alpha")
+    (other_service,) = _bare_services(other, "Beta")
+    role = sql.Identifier("saas_core_kf_probe")
+    with connection.cursor() as cursor:
+        cursor.execute(sql.SQL("CREATE ROLE {} NOLOGIN NOSUPERUSER NOBYPASSRLS").format(role))
+        cursor.execute(sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(role))
+        cursor.execute(
+            sql.SQL(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {}"
+            ).format(role)
+        )
+        cursor.execute(
+            sql.SQL("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {}").format(role)
+        )
+        try:
+            cursor.execute(sql.SQL("SET ROLE {}").format(role))
+            cursor.execute("SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname=current_user")
+            assert cursor.fetchone() == (False, False)
+            _run("--apply", organization=str(mine.organization_id))
+            # (The un-narrowed run reads the company list on the pre-tenant
+            # connection, which does not see a test's uncommitted rows.)
+        finally:
+            cursor.execute("RESET ROLE")
+        assert (_count(mine_service), _count(other_service)) == (2, 0)
+        cursor.execute(sql.SQL("REVOKE ALL ON ALL TABLES IN SCHEMA public FROM {}").format(role))
+        cursor.execute(sql.SQL("REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM {}").format(role))
+        cursor.execute(sql.SQL("REVOKE USAGE ON SCHEMA public FROM {}").format(role))
+        cursor.execute(sql.SQL("DROP ROLE {}").format(role))
+
+
 def _descriptor(tmp_path: Path, **backend: Any) -> Path:
     descriptor = json.loads(
         (Path(settings.MODULE_CATALOG_PATH) / "core.health.json").read_text(encoding="utf-8")
@@ -272,6 +368,64 @@ def test_a_consent_is_refused_in_a_descriptor(tmp_path: Path) -> None:
     consent = {"key": "ok", "type": "consent", "mandatory": True, "labels": {"pl": "Zgoda"}}
     with pytest.raises(CompositionError, match="zgod"):
         load_catalog(_descriptor(tmp_path, appointmentKindFields={"health.visit": [consent]}))
+
+
+def _declared(tmp_path: Path, *fields: dict[str, Any]) -> Any:
+    return load_catalog(_descriptor(tmp_path, appointmentKindFields={"health.visit": list(fields)}))
+
+
+def test_boot_refuses_an_unknown_type_a_thin_choice_and_twin_labels(tmp_path: Path) -> None:
+    base = {"key": "x", "mandatory": False, "labels": {"pl": "X", "en": "X"}}
+    with pytest.raises(CompositionError, match="rodzaj pola"):
+        _declared(tmp_path, {**base, "type": "slider"})
+    one = [{"key": "a", "labels": {"pl": "A", "en": "A"}}]
+    with pytest.raises(CompositionError, match="od 2 do 20"):
+        _declared(tmp_path, {**base, "type": "choice", "options": one})
+    long = {"key": "b", "labels": {"pl": "B" * 81, "en": "B"}}
+    with pytest.raises(CompositionError, match="za długą"):
+        _declared(tmp_path, {**base, "type": "choice", "options": [*one, long]})
+    with pytest.raises(CompositionError, match="powtórzon"):
+        _declared(
+            tmp_path,
+            {**base, "type": "text"},
+            {**base, "key": "y", "type": "text", "labels": {"pl": " x ", "en": "Y"}},
+        )
+
+
+def test_form_field_save_v1_still_runs_and_binds_the_team() -> None:
+    """ADR-076 §1: a plan that holds @1 across the deploy must still run."""
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from saas_core.modules.shared.booking.field_commands import (  # noqa: PLC0415
+        FIELD_SAVE,
+        FIELD_SAVE_V1,
+    )
+
+    owner = membership("kf-v1")
+    service = made(owner, "Alpha", kind="")
+    assert FIELD_SAVE_V1.version == 1 and FIELD_SAVE.version == 2
+    assert "mandatory_for_staff" not in FIELD_SAVE_V1.input_schema["properties"]
+    old = {
+        "field_id": None,
+        "service_id": str(service.id),
+        "name": "Numer",
+        "kind": "text",
+        "options": None,
+        "mandatory": True,
+        "position": None,
+        "active": None,
+    }
+    with tenant(owner) as context:
+        call = SimpleNamespace(
+            context=context, idempotency_key=key(), preview=SimpleNamespace(observed_versions={})
+        )
+        saved = FIELD_SAVE_V1.run(old, call)
+        assert saved["mandatory"] is True and saved["mandatory_for_staff"] is True
+        # A later change through @1 leaves the team switch as the company set it.
+        FormField.all_objects.filter(pk=saved["field_id"]).update(mandatory_for_staff=False)
+        call.preview.observed_versions = {f"booking.form_field:{saved['field_id']}": saved["version"]}
+        changed = FIELD_SAVE_V1.run({**old, "field_id": saved["field_id"], "mandatory": None}, call)
+        assert changed["mandatory_for_staff"] is False
 
 
 def test_no_core_module_declares_kind_fields() -> None:

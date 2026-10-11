@@ -21,15 +21,17 @@ Zakres: uzupełnienie plastra 5j planu memex
 - **Wzorce ofert** mogą nieść `long_text` i opcjonalne `mandatoryForStaff`
   (domyślnie prawda). Opublikowanych wersji wzorców nie zmieniliśmy.
 - **Asystent**: `booking.form_field.save` jest teraz w wersji `@2` (nowy klucz
-  wejścia `mandatory_for_staff`; zestaw kluczy wersji jest zamrożony, `@1`
-  znika); `booking.form_fields.read@1` oddaje dodatkowo `mandatory_for_staff` i
+  wejścia `mandatory_for_staff`; zestaw kluczy wersji jest zamrożony), a `@1`
+  zostaje zarejestrowane obok, z dawnym wejściem, żeby plan czekający przez
+  wdrożenie dalej się wykonał; `booking.form_fields.read@1` oddaje dodatkowo `mandatory_for_staff` i
   `limits.max_long_answer_length`.
 - Komunikat „odpowiedź jest za długa” mówi teraz właściwy limit (200 albo 500).
 - **Typ wizyty niesie własne pola.** Deskryptor modułu może zadeklarować
   `backend.appointmentKindFields` (`{typ: [pole]}`, pole jak we wzorcu oferty,
   bez zgody, tylko dla własnych typów modułu). Rdzeń kopiuje je na każdą nową
-  usługę tego typu (okno „Nowa usługa”, wzorce, asystent, katalog) po polach
-  wzorca. Żaden moduł rdzenia nic nie deklaruje, więc samo wdrożenie rdzenia nie
+  usługę tego typu (okno „Nowa usługa”, asystent, katalog) po polach, które
+  usługa już ma; wzorzec oferty nie ustawia typu wizyty, więc tam nic się nie
+  kopiuje. Żaden moduł rdzenia nic nie deklaruje, więc samo wdrożenie rdzenia nie
   zmienia niczyjego formularza.
 
 ## Wdrożenie
@@ -46,8 +48,15 @@ Zakres: uzupełnienie plastra 5j planu memex
   zadeklaruje `appointmentKindFields`): w osobnym kontenerze backendu,
   najpierw podgląd `python manage.py booking_apply_kind_fields` (nic nie
   zapisuje, wypisuje po firmie, co by dodało, na końcu „Usługi: N, dodane pola:
-  M.”), potem `python manage.py booking_apply_kind_fields --apply`; opcjonalnie
-  `--organization <uuid>`. Bezpieczne do powtórzenia.
+  M, odmowy: K.”), potem `python manage.py booking_apply_kind_fields --apply`;
+  opcjonalnie `--organization <uuid>`. Usługa odmówiona (powyżej 20 włączonych
+  pól albo dwie deklaracje o tej samej etykiecie) jest wypisana z powodem,
+  reszta przechodzi, kod wyjścia jest niezerowy. Powtórzenie nic nie dubluje,
+  dopóki nazwa pola się zgadza: gdy firma zmieni nazwę pola albo swój pierwszy
+  język, następny bieg doda je ponownie. Zapisy idą przez
+  `notify_catalog_changed` jak zapis człowieka: firma z włączonym automatycznym
+  tłumaczeniem dostaje zapotrzebowanie na języki, których deskryptor nie
+  zna, liczone do jej miesięcznego limitu.
 
 ## Produkty (HoofCare, MedPlano) przy następnym `core:update`
 
@@ -57,8 +66,8 @@ Zakres: uzupełnienie plastra 5j planu memex
 - Migracja booking 0039 na każdym stacku. Nic do zmiany w kodzie produktu;
   `booking.api` bez zmian (produkt rezerwujący bez formularza nadal nie jest
   pytany o nic).
-- Produkt, który przypina wersję polecenia `booking.form_field.save@1`, musi
-  przejść na `@2` (w repozytoriach produktów takiego użycia nie ma).
+- `booking.form_field.save@1` działa nadal (bez `mandatory_for_staff`); nowe
+  użycia piszą `@2`.
 - Słowa: `FormFields.mandatoryForStaff`, `FormFields.mandatoryForStaffHint` i
   parametr `{max}` w `PublicBooking.fieldTooLong` (`pl.json`, `en.json`,
   `public/de.json`, `es.json`, `ru.json`); produkt, który nadpisuje te
@@ -74,7 +83,7 @@ Zakres: uzupełnienie plastra 5j planu memex
   `offer-fields-dialog.test.tsx` (drugie pole edytora), `own-fields.test.tsx`
   (`useOfferFields`, `OwnFields` z dłuższym tekstem).
 - `tests/test_booking_kind_fields.py` (kopiowanie przy tworzeniu obiema drogami,
-  `mandatoryForStaff: false` i `long_text`, kolejność po polach wzorca; polecenie:
+  `mandatoryForStaff: false` i `long_text`, kolejność po polach, które usługa już ma; polecenie:
   podgląd nic nie zapisuje, `--apply` dodaje, drugi bieg nic, pole o tej samej
   nazwie pominięte, `--organization`, `SET LOCAL` przed pierwszym odczytem,
   wpis historii jako system; deskryptor: obcy typ i zgoda odrzucone),

@@ -11,6 +11,21 @@
       "minLength": 1,
       "maxLength": 160
     },
+    "kindOptionLabels": {
+      "type": "object",
+      "required": ["pl", "en"],
+      "properties": {
+        "pl": { "$ref": "#/$defs/kindOptionText" },
+        "en": { "$ref": "#/$defs/kindOptionText" }
+      },
+      "propertyNames": { "pattern": "^[a-z]{2}$" },
+      "additionalProperties": { "$ref": "#/$defs/kindOptionText" }
+    },
+    "kindOptionText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
     "kindLabels": {
       "type": "object",
       "required": ["pl", "en"],
@@ -49,7 +64,7 @@
                 "pattern": "^[a-z][a-z0-9_]*$",
                 "maxLength": 40
               },
-              "labels": { "$ref": "#/$defs/kindLabels" }
+              "labels": { "$ref": "#/$defs/kindOptionLabels" }
             }
           }
         }

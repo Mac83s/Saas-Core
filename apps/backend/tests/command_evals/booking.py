@@ -263,6 +263,10 @@ def _field_state(context: TenantContext) -> dict[str, Any]:
     }
 
 
+def _without_staff_switch(given: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in given.items() if key != "mandatory_for_staff"}
+
+
 def _field_fields(**given: Any) -> dict[str, Any]:
     fields: dict[str, Any] = dict.fromkeys((
         "field_id",
@@ -648,6 +652,21 @@ EVALS = {
         stale="nie dotyczy: odczyt nie sprawdza wersji",
         state=_field_state,
         prepare=_field_company,
+    ),
+    # @1 stays while a plan or a past step may hold it (ADR-076 §1): the same
+    # run, without the team switch.
+    "booking.form_field.save@1": CommandEval(
+        arguments=lambda context: _without_staff_switch(
+            _field_fields(field_id=str(_first(FormField, context).id), mandatory=True)
+        ),
+        wrong_arguments=lambda context: _without_staff_switch(
+            _field_fields(service_id=str(_stay(context).id), name="numer prawa jazdy")
+        ),
+        wrong_field="name",
+        stale=_bump(FormField),
+        state=_field_state,
+        prepare=_field_company,
+        preview_rolls_back=ROLLED_BACK,
     ),
     "booking.form_field.save@2": CommandEval(
         arguments=lambda context: _field_fields(

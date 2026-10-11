@@ -1519,8 +1519,13 @@ własne to dane klienta”); tu jest, jak to działa.
   pytają zespół tylko o to, co go wiąże; serwer sprawdza to samo. Polecenie
   asystenta `booking.form_field.save` przeszło na `@2`: zestaw kluczy wejścia
   wersji jest zamrożony, a nowy klucz `mandatory_for_staff` go zmienia (stare
-  `@1` znika, jak `profiles.organization.read@2`); `booking.form_fields.read@1`
-  dostał tylko nowe pole wyjścia.
+  `@1` zostaje zarejestrowane obok, z dawnym zestawem kluczy wejścia i tym samym
+  wykonaniem (nowe pole obowiązkowe wiąże zespół, zmieniane zachowuje to, co
+  miało): wersja żyje, dopóki plan albo zgoda może ją wiązać (ADR-076 §1).
+  Precedens `profiles.organization.read@2` nie obejmuje usunięcia — tamto było
+  odczytem, który niczego nie wiąże, a `form_field.save` to zapis szkicu
+  zatwierdzany na skrócie planu; `booking.form_fields.read@1` dostał tylko nowe
+  pole wyjścia.
 - **Dłuższy tekst** (rodzaj `long_text`, 11.10). Wieloliniowa odpowiedź do 500
   znaków (`MAX_LONG_TEXT_ANSWER`, `FIELD_LIMITS.max_long_answer_length`), z
   zachowanymi złamaniami wiersza (`\r\n` zapisuje się jako `\n`); za długa to
@@ -1541,15 +1546,27 @@ własne to dane klienta”); tu jest, jak to działa.
   tego schemat, `deployment:check` i start aplikacji. Rdzeń kopiuje pola na
   usługę przy jej tworzeniu, w tej samej transakcji i tą samą drogą co pola
   wzorca (`copy_preset_fields`): `setup.save_service` (okno „Nowa usługa”,
-  wzorce, asystent) i `services.create_catalog_item`; pola typu idą po polach
-  wzorca. Typ ustawia się tylko przy tworzeniu, więc nie ma przypadku „typ się
+  asystent) i `services.create_catalog_item`; pola typu idą po polach, które
+  usługa już ma. Wzorzec nie ustawia typu wizyty, więc ta droga niczego tam nie
+  kopiuje. Typ ustawia się tylko przy tworzeniu, więc nie ma przypadku „typ się
   zmienił”. Pole, którego nazwa (w języku, w jakim zapisałby je wzorzec) usługa
   już ma — włączone lub wyłączone — zostaje nietknięte. Usługi, które już są,
   uzupełnia polecenie `manage.py booking_apply_kind_fields [--apply]
   [--organization <uuid>]`: bez `--apply` tylko wypisuje, co by dodało; z nim
   dodaje, firma po firmie, każda we własnym kontekście tenanta (`SET LOCAL` przed
-  pierwszym odczytem), z wpisem w historii jako system; nic nie zmienia ani nie
-  usuwa, drugie uruchomienie nic nie dodaje. Żaden moduł rdzenia nie deklaruje
+  pierwszym odczytem), z wpisem w historii jako system; usługa odmówiona (więcej niż
+  20 włączonych pól po dodaniu, dwie deklaracje o tej samej etykiecie) jest
+  wypisana z powodem i cofnięta punktem zapisu, reszta przechodzi, a polecenie
+  kończy się błędem; podgląd przewiduje te same odmowy. Nic nie zmienia ani nie
+  usuwa. Powtórzenie nic nie dodaje, dopóki nazwa pola się zgadza: gdy firma
+  zmieni nazwę pola albo swój pierwszy język, następny bieg doda je ponownie
+  (brak stałego klucza pola to decyzja właściciela). Zapisy polecenia idą przez
+  `notify_catalog_changed` jak zapis człowieka, więc firma z włączonym
+  automatycznym tłumaczeniem dostaje zapotrzebowanie na języki, których
+  deskryptor nie zna, liczone do jej miesięcznego limitu. Start aplikacji i
+  `deployment:check` odmawiają też nieznanego rodzaju pola, wyboru z mniej niż
+  dwiema możliwościami, etykiety możliwości dłuższej niż 80 znaków i dwóch pól
+  tego samego typu o tej samej etykiecie. Żaden moduł rdzenia nie deklaruje
   takich pól; testy używają własnego deskryptora.
 - **Odpowiedź jest daną klienta, zamrożoną na rezerwacji.**
   `Appointment.form_answers` trzyma migawkę: identyfikator pola, pytanie w

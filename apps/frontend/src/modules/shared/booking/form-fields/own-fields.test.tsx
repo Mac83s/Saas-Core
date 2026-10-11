@@ -65,6 +65,17 @@ test("a mandatory field binds the team only where the company says so", async ()
   ]);
 });
 
+test("an older backend that sends no team flag still binds the team", async () => {
+  const { mandatory_for_staff: _flag, ...older } = stored({ id: "a" });
+  api.listBookingFormFields.mockResolvedValue({
+    items: [older as unknown as BookingFormField],
+    limits: {},
+  });
+  const { result } = renderHook(() => useOfferFields(OFFER));
+  await waitFor(() => expect(result.current).toHaveLength(1));
+  expect(result.current[0]?.mandatory).toBe(true);
+});
+
 function Harness({ fields }: { fields: OwnField[] }) {
   const [values, setValues] = useState<Record<string, string>>({});
   return (

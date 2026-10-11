@@ -17,6 +17,7 @@ the preview raises it to `apply` — from that moment the form asks it.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any
 
 from rest_framework.exceptions import NotFound
@@ -307,4 +308,36 @@ FIELD_SAVE = CommandSpec(
     version_field="expected_version",
 )
 
-FIELD_COMMANDS = (FIELDS_READ, FIELD_SAVE)
+# --- booking.form_field.save@1 -------------------------------------------------------
+# ADR-076 §1: an old version lives while a plan or a consent may bind it. @1 keeps
+# its frozen input (no `mandatory_for_staff`) and the same run: a new field binds
+# the team, a changed one keeps what it had.
+
+
+def _legacy(run: Any) -> Any:
+    def wrapped(arguments: Mapping[str, Any], call: Any) -> Any:
+        return run({**arguments, "mandatory_for_staff": None}, call)
+
+    return wrapped
+
+
+_LEGACY_PROPERTIES = {
+    key: value
+    for key, value in FIELD_SAVE.input_schema["properties"].items()
+    if key != "mandatory_for_staff"
+}
+
+FIELD_SAVE_V1 = replace(
+    FIELD_SAVE,
+    version=1,
+    input_schema={
+        **FIELD_SAVE.input_schema,
+        "required": ["field_id", *(k for k in _FIELD_FIELDS if k != "mandatory_for_staff")],
+        "properties": _LEGACY_PROPERTIES,
+    },
+    run=_legacy(_save_field),
+    preview=_legacy(_preview_field),
+    undo="command:booking.form_field.save@2",
+)
+
+FIELD_COMMANDS = (FIELDS_READ, FIELD_SAVE_V1, FIELD_SAVE)

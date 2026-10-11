@@ -16,6 +16,7 @@ from uuid import UUID
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from rest_framework.exceptions import ValidationError
 
 from saas_core.modules.core.organizations.context import (
     TenantContext,
@@ -27,6 +28,7 @@ from saas_core.modules.shared.billing.tenant_scope import billing_organization_i
 from saas_core.modules.shared.booking.form_fields import (
     _first_label,
     copy_kind_fields,
+    kind_fields_refusal,
     missing_kind_fields,
 )
 from saas_core.modules.shared.booking.models import Service
@@ -47,6 +49,12 @@ def _system_context(organization_id: UUID) -> TenantContext:
     )
 
 
+def _code(error: ValidationError) -> str:
+    codes = error.get_codes()
+    flat = [c for value in codes.values() for c in value] if isinstance(codes, dict) else codes
+    return str(flat[0]) if flat else "invalid"
+
+
 class Command(BaseCommand):
     help = (
         "Dodaje usługom pola formularza, które deklaruje ich typ wizyty "
@@ -61,6 +69,7 @@ class Command(BaseCommand):
         apply = bool(options["apply"])
         if not settings.APPOINTMENT_KIND_FIELDS:
             self.stdout.write("Żaden moduł nie deklaruje pól dla typów wizyty.")
+            return
         if options["organization"]:
             try:
                 only = [UUID(options["organization"])]
@@ -68,14 +77,17 @@ class Command(BaseCommand):
                 raise CommandError("--organization wymaga UUID firmy.") from error
         else:
             only = billing_organization_ids()
-        services = added = 0
+        services = added = refused = 0
         for organization_id in only:
-            seen, new = self._organization(organization_id, apply)
+            seen, new, no = self._organization(organization_id, apply)
             services += seen
             added += new
-        self.stdout.write(f"Usługi: {services}, dodane pola: {added}.")
+            refused += no
+        self.stdout.write(f"Usługi: {services}, dodane pola: {added}, odmowy: {refused}.")
+        if refused:
+            raise CommandError(f"Odmowy: {refused} (usługi opisane wyżej, reszta przeszła).")
 
-    def _organization(self, organization_id: UUID, apply: bool) -> tuple[int, int]:
+    def _organization(self, organization_id: UUID, apply: bool) -> tuple[int, int, int]:
         # One transaction per company, the tenant set before its first tenant
         # read (a read before it answers nothing under RLS).
         with transaction.atomic():
@@ -84,19 +96,30 @@ class Command(BaseCommand):
             if organization is None:
                 raise CommandError(f"Firma {organization_id} nie istnieje.")
             context = _system_context(organization_id)
-            services = added = 0
+            services = added = refused = 0
             with activate_tenant_context(context):
                 for service in Service.all_objects.filter(
                     organization=organization,
                     appointment_kind__in=list(settings.APPOINTMENT_KIND_FIELDS),
                 ).order_by("created_at", "id"):
-                    if apply:
-                        made = [f.name for f in copy_kind_fields(context, organization, service)]
-                    else:
-                        made = [
-                            _first_label(organization, given["labels"])
-                            for given in missing_kind_fields(organization, service)
-                        ]
+                    made: list[str] = []
+                    missing = missing_kind_fields(organization, service)
+                    reason = kind_fields_refusal(organization, service, missing) if missing else None
+                    if reason is None and apply:
+                        # A savepoint per service: a refusal leaves the others alone.
+                        try:
+                            with transaction.atomic():
+                                made = [
+                                    f.name for f in copy_kind_fields(context, organization, service)
+                                ]
+                        except ValidationError as error:
+                            reason = _code(error)
+                    if reason is not None:
+                        refused += 1
+                        self.stdout.write(f"{organization.slug}: {service.name}: odmowa ({reason})")
+                        continue
+                    if not apply:
+                        made = [_first_label(organization, given["labels"]) for given in missing]
                     if made:
                         services += 1
                         added += len(made)
@@ -104,4 +127,4 @@ class Command(BaseCommand):
                         self.stdout.write(
                             f"{organization.slug}: {service.name}: {verb} {', '.join(made)}"
                         )
-            return services, added
+            return services, added, refused

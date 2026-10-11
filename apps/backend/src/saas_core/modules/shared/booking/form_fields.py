@@ -309,7 +309,7 @@ def missing_kind_fields(organization: Organization, service: Service) -> list[Ma
     if not declared:
         return []
     names = {
-        name.casefold()
+        name.strip().casefold()
         for name in FormField.all_objects.filter(
             organization=organization, service_id=service.id
         ).values_list("name", flat=True)
@@ -317,8 +317,25 @@ def missing_kind_fields(organization: Organization, service: Service) -> list[Ma
     return [
         given
         for given in declared
-        if _first_label(organization, given["labels"]).casefold() not in names
+        if _first_label(organization, given["labels"]).strip().casefold() not in names
     ]
+
+
+def kind_fields_refusal(
+    organization: Organization, service: Service, missing: Sequence[Mapping[str, Any]]
+) -> str | None:
+    """The code `copy_kind_fields` would be refused with for these missing
+    fields (`fields_too_many`, `name_taken`), or None: what the dry run of the
+    command says, without writing."""
+    labels = [_first_label(organization, given["labels"]).strip().casefold() for given in missing]
+    if len(set(labels)) != len(labels):
+        return "name_taken"
+    active = FormField.all_objects.filter(
+        organization=organization, service_id=service.id, active=True
+    ).count()
+    if active + len(missing) > FIELD_LIMITS["max_fields"]:
+        return "fields_too_many"
+    return None
 
 
 def copy_kind_fields(

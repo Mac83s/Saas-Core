@@ -15,6 +15,7 @@ registry is still empty, and so the rules can be tested as ordinary functions.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,42 @@ LAYER_RANK = {"core": 0, "shared": 1, "vertical": 2, "config": 3}
 
 class CompositionError(Exception):
     """The profile and the catalog disagree about what this deployment is."""
+
+
+#: What a module may declare as a field of a kind of visit (the schema's
+#: `kindField`; a consent is refused above). Checked here too, because
+#: `deployment:check` does not run at boot.
+_KIND_FIELD_TYPES = frozenset({"text", "long_text", "number", "choice", "date"})
+
+
+def _check_kind_fields(module_id: str, kind: str, fields: Sequence[Mapping[str, Any]]) -> None:
+    where = f"{module_id}: pola typu wizyty {kind}"
+    seen_keys: set[str] = set()
+    seen_labels: set[tuple[str, str]] = set()
+    for field in fields:
+        key = str(field.get("key"))
+        if key in seen_keys:
+            raise CompositionError(f"{where}: powtórzony klucz {key}")
+        seen_keys.add(key)
+        if field.get("type") not in _KIND_FIELD_TYPES:
+            raise CompositionError(f"{where}: nieznany rodzaj pola {field.get('type')} ({key})")
+        for locale, label in (field.get("labels") or {}).items():
+            norm = (locale, str(label).strip().casefold())
+            if not norm[1] or len(str(label)) > 160 or norm in seen_labels:
+                raise CompositionError(f"{where}: pusta, za długa lub powtórzona etykieta ({key})")
+            seen_labels.add(norm)
+        options = field.get("options") or []
+        if field.get("type") == "choice":
+            if not 2 <= len(options) <= 20:
+                raise CompositionError(f"{where}: wybór {key} wymaga od 2 do 20 możliwości")
+            for option in options:
+                for label in (option.get("labels") or {}).values():
+                    if not str(label).strip() or len(str(label)) > 80:
+                        raise CompositionError(
+                            f"{where}: możliwość wyboru {key} ma pustą lub za długą etykietę"
+                        )
+        elif options:
+            raise CompositionError(f"{where}: pole {key} nie jest wyborem, a ma możliwości")
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +148,7 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
                     f"{descriptor.id}: typ wizyty {kind} deklaruje zgodę, "
                     "a jej treść należy do firmy"
                 )
+            _check_kind_fields(descriptor.id, kind, fields)
         # "" is the plain service, which no module declares.
         if (
             stray := set(descriptor.completed_explicitly_kinds)

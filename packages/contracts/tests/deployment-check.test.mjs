@@ -486,6 +486,45 @@ test("moduł nadaje rolom tylko własne uprawnienia i montuje tylko własny kod 
     /appointmentKindFields\/health\.visit\/0\/type/,
   );
 
+  // Two fields of one kind may not share a label (the server compares them
+  // trimmed, without case), nor an option label exceed the server's 80.
+  await assert.rejects(
+    validateDeployment(
+      "only-health",
+      await singleModuleRoot({
+        appointmentKinds: { "health.visit": "Wizyta" },
+        appointmentKindFields: {
+          "health.visit": [
+            field,
+            { ...field, key: "other", labels: { pl: " liczba ", en: "Other" } },
+          ],
+        },
+      }),
+    ),
+    /powtórzona etykieta/,
+  );
+  await assert.rejects(
+    validateDeployment(
+      "only-health",
+      await singleModuleRoot({
+        appointmentKinds: { "health.visit": "Wizyta" },
+        appointmentKindFields: {
+          "health.visit": [
+            {
+              ...field,
+              type: "choice",
+              options: [
+                { key: "a", labels: { pl: "x".repeat(81), en: "A" } },
+                { key: "b", labels: { pl: "B", en: "B" } },
+              ],
+            },
+          ],
+        },
+      }),
+    ),
+    /maxLength|appointmentKindFields/,
+  );
+
   const own = await singleModuleRoot({
     roleGrants: { owner: ["health.read"] },
     appointmentKinds: { "health.visit": "Wizyta" },

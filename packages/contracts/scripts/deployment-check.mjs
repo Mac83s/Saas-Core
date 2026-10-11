@@ -453,6 +453,25 @@ const assertKindListsNameOwnKinds = (descriptor) => {
         `Moduł ${descriptor.id}: typ wizyty ${kind} deklaruje zgodę, a jej treść należy do firmy`,
       );
     }
+    const keys = new Set();
+    const labels = new Set();
+    for (const field of fields) {
+      if (keys.has(field.key)) {
+        throw new Error(
+          `Moduł ${descriptor.id}: pola typu wizyty ${kind}: powtórzony klucz ${field.key}`,
+        );
+      }
+      keys.add(field.key);
+      for (const [locale, label] of Object.entries(field.labels ?? {})) {
+        const norm = `${locale}:${String(label).trim().toLowerCase()}`;
+        if (labels.has(norm)) {
+          throw new Error(
+            `Moduł ${descriptor.id}: pola typu wizyty ${kind}: powtórzona etykieta ${label}`,
+          );
+        }
+        labels.add(norm);
+      }
+    }
   }
   const others = descriptor.backend.appointmentsOfOthersPermission;
   if (others && !(descriptor.backend.permissions ?? []).includes(others)) {
