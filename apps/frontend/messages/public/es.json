@@ -49,7 +49,7 @@
   },
   "PublicBooking": {
     "fieldOptional": "{name} (opcional)",
-    "fieldTooLong": "Esta respuesta es demasiado larga: 200 caracteres como máximo.",
+    "fieldTooLong": "Esta respuesta es demasiado larga: {max} caracteres como máximo.",
     "fieldInvalid": "{kind, select, number {Introduce un número.} date {Indica una fecha.} choice {Elige una de las opciones.} other {Corrige este campo.}}",
     "answersRefused": "Corrige los campos marcados e inténtalo de nuevo.",
     "fieldsChanged": "La empresa ha cambiado el formulario entretanto. Recarga la página y rellénalo de nuevo.",

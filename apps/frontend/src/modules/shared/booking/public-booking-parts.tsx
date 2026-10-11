@@ -428,6 +428,10 @@ export type OwnField = NonNullable<BookingPublicCatalog["form_fields"]>[number];
 /** What a ticked consent sends as its answer. */
 const TICKED = "true";
 
+/** The longest answer of a text and of a long text (the server's bounds). */
+const TEXT_LENGTH = 200;
+const LONG_TEXT_LENGTH = 500;
+
 /** The fields the company added to the form of this offer (ADR-072, slice
  *  5j), in the form's order. */
 export function ownFields(
@@ -521,7 +525,10 @@ export function OwnFields({
           ? code === "field_required"
             ? t(field.kind === "consent" ? "documentRequired" : "required")
             : code === "field_too_long"
-              ? t("fieldTooLong")
+              ? t("fieldTooLong", {
+                  max:
+                    field.kind === "long_text" ? LONG_TEXT_LENGTH : TEXT_LENGTH,
+                })
               : t("fieldInvalid", { kind: field.kind })
           : undefined;
         const problem = message ? (
@@ -575,6 +582,16 @@ export function OwnFields({
                   </option>
                 ))}
               </NativeSelect>
+            ) : field.kind === "long_text" ? (
+              <Textarea
+                aria-describedby={described}
+                aria-invalid={Boolean(message)}
+                id={id}
+                maxLength={LONG_TEXT_LENGTH}
+                onChange={(event) => set(event.target.value)}
+                rows={3}
+                value={value}
+              />
             ) : (
               <Input
                 aria-describedby={described}
@@ -582,7 +599,7 @@ export function OwnFields({
                 autoComplete="off"
                 id={id}
                 inputMode={field.kind === "number" ? "decimal" : undefined}
-                maxLength={field.kind === "text" ? 200 : undefined}
+                maxLength={field.kind === "text" ? TEXT_LENGTH : undefined}
                 onChange={(event) => set(event.target.value)}
                 type={field.kind === "date" ? "date" : "text"}
                 value={value}

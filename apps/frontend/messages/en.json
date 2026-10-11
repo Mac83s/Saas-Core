@@ -3624,7 +3624,7 @@
   },
   "PublicBooking": {
     "fieldOptional": "{name} (optional)",
-    "fieldTooLong": "This answer is too long — 200 characters at most.",
+    "fieldTooLong": "This answer is too long — {max} characters at most.",
     "fieldInvalid": "{kind, select, number {Enter a number.} date {Enter a date.} choice {Choose one of the options.} other {Correct this field.}}",
     "answersRefused": "Correct the marked fields and try again.",
     "fieldsChanged": "The company has changed the form in the meantime. Reload the page and fill it in again.",
@@ -6602,6 +6602,8 @@
     "who_optional": "No — it may be skipped",
     "who_mandatory": "Yes — no booking without an answer",
     "who_mandatory_consent": "Yes — no booking without ticking it",
+    "mandatoryForStaff": "Also required when the team books it",
+    "mandatoryForStaffHint": "Turn off if the customer must answer when booking themselves, while the team may enter a booking without it.",
     "position": "Order",
     "positionHint": "A smaller number is higher in the form.",
     "positionInvalid": "Give the order as a whole number, from 0.",

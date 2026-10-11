@@ -3624,7 +3624,7 @@
   },
   "PublicBooking": {
     "fieldOptional": "{name} (nieobowiązkowo)",
-    "fieldTooLong": "Ta odpowiedź jest za długa — najwyżej 200 znaków.",
+    "fieldTooLong": "Ta odpowiedź jest za długa — najwyżej {max} znaków.",
     "fieldInvalid": "{kind, select, number {Wpisz liczbę.} date {Podaj datę.} choice {Wybierz jedną z możliwości.} other {Popraw to pole.}}",
     "answersRefused": "Popraw zaznaczone pola i spróbuj ponownie.",
     "fieldsChanged": "Firma zmieniła formularz w międzyczasie. Odśwież stronę i wypełnij go jeszcze raz.",
@@ -6602,6 +6602,8 @@
     "who_optional": "Nie — może pominąć",
     "who_mandatory": "Tak — bez odpowiedzi nie zarezerwuje",
     "who_mandatory_consent": "Tak — bez zaznaczenia nie zarezerwuje",
+    "mandatoryForStaff": "Obowiązkowe także, gdy rezerwację wpisuje zespół",
+    "mandatoryForStaffHint": "Wyłącz, jeśli klient musi odpowiedzieć sam, a Wy możecie wpisać wizytę bez tej odpowiedzi.",
     "position": "Kolejność",
     "positionHint": "Mniejsza liczba — wyżej w formularzu.",
     "positionInvalid": "Podaj kolejność jako liczbę całkowitą, od 0.",

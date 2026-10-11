@@ -522,6 +522,7 @@ test("nowy pobyt pyta o pola własne oferty: obowiązkowe zatrzymuje, odpowiedzi
     kind: "text",
     options: [],
     mandatory: false,
+    mandatory_for_staff: true,
     position: 1,
     active: true,
     version: 1,

@@ -1839,7 +1839,9 @@ function AppointmentDetails({
             <dt className="self-start text-muted-foreground wrap-anywhere">
               {answer.name}
             </dt>
-            <dd className="wrap-anywhere">
+            <dd
+              className={`wrap-anywhere${answer.kind === "long_text" ? " whitespace-pre-line" : ""}`}
+            >
               {answer.kind === "consent" ? t("answerTicked") : answer.value}
             </dd>
           </Fragment>

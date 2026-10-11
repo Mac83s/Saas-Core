@@ -14,7 +14,8 @@ import type { OwnField } from "../public-booking-parts";
  * (ADR-072, slice 5j): what the public form asks of this offer, in its
  * order — without the consents, which only the customer gives (the consent
  * journal cannot say a box was ticked for somebody). The office answers the
- * mandatory ones for the caller; the server requires them too.
+ * mandatory ones for the caller, except those the company lets the team leave
+ * empty (`mandatory_for_staff`); the server requires the same.
  *
  * A list that did not load asks nothing here: the server still refuses a
  * booking without a mandatory answer and says which.
@@ -47,7 +48,7 @@ export function useOfferFields(serviceId: string): OwnField[] {
           service_id: field.service_id,
           name: field.name,
           kind: field.kind,
-          mandatory: field.mandatory,
+          mandatory: field.mandatory && field.mandatory_for_staff,
           // The panel speaks the company's own language: the words are theirs.
           options: field.options.map((value) => ({ value, label: value })),
         })),

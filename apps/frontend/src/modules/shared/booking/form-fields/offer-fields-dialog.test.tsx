@@ -46,8 +46,10 @@ const limits: BookingFormFieldList["limits"] = {
   max_option_length: 80,
   max_name_length: 160,
   max_answer_length: 200,
+  max_long_answer_length: 500,
   kinds: [
     { value: "text", label: { pl: "Tekst", en: "Text" } },
+    { value: "long_text", label: { pl: "Dłuższy tekst", en: "Long text" } },
     { value: "number", label: { pl: "Liczba", en: "Number" } },
     { value: "date", label: { pl: "Data", en: "Date" } },
     { value: "choice", label: { pl: "Wybór z listy", en: "Choice" } },
@@ -66,6 +68,7 @@ function field(overrides: Partial<BookingFormField> = {}): BookingFormField {
     kind: "text",
     options: [],
     mandatory: true,
+    mandatory_for_staff: true,
     position: 1,
     active: true,
     version: 1,
@@ -185,6 +188,7 @@ test("a new choice needs its options and is saved for this offer", async () => {
     kind: "choice",
     options: ["S", "M"],
     mandatory: true,
+    mandatory_for_staff: true,
   });
   expect(await screen.findByText("Dodano: Rozmiar kasku.")).toBeInTheDocument();
 });
@@ -237,4 +241,61 @@ test("a field is switched off at the version shown, never deleted", async () => 
     await screen.findByText("Wyłączono: Numer prawa jazdy."),
   ).toBeInTheDocument();
   expect(screen.queryByRole("menuitem", { name: /Usuń/ })).toBeNull();
+});
+
+test("a mandatory field can leave the team free, and a consent cannot", async () => {
+  api.createBookingFormField.mockResolvedValue(
+    field({
+      name: "Liczba sztuk",
+      kind: "long_text",
+      mandatory_for_staff: false,
+    }),
+  );
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: "Dodaj pole" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Nowe pole formularza",
+  });
+  const inside = within(dialog);
+  const team = "Obowiązkowe także, gdy rezerwację wpisuje zespół";
+
+  // Optional: the second control is not there; the kind list names the long text.
+  expect(inside.queryByLabelText(team)).toBeNull();
+  expect(
+    within(inside.getByLabelText("Rodzaj odpowiedzi")).getByRole("option", {
+      name: "Dłuższy tekst",
+    }),
+  ).toBeInTheDocument();
+  fireEvent.change(inside.getByLabelText("Czy klient musi odpowiedzieć?"), {
+    target: { value: "mandatory" },
+  });
+  // On by default, with its line of help; a consent is the customer's alone.
+  const control = inside.getByLabelText(team);
+  expect(control).toBeChecked();
+  expect(
+    inside.getByText(/Wyłącz, jeśli klient musi odpowiedzieć sam/),
+  ).toBeVisible();
+  const results = await axe.run(dialog);
+  expect(results.violations).toEqual([]);
+  fireEvent.change(inside.getByLabelText("Rodzaj odpowiedzi"), {
+    target: { value: "consent" },
+  });
+  expect(inside.queryByLabelText(team)).toBeNull();
+
+  fireEvent.change(inside.getByLabelText("Rodzaj odpowiedzi"), {
+    target: { value: "long_text" },
+  });
+  fireEvent.click(inside.getByLabelText(team));
+  fireEvent.change(inside.getByLabelText("Pytanie"), {
+    target: { value: "Liczba sztuk" },
+  });
+  fireEvent.click(inside.getByRole("button", { name: "Zapisz" }));
+  await waitFor(() =>
+    expect(api.createBookingFormField).toHaveBeenCalledTimes(1),
+  );
+  expect(api.createBookingFormField.mock.calls[0][0]).toMatchObject({
+    kind: "long_text",
+    mandatory: true,
+    mandatory_for_staff: false,
+  });
 });

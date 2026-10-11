@@ -311,6 +311,9 @@ function FieldDialog({
   const [kind, setKind] = useState<Kind>(item?.kind ?? "text");
   const [options, setOptions] = useState((item?.options ?? []).join("\n"));
   const [mandatory, setMandatory] = useState(item?.mandatory ?? false);
+  const [mandatoryForStaff, setMandatoryForStaff] = useState(
+    item?.mandatory_for_staff ?? true,
+  );
   const [position, setPosition] = useState(String(item?.position ?? ""));
   const [active, setActive] = useState(item?.active ?? true);
   const [busy, setBusy] = useState(false);
@@ -338,6 +341,7 @@ function FieldDialog({
       // Options are a choice's alone: the server drops them otherwise.
       options: kind === "choice" ? lines : [],
       mandatory,
+      mandatory_for_staff: mandatoryForStaff,
     };
     setBusy(true);
     setProblem(undefined);
@@ -452,6 +456,29 @@ function FieldDialog({
               </option>
             </NativeSelect>
           </Field>
+          {mandatory && !consent ? (
+            <Field>
+              <label
+                className="flex min-h-11 items-center gap-2 text-sm"
+                htmlFor="form-field-mandatory-for-staff"
+              >
+                <input
+                  aria-describedby="form-field-mandatory-for-staff-hint"
+                  checked={mandatoryForStaff}
+                  className="size-4"
+                  id="form-field-mandatory-for-staff"
+                  onChange={(event) =>
+                    setMandatoryForStaff(event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                {t("mandatoryForStaff")}
+              </label>
+              <FieldDescription id="form-field-mandatory-for-staff-hint">
+                {t("mandatoryForStaffHint")}
+              </FieldDescription>
+            </Field>
+          ) : null}
           {item ? (
             <>
               <Field className="w-40">
