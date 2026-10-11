@@ -433,4 +433,8 @@ def test_form_field_save_v1_still_runs_and_binds_the_team() -> None:
 
 
 def test_no_core_module_declares_kind_fields() -> None:
-    assert kind_fields_for(tuple(settings.MODULE_CATALOG), settings.MODULE_CATALOG) == {}
+    # A product's own module may declare them (ADR-049); the core's never do.
+    own = tuple(
+        key for key, module in settings.MODULE_CATALOG.items() if module.layer in {"core", "shared"}
+    )
+    assert kind_fields_for(own, settings.MODULE_CATALOG) == {}
