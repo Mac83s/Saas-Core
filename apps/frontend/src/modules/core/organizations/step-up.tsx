@@ -15,7 +15,11 @@ import {
   DialogTitle,
 } from "@saas-core/ui/components/dialog";
 import { Field, FieldLabel } from "@saas-core/ui/components/field";
-import { Input } from "@saas-core/ui/components/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@saas-core/ui/components/input-otp";
 
 import { Link } from "#i18n/navigation";
 
@@ -94,15 +98,18 @@ export function useStepUp(description?: string): {
           </DialogHeader>
           <Field data-invalid={Boolean(problem)}>
             <FieldLabel htmlFor={id}>{t("code")}</FieldLabel>
-            <Input
+            <InputOTP
               aria-invalid={Boolean(problem)}
-              autoComplete="one-time-code"
-              className="max-w-xs"
               id={id}
-              inputMode="numeric"
-              onChange={(event) => setCode(event.target.value)}
+              onChange={setCode}
               value={code}
-            />
+            >
+              <InputOTPGroup>
+                {[0, 1, 2, 3, 4, 5].map((index) => (
+                  <InputOTPSlot index={index} key={index} />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
             {problem ? (
               <p className="text-sm text-destructive" role="alert">
                 {problem}
@@ -114,7 +121,7 @@ export function useStepUp(description?: string): {
               {t("cancel")}
             </DialogClose>
             <Button
-              disabled={code.trim().length < 6}
+              disabled={code.length < 6}
               onClick={() => void confirm()}
               type="button"
             >

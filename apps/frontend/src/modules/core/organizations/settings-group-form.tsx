@@ -44,6 +44,11 @@ import {
   FieldLabel,
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@saas-core/ui/components/input-otp";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Switch } from "@saas-core/ui/components/switch";
 import { Textarea } from "@saas-core/ui/components/textarea";
@@ -544,15 +549,18 @@ export function SettingsGroupForm({
             <FieldLabel htmlFor={`step-up-${group.key}`}>
               {t("stepUpCode")}
             </FieldLabel>
-            <Input
+            <InputOTP
               aria-invalid={Boolean(stepUpProblem)}
-              autoComplete="one-time-code"
-              className="max-w-xs"
               id={`step-up-${group.key}`}
-              inputMode="numeric"
-              onChange={(event) => setCode(event.target.value)}
+              onChange={setCode}
               value={code}
-            />
+            >
+              <InputOTPGroup>
+                {[0, 1, 2, 3, 4, 5].map((index) => (
+                  <InputOTPSlot index={index} key={index} />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
             {stepUpProblem ? (
               <p className="text-sm text-destructive" role="alert">
                 {stepUpProblem}
@@ -564,7 +572,7 @@ export function SettingsGroupForm({
               {t("cancel")}
             </DialogClose>
             <Button
-              disabled={code.trim().length < 6}
+              disabled={code.length < 6}
               onClick={() => void confirmCode()}
               type="button"
             >

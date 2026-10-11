@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { MailIcon, ShieldCheckIcon } from "lucide-react";
 import { z } from "zod";
 
@@ -23,7 +23,11 @@ import {
   CardTitle,
 } from "@saas-core/ui/components/card";
 import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
-import { Input } from "@saas-core/ui/components/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@saas-core/ui/components/input-otp";
 import { cn } from "@saas-core/ui/lib/utils";
 
 import { MfaQrCode } from "./mfa-qr";
@@ -220,14 +224,26 @@ export function TwoFactorCard({ onDone }: { onDone?: () => void } = {}) {
               <FieldLabel htmlFor="mfa-code">
                 {identity("confirmationCode")}
               </FieldLabel>
-              <Input
-                aria-invalid={Boolean(codeError)}
-                autoComplete="one-time-code"
-                className="max-w-48 font-mono tracking-widest"
-                id="mfa-code"
-                inputMode="numeric"
-                maxLength={6}
-                {...form.register("code")}
+              <Controller
+                control={form.control}
+                name="code"
+                render={({ field }) => (
+                  <InputOTP
+                    aria-invalid={Boolean(codeError)}
+                    id="mfa-code"
+                    name={field.name}
+                    onBlur={field.onBlur}
+                    onChange={field.onChange}
+                    ref={field.ref}
+                    value={field.value}
+                  >
+                    <InputOTPGroup>
+                      {[0, 1, 2, 3, 4, 5].map((index) => (
+                        <InputOTPSlot index={index} key={index} />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                )}
               />
               <FieldError errors={[codeError]} />
             </Field>

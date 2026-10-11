@@ -14,3 +14,16 @@ if (typeof window !== "undefined" && !("PointerEvent" in window)) {
     value: class PointerEvent extends MouseEvent {},
   });
 }
+
+// input-otp (the one-time-code field) watches its input with a ResizeObserver;
+// jsdom has none and there is nothing to measure.
+if (typeof window !== "undefined" && !("ResizeObserver" in window)) {
+  Object.defineProperty(window, "ResizeObserver", {
+    configurable: true,
+    value: class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  });
+}

@@ -31,6 +31,11 @@ import {
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@saas-core/ui/components/input-otp";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -99,6 +104,9 @@ export function LoginForm({
   const router = useRouter();
   const [stage, setStage] = useState<"password" | "mfa" | "setup">("password");
   const [problem, setProblem] = useState<string>();
+  // The second step takes the six digits of the app, or — behind a text
+  // button — a recovery code (not six digits). Both travel as `code`.
+  const [recovery, setRecovery] = useState(false);
   const register = registrationHref(returnTo);
   const loginSchema = useMemo(
     () =>
@@ -109,11 +117,25 @@ export function LoginForm({
     [t],
   );
   const codeSchema = useMemo(
-    () => z.object({ code: z.string().min(6, t("validationCode")) }),
-    [t],
+    () =>
+      z.object({
+        code: recovery
+          ? z.string().trim().min(6, t("validationCode"))
+          : z.string().regex(/^\d{6}$/, t("validationAppCode")),
+      }),
+    [t, recovery],
   );
   const form = useForm<LoginValues>({ resolver: zodResolver(loginSchema) });
-  const codeForm = useForm<CodeValues>({ resolver: zodResolver(codeSchema) });
+  const codeForm = useForm<CodeValues>({
+    resolver: zodResolver(codeSchema),
+    defaultValues: { code: "" },
+  });
+
+  function switchCodeKind() {
+    setRecovery((current) => !current);
+    setProblem(undefined);
+    codeForm.reset({ code: "" });
+  }
 
   async function submitPassword(values: LoginValues) {
     setProblem(undefined);
@@ -176,13 +198,65 @@ export function LoginForm({
   if (stage !== "password") {
     return (
       <form className="space-y-5" onSubmit={codeForm.handleSubmit(submitCode)}>
-        <TextField
-          autoComplete="one-time-code"
-          error={codeForm.formState.errors.code?.message}
-          label={t("mfaOrRecoveryCode")}
-          registration={codeForm.register("code")}
+        <Controller
+          control={codeForm.control}
+          name="code"
+          render={({ field }) => {
+            const message = codeForm.formState.errors.code?.message;
+            const id = "mfa-login-code";
+            // A wrong code comes back as the problem box below, not as a
+            // field error; both mark the field and are read with it.
+            const invalid = Boolean(message) || Boolean(problem);
+            const describedBy = message
+              ? `${id}-error`
+              : problem
+                ? "mfa-login-problem"
+                : undefined;
+            return (
+              <Field data-invalid={invalid}>
+                <FieldLabel htmlFor={id}>
+                  {t(recovery ? "recoveryCodeLabel" : "mfaCodeLabel")}
+                </FieldLabel>
+                {recovery ? (
+                  <Input
+                    aria-describedby={describedBy}
+                    aria-invalid={invalid}
+                    autoCapitalize="none"
+                    autoComplete="off"
+                    autoFocus
+                    id={id}
+                    name={field.name}
+                    onBlur={field.onBlur}
+                    onChange={field.onChange}
+                    ref={field.ref}
+                    spellCheck={false}
+                    value={field.value}
+                  />
+                ) : (
+                  <InputOTP
+                    aria-describedby={describedBy}
+                    aria-invalid={invalid}
+                    autoFocus
+                    id={id}
+                    name={field.name}
+                    onBlur={field.onBlur}
+                    onChange={field.onChange}
+                    ref={field.ref}
+                    value={field.value}
+                  >
+                    <InputOTPGroup>
+                      {[0, 1, 2, 3, 4, 5].map((index) => (
+                        <InputOTPSlot index={index} key={index} />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                )}
+                <FieldError id={`${id}-error`}>{message}</FieldError>
+              </Field>
+            );
+          }}
         />
-        {problem && <Problem message={problem} />}
+        {problem && <Problem id="mfa-login-problem" message={problem} />}
         <Button
           className="w-full"
           disabled={codeForm.formState.isSubmitting}
@@ -191,6 +265,14 @@ export function LoginForm({
           {codeForm.formState.isSubmitting
             ? t("checking")
             : t("confirmAndSignIn")}
+        </Button>
+        <Button
+          className="w-full"
+          onClick={switchCodeKind}
+          type="button"
+          variant="link"
+        >
+          {t(recovery ? "useAppCode" : "useRecoveryCode")}
         </Button>
       </form>
     );
@@ -575,9 +657,10 @@ function TextField({
   );
 }
 
-function Problem({ message }: { message: string }) {
+function Problem({ id, message }: { id?: string; message: string }) {
   return (
     <div
+      id={id}
       className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
       role="alert"
     >

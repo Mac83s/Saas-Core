@@ -28,3 +28,16 @@ if (typeof Range !== "undefined") {
   Range.prototype.getBoundingClientRect = () => new DOMRect();
 }
 if (typeof document !== "undefined") document.elementFromPoint = () => null;
+
+// input-otp (the one-time-code field) watches its input with a ResizeObserver;
+// jsdom has none and there is nothing to measure.
+if (typeof window !== "undefined" && !("ResizeObserver" in window)) {
+  Object.defineProperty(window, "ResizeObserver", {
+    configurable: true,
+    value: class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  });
+}
