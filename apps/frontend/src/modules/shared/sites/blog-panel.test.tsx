@@ -156,6 +156,8 @@ function renderPanel() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The open entry lives in the address; a test must not inherit the last.
+  window.history.replaceState(null, "", "/");
   listMediaAssets.mockResolvedValue({ items: [], next_cursor: null });
   listContentCollections.mockResolvedValue([collection]);
   listContentEntries.mockResolvedValue({ items: [entry], next_cursor: null });
@@ -980,7 +982,7 @@ test("loads older entries from the API's cursor and appends them", async () => {
   ).toBeNull();
 });
 
-test("removing the entry that is open closes its editor and reads the list again", async () => {
+test("removing the entry that is open closes its sheet and reads the list again", async () => {
   previewEntryRemoval.mockResolvedValue({
     entry_id: entryId,
     title: "Pierwszy wpis",
@@ -1000,13 +1002,11 @@ test("removing the entry that is open closes its editor and reads the list again
   listContentEntries.mockClear();
   listContentEntries.mockResolvedValue({ items: [], next_cursor: null });
 
-  fireEvent.click(
-    screen.getByRole("button", {
-      name: "Działania dla wpisu Pierwszy wpis",
-    }),
-  );
-  fireEvent.click(await screen.findByRole("menuitem", { name: "Usuń wpis…" }));
-  const dialog = await screen.findByRole("dialog");
+  // The list behind the modal sheet is out of reach; the sheet carries the
+  // row's own actions.
+  const sheet = screen.getByRole("dialog");
+  fireEvent.click(within(sheet).getByRole("button", { name: "Usuń wpis…" }));
+  const dialog = await screen.findByRole("dialog", { name: /Usunąć wpis/ });
   await within(dialog).findByText(/Adres \/blog\/pierwszy-wpis\/ przestanie/);
   fireEvent.click(within(dialog).getByRole("button", { name: "Usuń wpis" }));
 
@@ -1017,4 +1017,279 @@ test("removing the entry that is open closes its editor and reads the list again
     ).toBeNull(),
   );
   expect(listContentEntries).toHaveBeenCalledWith(collectionId);
+  expect(window.location.search).toBe("");
+});
+
+/** The side sheet (PR1g): the entry opens over the list, in the address. */
+
+function openSheet(name = "Edytuj wpis Pierwszy wpis") {
+  fireEvent.click(screen.getByRole("button", { name }));
+  return screen.findByRole("dialog");
+}
+
+test("opens an entry in a side sheet named for it, with its language and state, and writes it to the address", async () => {
+  renderPanel();
+  expect(await screen.findByText("Pierwszy wpis")).not.toBeNull();
+
+  const sheet = await openSheet();
+
+  expect(
+    within(sheet).getByRole("heading", { name: "Pierwszy wpis" }),
+  ).not.toBeNull();
+  const header = sheet.querySelector('[data-slot="sheet-description"]');
+  expect(header?.textContent).toContain("Polski");
+  expect(header?.textContent).toContain("Szkic");
+  // Every card the editor had below the list is in the sheet now.
+  expect(
+    within(sheet).getByRole("form", { name: "Tytuł, zajawka i autor" }),
+  ).not.toBeNull();
+  expect(
+    await within(sheet).findByRole("button", { name: "Zapisz szkic" }),
+  ).not.toBeNull();
+  expect(window.location.search).toBe(`?entry=${entryId}`);
+});
+
+test("the row's title opens the entry as the pencil does", async () => {
+  renderPanel();
+  const table = await screen.findByRole("table", { name: "Wpisy bloga" });
+  fireEvent.click(within(table).getByRole("button", { name: "Pierwszy wpis" }));
+
+  const sheet = await screen.findByRole("dialog");
+  expect(
+    within(sheet).getByRole("heading", { name: "Pierwszy wpis" }),
+  ).not.toBeNull();
+});
+
+test("Escape closes a sheet that holds nothing unsaved, and takes the entry out of the address", async () => {
+  renderPanel();
+  await screen.findByText("Pierwszy wpis");
+  await openSheet();
+  await screen.findByRole("button", { name: "Zapisz szkic" });
+
+  fireEvent.keyDown(document.activeElement ?? document.body, {
+    key: "Escape",
+  });
+
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  // Taking the sheet's history entry off is asynchronous.
+  await waitFor(() => expect(window.location.search).toBe(""));
+});
+
+test("the browser's Back closes the sheet", async () => {
+  renderPanel();
+  await screen.findByText("Pierwszy wpis");
+  await openSheet();
+  expect(window.location.search).toBe(`?entry=${entryId}`);
+
+  window.history.back();
+
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  // Taking the sheet's history entry off is asynchronous.
+  await waitFor(() => expect(window.location.search).toBe(""));
+});
+
+test("a link with ?entry= opens that entry once the list is read", async () => {
+  window.history.replaceState(null, "", `/?entry=${entryId}`);
+  renderPanel();
+
+  const sheet = await screen.findByRole("dialog");
+  expect(
+    within(sheet).getByRole("heading", { name: "Pierwszy wpis" }),
+  ).not.toBeNull();
+});
+
+test("asks the API's next pages for an entry the first page does not hold", async () => {
+  const older = { ...entry, id: "older", title: "Starszy wpis" };
+  listContentEntries.mockImplementation((_id: string, cursor?: string) =>
+    Promise.resolve(
+      cursor
+        ? { items: [older], next_cursor: null }
+        : { items: [entry], next_cursor: "page-2" },
+    ),
+  );
+  window.history.replaceState(null, "", "/?entry=older");
+  renderPanel();
+
+  const sheet = await screen.findByRole("dialog");
+  expect(
+    within(sheet).getByRole("heading", { name: "Starszy wpis" }),
+  ).not.toBeNull();
+});
+
+test("says so when the address names an entry the list does not have", async () => {
+  window.history.replaceState(null, "", "/?entry=gone");
+  renderPanel();
+
+  expect(
+    await screen.findByText(/Nie ma takiego wpisu na tej liście/),
+  ).not.toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(window.location.search).toBe("");
+});
+
+test("closing with unsaved changes asks first, and keeping them leaves the sheet as it was", async () => {
+  getContentEntryDraft.mockResolvedValue({
+    entry_id: entryId,
+    version: 2,
+    blocks: [
+      {
+        block_type: "core.hero",
+        schema_version: 1,
+        data: { heading: "Nagłówek wpisu", body: "Przykładowy opis" },
+      },
+    ],
+  });
+  renderPanel();
+  await screen.findByText("Pierwszy wpis");
+  const sheet = await openSheet();
+  fireEvent.change(await within(sheet).findByLabelText("Nagłówek"), {
+    target: { value: "Zmieniony nagłówek" },
+  });
+
+  fireEvent.click(within(sheet).getByRole("button", { name: "Zamknij" }));
+
+  const ask = await screen.findByRole("dialog", {
+    name: "Masz niezapisane zmiany",
+  });
+  fireEvent.click(
+    within(ask).getByRole("button", { name: "Kontynuuj edycję" }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: "Masz niezapisane zmiany" }),
+    ).toBeNull(),
+  );
+  expect(
+    (within(sheet).getByLabelText("Nagłówek") as HTMLInputElement).value,
+  ).toBe("Zmieniony nagłówek");
+  expect(window.location.search).toBe(`?entry=${entryId}`);
+
+  // Escape asks the same, and discarding is what closes.
+  fireEvent.keyDown(document.activeElement ?? document.body, {
+    key: "Escape",
+  });
+  const again = await screen.findByRole("dialog", {
+    name: "Masz niezapisane zmiany",
+  });
+  fireEvent.click(
+    within(again).getByRole("button", { name: "Odrzuć i zamknij" }),
+  );
+
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  // Taking the sheet's history entry off is asynchronous.
+  await waitFor(() => expect(window.location.search).toBe(""));
+});
+
+test("what was just saved is no longer asked about on closing", async () => {
+  getContentEntryDraft.mockResolvedValue({
+    entry_id: entryId,
+    version: 2,
+    blocks: [
+      {
+        block_type: "core.hero",
+        schema_version: 1,
+        data: { heading: "Nagłówek wpisu", body: "Przykładowy opis" },
+      },
+    ],
+  });
+  renderPanel();
+  await screen.findByText("Pierwszy wpis");
+  const sheet = await openSheet();
+  fireEvent.change(await within(sheet).findByLabelText("Nagłówek"), {
+    target: { value: "Zmieniony nagłówek" },
+  });
+  fireEvent.click(within(sheet).getByRole("button", { name: "Zapisz szkic" }));
+  await waitFor(() => expect(saveContentEntryDraft).toHaveBeenCalledOnce());
+  await within(sheet).findByText("Szkic został zapisany.");
+
+  fireEvent.click(within(sheet).getByRole("button", { name: "Zamknij" }));
+
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
+
+test("focus goes back to the row's own button when the sheet closes", async () => {
+  renderPanel();
+  await screen.findByText("Pierwszy wpis");
+  const pencil = screen.getByRole("button", {
+    name: "Edytuj wpis Pierwszy wpis",
+  });
+  pencil.focus();
+  const sheet = await openSheet();
+
+  fireEvent.click(within(sheet).getByRole("button", { name: "Zamknij" }));
+
+  await waitFor(() => expect(document.activeElement).toBe(pencil));
+});
+
+test("publishes from the sheet, and holds that back while the draft is unsaved", async () => {
+  renderPanel();
+  await screen.findByText("Pierwszy wpis");
+  const sheet = await openSheet();
+
+  fireEvent.change(
+    within(
+      within(sheet).getByRole("form", { name: "Tytuł, zajawka i autor" }),
+    ).getByLabelText("Tytuł"),
+    { target: { value: "Inny tytuł" } },
+  );
+  await waitFor(() =>
+    expect(
+      (
+        within(sheet).getByRole("button", {
+          name: "Opublikuj",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true),
+  );
+  fireEvent.change(
+    within(
+      within(sheet).getByRole("form", { name: "Tytuł, zajawka i autor" }),
+    ).getByLabelText("Tytuł"),
+    { target: { value: "Pierwszy wpis" } },
+  );
+  await waitFor(() =>
+    expect(
+      (
+        within(sheet).getByRole("button", {
+          name: "Opublikuj",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false),
+  );
+  fireEvent.click(within(sheet).getByRole("button", { name: "Opublikuj" }));
+
+  await waitFor(() => expect(publishContentEntry).toHaveBeenCalledOnce());
+  expect(publishContentEntry.mock.calls[0]?.[0]).toBe(entryId);
+});
+
+test("a created entry opens in the sheet at once", async () => {
+  createContentEntry.mockResolvedValue({
+    ...entry,
+    id: "new-entry",
+    title: "Nowy",
+  });
+  listContentEntries.mockResolvedValue({
+    items: [entry, { ...entry, id: "new-entry", title: "Nowy" }],
+    next_cursor: null,
+  });
+  renderPanel();
+  await screen.findByText("Pierwszy wpis");
+  fireEvent.change(screen.getByLabelText("Tytuł"), {
+    target: { value: "Nowy" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Dodaj wpis" }));
+
+  const sheet = await screen.findByRole("dialog");
+  expect(within(sheet).getByRole("heading", { name: "Nowy" })).not.toBeNull();
+  expect(window.location.search).toBe("?entry=new-entry");
+});
+
+test("the open sheet is accessible", async () => {
+  renderPanel();
+  await screen.findByText("Pierwszy wpis");
+  const sheet = await openSheet();
+  await within(sheet).findByRole("button", { name: "Zapisz szkic" });
+
+  const result = await axe.run(sheet);
+  expect(result.violations).toEqual([]);
 });

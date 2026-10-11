@@ -62,11 +62,15 @@ export function EntryEditor({
   entry,
   locked,
   onSaved,
+  onExitStateChange,
   proposal,
 }: {
   entry: ContentEntry;
   locked: boolean;
   onSaved: () => void;
+  /** Whether closing the place that shows this editor would lose work: the
+   *  same state the page editor reports to its studio. */
+  onExitStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
   proposal: boolean;
 }) {
   const t = useTranslations("Sites");
@@ -84,6 +88,11 @@ export function EntryEditor({
     defaultValues: { blocks: [] },
   });
   const blocks = useFieldArray({ control: form.control, name: "blocks" });
+  const dirty = form.formState.isDirty;
+  const busy = loading || form.formState.isSubmitting;
+  useEffect(() => {
+    onExitStateChange?.({ dirty, busy });
+  }, [dirty, busy, onExitStateChange]);
   // A stay block is offered to a company that has an offer booked from–to,
   // as in the page editor.
   const stays = useStayOffers();
@@ -152,6 +161,10 @@ export function EntryEditor({
       setVersion(draft.version);
       setConflict(false);
       setSaved(true);
+      // What was just saved is the form's new baseline: leaving afterwards
+      // must not ask about changes that are already on the server. The
+      // values stay as they are, so the fields keep their cursor.
+      form.reset(values, { keepValues: true });
       onSaved();
     } catch (error) {
       // A draft is saved whole, so a conflict cannot be merged field by field.

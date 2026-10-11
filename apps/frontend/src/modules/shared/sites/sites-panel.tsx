@@ -83,6 +83,7 @@ import { Link, useRouter } from "#i18n/navigation";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { AutomationConnectionsPanel } from "./connections-panel";
 import { BlogPanel } from "./blog-panel";
+import { BlogRedirect } from "./blog-redirect";
 import { ContentTypeSettings } from "./content-type-settings";
 import {
   ContentTypesPanel,
@@ -664,6 +665,15 @@ export function SitesPanel({
     />
   );
 
+  const blogScreen = selectedSiteId ? (
+    <BlogPanel
+      address={siteAddress}
+      defaultLocale={selectedSite?.default_locale}
+      key={selectedSiteId}
+      siteId={selectedSiteId}
+    />
+  ) : null;
+
   const publishedSiteUrl = selectedSite?.current_publication_id
     ? siteAddress
     : null;
@@ -988,12 +998,18 @@ export function SitesPanel({
       ) : null}
 
       {section === "blog" && selectedSiteId ? (
-        <BlogPanel
-          address={siteAddress}
-          defaultLocale={selectedSite?.default_locale}
-          key={selectedSiteId}
-          siteId={selectedSiteId}
-        />
+        contentTypesOffered ? (
+          // One screen for the blog where „Treści” is offered (PR1g): its
+          // type screen. Where the menu says „Blog”, this stays its screen.
+          <BlogRedirect
+            fallback={blogScreen}
+            key={selectedSiteId}
+            onGo={(href) => router.replace(href)}
+            siteId={selectedSiteId}
+          />
+        ) : (
+          blogScreen
+        )
       ) : null}
 
       {section === "content" && selectedSiteId ? (

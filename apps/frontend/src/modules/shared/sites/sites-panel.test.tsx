@@ -16,8 +16,14 @@ import { ApiProblemError } from "@saas-core/api-client";
 import { PanelAccessProvider } from "#components/panel/panel-access";
 import { SitesPanel, type SitesSection } from "./sites-panel";
 
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock("#i18n/navigation", () => ({ Link: "a", useRouter: () => ({ push }) }));
+const { push, replace } = vi.hoisted(() => ({
+  push: vi.fn(),
+  replace: vi.fn(),
+}));
+vi.mock("#i18n/navigation", () => ({
+  Link: "a",
+  useRouter: () => ({ push, replace }),
+}));
 
 const {
   createSitePage,
@@ -29,6 +35,8 @@ const {
   listSitePages,
   listSiteDomains,
   listSitePublications,
+  listContentCollections,
+  listContentEntries,
   listContentTypes,
   listSites,
   listTerms,
@@ -44,6 +52,8 @@ const {
   listSitePages: vi.fn(),
   listSiteDomains: vi.fn(),
   listSitePublications: vi.fn(),
+  listContentCollections: vi.fn(),
+  listContentEntries: vi.fn(),
   listContentTypes: vi.fn(),
   listSites: vi.fn(),
   listTerms: vi.fn(),
@@ -62,6 +72,8 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   listSitePages,
   listSiteDomains,
   listSitePublications,
+  listContentCollections,
+  listContentEntries,
   listContentTypes,
   listSites,
   listTerms,
@@ -126,6 +138,8 @@ beforeEach(() => {
   // A test that draws „Treści” without naming the types gets the refusal a
   // server out of reach gives — a promise, like the client's own function.
   listContentTypes.mockRejectedValue(new Error("offline"));
+  listContentCollections.mockRejectedValue(new Error("offline"));
+  listContentEntries.mockRejectedValue(new Error("offline"));
   listTerms.mockRejectedValue(new Error("offline"));
   getSiteOnboarding.mockResolvedValue({
     id: null,
@@ -864,4 +878,44 @@ test("the tags page has no new-tag action, and where the menu says Blog it leads
     ),
   ).not.toBeNull();
   expect(screen.queryByRole("button", { name: /Nowa/ })).toBeNull();
+});
+
+test("where the menu offers Treści, the blog address forwards to the blog's type screen and carries ?entry=", async () => {
+  const entry = "019ff20d-a000-7000-8000-000000000099";
+  const off = { ...blogType, id: "off-type", archived: true };
+  listContentCollections.mockResolvedValue([off, blogType]);
+  window.history.replaceState(null, "", `/panel/sites/blog?entry=${entry}`);
+  try {
+    renderPanel({ section: "blog", contentTypesOffered: true });
+
+    await waitFor(() => expect(replace).toHaveBeenCalledOnce());
+    // The first type that is switched on: what the blog screen showed.
+    expect(replace).toHaveBeenCalledWith(
+      `/panel/sites/content/${blogType.id}?site=${site.id}&entry=${entry}`,
+    );
+  } finally {
+    window.history.replaceState(null, "", "/");
+  }
+});
+
+test("a site with no type yet is sent to the list of types, where the first is made", async () => {
+  listContentCollections.mockResolvedValue([]);
+  renderPanel({ section: "blog", contentTypesOffered: true });
+
+  await waitFor(() =>
+    expect(replace).toHaveBeenCalledWith(
+      `/panel/sites/content?site=${site.id}`,
+    ),
+  );
+});
+
+test("where the menu says Blog, the blog address stays the blog's own screen", async () => {
+  listContentCollections.mockResolvedValue([blogType]);
+  listContentEntries.mockResolvedValue({ items: [], next_cursor: null });
+  renderPanel({ section: "blog", contentTypesOffered: false });
+
+  expect(
+    await screen.findByText("Nie ma jeszcze żadnego wpisu."),
+  ).not.toBeNull();
+  expect(replace).not.toHaveBeenCalled();
 });

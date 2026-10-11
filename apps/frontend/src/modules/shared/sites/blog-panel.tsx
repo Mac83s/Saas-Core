@@ -84,17 +84,13 @@ import {
   siteHost,
 } from "./collection-paths";
 import { contentTypeHref, contentTypesHref } from "./content-types-panel";
-import { EntryCategories } from "./entry-categories";
-import { EntryEditor } from "./entry-editor";
-import { EntryAddress } from "./entry-address";
-import { EntryMetadata } from "./entry-metadata";
-import { EntrySchedule } from "./entry-schedule";
-import { EntryTags } from "./entry-tags";
-import { EntryTranslations } from "./entry-translations";
+import { useEntryParam } from "./entry-param";
+import { EntrySheet } from "./entry-sheet";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { sitesErrorMessage } from "./problem";
 import { RemoveEntryDialog } from "./remove-entry-dialog";
 import { slugFromTitle } from "./slug";
+import { useLanguageName } from "./term-list-panel";
 
 type CollectionValues = {
   name: string;
@@ -133,7 +129,11 @@ export function BlogPanel({
   const [entries, setEntries] = useState<ContentEntry[]>([]);
   // The API pages entries by cursor; null once the oldest one is loaded.
   const [entriesCursor, setEntriesCursor] = useState<string | null>(null);
-  const [entryId, setEntryId] = useState<string>();
+  // The entry open in the side sheet is named by the address (`?entry=`).
+  const { entryId, open: openEntry, close: closeEntry } = useEntryParam();
+  const languageName = useLanguageName();
+  // The button the sheet was opened from, to give focus back to on close.
+  const opener = useRef<HTMLElement | null>(null);
   const [removing, setRemoving] = useState<ContentEntry>();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -220,6 +220,35 @@ export function BlogPanel({
       setProblem(sitesErrorMessage(error, t));
     }
   };
+
+  // An address names an entry the first page of the list may not hold: older
+  // pages are asked for until it turns up, and an entry that is not there at
+  // all is said so — never a sheet that quietly does not open.
+  const askingMore = useRef(false);
+  useEffect(() => {
+    if (!entryId || entry || loading || !collectionId) return;
+    if (entriesCursor) {
+      if (askingMore.current) return;
+      askingMore.current = true;
+      const from = collectionId;
+      void listContentEntries(from, entriesCursor)
+        .then((more) => {
+          setEntries((current) => [...current, ...more.items]);
+          setEntriesCursor(more.next_cursor);
+        })
+        .catch((error: unknown) => {
+          setProblem(sitesErrorMessage(error, t));
+          closeEntry();
+        })
+        .finally(() => {
+          askingMore.current = false;
+        });
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the address named an entry that is not in this list
+    setProblem(t("entrySheet.notFound"));
+    closeEntry();
+  }, [closeEntry, collectionId, entriesCursor, entry, entryId, loading, t]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -334,7 +363,8 @@ export function BlogPanel({
       );
       entryForm.reset({ title: "", slug: "", locale: values.locale });
       await loadEntries(collectionId);
-      setEntryId(created.id);
+      opener.current = null;
+      openEntry(created.id);
     });
 
   function publish(target: ContentEntry) {
@@ -386,11 +416,25 @@ export function BlogPanel({
       meta: { primary: true },
       cell: ({ row: { original: item } }) => (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium wrap-anywhere">{item.title}</span>
+          {collection?.archived ? (
+            <span className="font-medium wrap-anywhere">{item.title}</span>
+          ) : (
+            // The title opens the entry as the pencil does.
+            <button
+              className="text-start font-medium underline-offset-4 wrap-anywhere hover:underline"
+              onClick={(event) => {
+                opener.current = event.currentTarget;
+                openEntry(item.id);
+              }}
+              type="button"
+            >
+              {item.title}
+            </button>
+          )}
           {item.draft_author === "automation" && (
             <Badge variant="outline">{t("blogProposal")}</Badge>
           )}
-          {/* The entry open in the editor below. */}
+          {/* The entry open in the side sheet. */}
           {item.id === entryId && <Badge>{t("lists.editing")}</Badge>}
         </div>
       ),
@@ -463,7 +507,10 @@ export function BlogPanel({
                 icon: <PencilIcon aria-hidden="true" />,
                 inline: true,
                 main: true,
-                onSelect: () => setEntryId(item.id),
+                onSelect: (trigger) => {
+                  opener.current = trigger;
+                  openEntry(item.id);
+                },
               },
               ...(item.state === "published"
                 ? [
@@ -496,6 +543,34 @@ export function BlogPanel({
         ),
     },
   ];
+
+  // The removal dialog stands inside the side sheet while one is open: a
+  // modal sheet takes no second modal beside it.
+  const removeDialog = removing ? (
+    <RemoveEntryDialog
+      entry={removing}
+      key={removing.id}
+      onClose={() => setRemoving(undefined)}
+      onRemoved={(removed) => {
+        setRemoving(undefined);
+        // The editor does not outlive the entry it shows.
+        if (removed.id === entryId) closeEntry();
+        if (collectionId) void loadEntries(collectionId);
+      }}
+    />
+  ) : null;
+
+  // The row's own button: the one the sheet was opened from while it is
+  // still there, else the entry's „Edytuj” — after a reload or a new entry.
+  const returnFocus = () => {
+    if (opener.current?.isConnected) return opener.current;
+    const label = entry ? t("blogEdit", { title: entry.title }) : "";
+    return (
+      Array.from(document.querySelectorAll<HTMLElement>("button")).find(
+        (button) => button.getAttribute("aria-label") === label,
+      ) ?? null
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -719,7 +794,7 @@ export function BlogPanel({
                     onChange={(event) => {
                       const next = event.target.value;
                       setCollectionId(next);
-                      setEntryId(undefined);
+                      closeEntry();
                       void run(async () => {
                         await loadEntries(next);
                       });
@@ -918,92 +993,28 @@ export function BlogPanel({
         </div>
       )}
 
-      {entry && !collection?.archived && (
-        <EntryMetadata
-          entry={entry}
-          key={`metadata-${entry.id}`}
-          onChanged={async () => {
-            if (collectionId) await loadEntries(collectionId);
-          }}
-        />
-      )}
-
-      {entry && !collection?.archived && (
-        <EntryAddress
+      {entry && !collection?.archived ? (
+        <EntrySheet
+          busy={busy}
           collection={collection}
           entry={entry}
-          key={`address-${entry.id}`}
-          onChanged={async () => {
-            if (collectionId) await loadEntries(collectionId);
-          }}
-        />
-      )}
-
-      {entry && !collection?.archived && (
-        <EntryCategories
-          entry={entry}
-          key={`categories-${entry.id}-${entry.categories.map((category) => category.id).join(",")}`}
-          onChanged={async () => {
-            if (collectionId) await loadEntries(collectionId);
-          }}
-          siteId={siteId}
-        />
-      )}
-
-      {entry && !collection?.archived && (
-        <EntryTags
-          entry={entry}
-          key={`tags-${entry.id}-${entry.tags.map((tag) => tag.slug).join(",")}`}
-          onChanged={async () => {
-            if (collectionId) await loadEntries(collectionId);
-          }}
-        />
-      )}
-
-      {entry && !collection?.archived && (
-        <EntrySchedule
-          entry={entry}
-          key={`schedule-${entry.id}-${entry.schedule_state}`}
-          onChanged={async () => {
-            if (collectionId) await loadEntries(collectionId);
-          }}
-        />
-      )}
-
-      {entry && !collection?.archived && (
-        <EntryTranslations
-          entry={entry}
-          key={`translations-${entry.id}`}
-          onCreated={() => {
-            if (collectionId) void loadEntries(collectionId);
-          }}
-        />
-      )}
-
-      {entry && !collection?.archived && (
-        <EntryEditor
-          entry={entry}
           key={entry.id}
-          locked={collection?.automation_policy === "automated"}
-          proposal={entry.draft_author === "automation"}
-          onSaved={() => {
-            if (collectionId) void loadEntries(collectionId);
+          languageName={languageName(entry.locale)}
+          onChanged={async () => {
+            if (collectionId) await loadEntries(collectionId);
           }}
+          onClose={closeEntry}
+          onPublish={publish}
+          onRemove={setRemoving}
+          onWithdraw={withdraw}
+          removeDialog={removeDialog}
+          returnFocus={returnFocus}
+          siteId={siteId}
+          stateLabel={stateLabel(entry)}
         />
+      ) : (
+        removeDialog
       )}
-      {removing ? (
-        <RemoveEntryDialog
-          entry={removing}
-          key={removing.id}
-          onClose={() => setRemoving(undefined)}
-          onRemoved={(removed) => {
-            setRemoving(undefined);
-            // The editor does not outlive the entry it shows.
-            if (removed.id === entryId) setEntryId(undefined);
-            if (collectionId) void loadEntries(collectionId);
-          }}
-        />
-      ) : null}
     </div>
   );
 }

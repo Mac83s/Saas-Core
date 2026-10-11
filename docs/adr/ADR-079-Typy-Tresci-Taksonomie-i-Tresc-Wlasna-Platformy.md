@@ -374,12 +374,17 @@ niczego nie zasłania (tak samo jest dziś z `tag`). Kanału per typ wersja 1 ni
       `collection-paths`), pola z pkt 1, wyłączenie.
     Tam, gdzie platforma typów nie oferuje, pozycja menu nazywa się dalej „Blog” i
     otwiera dzisiejszy ekran — razem z jego wyborem działu dla stron, które mają ich już
-    kilka. Adres `/panel/sites/blog` działa w obu przypadkach. Odrzucone: pozycja menu
+    kilka. Adres `/panel/sites/blog` działa w obu przypadkach: tam, gdzie menu mówi
+    „Blog”, jest ekranem bloga; tam, gdzie mówi „Treści”, przekierowuje na ekran
+    pierwszego włączonego typu (`?entry=` jedzie z nim) — jeden ekran na te same wpisy
+    (PR1g, 2026-10-11). Odrzucone: pozycja menu
     na każdy typ (jak w WordPressie) — menu panelu jest dziś statyczną listą sekcji; to
     pytanie 1.
 26. **Edytor wpisu** dostaje obok pola tagów pole kategorii (drzewo z zaznaczaniem,
     dodanie nowej w miejscu). Tłumaczenie wpisu przenosi pozycje źródła we wszystkich
-    taksonomiach (dziś: tagi).
+    taksonomiach (dziś: tagi). Edytor stoi w panelu bocznym nad listą (PR1g,
+    2026-10-11), nie pod nią; otwarty wpis jest w adresie jako `?entry=<id>`, a
+    zamknięcie z niezapisanymi zmianami pyta o nie.
 
 ### Treść własna platformy i odczyt dla stron produktu
 

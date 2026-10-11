@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FileTextIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -31,9 +31,13 @@ type MetadataValues = {
 export function EntryMetadata({
   entry,
   onChanged,
+  onDirtyChange,
 }: {
   entry: ContentEntry;
   onChanged: () => Promise<void>;
+  /** Told whether the form holds words not yet saved, for a place that asks
+   *  before it closes. */
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const t = useTranslations("Sites");
   const [problem, setProblem] = useState<string>();
@@ -58,11 +62,17 @@ export function EntryMetadata({
     },
   });
 
+  const dirty = form.formState.isDirty;
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
   const submit: SubmitHandler<MetadataValues> = async (values) => {
     setProblem(undefined);
     setSaved(false);
     try {
       await updateContentEntryMetadata(entry.id, values);
+      form.reset(values, { keepValues: true });
       setSaved(true);
       await onChanged();
     } catch (error) {

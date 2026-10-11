@@ -243,7 +243,8 @@ export const PANEL_SECTIONS = {
     },
     // One of the two (ADR-079 pkt 25): the site's content types with the
     // blog first, or the blog alone where the platform offers nothing
-    // beside it. /panel/sites/blog answers in both.
+    // beside it. /panel/sites/blog answers in both: where „Treści” is the
+    // entry it forwards to the blog's type screen (PR1g).
     {
       href: "/panel/sites/content",
       labelKey: "siteContent",

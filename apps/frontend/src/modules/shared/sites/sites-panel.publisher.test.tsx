@@ -15,8 +15,14 @@ import { SitesPanel, type SitesSection } from "./sites-panel";
  * of a site — no line with the site's state, no site wizard — and a company's
  * same screens are what they were (`sites-panel.test.tsx`, unchanged).
  */
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock("#i18n/navigation", () => ({ Link: "a", useRouter: () => ({ push }) }));
+const { push, replace } = vi.hoisted(() => ({
+  push: vi.fn(),
+  replace: vi.fn(),
+}));
+vi.mock("#i18n/navigation", () => ({
+  Link: "a",
+  useRouter: () => ({ push, replace }),
+}));
 
 const api = vi.hoisted(() => ({
   createSite: vi.fn(),
