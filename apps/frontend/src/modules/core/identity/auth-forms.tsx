@@ -120,7 +120,7 @@ export function LoginForm({
     () =>
       z.object({
         code: recovery
-          ? z.string().trim().min(6, t("validationCode"))
+          ? z.string().min(6, t("validationCode"))
           : z.string().regex(/^\d{6}$/, t("validationAppCode")),
       }),
     [t, recovery],

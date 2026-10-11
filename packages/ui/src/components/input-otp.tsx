@@ -22,8 +22,13 @@ function InputOTP({
   inputMode = "numeric",
   autoComplete = "one-time-code",
   ...props
-}: Omit<React.ComponentProps<typeof OTPInput>, "children" | "render"> & {
+}: Omit<
+  React.ComponentProps<typeof OTPInput>,
+  "children" | "render" | "maxLength" | "pattern"
+> & {
   containerClassName?: string;
+  maxLength?: number;
+  pattern?: string;
   children: React.ReactNode;
 }) {
   const invalid =
@@ -42,6 +47,7 @@ function InputOTP({
         inputMode={inputMode}
         maxLength={maxLength}
         pattern={pattern}
+        pushPasswordManagerStrategy="none"
         {...props}
       />
     </div>
