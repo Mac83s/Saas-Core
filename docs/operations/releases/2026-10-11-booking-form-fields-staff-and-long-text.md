@@ -25,6 +25,12 @@ Zakres: uzupełnienie plastra 5j planu memex
   znika); `booking.form_fields.read@1` oddaje dodatkowo `mandatory_for_staff` i
   `limits.max_long_answer_length`.
 - Komunikat „odpowiedź jest za długa” mówi teraz właściwy limit (200 albo 500).
+- **Typ wizyty niesie własne pola.** Deskryptor modułu może zadeklarować
+  `backend.appointmentKindFields` (`{typ: [pole]}`, pole jak we wzorcu oferty,
+  bez zgody, tylko dla własnych typów modułu). Rdzeń kopiuje je na każdą nową
+  usługę tego typu (okno „Nowa usługa”, wzorce, asystent, katalog) po polach
+  wzorca. Żaden moduł rdzenia nic nie deklaruje, więc samo wdrożenie rdzenia nie
+  zmienia niczyjego formularza.
 
 ## Wdrożenie
 
@@ -36,9 +42,18 @@ Zakres: uzupełnienie plastra 5j planu memex
 - Wzorce czyta backend z obrazu: schemat kontraktu (`long_text`,
   `mandatoryForStaff`) wchodzi z przebudową obrazu backendu.
 - Przebudowa backendu i frontendu razem. Bez nowych zmiennych środowiskowych.
+- **Polecenie dla usług, które już są** (potrzebne dopiero, gdy jakiś moduł
+  zadeklaruje `appointmentKindFields`): w osobnym kontenerze backendu,
+  najpierw podgląd `python manage.py booking_apply_kind_fields` (nic nie
+  zapisuje, wypisuje po firmie, co by dodało, na końcu „Usługi: N, dodane pola:
+  M.”), potem `python manage.py booking_apply_kind_fields --apply`; opcjonalnie
+  `--organization <uuid>`. Bezpieczne do powtórzenia.
 
 ## Produkty (HoofCare, MedPlano) przy następnym `core:update`
 
+- Zadeklarowanie `appointmentKindFields` w deskryptorze własnego modułu (po
+  `core:update`); potem `booking_apply_kind_fields` (podgląd, potem `--apply`) na
+  stacku z już istniejącymi usługami tego typu. Nowe usługi dostają pola same.
 - Migracja booking 0039 na każdym stacku. Nic do zmiany w kodzie produktu;
   `booking.api` bez zmian (produkt rezerwujący bez formularza nadal nie jest
   pytany o nic).
@@ -58,6 +73,13 @@ Zakres: uzupełnienie plastra 5j planu memex
   `packages/contracts/tests/booking-preset-contracts.test.mjs`,
   `offer-fields-dialog.test.tsx` (drugie pole edytora), `own-fields.test.tsx`
   (`useOfferFields`, `OwnFields` z dłuższym tekstem).
+- `tests/test_booking_kind_fields.py` (kopiowanie przy tworzeniu obiema drogami,
+  `mandatoryForStaff: false` i `long_text`, kolejność po polach wzorca; polecenie:
+  podgląd nic nie zapisuje, `--apply` dodaje, drugi bieg nic, pole o tej samej
+  nazwie pominięte, `--organization`, `SET LOCAL` przed pierwszym odczytem,
+  wpis historii jako system; deskryptor: obcy typ i zgoda odrzucone),
+  `deployment-check.test.mjs` i `booking-preset-contracts.test.mjs` (schemat
+  deskryptora zgodny ze schematem pola wzorca).
 - Nie sprawdzone w przeglądarce ani na przebudowanym stacku (to robi następna
   paczka).
 

@@ -1530,6 +1530,27 @@ własne to dane klienta”); tu jest, jak to działa.
   rezerwacji, lista „Do odpowiedzi”), zachowują złamania wiersza. Ochronna
   granica serializatora odpowiedzi wzrosła z 500 do 1000, żeby zbyt długą
   odpowiedź odrzucało pole (`field_too_long`), a nie ogólny `max_length`.
+- **Typ wizyty niesie własne pola** (11.10, faza 3 planu
+  `hoofcare-liczba-sztuk-w-rezerwacji`). Produkt chce, by każda oferta jego typu
+  wizyty pytała o to samo (HoofCare: orientacyjna liczba sztuk, notatka dla
+  korektora), a rdzeń nie zna produktu z nazwy (ADR-049). Deskryptor modułu ma
+  więc `backend.appointmentKindFields` — `{typ: [pole]}`, pole w kształcie pola
+  wzorca (`key`, `type`, `mandatory`, opcjonalne `mandatoryForStaff`, `labels`
+  per język, `options` przy wyborze). Dotyczy tylko własnych typów modułu
+  (`appointmentKinds`) i nigdy zgody — jej treść jest firmy, nie modułu; odmawia
+  tego schemat, `deployment:check` i start aplikacji. Rdzeń kopiuje pola na
+  usługę przy jej tworzeniu, w tej samej transakcji i tą samą drogą co pola
+  wzorca (`copy_preset_fields`): `setup.save_service` (okno „Nowa usługa”,
+  wzorce, asystent) i `services.create_catalog_item`; pola typu idą po polach
+  wzorca. Typ ustawia się tylko przy tworzeniu, więc nie ma przypadku „typ się
+  zmienił”. Pole, którego nazwa (w języku, w jakim zapisałby je wzorzec) usługa
+  już ma — włączone lub wyłączone — zostaje nietknięte. Usługi, które już są,
+  uzupełnia polecenie `manage.py booking_apply_kind_fields [--apply]
+  [--organization <uuid>]`: bez `--apply` tylko wypisuje, co by dodało; z nim
+  dodaje, firma po firmie, każda we własnym kontekście tenanta (`SET LOCAL` przed
+  pierwszym odczytem), z wpisem w historii jako system; nic nie zmienia ani nie
+  usuwa, drugie uruchomienie nic nie dodaje. Żaden moduł rdzenia nie deklaruje
+  takich pól; testy używają własnego deskryptora.
 - **Odpowiedź jest daną klienta, zamrożoną na rezerwacji.**
   `Appointment.form_answers` trzyma migawkę: identyfikator pola, pytanie w
   języku firmy, rodzaj i wartość. Późniejsza zmiana albo wyłączenie pola

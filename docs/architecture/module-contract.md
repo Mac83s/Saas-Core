@@ -117,6 +117,7 @@ rdzenia poza slotami; pilnuje tego `pnpm core:check`, a rdzeń przychodzi przez
 | uprawnienia ról systemowych | `backend.roleGrants` (tylko własne `permissions`) + migracja wertykału |
 | cecha planu | `backend.entitlements` + migracja wertykału publikująca wersję planu |
 | typ wizyty w booking | `backend.appointmentKinds` |
+| pola formularza, które niesie typ wizyty | `backend.appointmentKindFields` (tylko własne typy, bez zgody) |
 | middleware | `backend.middleware` (po middleware tenanta; tylko własny kod) |
 | zadania cykliczne | `backend.beatSchedule` (`{nazwa: {task, schedule}}`; tylko własne taski) |
 | źródło tłumaczeń AI | `register_translation_source` w `AppConfig.ready`, `notify_source_changed` w serwisach i test kontraktu (`translation-sources.md`) |
