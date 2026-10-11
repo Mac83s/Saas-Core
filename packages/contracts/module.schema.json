@@ -5,6 +5,60 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "layer", "version", "dependsOn", "backend", "frontend"],
+  "$defs": {
+    "kindText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "kindLabels": {
+      "type": "object",
+      "required": ["pl", "en"],
+      "properties": {
+        "pl": { "$ref": "#/$defs/kindText" },
+        "en": { "$ref": "#/$defs/kindText" }
+      },
+      "propertyNames": { "pattern": "^[a-z]{2}$" },
+      "additionalProperties": { "$ref": "#/$defs/kindText" }
+    },
+    "kindField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "type", "mandatory", "labels"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 40
+        },
+        "type": { "enum": ["text", "long_text", "number", "choice", "date"] },
+        "mandatory": { "type": "boolean" },
+        "mandatoryForStaff": { "type": "boolean" },
+        "labels": { "$ref": "#/$defs/kindLabels" },
+        "options": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "labels"],
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "maxLength": 40
+              },
+              "labels": { "$ref": "#/$defs/kindLabels" }
+            }
+          }
+        }
+      },
+      "if": { "properties": { "type": { "const": "choice" } } },
+      "then": { "required": ["options"], "properties": { "options": {} } },
+      "else": { "properties": { "options": false } }
+    }
+  },
   "properties": {
     "id": {
       "type": "string",
@@ -121,6 +175,17 @@
             "type": "string"
           },
           "uniqueItems": true
+        },
+        "appointmentKindFields": {
+          "description": "Of this module's appointmentKinds, the booking-form fields each one brings, as {kind: [field]}. The core copies them onto every service of that kind when the service is created, the way a preset's fields are copied (ADR-072 §10), and `manage.py booking_apply_kind_fields` adds them to services that exist. A field has the shape of a booking preset's field (booking-presets/booking-preset.v1.schema.json, checked against it by a contract test); a consent is refused, since its wording is the company's.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/$defs/kindField"
+            }
+          }
         },
         "appointmentsOfOthersPermission": {
           "description": "A permission this module declares that opens other people's visits (UX-023). Without it, whoever does not plan visits (booking.appointment.manage) sees only the visits they are on — e.g. a doctor does not see another doctor's patients. Left out: everyone who reads the calendar sees everyone's visits.",

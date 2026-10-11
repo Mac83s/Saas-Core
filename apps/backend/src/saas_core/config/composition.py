@@ -48,6 +48,9 @@ class ModuleDescriptor:
     #: Of those kinds, the ones that took place only once completed; a visit
     #: whose time passed without it is not counted as done (UX-031).
     completed_explicitly_kinds: tuple[str, ...] = ()
+    #: Of those kinds, the booking-form fields each brings, in a preset's field
+    #: shape; copied onto every service of the kind when it is made.
+    kind_fields: dict[str, tuple[dict[str, Any], ...]] | None = None
     #: The permission that opens other people's visits; without it, whoever
     #: does not plan visits sees only their own (UX-023, MedPlano).
     others_permission: str | None = None
@@ -78,6 +81,10 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
             completed_explicitly_kinds=tuple(
                 raw["backend"].get("appointmentKindsCompletedExplicitly") or ()
             ),
+            kind_fields={
+                kind: tuple(fields)
+                for kind, fields in (raw["backend"].get("appointmentKindFields") or {}).items()
+            },
             others_permission=raw["backend"].get("appointmentsOfOthersPermission"),
             middleware=tuple(raw["backend"].get("middleware") or ()),
             beat_schedule={
@@ -92,6 +99,18 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
                 f"{descriptor.id}: własne materiały dla nieznanego typu wizyty "
                 f"{', '.join(sorted(stray))}"
             )
+        if stray := set(descriptor.kind_fields or {}) - set(descriptor.appointment_kinds or {}):
+            raise CompositionError(
+                f"{descriptor.id}: pola formularza dla nieznanego typu wizyty "
+                f"{', '.join(sorted(stray))}"
+            )
+        # A consent's wording is the company's, never a module's.
+        for kind, fields in (descriptor.kind_fields or {}).items():
+            if any(field.get("type") == "consent" for field in fields):
+                raise CompositionError(
+                    f"{descriptor.id}: typ wizyty {kind} deklaruje zgodę, "
+                    "a jej treść należy do firmy"
+                )
         # "" is the plain service, which no module declares.
         if (
             stray := set(descriptor.completed_explicitly_kinds)
@@ -420,6 +439,18 @@ def own_material_kinds_for(
     return frozenset(
         kind for module_id in modules for kind in catalog[module_id].own_material_kinds
     )
+
+
+def kind_fields_for(
+    modules: tuple[str, ...] | frozenset[str],
+    catalog: dict[str, ModuleDescriptor],
+) -> dict[str, tuple[dict[str, Any], ...]]:
+    """{kind: fields} the composed modules want on every service of that kind."""
+    return {
+        kind: fields
+        for module_id in modules
+        for kind, fields in (catalog[module_id].kind_fields or {}).items()
+    }
 
 
 def completed_explicitly_kinds_for(

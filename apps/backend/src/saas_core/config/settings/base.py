@@ -15,6 +15,7 @@ from saas_core.config.composition import (
     completed_explicitly_kinds_for,
     compose,
     django_apps_for,
+    kind_fields_for,
     load_catalog,
     middleware_for,
     organization_types_from,
@@ -907,6 +908,10 @@ try:
     APPOINTMENT_KINDS_COMPLETED_EXPLICITLY = completed_explicitly_kinds_for(
         ACTIVE_MODULES, _module_catalog
     )
+    #: The booking-form fields a module's kind of visit brings, {kind: [field]}
+    #: in a preset's field shape: copied onto each service of the kind when it
+    #: is made (`booking.form_fields.copy_kind_fields`).
+    APPOINTMENT_KIND_FIELDS = kind_fields_for(ACTIVE_MODULES, _module_catalog)
     #: Whose visits a person sees (UX-023): None — everyone's, as a small team
     #: plans together; a product's permission — without it, only one's own
     #: (MedPlano: a doctor does not see another doctor's patients).

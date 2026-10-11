@@ -26,6 +26,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 from uuid import UUID
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Max
 from rest_framework.exceptions import ErrorDetail, ValidationError
@@ -228,17 +229,27 @@ def offered_fields(
     ]
 
 
+def _first_label(organization: Organization, labels: Mapping[str, str]) -> str:
+    """A label in the company's first language, else in English, else in Polish."""
+    return str(
+        labels.get(source_locale(organization)) or labels.get("en") or labels.get("pl") or ""
+    )
+
+
 def copy_preset_fields(
     context: TenantContext,
     organization: Organization,
     service_id: UUID,
     fields: Sequence[Mapping[str, Any]],
+    *,
+    first_position: int = 1,
 ) -> list[FormField]:
     """A preset's fields as the new offer's own (ADR-072 §10): each in the
     company's first language — else in English, else in Polish — and, in the
     company's other languages the preset speaks, as a translation that says
     it came from a template, so a person or the engine may replace it.
-    Inside the write that makes the offer."""
+    Inside the write that makes the offer. `first_position` is where the first
+    goes, for fields that follow others."""
     own = source_locale(organization)
     others = [code for code in organization_content_locales(organization) if code != own]
     entry = translatable("field")
@@ -247,10 +258,10 @@ def copy_preset_fields(
         return str(labels.get(locale) or "")
 
     def first(labels: Mapping[str, str]) -> str:
-        return said(labels, own) or said(labels, "en") or said(labels, "pl")
+        return _first_label(organization, labels)
 
     made = []
-    for position, given in enumerate(fields, start=1):
+    for position, given in enumerate(fields, start=first_position):
         options = given.get("options") or []
         asked = _write_field(
             context,
@@ -289,3 +300,41 @@ def copy_preset_fields(
                 apply_item_translation(entry, asked, locale, written, actor_id=context.actor_id)
         made.append(asked)
     return made
+
+
+def missing_kind_fields(organization: Organization, service: Service) -> list[Mapping[str, Any]]:
+    """Of the fields the service's kind of visit brings, those it lacks: a
+    field of the same name — switched on or off — counts as there."""
+    declared = settings.APPOINTMENT_KIND_FIELDS.get(service.appointment_kind) or ()
+    if not declared:
+        return []
+    names = {
+        name.casefold()
+        for name in FormField.all_objects.filter(
+            organization=organization, service_id=service.id
+        ).values_list("name", flat=True)
+    }
+    return [
+        given
+        for given in declared
+        if _first_label(organization, given["labels"]).casefold() not in names
+    ]
+
+
+def copy_kind_fields(
+    context: TenantContext, organization: Organization, service: Service
+) -> list[FormField]:
+    """The fields the service's kind of visit brings (`appointmentKindFields`
+    in its module's descriptor), written as the preset's are, after the fields
+    the service already has; ones it already has are left alone, so running it
+    again adds nothing. Inside the write that makes the service, or the
+    command that completes older ones."""
+    missing = missing_kind_fields(organization, service)
+    if not missing:
+        return []
+    last = FormField.all_objects.filter(organization=organization, service_id=service.id).aggregate(
+        last=Max("position")
+    )["last"]
+    return copy_preset_fields(
+        context, organization, service.id, missing, first_position=(last or 0) + 1
+    )

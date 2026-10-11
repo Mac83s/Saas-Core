@@ -423,6 +423,24 @@ def _service_links(organization: Organization, service: Service) -> ServiceSetup
     )
 
 
+def _write_service_with_kind_fields(
+    context: TenantContext,
+    organization: Organization,
+    service_id: UUID | None,
+    values: dict[str, Any],
+    expected_version: int | None,
+) -> Saved[ServiceSetup]:
+    """A new service also gets the fields its kind of visit brings, in the
+    same write. A kind is set only at creation, so a change adds none."""
+    saved = _write_service(context, organization, service_id, values, expected_version)
+    if service_id is None:
+        # form_fields builds on this module, so it is imported here.
+        from .form_fields import copy_kind_fields  # noqa: PLC0415
+
+        copy_kind_fields(context, organization, saved.value.service)
+    return saved
+
+
 @transaction.atomic
 def save_service(
     *,
@@ -447,7 +465,7 @@ def save_service(
         request={"data": data, "expected_version": expected_version},
         idempotency_key=idempotency_key,
         preview=preview,
-        write=lambda: _write_service(
+        write=lambda: _write_service_with_kind_fields(
             context, organization, service_id, dict(data), expected_version
         ),
         replay=lambda item_id: _saved_service(

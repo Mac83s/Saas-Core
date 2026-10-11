@@ -440,6 +440,20 @@ const assertKindListsNameOwnKinds = (descriptor) => {
       );
     }
   }
+  for (const [kind, fields] of Object.entries(
+    descriptor.backend.appointmentKindFields ?? {},
+  )) {
+    if (!kinds.includes(kind)) {
+      throw new Error(
+        `Moduł ${descriptor.id}: pola formularza dla nieznanego typu wizyty ${kind}`,
+      );
+    }
+    if (fields.some((field) => field.type === "consent")) {
+      throw new Error(
+        `Moduł ${descriptor.id}: typ wizyty ${kind} deklaruje zgodę, a jej treść należy do firmy`,
+      );
+    }
+  }
   const others = descriptor.backend.appointmentsOfOthersPermission;
   if (others && !(descriptor.backend.permissions ?? []).includes(others)) {
     throw new Error(

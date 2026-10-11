@@ -622,3 +622,57 @@ test("the schema refuses what a preset may not say", async () => {
     }),
   );
 });
+
+test("a module's kind-of-visit field is a preset field, less the consent", async () => {
+  // `appointmentKindFields` restates the preset schema's field (module.schema
+  // cannot reference another file); this keeps the two from drifting apart.
+  const presetSchema = await readJson(
+    "booking-presets",
+    "booking-preset.v1.schema.json",
+  );
+  const moduleSchema = await readJson("module.schema.json");
+  const presetField = presetSchema.$defs.field;
+  const kindField = moduleSchema.$defs.kindField;
+
+  assert.deepEqual(
+    Object.keys(kindField.properties).sort(),
+    Object.keys(presetField.properties).sort(),
+  );
+  assert.deepEqual(kindField.required, presetField.required);
+  assert.deepEqual(
+    kindField.properties.type.enum,
+    presetField.properties.type.enum.filter((type) => type !== "consent"),
+  );
+  assert.deepEqual(
+    kindField.properties.options.minItems,
+    presetField.properties.options.minItems,
+  );
+  assert.deepEqual(
+    kindField.properties.options.maxItems,
+    presetField.properties.options.maxItems,
+  );
+
+  const validate = new Ajv2020({ allErrors: true, strict: true }).compile({
+    ...kindField,
+    $defs: moduleSchema.$defs,
+  });
+  const { presets } = await loadPresets();
+  const fields = presets.flatMap(({ preset }) => preset.fields ?? []);
+  assert.ok(fields.length > 0);
+  for (const field of fields) {
+    assert.equal(
+      validate(field),
+      field.type !== "consent",
+      `${field.key}: ${JSON.stringify(validate.errors)}`,
+    );
+  }
+  assert.equal(
+    validate({
+      key: "ok",
+      type: "consent",
+      mandatory: true,
+      labels: { pl: "Zgoda", en: "Consent" },
+    }),
+    false,
+  );
+});

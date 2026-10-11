@@ -455,10 +455,42 @@ test("moduł nadaje rolom tylko własne uprawnienia i montuje tylko własny kod 
     /własne materiały dla nieznanego typu wizyty health\.other/,
   );
 
+  // Form fields only for a visit kind the module itself adds, and no consent:
+  // its wording is the company's.
+  const field = {
+    key: "count",
+    type: "number",
+    mandatory: true,
+    labels: { pl: "Liczba", en: "Count" },
+  };
+  await assert.rejects(
+    validateDeployment(
+      "only-health",
+      await singleModuleRoot({
+        appointmentKinds: { "health.visit": "Wizyta" },
+        appointmentKindFields: { "health.other": [field] },
+      }),
+    ),
+    /pola formularza dla nieznanego typu wizyty health\.other/,
+  );
+  await assert.rejects(
+    validateDeployment(
+      "only-health",
+      await singleModuleRoot({
+        appointmentKinds: { "health.visit": "Wizyta" },
+        appointmentKindFields: {
+          "health.visit": [{ ...field, type: "consent" }],
+        },
+      }),
+    ),
+    /appointmentKindFields\/health\.visit\/0\/type/,
+  );
+
   const own = await singleModuleRoot({
     roleGrants: { owner: ["health.read"] },
     appointmentKinds: { "health.visit": "Wizyta" },
     appointmentKindsWithOwnMaterials: ["health.visit"],
+    appointmentKindFields: { "health.visit": [field] },
     middleware: ["saas_core.modules.core.health.middleware.Own"],
     beatSchedule: {
       "health-own": {

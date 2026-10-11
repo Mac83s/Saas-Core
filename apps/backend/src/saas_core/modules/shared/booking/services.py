@@ -212,6 +212,11 @@ def create_catalog_item(*, kind: str, data: dict[str, Any]) -> Any:
     elif kind == "service":
         _assert_appointment_kind_available(organization, data.get("appointment_kind", ""))
         item = Service.all_objects.create(organization=organization, **data)
+        # The fields its kind of visit brings (a module's descriptor);
+        # form_fields builds on setup, which builds on this module.
+        from .form_fields import copy_kind_fields  # noqa: PLC0415
+
+        copy_kind_fields(context, organization, item)
     elif kind == "resource":
         item = Resource.all_objects.create(organization=organization, **data)
     else:
