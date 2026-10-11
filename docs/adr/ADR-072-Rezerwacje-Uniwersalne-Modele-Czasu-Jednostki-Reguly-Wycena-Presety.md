@@ -1505,6 +1505,31 @@ własne to dane klienta”); tu jest, jak to działa.
   przekazać odpowiedzi, ale o nic nie jest pytany. Okno wizyty rodzaju
   produktu (sekcja produktu przejmuje „Zapisz”, ADR-067) pól rdzenia nie
   pokazuje: produkt pyta o swoje.
+- **Pole może zostawić zespół wolnym** (dodane 11.10, decyzja właściciela;
+  booking 0039). Właściciel chce pola obowiązkowego dla klienta i dowolnego dla
+  biura (w HoofCare: orientacyjna liczba sztuk), więc `FormField` ma
+  `mandatory_for_staff` (domyślnie prawda, kolumna z wartością prawda dla pól
+  sprzed zmiany — zachowują się jak wczoraj). Obowiązkowe pole wiąże klienta
+  rezerwującego dla siebie zawsze, a osobę z zespołu w oknach panelu
+  (`staff_form`) tylko gdy `mandatory_for_staff`; przy polu nieobowiązkowym
+  flaga nic nie znaczy. Kontrakt presetów niesie opcjonalne
+  `mandatoryForStaff` (domyślnie prawda) — opublikowanych wersji presetów nie
+  zmieniamy. Panel pokazuje pod „Obowiązkowe” osobne pole „Obowiązkowe także,
+  gdy rezerwację wpisuje zespół”, a własne okna rezerwacji (`useOfferFields`)
+  pytają zespół tylko o to, co go wiąże; serwer sprawdza to samo. Polecenie
+  asystenta `booking.form_field.save` przeszło na `@2`: zestaw kluczy wejścia
+  wersji jest zamrożony, a nowy klucz `mandatory_for_staff` go zmienia (stare
+  `@1` znika, jak `profiles.organization.read@2`); `booking.form_fields.read@1`
+  dostał tylko nowe pole wyjścia.
+- **Dłuższy tekst** (rodzaj `long_text`, 11.10). Wieloliniowa odpowiedź do 500
+  znaków (`MAX_LONG_TEXT_ANSWER`, `FIELD_LIMITS.max_long_answer_length`), z
+  zachowanymi złamaniami wiersza (`\r\n` zapisuje się jako `\n`); za długa to
+  `field_too_long`, jak przy tekście. Bez możliwości wyboru, tłumaczony jak
+  tekst (samo pytanie). Formularz i okna panelu pokazują pole tekstowe
+  (3 wiersze, `maxLength` 500), a miejsca, gdzie widać odpowiedź (szczegóły
+  rezerwacji, lista „Do odpowiedzi”), zachowują złamania wiersza. Ochronna
+  granica serializatora odpowiedzi wzrosła z 500 do 1000, żeby zbyt długą
+  odpowiedź odrzucało pole (`field_too_long`), a nie ogólny `max_length`.
 - **Odpowiedź jest daną klienta, zamrożoną na rezerwacji.**
   `Appointment.form_answers` trzyma migawkę: identyfikator pola, pytanie w
   języku firmy, rodzaj i wartość. Późniejsza zmiana albo wyłączenie pola
