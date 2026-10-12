@@ -195,6 +195,13 @@ export type ProductCalendar = {
     value: unknown;
     idempotencyKey: string;
   }) => Promise<ProductVisitBooked>;
+  /**
+   * The product's `save` passes the offer's own answers (`input.answers`) on to
+   * the booking, so the form asks the offer's fields for its kinds too. Without
+   * it the form asks none there: a save that drops them would lose what the
+   * office typed (ADR-072, slice 5j).
+   */
+  passesAnswers?: boolean;
   /** The section's field errors in a server problem; null when not its own. */
   problemErrors?: (error: unknown) => Record<string, string> | null;
   /**

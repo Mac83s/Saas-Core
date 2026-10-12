@@ -68,6 +68,7 @@ const section = vi.hoisted(() => ({
   check: vi.fn(),
   save: vi.fn(),
   params: [] as unknown[],
+  passes: false,
 }));
 vi.mock("../../../product/calendar", () => ({
   default: {
@@ -117,6 +118,10 @@ vi.mock("../../../product/calendar", () => ({
     },
     check: section.check,
     save: section.save,
+    // Read per render: a test turns it on for the product that passes answers.
+    get passesAnswers() {
+      return section.passes;
+    },
     // A chosen farm gives the customer and the place (answer 50a).
     summarizes: (value: unknown) =>
       Boolean((value as { farm?: string } | undefined)?.farm),
@@ -239,6 +244,7 @@ const completed = {
 beforeEach(() => {
   vi.clearAllMocks();
   address.params = new URLSearchParams();
+  section.passes = false;
   window.history.replaceState(null, "", "/panel/calendar");
   vi.useFakeTimers({ toFake: ["Date"], shouldAdvanceTime: true });
   vi.setSystemTime(new Date("2026-08-19T10:00:00Z"));
@@ -999,6 +1005,129 @@ test("a product's kind of visit: its section fills the form and books the visit 
     value: { farm: "farm-1" },
   });
   expect(api.createBookingAppointment).not.toHaveBeenCalled();
+});
+
+async function openFieldVisit(passes: boolean, mandatory = false) {
+  section.passes = passes;
+  address.params = new URLSearchParams(`new=1&service_id=${FIELD}&farm=farm-1`);
+  api.getBookingCatalog.mockResolvedValue({
+    ...catalog,
+    services: [
+      ...catalog.services,
+      {
+        ...catalog.services[0],
+        id: FIELD,
+        name: "Field visit",
+        appointment_kind: "test.field",
+      },
+    ],
+  });
+  const asked = (id: string, name: string, more: object = {}) => ({
+    id,
+    service_id: FIELD,
+    name,
+    kind: "text",
+    options: [],
+    mandatory,
+    mandatory_for_staff: true,
+    position: 1,
+    active: true,
+    version: 1,
+    ...more,
+  });
+  api.listBookingFormFields.mockResolvedValue({
+    items: [
+      asked("f-count", "Animals", { mandatory: mandatory }),
+      asked("f-note", "Note for the trimmer", {
+        mandatory: false,
+        position: 2,
+      }),
+    ],
+  });
+  api.getBookingSlots.mockResolvedValue({
+    items: [
+      {
+        starts_at: "2026-08-20T07:00:00Z",
+        ends_at: "2026-08-20T07:30:00Z",
+        staff_id: ALEX,
+        resource_id: ROOM,
+      },
+    ],
+  });
+  section.check.mockReturnValue(null);
+  section.save.mockResolvedValue({
+    ...appointment,
+    customer_name: "Jan Rolnik",
+  });
+  renderCalendar({ access: ACCESS });
+  const dialog = await screen.findByRole("dialog", { name: "New appointment" });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Pick the farm" }),
+  );
+  fireEvent.change(within(dialog).getByLabelText("Date"), {
+    target: { value: "2026-08-20" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Time"), {
+    target: { value: "09:00" },
+  });
+  await waitFor(() =>
+    expect(within(dialog).getByText("This time is free.")).not.toBeNull(),
+  );
+  return dialog;
+}
+
+test("a product whose save passes the answers on: the form asks the offer's fields and hands them to the section", async () => {
+  const dialog = await openFieldVisit(true);
+  const inside = within(dialog);
+  expect(
+    await inside.findByLabelText("Animals (optional)"),
+  ).toBeInTheDocument();
+  fireEvent.change(inside.getByLabelText("Animals (optional)"), {
+    target: { value: " 45 " },
+  });
+  fireEvent.click(inside.getByRole("button", { name: "Save appointment" }));
+  await waitFor(() => expect(section.save).toHaveBeenCalled());
+  expect(section.save.mock.calls[0][0].input.answers).toEqual([
+    { field_id: "f-count", value: "45" },
+  ]);
+  expect(api.createBookingAppointment).not.toHaveBeenCalled();
+});
+
+test("a product whose save passes the answers on: a field mandatory for the staff holds the save, a refusal is said at its field", async () => {
+  const dialog = await openFieldVisit(true, true);
+  const inside = within(dialog);
+  await inside.findByLabelText("Animals");
+  fireEvent.click(inside.getByRole("button", { name: "Save appointment" }));
+  expect(
+    await inside.findByText("This field is required."),
+  ).toBeInTheDocument();
+  expect(section.save).not.toHaveBeenCalled();
+
+  fireEvent.change(inside.getByLabelText("Animals"), {
+    target: { value: "many" },
+  });
+  section.save.mockRejectedValueOnce(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Bad request",
+      status: 400,
+      code: "validation_error",
+      detail: "Invalid.",
+      correlation_id: null,
+      errors: [
+        { field: "answers.f-count", code: "field_invalid", message: "Number." },
+      ],
+    }),
+  );
+  fireEvent.click(inside.getByRole("button", { name: "Save appointment" }));
+  await waitFor(() => expect(section.save).toHaveBeenCalledTimes(1));
+  expect(await inside.findByText("Correct this field.")).toBeInTheDocument();
+});
+
+test("without the flag a product's kind of visit asks no own field of the offer", async () => {
+  const dialog = await openFieldVisit(false);
+  expect(within(dialog).queryByLabelText(/Animals/)).toBeNull();
+  expect(within(dialog).queryByLabelText(/Note for the trimmer/)).toBeNull();
 });
 
 test("a chosen farm sums up the customer and the place; „Change for this visit” opens them", async () => {

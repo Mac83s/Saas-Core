@@ -884,8 +884,11 @@ function NewAppointmentForm({
   const Section = section?.formSection;
   // What the service's own form asks (ADR-072, slice 5j): the office answers
   // it for the customer — all but the consents, which are theirs. A product's
-  // section books its own kind of visit itself, so it asks its own things.
-  const asks = useOfferFields(section ? "" : serviceId);
+  // section books its own kind of visit itself, so it asks its own things —
+  // unless its save passes the answers on (`passesAnswers`).
+  const asks = useOfferFields(
+    section && !section.passesAnswers ? "" : serviceId,
+  );
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [refused, setRefused] = useState<Record<string, string>>({});
   const slots = crewSlots(search.slots, crew, need);
