@@ -72,6 +72,10 @@ Zakres: uzupełnienie plastra 5j planu memex
   parametr `{max}` w `PublicBooking.fieldTooLong` (`pl.json`, `en.json`,
   `public/de.json`, `es.json`, `ru.json`); produkt, który nadpisuje te
   przestrzenie w swoim slocie, dopisuje je u siebie.
+- Od 12.10: produkt, którego sekcja kalendarza (`save`) przekazuje
+  `input.answers` do rezerwacji, ustawia w slocie `passesAnswers: true` -
+  wtedy okno „Nowa wizyta” pyta o pola oferty także dla jego rodzajów wizyt.
+  Bez flagi okno nadal nie pyta o nic (bez zmiany).
 
 ## Dowody
 

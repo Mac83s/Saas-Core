@@ -1568,6 +1568,13 @@ własne to dane klienta”); tu jest, jak to działa.
   dwiema możliwościami, etykiety możliwości dłuższej niż 80 znaków i dwóch pól
   tego samego typu o tej samej etykiecie. Żaden moduł rdzenia nie deklaruje
   takich pól; testy używają własnego deskryptora.
+- **Okno „Nowa wizyta” pyta o pola oferty także dla rodzaju wizyty produktu**
+  (12.10). Okno rdzenia nie pytało o nie, bo zapis produktu mógłby je zgubić.
+  Slot kalendarza ma więc opcjonalne `passesAnswers`: produkt, którego `save`
+  przekazuje `input.answers` do rezerwacji (HoofCare), ustawia je, a okno pyta
+  wtedy o pola oferty pod „Uwagami”, zatrzymuje zapis przy braku odpowiedzi
+  wymaganej od zespołu i pokazuje odmowy serwera przy polu. Bez flagi nic się
+  nie zmienia.
 - **Odpowiedź jest daną klienta, zamrożoną na rezerwacji.**
   `Appointment.form_answers` trzyma migawkę: identyfikator pola, pytanie w
   języku firmy, rodzaj i wartość. Późniejsza zmiana albo wyłączenie pola

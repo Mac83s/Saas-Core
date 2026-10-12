@@ -20,7 +20,9 @@ szczegół produktu (`HerdVisit`) zapisane razem.
    `lib/product-extension.ts`). Produkt podaje rodzaje wizyt, które rezerwuje
    sam (`kinds`, czyli `Service.appointment_kind`), sekcję formularza
    (`formSection`), sprawdzenie (`check`), zapis (`save`), odczyt błędów pól z
-   odpowiedzi serwera (`problemErrors`) i sekcję pod szczegółami wizyty
+   odpowiedzi serwera (`problemErrors`), opcjonalnie `passesAnswers` (zapis
+   przekazuje własne odpowiedzi oferty, więc okno o nie pyta, ADR-072) i sekcję
+   pod szczegółami wizyty
    (`detailsSection`). Sekcja dostaje usługę, wartość, `fill` (wypełnia klienta
    i miejsce wizyty, które osoba dalej widzi i może zmienić), swoje błędy,
    `access` panelu i parametry produktu z adresu Kalendarza. Dla usługi rodzaju
